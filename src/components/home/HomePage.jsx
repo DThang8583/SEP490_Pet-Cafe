@@ -1,13 +1,6 @@
 import React from 'react';
-import {
-    Box, Container, Typography, Button, Grid, Card, CardContent, CardMedia, 
-    Avatar, Chip, Stack, useTheme, alpha, Fade, Zoom, IconButton, Divider
-} from '@mui/material';
-import {
-    LocalCafe, Pets, Cake, Coffee, Restaurant, ConfirmationNumber, LocationOn, 
-    Star, Favorite, ArrowForward, PlayArrow, Facebook, Instagram, Twitter,
-    EmojiFoodBeverage, Cookie, Fastfood, WineBar, HotTub
-} from '@mui/icons-material';
+import { Box, Container, Typography, Button, Grid, Card, CardContent, CardMedia, Avatar, Chip, Stack, useTheme, alpha, Fade, Zoom, IconButton, Divider } from '@mui/material';
+import { LocalCafe, Pets, Cake, Coffee, Restaurant, ConfirmationNumber, LocationOn, Star, Favorite, ArrowForward, PlayArrow, Facebook, Instagram, Twitter, EmojiFoodBeverage, Cookie, Fastfood, WineBar, HotTub } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 import { useNavigate } from 'react-router-dom';
 
@@ -90,7 +83,7 @@ const HomePage = () => {
             price: "50,000đ/chó/giờ"
         },
         {
-            floor: "Tầng 2", 
+            floor: "Tầng 2",
             name: "Khu vực mèo",
             icon: <Pets sx={{ fontSize: 40 }} />,
             description: "Không gian yên tĩnh và ấm cúng dành cho các chú mèo",
@@ -143,7 +136,7 @@ const HomePage = () => {
     ];
 
     return (
-        <Box sx={{ 
+        <Box sx={{
             width: '100%',
             position: 'relative'
         }}>
@@ -302,7 +295,7 @@ const HomePage = () => {
                                             maxWidth: '500px'
                                         }}
                                     >
-                                        Khám phá không gian tuyệt vời nơi bạn và thú cưng có thể thư giãn, 
+                                        Khám phá không gian tuyệt vời nơi bạn và thú cưng có thể thư giãn,
                                         thưởng thức đồ uống ngon và tạo nên những kỷ niệm đáng nhớ.
                                     </Typography>
                                     <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
@@ -446,7 +439,7 @@ const HomePage = () => {
                                     mx: 'auto'
                                 }}
                             >
-                                Pet Cafe mang đến trải nghiệm tuyệt vời với đầy đủ dịch vụ 
+                                Pet Cafe mang đến trải nghiệm tuyệt vời với đầy đủ dịch vụ
                                 dành cho bạn và thú cưng
                             </Typography>
                         </Box>
@@ -619,9 +612,9 @@ const HomePage = () => {
                                             </Box>
                                             <Stack spacing={2}>
                                                 {category.items.slice(0, 3).map((item, itemIndex) => (
-                                                    <Box key={itemIndex} sx={{ 
-                                                        p: 2, 
-                                                        borderRadius: 2, 
+                                                    <Box key={itemIndex} sx={{
+                                                        p: 2,
+                                                        borderRadius: 2,
                                                         backgroundColor: alpha(COLORS.SECONDARY[50], 0.5),
                                                         border: `1px solid ${alpha(COLORS.ERROR[100], 0.3)}`
                                                     }}>
@@ -639,9 +632,9 @@ const HomePage = () => {
                                                     </Box>
                                                 ))}
                                                 {category.items.length > 3 && (
-                                                    <Typography variant="body2" sx={{ 
-                                                        color: COLORS.ERROR[500], 
-                                                        textAlign: 'center', 
+                                                    <Typography variant="body2" sx={{
+                                                        color: COLORS.ERROR[500],
+                                                        textAlign: 'center',
                                                         fontStyle: 'italic',
                                                         mt: 1
                                                     }}>
@@ -1101,7 +1094,7 @@ const HomePage = () => {
                                     lineHeight: 1.6
                                 }}
                             >
-                                Hãy đến Pet Cafe ngay hôm nay và tạo nên những kỷ niệm đáng nhớ 
+                                Hãy đến Pet Cafe ngay hôm nay và tạo nên những kỷ niệm đáng nhớ
                                 cùng thú cưng của bạn!
                             </Typography>
                             <Button
