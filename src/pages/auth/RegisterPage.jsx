@@ -7,15 +7,18 @@ import { COLORS } from '../../constants/colors';
 import Loading from '../../components/loading/Loading';
 import { authApi } from '../../api/authApi';
 
-const LoginPage = () => {
+const RegisterPage = () => {
     const navigate = useNavigate();
 
     // State
     const [formData, setFormData] = useState({
+        fullName: '',
         email: '',
-        password: ''
+        password: '',
+        confirmPassword: ''
     });
     const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
 
@@ -31,48 +34,66 @@ const LoginPage = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        setIsLoading(true);
         setError('');
 
         try {
-            if (!authApi.validateEmail(formData.email)) {
-                setError('Định dạng email không hợp lệ');
-                setIsLoading(false);
+            if (!formData.fullName.trim()) {
+                setError('Vui lòng nhập họ và tên!');
                 return;
             }
 
-            const response = await authApi.login({
+            if (!authApi.validateEmail(formData.email)) {
+                setError('Định dạng email không hợp lệ');
+                return;
+            }
+
+            const passwordValidation = authApi.validatePassword(formData.password);
+            if (!passwordValidation.isValid) {
+                setError(passwordValidation.errors[0]);
+                return;
+            }
+
+            if (formData.password !== formData.confirmPassword) {
+                setError('Mật khẩu xác nhận không khớp!');
+                return;
+            }
+
+            setIsLoading(true);
+
+            const response = await authApi.register({
+                fullName: formData.fullName,
                 email: formData.email,
-                password: formData.password
+                password: formData.password,
+                phone: formData.phone || ''
             });
 
             if (response.success) {
-                console.log('Login successful:', response.user);
+                console.log('Registration successful:', response.user);
                 navigate('/');
             }
         } catch (err) {
-            setError(err.message || 'Đăng nhập thất bại');
-            console.error('Login error:', err);
+            setError(err.message || 'Đăng ký thất bại');
+            console.error('Registration error:', err);
         } finally {
             setIsLoading(false);
         }
     };
 
-    const handleRegisterRedirect = () => {
-        navigate('/register');
+    const handleLoginRedirect = () => {
+        navigate('/login');
     };
 
     // Styles
     const inputStyles = {
         '& .MuiOutlinedInput-root': {
-            borderRadius: 3,
-            fontSize: { xs: '1rem', md: '1.2rem' },
+            borderRadius: 2,
+            fontSize: { xs: '0.9rem', md: '1rem' },
             background: `linear-gradient(135deg, 
                 ${COLORS.COMMON.WHITE} 0%, 
                 ${alpha(COLORS.SECONDARY[50], 0.2)} 100%
             )`,
             '& input': {
-                py: { xs: 1.5, md: 2 }
+                py: { xs: 1.2, md: 1.5 }
             },
             '&:hover fieldset': {
                 borderColor: COLORS.SECONDARY[400],
@@ -92,9 +113,9 @@ const LoginPage = () => {
         return (
             <Loading
                 fullScreen={true}
-                variant="cafe"
+                variant="dots"
                 size="large"
-                message="Đang đăng nhập vào Pet Cafe..."
+                message="Đang tạo tài khoản Pet Cafe..."
             />
         );
     }
@@ -222,7 +243,7 @@ const LoginPage = () => {
                             px: { md: 2, lg: 0 }
                         }}
                     >
-                        Không gian ấm cúng cho bạn và những người bạn bốn chân
+                        Tham gia cộng đồng yêu thương động vật cùng chúng tôi
                     </Typography>
                     <Box sx={{ display: 'flex', gap: 3, justifyContent: 'center', mt: 6 }}>
                         <Box sx={{
@@ -250,7 +271,7 @@ const LoginPage = () => {
                 </Box>
             </Box>
 
-            {/* Right Panel - Login Form */}
+            {/* Right Panel - Register Form */}
             <Box
                 sx={{
                     flex: { xs: 1, md: 0.6 },
@@ -262,7 +283,7 @@ const LoginPage = () => {
                             ${COLORS.COMMON.WHITE} 0%, 
                             ${alpha(COLORS.SECONDARY[50], 0.3)} 100%
                         )
-                                            `,
+                    `,
                     position: 'relative',
                     zIndex: 2
                 }}
@@ -283,54 +304,54 @@ const LoginPage = () => {
                         width: '100%'
                     }}>
                         {/* Header Section */}
-                        <Box sx={{ mb: { xs: 3, md: 4 }, textAlign: 'center' }}>
+                        <Box sx={{ mb: { xs: 2.5, md: 3.5 }, textAlign: 'center' }}>
                             <Typography
-                                variant="h3"
+                                variant="h4"
                                 fontWeight="bold"
                                 sx={{
-                                    mb: { xs: 1, md: 1.5 },
-                                    fontSize: { xs: '2rem', sm: '2.5rem', md: '2.8rem' },
+                                    mb: { xs: 0.5, md: 1 },
+                                    fontSize: { xs: '1.8rem', sm: '2.2rem', md: '2.5rem' },
                                     background: `linear-gradient(135deg, ${COLORS.ERROR[500]} 0%, ${COLORS.SECONDARY[600]} 100%)`,
                                     backgroundClip: 'text',
                                     WebkitBackgroundClip: 'text',
                                     WebkitTextFillColor: 'transparent'
                                 }}
                             >
-                                Đăng nhập
+                                Đăng ký
                             </Typography>
                             <Typography
-                                variant="h6"
+                                variant="body1"
                                 sx={{
                                     color: alpha(COLORS.TEXT.SECONDARY, 0.8),
-                                    fontSize: { xs: '1rem', sm: '1.1rem', md: '1.2rem' },
+                                    fontSize: { xs: '0.9rem', md: '1rem' },
                                     fontWeight: 400,
                                     px: { xs: 2, md: 0 }
                                 }}
                             >
-                                Chào mừng bạn quay trở lại Pet Cafe
+                                Tạo tài khoản để trải nghiệm Pet Cafe
                             </Typography>
                         </Box>
 
                         {/* Error Alert */}
                         {error && (
-                            <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>
+                            <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>
                                 {error}
                             </Alert>
                         )}
 
-                        {/* Social Login Section */}
-                        <Box sx={{ mb: { xs: 3, md: 4 } }}>
+                        {/* Social Register Section */}
+                        <Box sx={{ mb: { xs: 2.5, md: 3.5 } }}>
                             <Button
                                 fullWidth
                                 variant="outlined"
                                 startIcon={<Google />}
                                 sx={{
-                                    py: { xs: 2.2, md: 2.5 },
+                                    py: { xs: 1.8, md: 2 },
                                     px: { xs: 3, md: 4 },
                                     borderRadius: 3,
                                     borderColor: '#db4437',
                                     color: '#db4437',
-                                    fontSize: { xs: '1rem', sm: '1.1rem', md: '1.1rem' },
+                                    fontSize: { xs: '0.9rem', md: '1rem' },
                                     fontWeight: 500,
                                     textTransform: 'none',
                                     background: `linear-gradient(135deg, 
@@ -343,22 +364,22 @@ const LoginPage = () => {
                                             ${alpha('#db4437', 0.05)} 0%, 
                                             ${alpha(COLORS.SECONDARY[100], 0.3)} 100%
                                         )`,
-                                        boxShadow: `0 6px 16px ${alpha('#db4437', 0.25)}`,
+                                        boxShadow: `0 4px 12px ${alpha('#db4437', 0.2)}`,
                                         transform: 'translateY(-1px)'
                                     },
                                     transition: 'all 0.2s ease'
                                 }}
                             >
-                                Đăng nhập với Google
+                                Đăng ký với Google
                             </Button>
                         </Box>
 
-                        <Divider sx={{ my: { xs: 2.5, md: 3.5 }, borderColor: alpha(COLORS.SECONDARY[200], 0.6) }}>
+                        <Divider sx={{ my: { xs: 2, md: 2.5 }, borderColor: alpha(COLORS.SECONDARY[200], 0.6) }}>
                             <Typography
-                                variant="body1"
+                                variant="body2"
                                 sx={{
-                                    px: { xs: 2, md: 3 },
-                                    py: 1,
+                                    px: { xs: 1.5, md: 2 },
+                                    py: 0.5,
                                     borderRadius: 2,
                                     background: `linear-gradient(135deg, 
                                         ${alpha(COLORS.SECONDARY[100], 0.3)} 0%, 
@@ -366,26 +387,56 @@ const LoginPage = () => {
                                     )`,
                                     color: COLORS.TEXT.SECONDARY,
                                     fontWeight: 500,
-                                    fontSize: { xs: '0.9rem', md: '1rem' }
+                                    fontSize: { xs: '0.8rem', md: '0.9rem' }
                                 }}
                             >
-                                ☕ Hoặc đăng nhập với email
+                                ☕ Hoặc
                             </Typography>
                         </Divider>
 
-                        {/* Login Form */}
+                        {/* Register Form */}
                         <Box component="form" onSubmit={handleSubmit}>
-                            <Box sx={{ mb: { xs: 3, md: 3.5 } }}>
+                            {/* Full Name Field */}
+                            <Box sx={{ mb: { xs: 2.5, md: 3 } }}>
                                 <Typography
-                                    variant="h6"
+                                    variant="body1"
                                     sx={{
-                                        mb: { xs: 1.5, md: 2 },
+                                        mb: { xs: 0.8, md: 1 },
                                         color: COLORS.TEXT.PRIMARY,
                                         fontWeight: 600,
                                         display: 'flex',
                                         alignItems: 'center',
                                         gap: 1,
-                                        fontSize: { xs: '1rem', md: '1.05rem' }
+                                        fontSize: { xs: '0.9rem', md: '0.95rem' }
+                                    }}
+                                >
+                                    👤 Họ và tên
+                                </Typography>
+                                <TextField
+                                    fullWidth
+                                    type="text"
+                                    name="fullName"
+                                    value={formData.fullName}
+                                    onChange={handleInputChange}
+                                    placeholder="Nhập họ và tên của bạn"
+                                    variant="outlined"
+                                    required
+                                    sx={inputStyles}
+                                />
+                            </Box>
+
+                            {/* Email Field */}
+                            <Box sx={{ mb: { xs: 2.5, md: 3 } }}>
+                                <Typography
+                                    variant="body1"
+                                    sx={{
+                                        mb: { xs: 0.8, md: 1 },
+                                        color: COLORS.TEXT.PRIMARY,
+                                        fontWeight: 600,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 1,
+                                        fontSize: { xs: '0.9rem', md: '0.95rem' }
                                     }}
                                 >
                                     📧 Email
@@ -403,64 +454,29 @@ const LoginPage = () => {
                                 />
                             </Box>
 
-                            <Box sx={{ mb: { xs: 4, md: 4.5 } }}>
-                                <Box sx={{
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: { xs: 'flex-start', sm: 'center' },
-                                    flexDirection: { xs: 'column', sm: 'row' },
-                                    gap: { xs: 1, sm: 0 },
-                                    mb: { xs: 1.5, md: 2 }
-                                }}>
-                                    <Typography
-                                        variant="h6"
-                                        sx={{
-                                            color: COLORS.TEXT.PRIMARY,
-                                            fontWeight: 600,
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: 1,
-                                            fontSize: { xs: '1rem', md: '1.05rem' }
-                                        }}
-                                    >
-                                        🔐 Mật khẩu
-                                    </Typography>
-                                    <Link
-                                        href="#"
-                                        sx={{
-                                            color: COLORS.ERROR[500],
-                                            textDecoration: 'none',
-                                            fontSize: { xs: '0.9rem', md: '1rem' },
-                                            fontWeight: 500,
-                                            background: `linear-gradient(135deg, 
-                                                ${alpha(COLORS.ERROR[100], 0.4)} 0%, 
-                                                ${alpha(COLORS.SECONDARY[100], 0.2)} 100%
-                                            )`,
-                                            px: { xs: 1.5, md: 2 },
-                                            py: 0.5,
-                                            borderRadius: 2,
-                                            alignSelf: { xs: 'flex-start', sm: 'auto' },
-                                            '&:hover': {
-                                                textDecoration: 'underline',
-                                                background: `linear-gradient(135deg, 
-                                                    ${alpha(COLORS.ERROR[200], 0.5)} 0%, 
-                                                    ${alpha(COLORS.SECONDARY[200], 0.3)} 100%
-                                                )`,
-                                                transform: 'translateY(-1px)'
-                                            },
-                                            transition: 'all 0.2s ease'
-                                        }}
-                                    >
-                                        Quên mật khẩu?
-                                    </Link>
-                                </Box>
+                            {/* Password Field */}
+                            <Box sx={{ mb: { xs: 2.5, md: 3 } }}>
+                                <Typography
+                                    variant="body1"
+                                    sx={{
+                                        mb: { xs: 0.8, md: 1 },
+                                        color: COLORS.TEXT.PRIMARY,
+                                        fontWeight: 600,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 1,
+                                        fontSize: { xs: '0.9rem', md: '0.95rem' }
+                                    }}
+                                >
+                                    🔐 Mật khẩu
+                                </Typography>
                                 <TextField
                                     fullWidth
                                     type={showPassword ? 'text' : 'password'}
                                     name="password"
                                     value={formData.password}
                                     onChange={handleInputChange}
-                                    placeholder="Nhập mật khẩu"
+                                    placeholder="Nhập mật khẩu (ít nhất 6 ký tự)"
                                     variant="outlined"
                                     required
                                     sx={inputStyles}
@@ -470,9 +486,51 @@ const LoginPage = () => {
                                                 <IconButton
                                                     onClick={() => setShowPassword(!showPassword)}
                                                     edge="end"
-                                                    sx={{ color: COLORS.TEXT?.SECONDARY || '#6b7280' }}
+                                                    sx={{ color: alpha(COLORS.TEXT.SECONDARY, 0.7) }}
                                                 >
                                                     {showPassword ? <VisibilityOff /> : <Visibility />}
+                                                </IconButton>
+                                            </InputAdornment>
+                                        )
+                                    }}
+                                />
+                            </Box>
+
+                            {/* Confirm Password Field */}
+                            <Box sx={{ mb: { xs: 3, md: 4 } }}>
+                                <Typography
+                                    variant="body1"
+                                    sx={{
+                                        mb: { xs: 0.8, md: 1 },
+                                        color: COLORS.TEXT.PRIMARY,
+                                        fontWeight: 600,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 1,
+                                        fontSize: { xs: '0.9rem', md: '0.95rem' }
+                                    }}
+                                >
+                                    🔒 Xác nhận mật khẩu
+                                </Typography>
+                                <TextField
+                                    fullWidth
+                                    type={showConfirmPassword ? 'text' : 'password'}
+                                    name="confirmPassword"
+                                    value={formData.confirmPassword}
+                                    onChange={handleInputChange}
+                                    placeholder="Nhập lại mật khẩu"
+                                    variant="outlined"
+                                    required
+                                    sx={inputStyles}
+                                    InputProps={{
+                                        endAdornment: (
+                                            <InputAdornment position="end">
+                                                <IconButton
+                                                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                                    edge="end"
+                                                    sx={{ color: alpha(COLORS.TEXT.SECONDARY, 0.7) }}
+                                                >
+                                                    {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
                                                 </IconButton>
                                             </InputAdornment>
                                         )
@@ -489,18 +547,18 @@ const LoginPage = () => {
                                 sx={{
                                     py: { xs: 2.5, md: 3 },
                                     mb: { xs: 3, md: 4 },
-                                    mt: { xs: 0.5, md: 1 },
-                                    borderRadius: 3,
+                                    mt: { xs: 1, md: 2 },
+                                    borderRadius: 2,
                                     background: `
                                         radial-gradient(circle at 30% 30%, ${COLORS.ERROR[400]} 0%, transparent 70%),
                                         linear-gradient(135deg, ${COLORS.ERROR[500]} 0%, ${COLORS.SECONDARY[500]} 100%)
                                                 `,
-                                    fontSize: { xs: '1.1rem', sm: '1.2rem', md: '1.25rem' },
+                                    fontSize: { xs: '1.1rem', md: '1.2rem' },
                                     fontWeight: 700,
                                     textTransform: 'none',
                                     boxShadow: `
-                                        0 8px 25px ${alpha(COLORS.ERROR[400], 0.4)},
-                                        0 4px 12px ${alpha(COLORS.SECONDARY[400], 0.3)},
+                                        0 6px 20px ${alpha(COLORS.ERROR[400], 0.3)},
+                                        0 3px 8px ${alpha(COLORS.SECONDARY[400], 0.2)},
                                         inset 0 1px 0 ${alpha(COLORS.COMMON.WHITE, 0.2)}
                                     `,
                                     '&:hover': {
@@ -508,10 +566,10 @@ const LoginPage = () => {
                                             radial-gradient(circle at 30% 30%, ${COLORS.ERROR[500]} 0%, transparent 70%),
                                             linear-gradient(135deg, ${COLORS.ERROR[600]} 0%, ${COLORS.SECONDARY[600]} 100%)
                                         `,
-                                        transform: 'translateY(-2px)',
+                                        transform: 'translateY(-1px)',
                                         boxShadow: `
-                                            0 12px 35px ${alpha(COLORS.ERROR[400], 0.5)},
-                                            0 6px 16px ${alpha(COLORS.SECONDARY[400], 0.4)},
+                                            0 8px 25px ${alpha(COLORS.ERROR[400], 0.4)},
+                                            0 4px 12px ${alpha(COLORS.SECONDARY[400], 0.3)},
                                             inset 0 1px 0 ${alpha(COLORS.COMMON.WHITE, 0.3)}
                                         `
                                     },
@@ -522,49 +580,49 @@ const LoginPage = () => {
                                     transition: 'all 0.3s ease'
                                 }}
                             >
-                                {isLoading ? 'Đang đăng nhập...' : 'Đăng nhập'}
+                                {isLoading ? 'Đang tạo tài khoản...' : 'Tạo tài khoản'}
                             </Button>
 
                             {/* Footer */}
                             <Box sx={{ textAlign: 'center' }}>
                                 <Typography
-                                    variant="body1"
+                                    variant="body2"
                                     sx={{
                                         color: alpha(COLORS.TEXT.SECONDARY, 0.8),
-                                        fontSize: { xs: '1rem', md: '1.05rem' },
+                                        fontSize: { xs: '0.9rem', md: '1rem' },
                                         lineHeight: 1.6,
                                         px: { xs: 1, md: 0 }
                                     }}
                                 >
-                                    Chưa có tài khoản? 🐾{' '}
+                                    Đã có tài khoản?{' '}
                                     <Link
-                                        onClick={handleRegisterRedirect}
+                                        onClick={handleLoginRedirect}
                                         sx={{
                                             color: COLORS.ERROR[500],
                                             fontWeight: 'bold',
                                             textDecoration: 'none',
                                             background: `linear-gradient(135deg, 
-                                                ${alpha(COLORS.ERROR[100], 0.3)} 0%, 
-                                                ${alpha(COLORS.SECONDARY[100], 0.2)} 100%
+                                                ${alpha(COLORS.ERROR[100], 0.2)} 0%, 
+                                                ${alpha(COLORS.SECONDARY[100], 0.1)} 100%
                                             )`,
-                                            px: { xs: 1.5, md: 2 },
-                                            py: 0.5,
+                                            px: { xs: 1.2, md: 1.5 },
+                                            py: 0.3,
                                             borderRadius: 2,
                                             cursor: 'pointer',
                                             transition: 'all 0.3s ease',
                                             display: { xs: 'inline-block', sm: 'inline' },
-                                            mt: { xs: 1, sm: 0 },
+                                            mt: { xs: 0.5, sm: 0 },
                                             '&:hover': {
                                                 textDecoration: 'underline',
                                                 background: `linear-gradient(135deg, 
-                                                    ${alpha(COLORS.ERROR[200], 0.4)} 0%, 
-                                                    ${alpha(COLORS.SECONDARY[200], 0.3)} 100%
+                                                    ${alpha(COLORS.ERROR[200], 0.3)} 0%, 
+                                                    ${alpha(COLORS.SECONDARY[200], 0.2)} 100%
                                                 )`,
                                                 transform: 'translateY(-1px)'
                                             }
                                         }}
                                     >
-                                        Đăng ký ngay! 🎉
+                                        Đăng nhập ngay! 🚀
                                     </Link>
                                 </Typography>
                             </Box>
@@ -576,4 +634,4 @@ const LoginPage = () => {
     );
 };
 
-export default LoginPage;
+export default RegisterPage;
