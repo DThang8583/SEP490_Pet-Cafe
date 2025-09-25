@@ -1,16 +1,29 @@
 import React from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import MainLayout from "./components/layouts/MainLayout";
-import { authRoutes } from "./routes";
+import AuthLayout from "./components/layouts/AuthLayout";
+import HomePage from "./components/home/HomePage";
+import LoginPage from "./pages/auth/LoginPage";
+import MenuPage from "./pages/menu/MenuPage";
+import AreasPage from "./pages/areas/AreasPage";
+import ProfilePage from "./pages/profile/ProfilePage";
 
 function App() {
   return (
     <div>
       <Routes>
-        {authRoutes}
+        {/* Auth Routes */}
+        <Route element={<AuthLayout />}>
+          <Route path="/login" element={<LoginPage />} />
+        </Route>
 
+        {/* Main Routes */}
         <Route element={<MainLayout />}>
-          <Route path="/" element={<Navigate to="/login" replace />} />
+          <Route path="/" element={<HomePage />} />
+          <Route path="/menu" element={<MenuPage />} />
+          <Route path="/tickets" element={<div style={{ padding: '2rem', textAlign: 'center' }}><h1>Vé</h1><p>Trang vé sẽ được phát triển sau</p></div>} />
+          <Route path="/areas" element={<AreasPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
         </Route>
       </Routes>
     </div>
