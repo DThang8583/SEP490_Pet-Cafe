@@ -8,6 +8,7 @@ import RegisterPage from "./pages/auth/RegisterPage";
 import MenuPage from "./pages/menu/MenuPage";
 import AreasPage from "./pages/areas/AreasPage";
 import ProfilePage from "./pages/profile/ProfilePage";
+import BookingPage from "./pages/booking/BookingPage";
 
 function App() {
   return (
@@ -23,7 +24,7 @@ function App() {
         <Route element={<MainLayout />}>
           <Route path="/" element={<HomePage />} />
           <Route path="/menu" element={<MenuPage />} />
-          <Route path="/tickets" element={<div style={{ padding: '2rem', textAlign: 'center' }}><h1>Vé</h1><p>Trang vé sẽ được phát triển sau</p></div>} />
+          <Route path="/booking" element={<BookingPage />} />
           <Route path="/areas" element={<AreasPage />} />
           <Route path="/profile" element={<ProfilePage />} />
         </Route>

@@ -274,8 +274,21 @@ const MOCK_DATABASE = {
             category: 'grooming',
             price: 150000,
             duration: 90,
-            description: 'Tắm, cắt tỉa lông, cắt móng',
-            status: 'active'
+            description: 'Tắm, cắt tỉa lông, cắt móng cơ bản cho thú cưng',
+            status: 'active',
+            image: 'https://images.unsplash.com/photo-1601758228041-f3b2795255f1?q=80&w=800&auto=format&fit=crop',
+            location: 'Tầng 1 - Khu Grooming',
+            rating: 4.5,
+            reviewCount: 128,
+            features: [
+                'Tắm gội với sữa tắm chuyên dụng',
+                'Cắt tỉa lông theo yêu cầu',
+                'Cắt móng chân an toàn',
+                'Vệ sinh tai và mắt',
+                'Sấy khô và chải lông'
+            ],
+            staffRequired: 1,
+            autoApprove: true
         },
         {
             id: 'service-002',
@@ -283,8 +296,22 @@ const MOCK_DATABASE = {
             category: 'grooming',
             price: 300000,
             duration: 120,
-            description: 'Tắm, cắt tỉa lông, spa, massage',
-            status: 'active'
+            description: 'Dịch vụ grooming cao cấp với spa và massage thư giãn',
+            status: 'active',
+            image: 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?q=80&w=800&auto=format&fit=crop',
+            location: 'Tầng 1 - Khu VIP',
+            rating: 4.8,
+            reviewCount: 89,
+            features: [
+                'Tắm gội cao cấp với tinh dầu thảo mộc',
+                'Cắt tỉa lông theo phong cách',
+                'Spa thư giãn và massage',
+                'Vệ sinh toàn diện',
+                'Sấy tạo kiểu chuyên nghiệp',
+                'Nước hoa thú cưng'
+            ],
+            staffRequired: 2,
+            autoApprove: false
         },
         {
             id: 'service-003',
@@ -292,8 +319,23 @@ const MOCK_DATABASE = {
             category: 'daycare',
             price: 200000,
             duration: 480,
-            description: 'Chăm sóc, vui chơi cả ngày',
-            status: 'active'
+            description: 'Chăm sóc thú cưng cả ngày với hoạt động vui chơi',
+            status: 'active',
+            image: 'https://images.unsplash.com/photo-1583337130417-3346a1be7dee?q=80&w=800&auto=format&fit=crop',
+            location: 'Tầng 2 - Khu vui chơi',
+            rating: 4.6,
+            reviewCount: 156,
+            features: [
+                'Chăm sóc 8 tiếng liên tục',
+                'Hoạt động vui chơi theo nhóm',
+                'Bữa ăn và nước uống',
+                'Giám sát sức khỏe thường xuyên',
+                'Báo cáo hàng ngày cho chủ',
+                'Không gian an toàn và sạch sẽ'
+            ],
+            staffRequired: 2,
+            autoApprove: true,
+            maxCapacity: 15
         },
         {
             id: 'service-004',
@@ -301,17 +343,89 @@ const MOCK_DATABASE = {
             category: 'training',
             price: 500000,
             duration: 60,
-            description: 'Huấn luyện các lệnh cơ bản',
-            status: 'active'
+            description: 'Huấn luyện các lệnh cơ bản và kỹ năng xã hội',
+            status: 'active',
+            image: 'https://images.unsplash.com/photo-1551717743-49959800b1f6?q=80&w=800&auto=format&fit=crop',
+            location: 'Tầng 3 - Sân tập',
+            rating: 4.7,
+            reviewCount: 73,
+            features: [
+                'Huấn luyện lệnh cơ bản (ngồi, nằm, ở lại)',
+                'Kỹ năng xã hội với người và thú khác',
+                'Sửa các thói quen xấu',
+                'Tư vấn chăm sóc tại nhà',
+                'Chứng chỉ hoàn thành khóa học'
+            ],
+            staffRequired: 1,
+            autoApprove: false,
+            requiresConsultation: true
         },
         {
             id: 'service-005',
-            name: 'Khám sức khỏe',
+            name: 'Khám sức khỏe tổng quát',
             category: 'healthcare',
             price: 350000,
             duration: 45,
-            description: 'Khám tổng quát, tư vấn sức khỏe',
-            status: 'active'
+            description: 'Khám sức khỏe tổng quát và tư vấn chăm sóc',
+            status: 'active',
+            image: 'https://images.unsplash.com/photo-1576201836106-db1758fd1c97?q=80&w=800&auto=format&fit=crop',
+            location: 'Tầng 1 - Phòng khám',
+            rating: 4.9,
+            reviewCount: 94,
+            features: [
+                'Khám lâm sàng toàn diện',
+                'Kiểm tra các chỉ số sinh hiệu',
+                'Tư vấn dinh dưỡng và chăm sóc',
+                'Lập kế hoạch tiêm phòng',
+                'Báo cáo sức khỏe chi tiết'
+            ],
+            staffRequired: 1,
+            autoApprove: false,
+            requiresVet: true
+        },
+        {
+            id: 'service-006',
+            name: 'Tắm và vệ sinh nhanh',
+            category: 'grooming',
+            price: 80000,
+            duration: 30,
+            description: 'Dịch vụ tắm và vệ sinh nhanh cho thú cưng',
+            status: 'active',
+            image: 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?q=80&w=800&auto=format&fit=crop',
+            location: 'Tầng 1 - Khu tắm nhanh',
+            rating: 4.3,
+            reviewCount: 201,
+            features: [
+                'Tắm gội nhanh chóng',
+                'Vệ sinh tai, mắt cơ bản',
+                'Sấy khô',
+                'Phù hợp cho thú cưng nhỏ'
+            ],
+            staffRequired: 1,
+            autoApprove: true
+        },
+        {
+            id: 'service-007',
+            name: 'Chăm sóc đặc biệt',
+            category: 'healthcare',
+            price: 450000,
+            duration: 90,
+            description: 'Chăm sóc đặc biệt cho thú cưng già hoặc có vấn đề sức khỏe',
+            status: 'active',
+            image: 'https://images.unsplash.com/photo-1601758003122-479da8c9f621?q=80&w=800&auto=format&fit=crop',
+            location: 'Tầng 1 - Phòng chăm sóc đặc biệt',
+            rating: 4.8,
+            reviewCount: 45,
+            features: [
+                'Chăm sóc chuyên biệt cho thú cưng già',
+                'Theo dõi sức khỏe liên tục',
+                'Môi trường yên tĩnh và thoải mái',
+                'Nhân viên có kinh nghiệm cao',
+                'Báo cáo chi tiết cho chủ'
+            ],
+            staffRequired: 2,
+            autoApprove: false,
+            requiresVet: true
         }
     ],
 
@@ -355,11 +469,21 @@ const MOCK_DATABASE = {
             petId: 'pet-001',
             serviceId: 'service-001',
             staffId: 'user-005',
-            date: '2024-01-25',
-            time: '09:00',
+            bookingDateTime: '2024-01-25T09:00:00',
+            estimatedEndTime: '10:30',
             status: 'confirmed',
             notes: 'Pet rất hiếu động',
-            createdAt: '2024-01-20'
+            finalPrice: 150000,
+            paymentStatus: 'paid',
+            paymentMethod: 'credit_card',
+            customerInfo: {
+                name: 'Nguyễn Thị Lan Anh',
+                phone: '0967890123',
+                email: 'eva@gmail.com',
+                address: '147 Hai Bà Trưng, Q.1, TP.HCM'
+            },
+            createdAt: '2024-01-20T10:30:00',
+            updatedAt: '2024-01-20T11:00:00'
         },
         {
             id: 'booking-002',
@@ -367,11 +491,133 @@ const MOCK_DATABASE = {
             petId: 'pet-003',
             serviceId: 'service-004',
             staffId: 'user-006',
-            date: '2024-01-26',
-            time: '14:00',
+            bookingDateTime: '2024-01-26T14:00:00',
+            estimatedEndTime: '15:00',
             status: 'pending',
             notes: 'Cần huấn luyện ngồi, nằm',
-            createdAt: '2024-01-19'
+            finalPrice: 500000,
+            paymentStatus: 'paid',
+            paymentMethod: 'e_wallet',
+            customerInfo: {
+                name: 'Trần Văn Hùng',
+                phone: '0978901234',
+                email: 'frank@yahoo.com',
+                address: '258 Lý Tự Trọng, Q.1, TP.HCM'
+            },
+            createdAt: '2024-01-19T15:20:00',
+            updatedAt: '2024-01-19T15:20:00'
+        },
+        {
+            id: 'booking-003',
+            customerId: 'user-007',
+            petId: 'pet-002',
+            serviceId: 'service-006',
+            staffId: 'user-005',
+            bookingDateTime: '2024-01-27T10:30:00',
+            estimatedEndTime: '11:00',
+            status: 'completed',
+            notes: 'Tắm nhanh cho mèo',
+            finalPrice: 80000,
+            paymentStatus: 'paid',
+            paymentMethod: 'bank_transfer',
+            customerInfo: {
+                name: 'Nguyễn Thị Lan Anh',
+                phone: '0967890123',
+                email: 'eva@gmail.com',
+                address: '147 Hai Bà Trưng, Q.1, TP.HCM'
+            },
+            feedback: {
+                overallRating: 5,
+                serviceQuality: 5,
+                staffFriendliness: 5,
+                cleanliness: 4,
+                valueForMoney: 5,
+                comment: 'Dịch vụ rất tốt, nhân viên thân thiện',
+                recommend: 'yes',
+                submittedAt: '2024-01-27T12:00:00'
+            },
+            createdAt: '2024-01-26T09:15:00',
+            updatedAt: '2024-01-27T11:30:00'
+        }
+    ],
+
+    // Staff schedules for availability checking
+    staffSchedules: [
+        {
+            staffId: 'user-005',
+            date: '2024-01-25',
+            shifts: [
+                { start: '08:00', end: '12:00', available: true },
+                { start: '13:00', end: '17:00', available: true }
+            ],
+            bookedSlots: [
+                { start: '09:00', end: '10:30', bookingId: 'booking-001' }
+            ]
+        },
+        {
+            staffId: 'user-006',
+            date: '2024-01-26',
+            shifts: [
+                { start: '09:00', end: '13:00', available: true },
+                { start: '14:00', end: '18:00', available: true }
+            ],
+            bookedSlots: [
+                { start: '14:00', end: '15:00', bookingId: 'booking-002' }
+            ]
+        }
+    ],
+
+    // Notifications for staff and customers
+    notifications: [
+        {
+            id: 'notif-001',
+            userId: 'user-005',
+            type: 'booking_assigned',
+            title: 'Lịch hẹn mới được giao',
+            message: 'Bạn có lịch hẹn grooming cho Bông vào 25/01 lúc 09:00',
+            bookingId: 'booking-001',
+            read: false,
+            createdAt: '2024-01-20T11:00:00'
+        },
+        {
+            id: 'notif-002',
+            userId: 'user-007',
+            type: 'booking_confirmed',
+            title: 'Lịch hẹn được xác nhận',
+            message: 'Lịch hẹn grooming cho Bông đã được xác nhận',
+            bookingId: 'booking-001',
+            read: false,
+            createdAt: '2024-01-20T11:00:00'
+        },
+        {
+            id: 'notif-003',
+            userId: 'user-007',
+            type: 'service_completed',
+            title: 'Dịch vụ hoàn thành',
+            message: 'Dịch vụ tắm nhanh cho Miu đã hoàn thành. Hãy đánh giá dịch vụ!',
+            bookingId: 'booking-003',
+            read: false,
+            createdAt: '2024-01-27T11:30:00'
+        }
+    ],
+
+    // Feedback and reviews
+    feedbacks: [
+        {
+            id: 'feedback-001',
+            bookingId: 'booking-003',
+            customerId: 'user-007',
+            serviceId: 'service-006',
+            overallRating: 5,
+            serviceQuality: 5,
+            staffFriendliness: 5,
+            cleanliness: 4,
+            valueForMoney: 5,
+            comment: 'Dịch vụ rất tốt, nhân viên thân thiện và chuyên nghiệp',
+            recommend: 'yes',
+            improvements: 'Có thể cải thiện thêm về không gian chờ',
+            photos: [],
+            submittedAt: '2024-01-27T12:00:00'
         }
     ],
 
@@ -915,6 +1161,81 @@ export const customerApi = {
         return { success: true, data: activeServices };
     },
 
+    // Check availability for a specific date and service
+    async checkAvailability(serviceId, date) {
+        await delay(800);
+        const currentUser = getCurrentUser();
+
+        if (!checkPermission(currentUser, 'service_booking')) {
+            throw new Error('Không có quyền kiểm tra lịch trống');
+        }
+
+        const service = MOCK_DATABASE.services.find(s => s.id === serviceId);
+        if (!service) {
+            throw new Error('Không tìm thấy dịch vụ');
+        }
+
+        // Generate time slots for the day (9 AM to 6 PM)
+        const slots = [];
+        const startHour = 9;
+        const endHour = 18;
+        const slotDuration = 30; // 30 minutes per slot
+
+        for (let hour = startHour; hour < endHour; hour++) {
+            for (let minute = 0; minute < 60; minute += slotDuration) {
+                const timeString = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+
+                // Check if this slot conflicts with existing bookings
+                const hasConflict = MOCK_DATABASE.bookings.some(booking => {
+                    const bookingDate = booking.bookingDateTime.split('T')[0];
+                    const bookingTime = booking.bookingDateTime.split('T')[1].substring(0, 5);
+
+                    if (bookingDate === date && booking.status !== 'cancelled') {
+                        const bookingStart = new Date(`${date}T${bookingTime}`);
+                        const bookingEnd = new Date(bookingStart.getTime() + (booking.service?.duration || 60) * 60000);
+                        const slotStart = new Date(`${date}T${timeString}`);
+                        const slotEnd = new Date(slotStart.getTime() + service.duration * 60000);
+
+                        return (slotStart < bookingEnd && slotEnd > bookingStart);
+                    }
+                    return false;
+                });
+
+                // Calculate dynamic pricing (evening surcharge, weekend surcharge)
+                let price = service.price;
+                const dayOfWeek = new Date(date).getDay();
+                const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+                const isEvening = hour >= 17;
+
+                if (isWeekend) price += Math.floor(service.price * 0.1); // 10% weekend surcharge
+                if (isEvening) price += 50000; // Evening surcharge
+
+                slots.push({
+                    time: timeString,
+                    available: !hasConflict,
+                    price: price,
+                    duration: service.duration,
+                    endTime: new Date(new Date(`${date}T${timeString}`).getTime() + service.duration * 60000)
+                        .toTimeString().substring(0, 5)
+                });
+            }
+        }
+
+        return {
+            success: true,
+            data: {
+                date,
+                service,
+                slots: slots.filter(slot => {
+                    // Only return slots that can accommodate the full service duration
+                    const slotStart = new Date(`${date}T${slot.time}`);
+                    const serviceEnd = new Date(slotStart.getTime() + service.duration * 60000);
+                    return serviceEnd.getHours() <= endHour;
+                })
+            }
+        };
+    },
+
     async createBooking(bookingData) {
         await delay(600);
         const currentUser = getCurrentUser();
@@ -923,15 +1244,69 @@ export const customerApi = {
             throw new Error('Không có quyền đặt dịch vụ');
         }
 
+        // Find service details
+        const service = MOCK_DATABASE.services.find(s => s.id === bookingData.service?.id);
+        if (!service) {
+            throw new Error('Không tìm thấy dịch vụ');
+        }
+
+        // Auto-assign staff based on service requirements
+        const availableStaff = MOCK_DATABASE.users.filter(user =>
+            user.role === 'working_staff' && user.status === 'active'
+        );
+
+        const assignedStaff = availableStaff[Math.floor(Math.random() * availableStaff.length)];
+
         const newBooking = {
             id: generateId('booking'),
-            ...bookingData,
             customerId: currentUser.id,
-            status: 'pending',
-            createdAt: new Date().toISOString()
+            petId: bookingData.pet?.id,
+            serviceId: service.id,
+            staffId: assignedStaff?.id,
+            bookingDateTime: bookingData.bookingDateTime,
+            estimatedEndTime: bookingData.estimatedEndTime,
+            status: service.autoApprove ? 'confirmed' : 'pending',
+            notes: bookingData.notes || '',
+            finalPrice: bookingData.finalPrice || service.price,
+            paymentStatus: 'paid',
+            paymentMethod: bookingData.paymentMethod || 'credit_card',
+            customerInfo: bookingData.customerInfo,
+            service: service,
+            pet: bookingData.pet,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
         };
 
         MOCK_DATABASE.bookings.push(newBooking);
+
+        // Create notifications
+        if (assignedStaff) {
+            const staffNotification = {
+                id: generateId('notif'),
+                userId: assignedStaff.id,
+                type: 'booking_assigned',
+                title: 'Lịch hẹn mới được giao',
+                message: `Bạn có lịch hẹn ${service.name} cho ${bookingData.pet?.name} vào ${new Date(bookingData.bookingDateTime).toLocaleDateString('vi-VN')}`,
+                bookingId: newBooking.id,
+                read: false,
+                createdAt: new Date().toISOString()
+            };
+            MOCK_DATABASE.notifications.push(staffNotification);
+        }
+
+        const customerNotification = {
+            id: generateId('notif'),
+            userId: currentUser.id,
+            type: service.autoApprove ? 'booking_confirmed' : 'booking_received',
+            title: service.autoApprove ? 'Lịch hẹn được xác nhận' : 'Đã nhận yêu cầu đặt lịch',
+            message: service.autoApprove ?
+                `Lịch hẹn ${service.name} đã được xác nhận` :
+                `Yêu cầu đặt lịch ${service.name} đang được xử lý`,
+            bookingId: newBooking.id,
+            read: false,
+            createdAt: new Date().toISOString()
+        };
+        MOCK_DATABASE.notifications.push(customerNotification);
 
         // Update customer visit count
         const customerIndex = MOCK_DATABASE.users.findIndex(u => u.id === currentUser.id);
@@ -939,7 +1314,13 @@ export const customerApi = {
             MOCK_DATABASE.users[customerIndex].customerProfile.visitCount += 1;
         }
 
-        return { success: true, data: newBooking, message: 'Đặt dịch vụ thành công' };
+        return {
+            success: true,
+            data: newBooking,
+            message: service.autoApprove ?
+                'Đặt dịch vụ thành công và đã được xác nhận!' :
+                'Đặt dịch vụ thành công! Chúng tôi sẽ liên hệ xác nhận sớm nhất.'
+        };
     },
 
     async getMyBookings() {
@@ -1034,11 +1415,225 @@ export const customerApi = {
             id: generateId('feedback'),
             ...feedbackData,
             customerId: currentUser.id,
-            createdAt: new Date().toISOString(),
+            submittedAt: new Date().toISOString(),
             status: 'received'
         };
 
+        MOCK_DATABASE.feedbacks.push(newFeedback);
+
+        // Update booking with feedback
+        if (feedbackData.bookingId) {
+            const bookingIndex = MOCK_DATABASE.bookings.findIndex(b => b.id === feedbackData.bookingId);
+            if (bookingIndex !== -1) {
+                MOCK_DATABASE.bookings[bookingIndex].feedback = {
+                    overallRating: feedbackData.overallRating,
+                    serviceQuality: feedbackData.serviceQuality,
+                    staffFriendliness: feedbackData.staffFriendliness,
+                    cleanliness: feedbackData.cleanliness,
+                    valueForMoney: feedbackData.valueForMoney,
+                    comment: feedbackData.comment,
+                    recommend: feedbackData.recommend,
+                    submittedAt: new Date().toISOString()
+                };
+                MOCK_DATABASE.bookings[bookingIndex].updatedAt = new Date().toISOString();
+            }
+        }
+
+        // Update service rating
+        if (feedbackData.serviceId && feedbackData.overallRating) {
+            const serviceIndex = MOCK_DATABASE.services.findIndex(s => s.id === feedbackData.serviceId);
+            if (serviceIndex !== -1) {
+                const service = MOCK_DATABASE.services[serviceIndex];
+                const currentTotal = (service.rating || 0) * (service.reviewCount || 0);
+                const newReviewCount = (service.reviewCount || 0) + 1;
+                const newRating = (currentTotal + feedbackData.overallRating) / newReviewCount;
+
+                MOCK_DATABASE.services[serviceIndex].rating = Math.round(newRating * 10) / 10;
+                MOCK_DATABASE.services[serviceIndex].reviewCount = newReviewCount;
+            }
+        }
+
+        // Create notification for management
+        const managementNotification = {
+            id: generateId('notif'),
+            userId: 'user-001', // Manager
+            type: 'feedback_received',
+            title: 'Phản hồi mới từ khách hàng',
+            message: `${currentUser.name} đã gửi phản hồi với ${feedbackData.overallRating} sao`,
+            feedbackId: newFeedback.id,
+            read: false,
+            createdAt: new Date().toISOString()
+        };
+        MOCK_DATABASE.notifications.push(managementNotification);
+
         return { success: true, data: newFeedback, message: 'Gửi phản hồi thành công' };
+    },
+
+    // Get booking history with filters
+    async getBookingHistory(filters = {}) {
+        await delay(400);
+        const currentUser = getCurrentUser();
+
+        if (!checkPermission(currentUser, 'service_booking')) {
+            throw new Error('Không có quyền xem lịch sử đặt lịch');
+        }
+
+        let bookings = MOCK_DATABASE.bookings.filter(booking =>
+            booking.customerId === currentUser.id
+        );
+
+        // Apply filters
+        if (filters.status) {
+            bookings = bookings.filter(booking => booking.status === filters.status);
+        }
+
+        if (filters.serviceId) {
+            bookings = bookings.filter(booking => booking.serviceId === filters.serviceId);
+        }
+
+        if (filters.dateFrom) {
+            bookings = bookings.filter(booking =>
+                new Date(booking.bookingDateTime) >= new Date(filters.dateFrom)
+            );
+        }
+
+        if (filters.dateTo) {
+            bookings = bookings.filter(booking =>
+                new Date(booking.bookingDateTime) <= new Date(filters.dateTo)
+            );
+        }
+
+        // Sort by booking date (newest first)
+        bookings.sort((a, b) => new Date(b.bookingDateTime) - new Date(a.bookingDateTime));
+
+        // Add service and pet details
+        const enrichedBookings = bookings.map(booking => {
+            const service = MOCK_DATABASE.services.find(s => s.id === booking.serviceId);
+            const pet = MOCK_DATABASE.pets.find(p => p.id === booking.petId);
+            const staff = MOCK_DATABASE.users.find(u => u.id === booking.staffId);
+
+            return {
+                ...booking,
+                service,
+                pet,
+                staff: staff ? {
+                    id: staff.id,
+                    name: staff.name,
+                    specialization: staff.workStats?.specialization
+                } : null
+            };
+        });
+
+        return { success: true, data: enrichedBookings };
+    },
+
+    // Cancel booking
+    async cancelBooking(bookingId, reason) {
+        await delay(500);
+        const currentUser = getCurrentUser();
+
+        if (!checkPermission(currentUser, 'service_booking')) {
+            throw new Error('Không có quyền hủy đặt lịch');
+        }
+
+        const bookingIndex = MOCK_DATABASE.bookings.findIndex(b =>
+            b.id === bookingId && b.customerId === currentUser.id
+        );
+
+        if (bookingIndex === -1) {
+            throw new Error('Không tìm thấy lịch đặt hoặc không có quyền hủy');
+        }
+
+        const booking = MOCK_DATABASE.bookings[bookingIndex];
+
+        // Check if booking can be cancelled (not within 2 hours of appointment)
+        const bookingTime = new Date(booking.bookingDateTime);
+        const now = new Date();
+        const hoursUntilBooking = (bookingTime - now) / (1000 * 60 * 60);
+
+        if (hoursUntilBooking < 2 && booking.status === 'confirmed') {
+            throw new Error('Không thể hủy lịch hẹn trong vòng 2 giờ trước giờ hẹn');
+        }
+
+        // Update booking status
+        MOCK_DATABASE.bookings[bookingIndex].status = 'cancelled';
+        MOCK_DATABASE.bookings[bookingIndex].cancelReason = reason;
+        MOCK_DATABASE.bookings[bookingIndex].cancelledAt = new Date().toISOString();
+        MOCK_DATABASE.bookings[bookingIndex].updatedAt = new Date().toISOString();
+
+        // Create notifications
+        if (booking.staffId) {
+            const staffNotification = {
+                id: generateId('notif'),
+                userId: booking.staffId,
+                type: 'booking_cancelled',
+                title: 'Lịch hẹn bị hủy',
+                message: `Lịch hẹn vào ${new Date(booking.bookingDateTime).toLocaleDateString('vi-VN')} đã bị hủy`,
+                bookingId: booking.id,
+                read: false,
+                createdAt: new Date().toISOString()
+            };
+            MOCK_DATABASE.notifications.push(staffNotification);
+        }
+
+        return {
+            success: true,
+            data: MOCK_DATABASE.bookings[bookingIndex],
+            message: 'Hủy lịch hẹn thành công'
+        };
+    },
+
+    // Reschedule booking
+    async rescheduleBooking(bookingId, newDateTime) {
+        await delay(600);
+        const currentUser = getCurrentUser();
+
+        if (!checkPermission(currentUser, 'service_booking')) {
+            throw new Error('Không có quyền đổi lịch');
+        }
+
+        const bookingIndex = MOCK_DATABASE.bookings.findIndex(b =>
+            b.id === bookingId && b.customerId === currentUser.id
+        );
+
+        if (bookingIndex === -1) {
+            throw new Error('Không tìm thấy lịch đặt hoặc không có quyền đổi lịch');
+        }
+
+        const booking = MOCK_DATABASE.bookings[bookingIndex];
+
+        // Check if booking can be rescheduled
+        if (booking.status === 'completed' || booking.status === 'cancelled') {
+            throw new Error('Không thể đổi lịch cho booking đã hoàn thành hoặc đã hủy');
+        }
+
+        const oldDateTime = booking.bookingDateTime;
+
+        // Update booking
+        MOCK_DATABASE.bookings[bookingIndex].bookingDateTime = newDateTime;
+        MOCK_DATABASE.bookings[bookingIndex].status = 'pending'; // Require re-confirmation
+        MOCK_DATABASE.bookings[bookingIndex].updatedAt = new Date().toISOString();
+
+        // Create notifications
+        if (booking.staffId) {
+            const staffNotification = {
+                id: generateId('notif'),
+                userId: booking.staffId,
+                type: 'booking_rescheduled',
+                title: 'Lịch hẹn được đổi giờ',
+                message: `Lịch hẹn đã được đổi từ ${new Date(oldDateTime).toLocaleString('vi-VN')} sang ${new Date(newDateTime).toLocaleString('vi-VN')}`,
+                bookingId: booking.id,
+                read: false,
+                createdAt: new Date().toISOString()
+            };
+            MOCK_DATABASE.notifications.push(staffNotification);
+        }
+
+        return {
+            success: true,
+            data: MOCK_DATABASE.bookings[bookingIndex],
+            message: 'Đổi lịch thành công! Chúng tôi sẽ xác nhận lại lịch mới.'
+        };
     },
 
     // Notifications
@@ -1050,27 +1645,43 @@ export const customerApi = {
             throw new Error('Không có quyền xem thông báo');
         }
 
-        // Mock notifications
-        const notifications = [
-            {
-                id: 'notif-001',
-                title: 'Lịch hẹn được xác nhận',
-                message: 'Lịch hẹn grooming cho Bông đã được xác nhận vào 25/01/2024 lúc 09:00',
-                type: 'booking',
-                read: false,
-                createdAt: '2024-01-20T10:30:00'
-            },
-            {
-                id: 'notif-002',
-                title: 'Khuyến mãi đặc biệt',
-                message: 'Giảm 20% cho dịch vụ grooming trong tháng này!',
-                type: 'promotion',
-                read: true,
-                createdAt: '2024-01-19T15:00:00'
-            }
-        ];
+        const userNotifications = MOCK_DATABASE.notifications
+            .filter(notif => notif.userId === currentUser.id)
+            .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
-        return { success: true, data: notifications };
+        return { success: true, data: userNotifications };
+    },
+
+    // Mark notification as read
+    async markNotificationRead(notificationId) {
+        await delay(200);
+        const currentUser = getCurrentUser();
+
+        const notificationIndex = MOCK_DATABASE.notifications.findIndex(n =>
+            n.id === notificationId && n.userId === currentUser.id
+        );
+
+        if (notificationIndex !== -1) {
+            MOCK_DATABASE.notifications[notificationIndex].read = true;
+            MOCK_DATABASE.notifications[notificationIndex].readAt = new Date().toISOString();
+        }
+
+        return { success: true, message: 'Đã đánh dấu đã đọc' };
+    },
+
+    // Mark all notifications as read
+    async markAllNotificationsRead() {
+        await delay(300);
+        const currentUser = getCurrentUser();
+
+        MOCK_DATABASE.notifications
+            .filter(n => n.userId === currentUser.id && !n.read)
+            .forEach(notification => {
+                notification.read = true;
+                notification.readAt = new Date().toISOString();
+            });
+
+        return { success: true, message: 'Đã đánh dấu tất cả thông báo đã đọc' };
     }
 };
 

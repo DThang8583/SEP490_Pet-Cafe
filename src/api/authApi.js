@@ -364,12 +364,28 @@ export const customerApi = {
         return await userApi.customer.getAvailableServices();
     },
 
+    async checkAvailability(serviceId, date) {
+        return await userApi.customer.checkAvailability(serviceId, date);
+    },
+
     async createBooking(bookingData) {
         return await userApi.customer.createBooking(bookingData);
     },
 
     async getMyBookings() {
         return await userApi.customer.getMyBookings();
+    },
+
+    async getBookingHistory(filters = {}) {
+        return await userApi.customer.getBookingHistory(filters);
+    },
+
+    async cancelBooking(bookingId, reason) {
+        return await userApi.customer.cancelBooking(bookingId, reason);
+    },
+
+    async rescheduleBooking(bookingId, newDateTime) {
+        return await userApi.customer.rescheduleBooking(bookingId, newDateTime);
     },
 
     // Product Purchase
@@ -393,6 +409,14 @@ export const customerApi = {
 
     async getNotifications() {
         return await userApi.customer.getNotifications();
+    },
+
+    async markNotificationRead(notificationId) {
+        return await userApi.customer.markNotificationRead(notificationId);
+    },
+
+    async markAllNotificationsRead() {
+        return await userApi.customer.markAllNotificationsRead();
     }
 };
 

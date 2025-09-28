@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import {
-    AppBar, Toolbar, Typography, Button, Box, IconButton, Avatar, 
+    AppBar, Toolbar, Typography, Button, Box, IconButton, Avatar,
     Menu, MenuItem, useTheme, alpha, Container, Stack
 } from '@mui/material';
 import {
-    LocalCafe, Restaurant, ConfirmationNumber, LocationOn, AccountCircle, 
-    Menu as MenuIcon, Close, Pets
+    LocalCafe, Restaurant, ConfirmationNumber, LocationOn, AccountCircle,
+    Menu as MenuIcon, Close, Pets, Schedule
 } from '@mui/icons-material';
 import { COLORS } from '../../../constants/colors';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -32,7 +32,7 @@ const Navbar = () => {
 
     const navItems = [
         { label: 'Đồ ăn & Đồ uống', path: '/menu', icon: <Restaurant /> },
-        { label: 'Vé', path: '/tickets', icon: <ConfirmationNumber /> },
+        { label: 'Đặt lịch dịch vụ', path: '/booking', icon: <Schedule /> },
         { label: 'Khu vực', path: '/areas', icon: <LocationOn /> }
     ];
 
@@ -107,11 +107,11 @@ const Navbar = () => {
                                     px: 3,
                                     py: 1,
                                     borderRadius: 3,
-                                    backgroundColor: isActive(item.path) 
-                                        ? alpha(COLORS.ERROR[100], 0.3) 
+                                    backgroundColor: isActive(item.path)
+                                        ? alpha(COLORS.ERROR[100], 0.3)
                                         : 'transparent',
-                                    border: isActive(item.path) 
-                                        ? `2px solid ${alpha(COLORS.ERROR[300], 0.5)}` 
+                                    border: isActive(item.path)
+                                        ? `2px solid ${alpha(COLORS.ERROR[300], 0.5)}`
                                         : '2px solid transparent',
                                     '&:hover': {
                                         backgroundColor: alpha(COLORS.ERROR[100], 0.2),
@@ -251,11 +251,11 @@ const Navbar = () => {
                                         textTransform: 'none',
                                         py: 2,
                                         borderRadius: 3,
-                                        backgroundColor: isActive(item.path) 
-                                            ? alpha(COLORS.ERROR[100], 0.3) 
+                                        backgroundColor: isActive(item.path)
+                                            ? alpha(COLORS.ERROR[100], 0.3)
                                             : 'transparent',
-                                        border: isActive(item.path) 
-                                            ? `2px solid ${alpha(COLORS.ERROR[300], 0.5)}` 
+                                        border: isActive(item.path)
+                                            ? `2px solid ${alpha(COLORS.ERROR[300], 0.5)}`
                                             : '2px solid transparent',
                                         justifyContent: 'flex-start',
                                         '&:hover': {
