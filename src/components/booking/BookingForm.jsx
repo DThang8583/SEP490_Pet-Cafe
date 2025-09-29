@@ -41,6 +41,7 @@ import Loading from '../../components/loading/Loading';
 import { bookingApi } from '../../api/bookingApi';
 import { petApi } from '../../api/petApi';
 import { formatPrice } from '../../utils/formatPrice';
+import CalendarGrid from './CalendarGrid';
 
 const BookingForm = ({ service, onBack, onSubmit }) => {
     const [formData, setFormData] = useState({
@@ -67,8 +68,11 @@ const BookingForm = ({ service, onBack, onSubmit }) => {
     const [errors, setErrors] = useState({});
 
     useEffect(() => {
-        loadPets();
-    }, []);
+        // Chỉ load pets nếu service yêu cầu thú cưng
+        if (service.petRequired !== false) {
+            loadPets();
+        }
+    }, [service.petRequired]);
 
     const loadPets = async () => {
         if (service.petRequired === false) return;
@@ -78,7 +82,9 @@ const BookingForm = ({ service, onBack, onSubmit }) => {
             const response = await petApi.getMyPets();
             setPets(response.data || []);
         } catch (error) {
-            console.error('Error loading pets:', error);
+            console.warn('Không thể tải danh sách thú cưng:', error.message);
+            // Nếu không có quyền truy cập, vẫn cho phép người dùng nhập thông tin thủ công
+            // Điều này không ảnh hưởng đến quá trình đặt lịch
             setPets([]);
         } finally {
             setLoadingPets(false);
@@ -303,8 +309,6 @@ const BookingForm = ({ service, onBack, onSubmit }) => {
             newErrors.selectedTime = 'Vui lòng chọn khung giờ';
         }
 
-        // Removed petId validation since we're using petInfo instead
-
         // Validate pet info
         if (!formData.petInfo?.species) {
             newErrors.petInfo = { ...newErrors.petInfo, species: 'Vui lòng chọn loài thú cưng' };
@@ -330,10 +334,46 @@ const BookingForm = ({ service, onBack, onSubmit }) => {
             newErrors.customerInfo = { ...newErrors.customerInfo, email: 'Vui lòng nhập email' };
         }
 
-        // Removed address validation since we removed the address field
-
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
+    };
+
+    // Function to check if all required fields are filled
+    const isFormComplete = () => {
+        return formData.selectedDate &&
+            formData.selectedTime &&
+            formData.petInfo.species &&
+            formData.petInfo.breed?.trim() &&
+            formData.petInfo.weight?.trim() &&
+            formData.customerInfo.name.trim() &&
+            formData.customerInfo.phone.trim() &&
+            formData.customerInfo.email.trim();
+    };
+
+    // Handle slot selection from calendar
+    const handleSlotSelect = (date, time) => {
+        setFormData(prev => ({
+            ...prev,
+            selectedDate: date,
+            selectedTime: time
+        }));
+    };
+
+    // Function to calculate form completion percentage
+    const getFormCompletionPercentage = () => {
+        const requiredFields = [
+            formData.selectedDate,
+            formData.selectedTime,
+            formData.petInfo.species,
+            formData.petInfo.breed?.trim(),
+            formData.petInfo.weight?.trim(),
+            formData.customerInfo.name.trim(),
+            formData.customerInfo.phone.trim(),
+            formData.customerInfo.email.trim()
+        ];
+
+        const filledFields = requiredFields.filter(field => field).length;
+        return Math.round((filledFields / requiredFields.length) * 100);
     };
 
     const calculateEndTime = (date, startTime, duration) => {
@@ -379,17 +419,16 @@ const BookingForm = ({ service, onBack, onSubmit }) => {
                 width: '100%',
                 maxWidth: '100%',
                 mx: 0,
-                px: 3,
-                py: 2,
+                px: { xs: 1, sm: 2, md: 3 },
+                py: { xs: 2, sm: 3, md: 4 },
                 minHeight: '80vh',
-                background: `
-                    radial-gradient(circle at 20% 20%, ${alpha(COLORS.WARNING[100], 0.2)} 0%, transparent 50%),
-                    radial-gradient(circle at 80% 80%, ${alpha(COLORS.SECONDARY[100], 0.15)} 0%, transparent 50%),
-                    linear-gradient(135deg, 
-                        ${alpha(COLORS.BACKGROUND.DEFAULT, 0.95)} 0%, 
-                        ${alpha(COLORS.SECONDARY[50], 0.6)} 100%
-                    )
-                `,
+                background: `linear-gradient(135deg, 
+                    ${alpha(COLORS.SECONDARY[50], 0.3)} 0%, 
+                    ${alpha(COLORS.PRIMARY[50], 0.4)} 25%,
+                    ${alpha(COLORS.INFO[50], 0.3)} 50%,
+                    ${alpha(COLORS.SUCCESS[50], 0.2)} 75%,
+                    ${alpha(COLORS.WARNING[50], 0.3)} 100%
+                )`,
                 position: 'relative',
                 '&::before': {
                     content: '""',
@@ -398,898 +437,550 @@ const BookingForm = ({ service, onBack, onSubmit }) => {
                     left: 0,
                     right: 0,
                     bottom: 0,
-                    backgroundImage: `
-                        radial-gradient(circle at 15% 15%, ${alpha(COLORS.ERROR[100], 0.08)} 0 6px, transparent 7px),
-                        radial-gradient(circle at 85% 85%, ${alpha(COLORS.INFO[100], 0.08)} 0 4px, transparent 5px)
-                    `,
-                    backgroundSize: '150px 150px',
+                    background: `radial-gradient(circle at 20% 80%, ${alpha(COLORS.INFO[100], 0.1)} 0%, transparent 50%),
+                                radial-gradient(circle at 80% 20%, ${alpha(COLORS.SUCCESS[100], 0.1)} 0%, transparent 50%),
+                                radial-gradient(circle at 40% 40%, ${alpha(COLORS.WARNING[100], 0.1)} 0%, transparent 50%)`,
                     pointerEvents: 'none'
                 }
             }}>
-                {/* Header với thiết kế dễ thương */}
+                {/* Header */}
                 <Card sx={{
-                    mb: 4,
-                    borderRadius: 4,
-                    background: `linear-gradient(135deg, 
-                        ${alpha(COLORS.BACKGROUND.DEFAULT, 0.95)} 0%, 
-                        ${alpha(COLORS.WARNING[50], 0.8)} 30%,
-                        ${alpha(COLORS.SECONDARY[50], 0.9)} 100%
+                    mb: { xs: 3, sm: 4, md: 4 },
+                    borderRadius: 6,
+                    background: `linear-gradient(145deg, 
+                        ${alpha(COLORS.BACKGROUND.DEFAULT, 0.98)} 0%, 
+                        ${alpha(COLORS.SECONDARY[50], 0.95)} 50%,
+                        ${alpha(COLORS.INFO[50], 0.9)} 100%
                     )`,
-                    border: `2px solid ${alpha(COLORS.WARNING[200], 0.4)}`,
-                    boxShadow: `0 6px 24px ${alpha(COLORS.WARNING[200], 0.15)}`,
-                    overflow: 'hidden',
+                    border: `1px solid ${alpha(COLORS.INFO[200], 0.2)}`,
+                    boxShadow: `0 8px 32px ${alpha(COLORS.INFO[200], 0.15)}, 
+                               0 2px 8px ${alpha(COLORS.INFO[100], 0.1)}`,
+                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                     position: 'relative',
+                    overflow: 'hidden',
                     '&::before': {
                         content: '""',
                         position: 'absolute',
                         top: 0,
                         left: 0,
                         right: 0,
-                        height: 3,
+                        height: '2px',
                         background: `linear-gradient(90deg, 
-                            ${COLORS.ERROR[300]} 0%, 
-                            ${COLORS.WARNING[300]} 25%,
-                            ${COLORS.SECONDARY[300]} 50%,
-                            ${COLORS.INFO[300]} 75%,
-                            ${COLORS.ERROR[300]} 100%
+                            ${COLORS.INFO[400]} 0%, 
+                            ${COLORS.SUCCESS[400]} 50%, 
+                            ${COLORS.WARNING[400]} 100%
                         )`
+                    },
+                    '&:hover': {
+                        transform: 'translateY(-4px)',
+                        boxShadow: `0 12px 40px ${alpha(COLORS.INFO[200], 0.2)}, 
+                                   0 4px 12px ${alpha(COLORS.INFO[100], 0.15)}`
                     }
                 }}>
-                    <CardContent sx={{ p: 2.5, position: 'relative', zIndex: 1 }}>
-                        <Grid container spacing={2.5} alignItems="center">
-                            <Grid item xs={12} md={8}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
-                                    <Button
-                                        startIcon={<ArrowBack />}
-                                        onClick={onBack}
-                                        sx={{
-                                            color: COLORS.WARNING[600],
-                                            fontWeight: 'bold',
-                                            textTransform: 'none',
-                                            fontSize: '0.85rem',
-                                            py: 0.8,
-                                            px: 1.5,
-                                            borderRadius: 2,
-                                            background: alpha(COLORS.WARNING[100], 0.6),
-                                            '&:hover': {
-                                                background: alpha(COLORS.WARNING[200], 0.8),
-                                                transform: 'translateY(-2px)'
-                                            },
-                                            transition: 'all 0.3s ease'
-                                        }}
-                                    >
-                                        🐾 Quay lại
-                                    </Button>
-                                </Box>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 0.5 }}>
-                                    <Avatar sx={{
-                                        bgcolor: COLORS.WARNING[500],
-                                        width: 38,
-                                        height: 38,
-                                        fontSize: '1.1rem'
-                                    }}>
-                                        🐕
-                                    </Avatar>
-                                    <Box>
-                                        <Typography variant="h5" sx={{
-                                            fontWeight: 'bold',
-                                            background: `linear-gradient(135deg, ${COLORS.WARNING[600]} 0%, ${COLORS.ERROR[600]} 100%)`,
-                                            backgroundClip: 'text',
-                                            WebkitBackgroundClip: 'text',
-                                            WebkitTextFillColor: 'transparent',
-                                            mb: 0.5,
-                                            fontSize: '1.3rem',
-                                            fontFamily: '"Comic Sans MS", cursive'
-                                        }}>
-                                            🐾 Đặt lịch: {service.name}
-                                        </Typography>
-                                        <Typography variant="body1" sx={{
-                                            color: COLORS.TEXT.SECONDARY,
-                                            fontSize: '0.85rem',
-                                            fontStyle: 'italic'
-                                        }}>
-                                            {service.description}
-                                        </Typography>
-                                    </Box>
-                                </Box>
-                            </Grid>
-                        </Grid>
+                    <CardContent sx={{ p: { xs: 2, sm: 3, md: 4 } }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                            <Button
+                                startIcon={<ArrowBack />}
+                                onClick={onBack}
+                                sx={{
+                                    color: COLORS.INFO[600],
+                                    fontWeight: 600,
+                                    textTransform: 'none',
+                                    borderRadius: 3,
+                                    px: 2,
+                                    py: 1,
+                                    transition: 'all 0.2s ease',
+                                    '&:hover': {
+                                        backgroundColor: alpha(COLORS.INFO[100], 0.8),
+                                        color: COLORS.INFO[700],
+                                        transform: 'translateX(-2px)'
+                                    }
+                                }}
+                            >
+                                Quay lại
+                            </Button>
+                        </Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                            <Typography variant="h4" sx={{
+                                fontWeight: 700,
+                                color: COLORS.INFO[700],
+                                fontFamily: '"Inter", "Roboto", sans-serif',
+                                letterSpacing: '-0.02em',
+                                lineHeight: 1.2
+                            }}>
+                                Đặt lịch: {service.name}
+                            </Typography>
+                        </Box>
+                        <Typography variant="body1" sx={{
+                            color: COLORS.TEXT.SECONDARY,
+                            mt: 1.5,
+                            fontSize: '1rem',
+                            lineHeight: 1.6,
+                            opacity: 0.8
+                        }}>
+                            {service.description}
+                        </Typography>
                     </CardContent>
                 </Card>
 
-                {/* HÀNG 1: Chọn ngày và Chọn giờ - Layout tối ưu */}
-                <Grid container spacing={3} sx={{ mb: 4 }}>
-                    {/* Chọn ngày - 50% */}
-                    <Grid item xs={12} md={6}>
-                        <Card sx={{
-                            borderRadius: 4,
-                            border: `2px solid ${alpha(COLORS.WARNING[300], 0.4)}`,
-                            boxShadow: `0 6px 18px ${alpha(COLORS.WARNING[200], 0.12)}`,
-                            background: `linear-gradient(135deg, 
-                                ${alpha(COLORS.BACKGROUND.DEFAULT, 0.98)} 0%, 
-                                ${alpha(COLORS.WARNING[50], 0.8)} 50%,
-                                ${alpha(COLORS.ERROR[50], 0.6)} 100%
-                            )`,
-                            minHeight: '170px',
-                            position: 'relative',
-                            overflow: 'hidden',
-                            '&::before': {
-                                content: '""',
-                                position: 'absolute',
-                                top: -6,
-                                right: -6,
-                                width: 45,
-                                height: 45,
-                                background: `radial-gradient(circle, ${alpha(COLORS.WARNING[200], 0.25)} 0%, transparent 70%)`,
-                                borderRadius: '50%'
-                            }
-                        }}>
-                            <CardContent sx={{ p: 2.5, position: 'relative', zIndex: 1 }}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2.5 }}>
-                                    <Avatar sx={{
-                                        bgcolor: COLORS.WARNING[500],
-                                        width: 34,
-                                        height: 34,
-                                        fontSize: '1rem'
-                                    }}>
-                                        📅
-                                    </Avatar>
-                                    <Typography variant="h6" sx={{
-                                        fontWeight: 'bold',
-                                        color: COLORS.WARNING[700],
-                                        fontSize: '0.95rem',
-                                        fontFamily: '"Comic Sans MS", cursive'
-                                    }}>
-                                        🐾 Chọn ngày dịch vụ
-                                    </Typography>
-                                </Box>
+                {/* Calendar Grid */}
+                <Box sx={{
+                    mb: { xs: 4, sm: 5, md: 5 },
+                    width: '100%'
+                }}>
+                    <CalendarGrid
+                        formData={formData}
+                        onSlotSelect={handleSlotSelect}
+                        availableSlots={availableSlots}
+                    />
+                </Box>
 
-                                <TextField
-                                    fullWidth
-                                    type="date"
-                                    value={formData.selectedDate}
-                                    onChange={(e) => handleFieldChange('selectedDate', e.target.value)}
-                                    inputProps={{
-                                        min: getMinDate(),
-                                        max: getMaxDate()
-                                    }}
-                                    error={!!errors.selectedDate}
-                                    helperText={errors.selectedDate}
-                                    sx={{
-                                        '& .MuiOutlinedInput-root': {
-                                            borderRadius: 3,
-                                            backgroundColor: alpha(COLORS.BACKGROUND.DEFAULT, 0.9),
-                                            minHeight: '48px',
-                                            border: `2px solid ${alpha(COLORS.WARNING[300], 0.3)}`,
+                {/* Thông tin thú cưng */}
+                <Box sx={{ mb: { xs: 4, sm: 5, md: 5 } }}>
+                    <Card sx={{
+                        borderRadius: 6,
+                        background: `linear-gradient(145deg, 
+                            ${alpha(COLORS.BACKGROUND.DEFAULT, 0.98)} 0%, 
+                            ${alpha(COLORS.INFO[50], 0.95)} 50%,
+                            ${alpha(COLORS.SUCCESS[50], 0.9)} 100%
+                        )`,
+                        border: `1px solid ${alpha(COLORS.INFO[200], 0.3)}`,
+                        boxShadow: `0 8px 32px ${alpha(COLORS.INFO[200], 0.15)}, 
+                                   0 2px 8px ${alpha(COLORS.INFO[100], 0.1)}`,
+                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                        position: 'relative',
+                        overflow: 'hidden',
+                        '&::before': {
+                            content: '""',
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            height: '3px',
+                            background: `linear-gradient(90deg, 
+                                ${COLORS.INFO[400]} 0%, 
+                                ${COLORS.SUCCESS[400]} 100%
+                            )`
+                        },
+                        '&:hover': {
+                            transform: 'translateY(-4px)',
+                            boxShadow: `0 12px 40px ${alpha(COLORS.INFO[200], 0.2)}, 
+                                       0 4px 12px ${alpha(COLORS.INFO[100], 0.15)}`
+                        }
+                    }}>
+                        <CardContent sx={{ p: { xs: 2, sm: 3, md: 4 } }}>
+                            <Typography variant="h6" sx={{
+                                fontWeight: 600,
+                                color: COLORS.INFO[700],
+                                mb: 3,
+                                fontSize: '1.1rem',
+                                letterSpacing: '-0.01em'
+                            }}>
+                                🐾 Thông tin thú cưng
+                            </Typography>
+
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 2, sm: 3, md: 3 } }}>
+                                {/* Loài thú cưng */}
+                                <FormControl fullWidth error={!!errors.petInfo?.species}>
+                                    <Select
+                                        value={formData.petInfo.species}
+                                        onChange={(e) => handlePetInfoChange('species', e.target.value)}
+                                        displayEmpty
+                                        renderValue={(selected) => {
+                                            if (!selected) {
+                                                return (
+                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: COLORS.INFO[500], fontStyle: 'italic' }}>
+                                                        <Typography sx={{ color: COLORS.INFO[500], fontStyle: 'italic' }}>
+                                                            Chọn loài thú cưng
+                                                        </Typography>
+                                                    </Box>
+                                                );
+                                            }
+                                            const options = {
+                                                dog: { emoji: '🐕', text: 'Chó' },
+                                                cat: { emoji: '🐱', text: 'Mèo' },
+                                                bird: { emoji: '🐦', text: 'Chim' },
+                                                rabbit: { emoji: '🐰', text: 'Thỏ' },
+                                                hamster: { emoji: '🐹', text: 'Hamster' },
+                                            };
+                                            const option = options[selected];
+                                            return (
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                    <Typography>{option.emoji}</Typography>
+                                                    <Typography>{option.text}</Typography>
+                                                </Box>
+                                            );
+                                        }}
+                                        sx={{
+                                            borderRadius: 4,
+                                            backgroundColor: alpha(COLORS.BACKGROUND.DEFAULT, 0.95),
+                                            minHeight: '56px',
+                                            border: `1px solid ${alpha(COLORS.INFO[300], 0.3)}`,
+                                            transition: 'all 0.2s ease',
                                             '&:hover': {
-                                                borderColor: COLORS.WARNING[400],
-                                                boxShadow: `0 4px 12px ${alpha(COLORS.WARNING[300], 0.2)}`
+                                                borderColor: COLORS.INFO[400],
+                                                boxShadow: `0 4px 12px ${alpha(COLORS.INFO[300], 0.15)}`,
+                                                backgroundColor: alpha(COLORS.INFO[50], 0.1)
                                             },
                                             '&.Mui-focused': {
-                                                borderColor: COLORS.WARNING[500],
-                                                boxShadow: `0 0 0 3px ${alpha(COLORS.WARNING[300], 0.2)}`
+                                                borderColor: COLORS.INFO[500],
+                                                boxShadow: `0 0 0 3px ${alpha(COLORS.INFO[300], 0.2)}`,
+                                                backgroundColor: alpha(COLORS.INFO[50], 0.05)
+                                            },
+                                            '& .MuiSelect-select': {
+                                                fontSize: '0.95rem',
+                                                padding: '16px 20px',
+                                                fontWeight: 500,
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: 1,
+                                                color: COLORS.TEXT.PRIMARY
+                                            }
+                                        }}
+                                    >
+                                        <MenuItem value="dog">
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                <Typography>🐕</Typography>
+                                                <Typography>Chó</Typography>
+                                            </Box>
+                                        </MenuItem>
+                                        <MenuItem value="cat">
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                <Typography>🐱</Typography>
+                                                <Typography>Mèo</Typography>
+                                            </Box>
+                                        </MenuItem>
+                                        <MenuItem value="bird">
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                <Typography>🐦</Typography>
+                                                <Typography>Chim</Typography>
+                                            </Box>
+                                        </MenuItem>
+                                        <MenuItem value="rabbit">
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                <Typography>🐰</Typography>
+                                                <Typography>Thỏ</Typography>
+                                            </Box>
+                                        </MenuItem>
+                                        <MenuItem value="hamster">
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                <Typography>🐹</Typography>
+                                                <Typography>Hamster</Typography>
+                                            </Box>
+                                        </MenuItem>
+                                    </Select>
+                                    {errors.petInfo?.species && (
+                                        <Typography variant="caption" sx={{ color: 'error.main', mt: 0.5, ml: 1.5 }}>
+                                            {errors.petInfo.species}
+                                        </Typography>
+                                    )}
+                                </FormControl>
+
+                                {/* Giống thú cưng */}
+                                <TextField
+                                    fullWidth
+                                    placeholder="Nhập giống thú cưng"
+                                    value={formData.petInfo.breed}
+                                    onChange={(e) => handlePetInfoChange('breed', e.target.value)}
+                                    error={!!errors.petInfo?.breed}
+                                    helperText={errors.petInfo?.breed}
+                                    sx={{
+                                        '& .MuiOutlinedInput-root': {
+                                            borderRadius: 4,
+                                            backgroundColor: alpha(COLORS.BACKGROUND.DEFAULT, 0.95),
+                                            minHeight: '56px',
+                                            border: `1px solid ${alpha(COLORS.INFO[300], 0.3)}`,
+                                            transition: 'all 0.2s ease',
+                                            '&:hover': {
+                                                borderColor: COLORS.INFO[400],
+                                                boxShadow: `0 4px 12px ${alpha(COLORS.INFO[300], 0.15)}`,
+                                                backgroundColor: alpha(COLORS.INFO[50], 0.1)
+                                            },
+                                            '&.Mui-focused': {
+                                                borderColor: COLORS.INFO[500],
+                                                boxShadow: `0 0 0 3px ${alpha(COLORS.INFO[300], 0.2)}`,
+                                                backgroundColor: alpha(COLORS.INFO[50], 0.05)
                                             }
                                         },
                                         '& .MuiInputBase-input': {
-                                            fontSize: '0.9rem',
-                                            padding: '12px 14px',
-                                            fontWeight: 'bold'
+                                            fontSize: '0.95rem',
+                                            padding: '16px 20px',
+                                            fontWeight: 500,
+                                            color: COLORS.TEXT.PRIMARY,
+                                            '&::placeholder': {
+                                                color: COLORS.INFO[500],
+                                                opacity: 0.7,
+                                                fontWeight: 400
+                                            }
                                         }
                                     }}
                                 />
 
-                                {errors.selectedDate && (
-                                    <Alert severity="error" sx={{ mt: 1.5, borderRadius: 2, py: 1 }}>
-                                        {errors.selectedDate}
-                                    </Alert>
-                                )}
-                            </CardContent>
-                        </Card>
-                    </Grid>
-
-                    {/* Chọn giờ - 50% */}
-                    <Grid item xs={12} md={6}>
-                        <Card sx={{
-                            borderRadius: 4,
-                            border: `2px solid ${alpha(COLORS.INFO[300], 0.4)}`,
-                            boxShadow: `0 6px 18px ${alpha(COLORS.INFO[200], 0.12)}`,
-                            background: `linear-gradient(135deg, 
-                                ${alpha(COLORS.BACKGROUND.DEFAULT, 0.98)} 0%, 
-                                ${alpha(COLORS.INFO[50], 0.8)} 50%,
-                                ${alpha(COLORS.SECONDARY[50], 0.6)} 100%
-                            )`,
-                            minHeight: '170px',
-                            position: 'relative',
-                            overflow: 'hidden',
-                            '&::before': {
-                                content: '""',
-                                position: 'absolute',
-                                top: -6,
-                                left: -6,
-                                width: 45,
-                                height: 45,
-                                background: `radial-gradient(circle, ${alpha(COLORS.INFO[200], 0.25)} 0%, transparent 70%)`,
-                                borderRadius: '50%'
-                            }
-                        }}>
-                            <CardContent sx={{ p: 2.5, position: 'relative', zIndex: 1 }}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2.5 }}>
-                                    <Avatar sx={{
-                                        bgcolor: COLORS.INFO[500],
-                                        width: 34,
-                                        height: 34,
-                                        fontSize: '1rem'
-                                    }}>
-                                        ⏰
-                                    </Avatar>
-                                    <Typography variant="h6" sx={{
-                                        fontWeight: 'bold',
-                                        color: COLORS.INFO[700],
-                                        fontSize: '0.95rem',
-                                        fontFamily: '"Comic Sans MS", cursive'
-                                    }}>
-                                        🐾 Chọn khung giờ
-                                    </Typography>
-                                </Box>
-
-                                {!formData.selectedDate && (
-                                    <Alert
-                                        severity="info"
-                                        sx={{
-                                            mb: 1.5,
-                                            borderRadius: 2,
-                                            background: alpha(COLORS.INFO[50], 0.8),
-                                            border: `1px solid ${alpha(COLORS.INFO[200], 0.5)}`,
-                                            fontSize: '0.85rem',
-                                            py: 1
-                                        }}
-                                        icon={<Pets sx={{ color: COLORS.INFO[600] }} />}
-                                    >
-                                        🐾 Vui lòng chọn ngày trước để xem các khung giờ có sẵn
-                                    </Alert>
-                                )}
-
-                                {formData.selectedDate && (() => {
-                                    const today = new Date();
-                                    const selectedDate = new Date(formData.selectedDate);
-                                    const isToday = selectedDate.toDateString() === today.toDateString();
-
-                                    if (isToday) {
-                                        return (
-                                            <Alert
-                                                severity="warning"
-                                                sx={{
-                                                    mb: 1.5,
-                                                    borderRadius: 2,
-                                                    background: alpha(COLORS.WARNING[50], 0.8),
-                                                    border: `1px solid ${alpha(COLORS.WARNING[200], 0.5)}`,
-                                                    fontSize: '0.85rem',
-                                                    py: 1
-                                                }}
-                                                icon={<Schedule sx={{ color: COLORS.WARNING[600] }} />}
-                                            >
-                                                ⚠️ Chỉ hiển thị các giờ trong tương lai
-                                            </Alert>
-                                        );
-                                    }
-                                    return null;
-                                })()}
-
-                                {checkingAvailability && (
-                                    <Box sx={{ textAlign: 'center', py: 2 }}>
-                                        <Loading
-                                            message="🔍 Đang kiểm tra lịch trống..."
-                                            size="small"
-                                            variant="dots"
-                                        />
-                                    </Box>
-                                )}
-
-                                {errors.availability && (
-                                    <Alert severity="error" sx={{ mb: 1.5, borderRadius: 2, py: 1 }}>
-                                        {errors.availability}
-                                    </Alert>
-                                )}
-
-
-                                {availableSlots.length > 0 && (
-                                    <>
-                                        <Grid container spacing={0.8}>
-                                            {availableSlots.map((slot) => (
-                                                <Grid item xs={6} sm={4} md={4} lg={4} xl={4} key={slot.time}>
-                                                    <Button
-                                                        fullWidth
-                                                        variant={formData.selectedTime === slot.time ? 'contained' : 'outlined'}
-                                                        disabled={!slot.available}
-                                                        onClick={() => handleFieldChange('selectedTime', slot.time)}
-                                                        sx={{
-                                                            py: 0.8,
-                                                            px: 0.5,
-                                                            borderRadius: 2.5,
-                                                            textTransform: 'none',
-                                                            minHeight: '44px',
-                                                            fontSize: '0.7rem',
-                                                            fontWeight: 600,
-                                                            position: 'relative',
-                                                            overflow: 'hidden',
-                                                            ...(slot.available ? {
-                                                                borderColor: formData.selectedTime === slot.time ?
-                                                                    COLORS.INFO[500] : alpha(COLORS.INFO[300], 0.5),
-                                                                color: formData.selectedTime === slot.time ?
-                                                                    'white' : COLORS.INFO[700],
-                                                                backgroundColor: formData.selectedTime === slot.time ?
-                                                                    `linear-gradient(135deg, ${COLORS.INFO[500]} 0%, ${COLORS.INFO[600]} 100%)` :
-                                                                    alpha(COLORS.INFO[50], 0.8),
-                                                                '&:hover': {
-                                                                    backgroundColor: formData.selectedTime === slot.time ?
-                                                                        `linear-gradient(135deg, ${COLORS.INFO[600]} 0%, ${COLORS.INFO[700]} 100%)` :
-                                                                        alpha(COLORS.INFO[100], 0.9),
-                                                                    borderColor: COLORS.INFO[400],
-                                                                    transform: 'translateY(-2px)',
-                                                                    boxShadow: `0 6px 16px ${alpha(COLORS.INFO[300], 0.3)}`
-                                                                },
-                                                                '&::before': formData.selectedTime === slot.time ? {
-                                                                    content: '""',
-                                                                    position: 'absolute',
-                                                                    top: 0,
-                                                                    left: 0,
-                                                                    right: 0,
-                                                                    bottom: 0,
-                                                                    background: `radial-gradient(circle at 50% 0%, ${alpha(COLORS.INFO[200], 0.3)} 0%, transparent 70%)`,
-                                                                    pointerEvents: 'none'
-                                                                } : {}
-                                                            } : {
-                                                                borderColor: alpha(COLORS.GRAY[300], 0.5),
-                                                                color: COLORS.GRAY[400],
-                                                                backgroundColor: alpha(COLORS.GRAY[100], 0.5)
-                                                            }),
-                                                            transition: 'all 0.3s ease'
-                                                        }}
-                                                    >
-                                                        <Box sx={{ textAlign: 'center', position: 'relative', zIndex: 1 }}>
-                                                            <Typography variant="body2" sx={{
-                                                                fontWeight: 'bold',
-                                                                fontSize: '0.65rem'
-                                                            }}>
-                                                                {slot.time}
-                                                            </Typography>
-                                                        </Box>
-                                                    </Button>
-                                                </Grid>
-                                            ))}
-                                        </Grid>
-                                    </>
-                                )}
-
-                                {formData.selectedDate && availableSlots.length === 0 && (() => {
-                                    const today = new Date();
-                                    const selectedDate = new Date(formData.selectedDate);
-                                    const isPastDate = selectedDate < today.setHours(0, 0, 0, 0);
-
-                                    if (isPastDate) {
-                                        return (
-                                            <Alert
-                                                severity="error"
-                                                sx={{
-                                                    mb: 1.5,
-                                                    borderRadius: 2,
-                                                    background: alpha(COLORS.ERROR[50], 0.8),
-                                                    border: `1px solid ${alpha(COLORS.ERROR[200], 0.5)}`,
-                                                    fontSize: '0.85rem',
-                                                    py: 1
-                                                }}
-                                                icon={<Schedule sx={{ color: COLORS.ERROR[600] }} />}
-                                            >
-                                                ❌ Không thể chọn giờ cho ngày quá khứ. Vui lòng chọn ngày khác.
-                                            </Alert>
-                                        );
-                                    } else {
-                                        return (
-                                            <Alert
-                                                severity="error"
-                                                sx={{
-                                                    mb: 1.5,
-                                                    borderRadius: 2,
-                                                    background: alpha(COLORS.ERROR[50], 0.8),
-                                                    border: `1px solid ${alpha(COLORS.ERROR[200], 0.5)}`,
-                                                    fontSize: '0.85rem',
-                                                    py: 1
-                                                }}
-                                                icon={<Schedule sx={{ color: COLORS.ERROR[600] }} />}
-                                            >
-                                                ❌ Không có giờ khả dụng cho ngày hôm nay. Vui lòng chọn ngày khác.
-                                            </Alert>
-                                        );
-                                    }
-                                })()}
-
-                                {errors.selectedTime && (
-                                    <Alert severity="error" sx={{ mt: 1.5, borderRadius: 2, py: 1 }}>
-                                        {errors.selectedTime}
-                                    </Alert>
-                                )}
-                            </CardContent>
-                        </Card>
-                    </Grid>
-                </Grid>
-
-                {/* HÀNG 2: Thông tin thú cưng - Layout tối ưu */}
-                <Box sx={{ mb: 4 }}>
-                    <Card sx={{
-                        borderRadius: 4,
-                        border: `2px solid ${alpha(COLORS.INFO[300], 0.4)}`,
-                        boxShadow: `0 6px 18px ${alpha(COLORS.INFO[200], 0.12)}`,
-                        background: `linear-gradient(135deg, 
-                            ${alpha(COLORS.BACKGROUND.DEFAULT, 0.98)} 0%, 
-                            ${alpha(COLORS.INFO[50], 0.8)} 50%,
-                            ${alpha(COLORS.WARNING[50], 0.6)} 100%
-                        )`,
-                        position: 'relative',
-                        overflow: 'hidden',
-                        '&::before': {
-                            content: '""',
-                            position: 'absolute',
-                            top: -12,
-                            left: -12,
-                            width: 70,
-                            height: 70,
-                            background: `radial-gradient(circle, ${alpha(COLORS.INFO[200], 0.15)} 0%, transparent 70%)`,
-                            borderRadius: '50%'
-                        }
-                    }}>
-                        <CardContent sx={{ p: 2.5, position: 'relative', zIndex: 1 }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2.5 }}>
-                                <Avatar sx={{
-                                    bgcolor: COLORS.INFO[500],
-                                    width: 34,
-                                    height: 34,
-                                    fontSize: '1rem'
-                                }}>
-                                    🐕
-                                </Avatar>
-                                <Typography variant="h6" sx={{
-                                    fontWeight: 'bold',
-                                    color: COLORS.INFO[700],
-                                    fontSize: '0.95rem',
-                                    fontFamily: '"Comic Sans MS", cursive'
-                                }}>
-                                    🐾 Thông tin thú cưng
-                                </Typography>
+                                {/* Cân nặng */}
+                                <TextField
+                                    fullWidth
+                                    placeholder="Nhập cân nặng (kg)"
+                                    type="number"
+                                    value={formData.petInfo.weight}
+                                    onChange={(e) => handlePetInfoChange('weight', e.target.value)}
+                                    error={!!errors.petInfo?.weight}
+                                    helperText={errors.petInfo?.weight}
+                                    InputProps={{
+                                        endAdornment: (
+                                            <InputAdornment position="end">
+                                                <Typography sx={{ color: COLORS.INFO[500], fontSize: '0.8rem', fontWeight: 'bold' }}>
+                                                    kg
+                                                </Typography>
+                                            </InputAdornment>
+                                        )
+                                    }}
+                                    sx={{
+                                        '& .MuiOutlinedInput-root': {
+                                            borderRadius: 3,
+                                            backgroundColor: alpha(COLORS.BACKGROUND.DEFAULT, 0.9),
+                                            minHeight: '52px',
+                                            border: `2px solid ${alpha(COLORS.INFO[300], 0.3)}`,
+                                            '&:hover': {
+                                                borderColor: COLORS.INFO[400],
+                                                boxShadow: `0 4px 12px ${alpha(COLORS.INFO[300], 0.2)}`
+                                            },
+                                            '&.Mui-focused': {
+                                                borderColor: COLORS.INFO[500],
+                                                boxShadow: `0 0 0 3px ${alpha(COLORS.INFO[300], 0.2)}`
+                                            }
+                                        },
+                                        '& .MuiInputBase-input': {
+                                            fontSize: '0.9rem',
+                                            padding: '14px 18px',
+                                            fontWeight: 'bold',
+                                            '&::placeholder': {
+                                                color: COLORS.INFO[500],
+                                                opacity: 0.8,
+                                                fontWeight: 'bold'
+                                            }
+                                        }
+                                    }}
+                                />
                             </Box>
-
-                            <Grid container spacing={2.5}>
-                                {/* Hàng 1: Loài và Giống */}
-                                <Grid item xs={12} md={6}>
-                                    <FormControl fullWidth error={!!errors.petInfo?.species}>
-                                        <Select
-                                            value={formData.petInfo.species}
-                                            onChange={(e) => handlePetInfoChange('species', e.target.value)}
-                                            displayEmpty
-                                            renderValue={(selected) => {
-                                                if (!selected) {
-                                                    return (
-                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: COLORS.INFO[500], fontStyle: 'italic' }}>
-                                                            <Typography sx={{ color: COLORS.INFO[500], fontStyle: 'italic' }}>
-                                                                Chọn loài thú cưng
-                                                            </Typography>
-                                                        </Box>
-                                                    );
-                                                }
-                                                const options = {
-                                                    dog: { emoji: '🐕', text: 'Chó' },
-                                                    cat: { emoji: '🐱', text: 'Mèo' },
-                                                    bird: { emoji: '🐦', text: 'Chim' },
-                                                    rabbit: { emoji: '🐰', text: 'Thỏ' },
-                                                    hamster: { emoji: '🐹', text: 'Hamster' },
-                                                    other: { emoji: '🐾', text: 'Khác' }
-                                                };
-                                                const option = options[selected];
-                                                return (
-                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                        <Typography>{option.emoji}</Typography>
-                                                        <Typography>{option.text}</Typography>
-                                                    </Box>
-                                                );
-                                            }}
-                                            sx={{
-                                                borderRadius: 3,
-                                                backgroundColor: alpha(COLORS.BACKGROUND.DEFAULT, 0.9),
-                                                minHeight: '52px',
-                                                border: `2px solid ${alpha(COLORS.INFO[300], 0.3)}`,
-                                                '&:hover': {
-                                                    borderColor: COLORS.INFO[400],
-                                                    boxShadow: `0 4px 12px ${alpha(COLORS.INFO[300], 0.2)}`
-                                                },
-                                                '&.Mui-focused': {
-                                                    borderColor: COLORS.INFO[500],
-                                                    boxShadow: `0 0 0 3px ${alpha(COLORS.INFO[300], 0.2)}`
-                                                },
-                                                '& .MuiSelect-select': {
-                                                    fontSize: '0.9rem',
-                                                    padding: '14px 18px',
-                                                    fontWeight: 'bold',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    gap: 1
-                                                }
-                                            }}
-                                            startAdornment={
-                                                <InputAdornment position="start">
-                                                    <Pets sx={{ color: COLORS.INFO[600] }} />
-                                                </InputAdornment>
-                                            }
-                                        >
-                                            <MenuItem value="dog">
-                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                    <Typography>🐕</Typography>
-                                                    <Typography>Chó</Typography>
-                                                </Box>
-                                            </MenuItem>
-                                            <MenuItem value="cat">
-                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                    <Typography>🐱</Typography>
-                                                    <Typography>Mèo</Typography>
-                                                </Box>
-                                            </MenuItem>
-                                            <MenuItem value="bird">
-                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                    <Typography>🐦</Typography>
-                                                    <Typography>Chim</Typography>
-                                                </Box>
-                                            </MenuItem>
-                                            <MenuItem value="rabbit">
-                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                    <Typography>🐰</Typography>
-                                                    <Typography>Thỏ</Typography>
-                                                </Box>
-                                            </MenuItem>
-                                            <MenuItem value="hamster">
-                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                    <Typography>🐹</Typography>
-                                                    <Typography>Hamster</Typography>
-                                                </Box>
-                                            </MenuItem>
-                                            <MenuItem value="other">
-                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                    <Typography>🐾</Typography>
-                                                    <Typography>Khác</Typography>
-                                                </Box>
-                                            </MenuItem>
-                                        </Select>
-                                        {errors.petInfo?.species && (
-                                            <Typography variant="caption" sx={{ color: 'error.main', mt: 0.5, ml: 1.5 }}>
-                                                {errors.petInfo.species}
-                                            </Typography>
-                                        )}
-                                    </FormControl>
-                                </Grid>
-                                <Grid item xs={12} md={6}>
-                                    <TextField
-                                        fullWidth
-                                        placeholder="Nhập giống thú cưng"
-                                        value={formData.petInfo.breed}
-                                        onChange={(e) => handlePetInfoChange('breed', e.target.value)}
-                                        error={!!errors.petInfo?.breed}
-                                        helperText={errors.petInfo?.breed}
-                                        InputProps={{
-                                            startAdornment: (
-                                                <InputAdornment position="start">
-                                                    <Star sx={{ color: COLORS.INFO[600] }} />
-                                                </InputAdornment>
-                                            )
-                                        }}
-                                        sx={{
-                                            '& .MuiOutlinedInput-root': {
-                                                borderRadius: 3,
-                                                backgroundColor: alpha(COLORS.BACKGROUND.DEFAULT, 0.9),
-                                                minHeight: '52px',
-                                                border: `2px solid ${alpha(COLORS.INFO[300], 0.3)}`,
-                                                '&:hover': {
-                                                    borderColor: COLORS.INFO[400],
-                                                    boxShadow: `0 4px 12px ${alpha(COLORS.INFO[300], 0.2)}`
-                                                },
-                                                '&.Mui-focused': {
-                                                    borderColor: COLORS.INFO[500],
-                                                    boxShadow: `0 0 0 3px ${alpha(COLORS.INFO[300], 0.2)}`
-                                                }
-                                            },
-                                            '& .MuiInputBase-input': {
-                                                fontSize: '0.9rem',
-                                                padding: '14px 18px',
-                                                fontWeight: 'bold',
-                                                '&::placeholder': {
-                                                    color: COLORS.INFO[500],
-                                                    opacity: 0.8,
-                                                    fontWeight: 'bold'
-                                                }
-                                            }
-                                        }}
-                                    />
-                                </Grid>
-                                {/* Hàng 2: Cân nặng */}
-                                <Grid item xs={12} md={6}>
-                                    <TextField
-                                        fullWidth
-                                        placeholder="Nhập cân nặng (kg)"
-                                        type="number"
-                                        value={formData.petInfo.weight}
-                                        onChange={(e) => handlePetInfoChange('weight', e.target.value)}
-                                        error={!!errors.petInfo?.weight}
-                                        helperText={errors.petInfo?.weight}
-                                        InputProps={{
-                                            startAdornment: (
-                                                <InputAdornment position="start">
-                                                    <Cake sx={{ color: COLORS.INFO[600] }} />
-                                                </InputAdornment>
-                                            ),
-                                            endAdornment: (
-                                                <InputAdornment position="end">
-                                                    <Typography sx={{ color: COLORS.INFO[500], fontSize: '0.8rem', fontWeight: 'bold' }}>
-                                                        kg
-                                                    </Typography>
-                                                </InputAdornment>
-                                            )
-                                        }}
-                                        sx={{
-                                            '& .MuiOutlinedInput-root': {
-                                                borderRadius: 3,
-                                                backgroundColor: alpha(COLORS.BACKGROUND.DEFAULT, 0.9),
-                                                minHeight: '52px',
-                                                border: `2px solid ${alpha(COLORS.INFO[300], 0.3)}`,
-                                                '&:hover': {
-                                                    borderColor: COLORS.INFO[400],
-                                                    boxShadow: `0 4px 12px ${alpha(COLORS.INFO[300], 0.2)}`
-                                                },
-                                                '&.Mui-focused': {
-                                                    borderColor: COLORS.INFO[500],
-                                                    boxShadow: `0 0 0 3px ${alpha(COLORS.INFO[300], 0.2)}`
-                                                }
-                                            },
-                                            '& .MuiInputBase-input': {
-                                                fontSize: '0.9rem',
-                                                padding: '14px 18px',
-                                                fontWeight: 'bold',
-                                                '&::placeholder': {
-                                                    color: COLORS.INFO[500],
-                                                    opacity: 0.8,
-                                                    fontWeight: 'bold'
-                                                }
-                                            }
-                                        }}
-                                    />
-                                </Grid>
-                            </Grid>
                         </CardContent>
                     </Card>
                 </Box>
 
-                {/* HÀNG 3: Thông tin liên hệ - Layout tối ưu */}
-                <Box sx={{ mb: 4 }}>
+                {/* Thông tin liên hệ */}
+                <Box sx={{ mb: { xs: 4, sm: 5, md: 5 } }}>
                     <Card sx={{
-                        borderRadius: 4,
-                        border: `2px solid ${alpha(COLORS.SECONDARY[300], 0.4)}`,
-                        boxShadow: `0 6px 18px ${alpha(COLORS.SECONDARY[200], 0.12)}`,
-                        background: `linear-gradient(135deg, 
+                        borderRadius: 6,
+                        background: `linear-gradient(145deg, 
                             ${alpha(COLORS.BACKGROUND.DEFAULT, 0.98)} 0%, 
-                            ${alpha(COLORS.SECONDARY[50], 0.8)} 50%,
-                            ${alpha(COLORS.INFO[50], 0.6)} 100%
+                            ${alpha(COLORS.SECONDARY[50], 0.95)} 50%,
+                            ${alpha(COLORS.INFO[50], 0.9)} 100%
                         )`,
+                        border: `1px solid ${alpha(COLORS.SECONDARY[200], 0.3)}`,
+                        boxShadow: `0 8px 32px ${alpha(COLORS.SECONDARY[200], 0.15)}, 
+                                   0 2px 8px ${alpha(COLORS.SECONDARY[100], 0.1)}`,
+                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                         position: 'relative',
                         overflow: 'hidden',
                         '&::before': {
                             content: '""',
                             position: 'absolute',
-                            top: -12,
-                            right: -12,
-                            width: 70,
-                            height: 70,
-                            background: `radial-gradient(circle, ${alpha(COLORS.SECONDARY[200], 0.15)} 0%, transparent 70%)`,
-                            borderRadius: '50%'
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            height: '3px',
+                            background: `linear-gradient(90deg, 
+                                ${COLORS.SECONDARY[400]} 0%, 
+                                ${COLORS.INFO[400]} 100%
+                            )`
+                        },
+                        '&:hover': {
+                            transform: 'translateY(-4px)',
+                            boxShadow: `0 12px 40px ${alpha(COLORS.SECONDARY[200], 0.2)}, 
+                                       0 4px 12px ${alpha(COLORS.SECONDARY[100], 0.15)}`
                         }
                     }}>
-                        <CardContent sx={{ p: 2.5, position: 'relative', zIndex: 1 }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2.5 }}>
-                                <Avatar sx={{
-                                    bgcolor: COLORS.SECONDARY[500],
-                                    width: 34,
-                                    height: 34,
-                                    fontSize: '1rem'
-                                }}>
-                                    👤
-                                </Avatar>
-                                <Typography variant="h6" sx={{
-                                    fontWeight: 'bold',
-                                    color: COLORS.SECONDARY[700],
-                                    fontSize: '0.95rem',
-                                    fontFamily: '"Comic Sans MS", cursive'
-                                }}>
-                                    🐾 Thông tin liên hệ
-                                </Typography>
-                            </Box>
+                        <CardContent sx={{ p: { xs: 2, sm: 3, md: 4 } }}>
+                            <Typography variant="h6" sx={{
+                                fontWeight: 600,
+                                color: COLORS.SECONDARY[700],
+                                mb: 3,
+                                fontSize: '1.1rem',
+                                letterSpacing: '-0.01em'
+                            }}>
+                                👤 Thông tin liên hệ
+                            </Typography>
 
-                            <Grid container spacing={2.5}>
-                                {/* Hàng 1: Họ tên và Số điện thoại */}
-                                <Grid item xs={12} md={6}>
-                                    <TextField
-                                        fullWidth
-                                        placeholder="Nhập tên của bạn"
-                                        value={formData.customerInfo.name}
-                                        onChange={(e) => handleCustomerInfoChange('name', e.target.value)}
-                                        error={!!errors.customerInfo?.name}
-                                        helperText={errors.customerInfo?.name}
-                                        InputProps={{
-                                            startAdornment: (
-                                                <InputAdornment position="start">
-                                                    <Person sx={{ color: COLORS.SECONDARY[600] }} />
-                                                </InputAdornment>
-                                            )
-                                        }}
-                                        sx={{
-                                            '& .MuiOutlinedInput-root': {
-                                                borderRadius: 3,
-                                                backgroundColor: alpha(COLORS.BACKGROUND.DEFAULT, 0.9),
-                                                minHeight: '52px',
-                                                border: `2px solid ${alpha(COLORS.SECONDARY[300], 0.3)}`,
-                                                '&:hover': {
-                                                    borderColor: COLORS.SECONDARY[400],
-                                                    boxShadow: `0 4px 12px ${alpha(COLORS.SECONDARY[300], 0.2)}`
-                                                },
-                                                '&.Mui-focused': {
-                                                    borderColor: COLORS.SECONDARY[500],
-                                                    boxShadow: `0 0 0 3px ${alpha(COLORS.SECONDARY[300], 0.2)}`
-                                                }
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 2, sm: 3, md: 3 } }}>
+                                {/* Họ tên */}
+                                <TextField
+                                    fullWidth
+                                    placeholder="Nhập tên của bạn"
+                                    value={formData.customerInfo.name}
+                                    onChange={(e) => handleCustomerInfoChange('name', e.target.value)}
+                                    error={!!errors.customerInfo?.name}
+                                    helperText={errors.customerInfo?.name}
+                                    InputProps={{}}
+                                    sx={{
+                                        '& .MuiOutlinedInput-root': {
+                                            borderRadius: 3,
+                                            backgroundColor: alpha(COLORS.BACKGROUND.DEFAULT, 0.9),
+                                            minHeight: '52px',
+                                            border: `2px solid ${alpha(COLORS.SECONDARY[300], 0.3)}`,
+                                            '&:hover': {
+                                                borderColor: COLORS.SECONDARY[400],
+                                                boxShadow: `0 4px 12px ${alpha(COLORS.SECONDARY[300], 0.2)}`
                                             },
-                                            '& .MuiInputBase-input': {
-                                                fontSize: '0.9rem',
-                                                padding: '14px 18px',
-                                                fontWeight: 'bold',
-                                                '&::placeholder': {
-                                                    color: COLORS.SECONDARY[500],
-                                                    opacity: 0.8,
-                                                    fontWeight: 'bold'
-                                                }
+                                            '&.Mui-focused': {
+                                                borderColor: COLORS.SECONDARY[500],
+                                                boxShadow: `0 0 0 3px ${alpha(COLORS.SECONDARY[300], 0.2)}`
                                             }
-                                        }}
-                                    />
-                                </Grid>
-                                <Grid item xs={12} md={6}>
-                                    <TextField
-                                        fullWidth
-                                        placeholder="Nhập số điện thoại của bạn"
-                                        value={formData.customerInfo.phone}
-                                        onChange={(e) => handleCustomerInfoChange('phone', e.target.value)}
-                                        error={!!errors.customerInfo?.phone}
-                                        helperText={errors.customerInfo?.phone}
-                                        InputProps={{
-                                            startAdornment: (
-                                                <InputAdornment position="start">
-                                                    <Phone sx={{ color: COLORS.SECONDARY[600] }} />
-                                                </InputAdornment>
-                                            )
-                                        }}
-                                        sx={{
-                                            '& .MuiOutlinedInput-root': {
-                                                borderRadius: 3,
-                                                backgroundColor: alpha(COLORS.BACKGROUND.DEFAULT, 0.9),
-                                                minHeight: '52px',
-                                                border: `2px solid ${alpha(COLORS.SECONDARY[300], 0.3)}`,
-                                                '&:hover': {
-                                                    borderColor: COLORS.SECONDARY[400],
-                                                    boxShadow: `0 4px 12px ${alpha(COLORS.SECONDARY[300], 0.2)}`
-                                                },
-                                                '&.Mui-focused': {
-                                                    borderColor: COLORS.SECONDARY[500],
-                                                    boxShadow: `0 0 0 3px ${alpha(COLORS.SECONDARY[300], 0.2)}`
-                                                }
+                                        },
+                                        '& .MuiInputBase-input': {
+                                            fontSize: '0.9rem',
+                                            padding: '14px 18px',
+                                            fontWeight: 'bold',
+                                            '&::placeholder': {
+                                                color: COLORS.SECONDARY[500],
+                                                opacity: 0.8,
+                                                fontWeight: 'bold'
+                                            }
+                                        }
+                                    }}
+                                />
+
+                                {/* Số điện thoại */}
+                                <TextField
+                                    fullWidth
+                                    placeholder="Nhập số điện thoại của bạn"
+                                    value={formData.customerInfo.phone}
+                                    onChange={(e) => handleCustomerInfoChange('phone', e.target.value)}
+                                    error={!!errors.customerInfo?.phone}
+                                    helperText={errors.customerInfo?.phone}
+                                    InputProps={{}}
+                                    sx={{
+                                        '& .MuiOutlinedInput-root': {
+                                            borderRadius: 3,
+                                            backgroundColor: alpha(COLORS.BACKGROUND.DEFAULT, 0.9),
+                                            minHeight: '52px',
+                                            border: `2px solid ${alpha(COLORS.SECONDARY[300], 0.3)}`,
+                                            '&:hover': {
+                                                borderColor: COLORS.SECONDARY[400],
+                                                boxShadow: `0 4px 12px ${alpha(COLORS.SECONDARY[300], 0.2)}`
                                             },
-                                            '& .MuiInputBase-input': {
-                                                fontSize: '0.9rem',
-                                                padding: '14px 18px',
-                                                fontWeight: 'bold',
-                                                '&::placeholder': {
-                                                    color: COLORS.SECONDARY[500],
-                                                    opacity: 0.8,
-                                                    fontWeight: 'bold'
-                                                }
+                                            '&.Mui-focused': {
+                                                borderColor: COLORS.SECONDARY[500],
+                                                boxShadow: `0 0 0 3px ${alpha(COLORS.SECONDARY[300], 0.2)}`
                                             }
-                                        }}
-                                    />
-                                </Grid>
-                                {/* Hàng 2: Email */}
-                                <Grid item xs={12} md={6}>
-                                    <TextField
-                                        fullWidth
-                                        placeholder="Nhập email của bạn"
-                                        type="email"
-                                        value={formData.customerInfo.email}
-                                        onChange={(e) => handleCustomerInfoChange('email', e.target.value)}
-                                        error={!!errors.customerInfo?.email}
-                                        helperText={errors.customerInfo?.email}
-                                        InputProps={{
-                                            startAdornment: (
-                                                <InputAdornment position="start">
-                                                    <Email sx={{ color: COLORS.SECONDARY[600] }} />
-                                                </InputAdornment>
-                                            )
-                                        }}
-                                        sx={{
-                                            '& .MuiOutlinedInput-root': {
-                                                borderRadius: 3,
-                                                backgroundColor: alpha(COLORS.BACKGROUND.DEFAULT, 0.9),
-                                                minHeight: '52px',
-                                                border: `2px solid ${alpha(COLORS.SECONDARY[300], 0.3)}`,
-                                                '&:hover': {
-                                                    borderColor: COLORS.SECONDARY[400],
-                                                    boxShadow: `0 4px 12px ${alpha(COLORS.SECONDARY[300], 0.2)}`
-                                                },
-                                                '&.Mui-focused': {
-                                                    borderColor: COLORS.SECONDARY[500],
-                                                    boxShadow: `0 0 0 3px ${alpha(COLORS.SECONDARY[300], 0.2)}`
-                                                }
+                                        },
+                                        '& .MuiInputBase-input': {
+                                            fontSize: '0.9rem',
+                                            padding: '14px 18px',
+                                            fontWeight: 'bold',
+                                            '&::placeholder': {
+                                                color: COLORS.SECONDARY[500],
+                                                opacity: 0.8,
+                                                fontWeight: 'bold'
+                                            }
+                                        }
+                                    }}
+                                />
+
+                                {/* Email */}
+                                <TextField
+                                    fullWidth
+                                    placeholder="Nhập email của bạn"
+                                    type="email"
+                                    value={formData.customerInfo.email}
+                                    onChange={(e) => handleCustomerInfoChange('email', e.target.value)}
+                                    error={!!errors.customerInfo?.email}
+                                    helperText={errors.customerInfo?.email}
+                                    InputProps={{}}
+                                    sx={{
+                                        '& .MuiOutlinedInput-root': {
+                                            borderRadius: 3,
+                                            backgroundColor: alpha(COLORS.BACKGROUND.DEFAULT, 0.9),
+                                            minHeight: '52px',
+                                            border: `2px solid ${alpha(COLORS.SECONDARY[300], 0.3)}`,
+                                            '&:hover': {
+                                                borderColor: COLORS.SECONDARY[400],
+                                                boxShadow: `0 4px 12px ${alpha(COLORS.SECONDARY[300], 0.2)}`
                                             },
-                                            '& .MuiInputBase-input': {
-                                                fontSize: '0.9rem',
-                                                padding: '14px 18px',
-                                                fontWeight: 'bold',
-                                                '&::placeholder': {
-                                                    color: COLORS.SECONDARY[500],
-                                                    opacity: 0.8,
-                                                    fontWeight: 'bold'
-                                                }
+                                            '&.Mui-focused': {
+                                                borderColor: COLORS.SECONDARY[500],
+                                                boxShadow: `0 0 0 3px ${alpha(COLORS.SECONDARY[300], 0.2)}`
                                             }
-                                        }}
-                                    />
-                                </Grid>
-                            </Grid>
+                                        },
+                                        '& .MuiInputBase-input': {
+                                            fontSize: '0.9rem',
+                                            padding: '14px 18px',
+                                            fontWeight: 'bold',
+                                            '&::placeholder': {
+                                                color: COLORS.SECONDARY[500],
+                                                opacity: 0.8,
+                                                fontWeight: 'bold'
+                                            }
+                                        }
+                                    }}
+                                />
+                            </Box>
                         </CardContent>
                     </Card>
                 </Box>
 
-                {/* HÀNG 4: Tóm tắt đặt lịch - Thiết kế dễ thương */}
-                <Box sx={{ mb: 3 }}>
+                {/* Tóm tắt đặt lịch */}
+                <Box sx={{
+                    mb: { xs: 3, sm: 4, md: 4 }
+                }}>
                     <Card sx={{
-                        borderRadius: 4,
-                        border: `2px solid ${alpha(COLORS.SUCCESS[300], 0.4)}`,
-                        boxShadow: `0 8px 20px ${alpha(COLORS.SUCCESS[200], 0.15)}`,
-                        background: `linear-gradient(135deg, 
-                                ${alpha(COLORS.BACKGROUND.DEFAULT, 0.98)} 0%, 
-                            ${alpha(COLORS.SUCCESS[50], 0.8)} 50%,
-                            ${alpha(COLORS.WARNING[50], 0.6)} 100%
+                        borderRadius: 6,
+                        background: `linear-gradient(145deg, 
+                            ${alpha(COLORS.BACKGROUND.DEFAULT, 0.98)} 0%, 
+                            ${alpha(COLORS.SUCCESS[50], 0.95)} 50%,
+                            ${alpha(COLORS.WARNING[50], 0.9)} 100%
                         )`,
+                        border: `1px solid ${alpha(COLORS.SUCCESS[200], 0.3)}`,
+                        boxShadow: `0 4px 20px ${alpha(COLORS.SUCCESS[200], 0.15)}, 
+                                   0 2px 8px ${alpha(COLORS.SUCCESS[100], 0.1)}`,
+                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                         position: 'relative',
                         overflow: 'hidden',
                         '&::before': {
                             content: '""',
                             position: 'absolute',
-                            top: -25,
-                            left: -25,
-                            width: 100,
-                            height: 100,
-                            background: `radial-gradient(circle, ${alpha(COLORS.SUCCESS[200], 0.15)} 0%, transparent 70%)`,
-                            borderRadius: '50%'
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            height: '3px',
+                            background: `linear-gradient(90deg, 
+                                ${COLORS.SUCCESS[400]} 0%, 
+                                ${COLORS.WARNING[400]} 50%,
+                                ${COLORS.INFO[400]} 100%
+                            )`
+                        },
+                        '&:hover': {
+                            transform: 'translateY(-2px)',
+                            boxShadow: `0 8px 32px ${alpha(COLORS.SUCCESS[200], 0.2)}, 
+                                       0 4px 12px ${alpha(COLORS.SUCCESS[100], 0.15)}`
                         }
                     }}>
-                        <CardContent sx={{ p: 3, position: 'relative', zIndex: 1 }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2.5 }}>
-                                <Avatar sx={{
-                                    bgcolor: COLORS.SUCCESS[500],
-                                    width: 42,
-                                    height: 42,
-                                    fontSize: '1.3rem'
-                                }}>
-                                    ✨
-                                </Avatar>
-                                <Typography variant="h6" sx={{
-                                    fontWeight: 'bold',
-                                    color: COLORS.SUCCESS[700],
-                                    fontSize: '1.2rem',
-                                    fontFamily: '"Comic Sans MS", cursive'
-                                }}>
-                                    🐾 Tóm tắt đặt lịch
-                                </Typography>
-                            </Box>
+                        <CardContent sx={{ p: { xs: 2, sm: 3, md: 4 } }}>
+                            <Typography variant="h6" sx={{
+                                fontWeight: 600,
+                                color: COLORS.SUCCESS[700],
+                                mb: 3,
+                                fontSize: '1.1rem',
+                                letterSpacing: '-0.01em'
+                            }}>
+                                📋 Tóm tắt đặt lịch
+                            </Typography>
 
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 2.5 }}>
+                            <Box sx={{
+                                display: 'flex',
+                                flexDirection: { xs: 'column', lg: 'row' },
+                                justifyContent: 'space-between',
+                                alignItems: { xs: 'stretch', lg: 'flex-start' },
+                                gap: { xs: 3, lg: 4 }
+                            }}>
                                 {/* Phần thông tin dịch vụ - bên trái */}
                                 <Box sx={{ flex: 1 }}>
                                     <Stack spacing={2}>
@@ -1329,7 +1020,7 @@ const BookingForm = ({ service, onBack, onSubmit }) => {
                                                     fontWeight: 'bold',
                                                     fontSize: '0.85rem'
                                                 }}>
-                                                    📅 Ngày
+                                                    Ngày
                                                 </Typography>
                                                 <Typography variant="body1" sx={{
                                                     fontWeight: 'bold',
@@ -1354,7 +1045,7 @@ const BookingForm = ({ service, onBack, onSubmit }) => {
                                                     fontWeight: 'bold',
                                                     fontSize: '0.85rem'
                                                 }}>
-                                                    ⏰ Giờ
+                                                    Giờ
                                                 </Typography>
                                                 <Typography variant="body1" sx={{
                                                     fontWeight: 'bold',
@@ -1366,195 +1057,109 @@ const BookingForm = ({ service, onBack, onSubmit }) => {
                                                 </Typography>
                                             </Paper>
                                         )}
-
-                                        {formData.petId && (
-                                            <Paper sx={{
-                                                p: 1.5,
-                                                borderRadius: 3,
-                                                background: alpha(COLORS.SECONDARY[50], 0.6),
-                                                border: `1px solid ${alpha(COLORS.SECONDARY[200], 0.5)}`
-                                            }}>
-                                                <Typography variant="body2" sx={{
-                                                    color: COLORS.SECONDARY[600],
-                                                    mb: 0.5,
-                                                    fontWeight: 'bold',
-                                                    fontSize: '0.85rem'
-                                                }}>
-                                                    🐕 Thú cưng
-                                                </Typography>
-                                                <Typography variant="body1" sx={{
-                                                    fontWeight: 'bold',
-                                                    color: COLORS.SECONDARY[700],
-                                                    fontSize: '1rem'
-                                                }}>
-                                                    {pets.find(pet => pet.id === formData.petId)?.name}
-                                                </Typography>
-                                            </Paper>
-                                        )}
-
-                                        {(formData.petInfo.species || formData.petInfo.breed || formData.petInfo.weight) && (
-                                            <Paper sx={{
-                                                p: 1.5,
-                                                borderRadius: 3,
-                                                background: alpha(COLORS.INFO[50], 0.6),
-                                                border: `1px solid ${alpha(COLORS.INFO[200], 0.5)}`
-                                            }}>
-                                                <Typography variant="body2" sx={{
-                                                    color: COLORS.INFO[600],
-                                                    mb: 0.5,
-                                                    fontWeight: 'bold',
-                                                    fontSize: '0.85rem'
-                                                }}>
-                                                    🐾 Thông tin chi tiết
-                                                </Typography>
-                                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                                                    {formData.petInfo.species && (
-                                                        <Typography variant="body2" sx={{
-                                                            fontWeight: 'bold',
-                                                            color: COLORS.INFO[700],
-                                                            fontSize: '0.9rem'
-                                                        }}>
-                                                            • Loài: {(() => {
-                                                                const speciesMap = {
-                                                                    'dog': 'Chó',
-                                                                    'cat': 'Mèo',
-                                                                    'bird': 'Chim',
-                                                                    'rabbit': 'Thỏ',
-                                                                    'hamster': 'Hamster',
-                                                                    'other': 'Khác'
-                                                                };
-                                                                return speciesMap[formData.petInfo.species] || formData.petInfo.species;
-                                                            })()}
-                                                        </Typography>
-                                                    )}
-                                                    {formData.petInfo.breed && (
-                                                        <Typography variant="body2" sx={{
-                                                            fontWeight: 'bold',
-                                                            color: COLORS.INFO[700],
-                                                            fontSize: '0.9rem'
-                                                        }}>
-                                                            • Giống: {formData.petInfo.breed}
-                                                        </Typography>
-                                                    )}
-                                                    {formData.petInfo.weight && (
-                                                        <Typography variant="body2" sx={{
-                                                            fontWeight: 'bold',
-                                                            color: COLORS.INFO[700],
-                                                            fontSize: '0.9rem'
-                                                        }}>
-                                                            • Cân nặng: {formData.petInfo.weight}kg
-                                                        </Typography>
-                                                    )}
-                                                </Box>
-                                            </Paper>
-                                        )}
                                     </Stack>
                                 </Box>
 
                                 {/* Phần tổng tiền và nút - bên phải */}
                                 <Box sx={{
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    alignItems: 'center',
-                                    gap: 2.5,
-                                    minWidth: '260px'
+                                    minWidth: { xs: '100%', lg: '280px' }
                                 }}>
-                                    <Paper sx={{
-                                        p: 2.5,
-                                        borderRadius: 4,
-                                        background: `linear-gradient(135deg, 
-                                            ${alpha(COLORS.ERROR[50], 0.8)} 0%, 
-                                            ${alpha(COLORS.WARNING[50], 0.6)} 100%
-                                        )`,
-                                        border: `2px solid ${alpha(COLORS.ERROR[300], 0.5)}`,
-                                        textAlign: 'center',
-                                        position: 'relative',
-                                        overflow: 'hidden',
-                                        '&::before': {
-                                            content: '""',
-                                            position: 'absolute',
-                                            top: -8,
-                                            right: -8,
-                                            width: 35,
-                                            height: 35,
-                                            background: `radial-gradient(circle, ${alpha(COLORS.ERROR[200], 0.25)} 0%, transparent 70%)`,
-                                            borderRadius: '50%'
-                                        }
-                                    }}>
-                                        <Typography variant="body2" sx={{
-                                            color: COLORS.ERROR[600],
-                                            mb: 0.5,
-                                            fontWeight: 'bold',
-                                            fontSize: '0.85rem'
-                                        }}>
-                                            💰 Tổng tiền
-                                        </Typography>
-                                        <Typography variant="h4" sx={{
-                                            color: COLORS.ERROR[700],
-                                            fontWeight: 'bold',
-                                            fontFamily: '"Comic Sans MS", cursive',
-                                            position: 'relative',
-                                            zIndex: 1,
-                                            fontSize: '1.8rem'
-                                        }}>
-                                            {(() => {
-                                                // Kiểm tra xem đã nhập đầy đủ thông tin chưa
-                                                const hasRequiredInfo = formData.selectedDate &&
-                                                    formData.selectedTime &&
-                                                    formData.petInfo.species &&
-                                                    formData.petInfo.breed &&
-                                                    formData.petInfo.weight;
-
-                                                if (!hasRequiredInfo) {
-                                                    return formatPrice(0);
-                                                }
-
-                                                // Nếu có đầy đủ thông tin, tính giá dựa trên slot hoặc giá mặc định
-                                                const slotPrice = availableSlots.find(slot => slot.time === formData.selectedTime)?.price;
-                                                return formatPrice(slotPrice || service.price);
-                                            })()}
-                                        </Typography>
-                                    </Paper>
-
-                                    <Button
-                                        variant="contained"
-                                        size="large"
-                                        onClick={handleSubmit}
-                                        disabled={!formData.selectedDate || !formData.selectedTime || !formData.petInfo.species || !formData.petInfo.breed || !formData.petInfo.weight}
-                                        sx={{
-                                            py: 2,
-                                            px: 4,
-                                            borderRadius: 4,
-                                            fontWeight: 'bold',
-                                            textTransform: 'none',
-                                            fontSize: '1.1rem',
-                                            minHeight: '56px',
+                                    <Stack spacing={2}>
+                                        <Paper sx={{
+                                            p: 2,
+                                            borderRadius: 3,
                                             background: `linear-gradient(135deg, 
+                                                ${alpha(COLORS.SUCCESS[100], 0.8)} 0%, 
+                                                ${alpha(COLORS.SUCCESS[200], 0.6)} 100%
+                                            )`,
+                                            border: `1px solid ${alpha(COLORS.SUCCESS[300], 0.7)}`,
+                                            boxShadow: `0 2px 8px ${alpha(COLORS.SUCCESS[200], 0.3)}`,
+                                            textAlign: 'center'
+                                        }}>
+                                            <Typography variant="body2" sx={{
+                                                color: COLORS.SUCCESS[600],
+                                                fontWeight: 600,
+                                                mb: 1,
+                                                fontSize: '0.9rem'
+                                            }}>
+                                                💰 TỔNG TIỀN
+                                            </Typography>
+                                            <Typography variant="h5" sx={{
+                                                color: COLORS.SUCCESS[700],
+                                                fontWeight: 700,
+                                                textShadow: `0 1px 2px ${alpha(COLORS.SUCCESS[200], 0.3)}`
+                                            }}>
+                                                {(() => {
+                                                    // Kiểm tra xem đã nhập đầy đủ thông tin chưa
+                                                    const hasRequiredInfo = formData.selectedDate &&
+                                                        formData.selectedTime &&
+                                                        formData.petInfo.species &&
+                                                        formData.petInfo.breed &&
+                                                        formData.petInfo.weight;
+
+                                                    if (!hasRequiredInfo) {
+                                                        return formatPrice(0);
+                                                    }
+
+                                                    // Nếu có đầy đủ thông tin, tính giá dựa trên slot hoặc giá mặc định
+                                                    const slotPrice = availableSlots.find(slot => slot.time === formData.selectedTime)?.price;
+                                                    return formatPrice(slotPrice || service.price);
+                                                })()}
+                                            </Typography>
+                                        </Paper>
+
+                                        <Button
+                                            variant="contained"
+                                            size="large"
+                                            onClick={handleSubmit}
+                                            disabled={!isFormComplete()}
+                                            sx={{
+                                                py: 2.5,
+                                                px: 5,
+                                                borderRadius: 6,
+                                                fontWeight: 600,
+                                                textTransform: 'none',
+                                                fontSize: '1rem',
+                                                minHeight: 60,
+                                                width: '100%',
+                                                background: `linear-gradient(135deg, 
                                                     ${COLORS.SUCCESS[500]} 0%, 
                                                     ${COLORS.SUCCESS[600]} 50%,
                                                     ${COLORS.WARNING[500]} 100%
                                                 )`,
-                                            border: `2px solid ${alpha(COLORS.SUCCESS[300], 0.5)}`,
-                                            boxShadow: `0 6px 20px ${alpha(COLORS.SUCCESS[300], 0.25)}`,
-                                            '&:hover': {
-                                                background: `linear-gradient(135deg, 
-                                                        ${COLORS.SUCCESS[600]} 0%, 
-                                                        ${COLORS.SUCCESS[700]} 50%,
-                                                        ${COLORS.WARNING[600]} 100%
+                                                border: `1px solid ${alpha(COLORS.SUCCESS[400], 0.3)}`,
+                                                boxShadow: `0 4px 12px ${alpha(COLORS.SUCCESS[300], 0.3)}, 
+                                                           0 2px 4px ${alpha(COLORS.SUCCESS[200], 0.2)}`,
+                                                position: 'relative',
+                                                overflow: 'hidden',
+                                                '&:hover': {
+                                                    background: `linear-gradient(135deg, 
+                                                            ${COLORS.SUCCESS[600]} 0%, 
+                                                            ${COLORS.SUCCESS[700]} 50%,
+                                                            ${COLORS.WARNING[600]} 100%
+                                                        )`,
+                                                    transform: 'translateY(-2px)',
+                                                    boxShadow: `0 6px 16px ${alpha(COLORS.SUCCESS[400], 0.4)}, 
+                                                               0 3px 8px ${alpha(COLORS.SUCCESS[300], 0.3)}`
+                                                },
+                                                '&:disabled': {
+                                                    background: `linear-gradient(135deg, 
+                                                        ${alpha(COLORS.GRAY[300], 0.6)} 0%, 
+                                                        ${alpha(COLORS.GRAY[400], 0.5)} 100%
                                                     )`,
-                                                transform: 'translateY(-2px)',
-                                                boxShadow: `0 10px 28px ${alpha(COLORS.SUCCESS[400], 0.35)}`
-                                            },
-                                            '&:disabled': {
-                                                background: alpha(COLORS.GRAY[300], 0.5),
-                                                color: COLORS.GRAY[500],
-                                                border: `2px solid ${alpha(COLORS.GRAY[300], 0.3)}`
-                                            },
-                                            transition: 'all 0.3s ease'
-                                        }}
-                                    >
-                                        🎉 Tiếp tục thanh toán
-                                    </Button>
+                                                    color: COLORS.GRAY[500],
+                                                    border: `1px solid ${alpha(COLORS.GRAY[300], 0.3)}`,
+                                                    boxShadow: `0 1px 2px ${alpha(COLORS.GRAY[200], 0.2)}`,
+                                                    transform: 'none',
+                                                    cursor: 'not-allowed',
+                                                    opacity: 0.7
+                                                },
+                                                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                                            }}
+                                        >
+                                            {isFormComplete() ? '💳 Thanh toán' : '⏳ Điền đầy đủ thông tin'}
+                                        </Button>
+                                    </Stack>
                                 </Box>
                             </Box>
                         </CardContent>

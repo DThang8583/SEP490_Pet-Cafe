@@ -7,7 +7,7 @@ import {
 import {
     Schedule, LocationOn, Star, Favorite, FavoriteBorder,
     Info, AccessTime, AttachMoney, Pets, LocalHospital,
-    School, Spa
+    School, Spa, Loyalty
 } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 
@@ -44,17 +44,17 @@ const ServiceCard = ({ service, onSelect, showFavorite = true }) => {
     const getCategoryIcon = (category) => {
         switch (category) {
             case 'grooming':
-                return <Spa sx={{ fontSize: 20 }} />;
+                return <Loyalty sx={{ fontSize: 20 }} />;
             case 'training':
-                return <School sx={{ fontSize: 20 }} />;
+                return <Loyalty sx={{ fontSize: 20 }} />;
             case 'healthcare':
-                return <LocalHospital sx={{ fontSize: 20 }} />;
+                return <Loyalty sx={{ fontSize: 20 }} />;
             case 'daycare':
-                return <AccessTime sx={{ fontSize: 20 }} />;
+                return <Loyalty sx={{ fontSize: 20 }} />;
             case 'cafe_service':
-                return <Pets sx={{ fontSize: 20 }} />;
+                return <Spa sx={{ fontSize: 20 }} />;
             default:
-                return <Pets sx={{ fontSize: 20 }} />;
+                return <Loyalty sx={{ fontSize: 20 }} />;
         }
     };
 
@@ -70,7 +70,7 @@ const ServiceCard = ({ service, onSelect, showFavorite = true }) => {
             case 'daycare':
                 return COLORS.SECONDARY;
             case 'cafe_service':
-                return COLORS.SUCCESS;
+                return COLORS.WARNING;
             default:
                 return COLORS.PRIMARY;
         }
@@ -107,8 +107,7 @@ const ServiceCard = ({ service, onSelect, showFavorite = true }) => {
         <>
             <Card
                 sx={{
-                    height: '100%',
-                    minHeight: '500px',
+                    height: '500px',
                     display: 'flex',
                     flexDirection: 'column',
                     borderRadius: { xs: 3, md: 4 },
@@ -161,7 +160,7 @@ const ServiceCard = ({ service, onSelect, showFavorite = true }) => {
                             top: 12,
                             left: 12,
                             backgroundColor: service.petRequired === false ?
-                                alpha(COLORS.SUCCESS[500], 0.9) :
+                                alpha(COLORS.WARNING[500], 0.9) :
                                 alpha(COLORS.INFO[500], 0.9),
                             color: 'white',
                             fontWeight: 'bold',
@@ -351,7 +350,7 @@ const ServiceCard = ({ service, onSelect, showFavorite = true }) => {
                     alignItems: 'center',
                     gap: 2
                 }}>
-                    {getCategoryIcon(service.category)}
+                    {service.petRequired === false ? <Spa sx={{ fontSize: 24 }} /> : getCategoryIcon(service.category)}
                     {service.name}
                 </DialogTitle>
 
@@ -379,21 +378,28 @@ const ServiceCard = ({ service, onSelect, showFavorite = true }) => {
                         <Box sx={{
                             p: 3,
                             backgroundColor: service.petRequired === false ?
-                                alpha(COLORS.SUCCESS[100], 0.3) :
+                                alpha(COLORS.WARNING[100], 0.3) :
                                 alpha(COLORS.INFO[100], 0.3),
                             borderRadius: 3,
                             border: `2px solid ${service.petRequired === false ?
-                                alpha(COLORS.SUCCESS[300], 0.5) :
+                                alpha(COLORS.WARNING[300], 0.5) :
                                 alpha(COLORS.INFO[300], 0.5)}`,
                             mb: 3
                         }}>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
-                                <Pets sx={{
-                                    fontSize: 24,
-                                    color: service.petRequired === false ? COLORS.SUCCESS[500] : COLORS.INFO[500]
-                                }} />
+                                {service.petRequired === false ? (
+                                    <Spa sx={{
+                                        fontSize: 24,
+                                        color: COLORS.WARNING[500]
+                                    }} />
+                                ) : (
+                                    <Pets sx={{
+                                        fontSize: 24,
+                                        color: COLORS.INFO[500]
+                                    }} />
+                                )}
                                 <Typography variant="h6" sx={{
-                                    color: service.petRequired === false ? COLORS.SUCCESS[700] : COLORS.INFO[700],
+                                    color: service.petRequired === false ? COLORS.WARNING[700] : COLORS.INFO[700],
                                     fontWeight: 'bold'
                                 }}>
                                     {service.petRequired === false ? '🐾 Dịch vụ của cửa hàng' : '🐕 Chăm sóc pet'}
