@@ -287,8 +287,8 @@ const BookingPage = () => {
     // Service categories
     const categories = [
         { value: 'all', label: 'Tất cả', icon: <Pets key="all-pets" /> },
-        { value: 'pet_care', label: 'Chăm sóc pet', icon: <LoyaltyIcon key="pet-loyalty" /> },
-        { value: 'cafe_service', label: 'Dịch vụ của cửa hàng', icon: <ActivityIcon key="cafe-activity" /> }
+        { value: 'pet_care', label: 'Chăm sóc thú cưng', icon: <LoyaltyIcon key="pet-loyalty" /> },
+        { value: 'cafe_service', label: 'Dịch vụ của cửa hàng', icon: <Spa key="cafe-spa" /> }
     ];
 
     // Debug: Check if Loyalty icon is imported correctly
