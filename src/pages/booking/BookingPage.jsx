@@ -3,7 +3,8 @@ import {
     Box, Container, Typography, Grid, Card, CardContent, CardMedia,
     Button, Chip, Stack, TextField, InputAdornment, ToggleButton,
     ToggleButtonGroup, Dialog, DialogTitle, DialogContent, DialogActions,
-    Stepper, Step, StepLabel, Alert, Snackbar, alpha, Fade, Zoom
+    Stepper, Step, StepLabel, Alert, Snackbar, alpha, Fade, Zoom,
+    Table, TableHead, TableRow, TableCell, TableBody, TableContainer
 } from '@mui/material';
 import {
     Search, Pets, Schedule, Payment, CheckCircle, Star,
@@ -111,11 +112,15 @@ const BookingPage = () => {
     const [showConfirmation, setShowConfirmation] = useState(false);
     const [showFeedback, setShowFeedback] = useState(false);
     const [completedBooking, setCompletedBooking] = useState(null);
+    const [showHistory, setShowHistory] = useState(false);
+    const [history, setHistory] = useState([]);
+    const [loadingHistory, setLoadingHistory] = useState(false);
+    const [historyMode, setHistoryMode] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
     const [currentUser, setCurrentUser] = useState(null);
 
-    const steps = ['Chọn dịch vụ', 'Thông tin booking', 'Thanh toán', 'Xác nhận'];
+    const steps = ['Chọn dịch vụ', 'Điền thông tin', 'Thanh toán', 'Xác nhận'];
 
     // Load data on component mount
     useEffect(() => {
@@ -324,11 +329,43 @@ const BookingPage = () => {
         try {
             setShowPayment(false);
 
+            // Build bookingDateTime depending on cafe vs pet service
+            const svc = bookingData.service;
+            const isCafe = svc?.petRequired === false;
+            let bookingDateTime = bookingData.bookingDateTime;
+            if (!bookingDateTime) {
+                if (isCafe) {
+                    // bookingData.date provided, derive start from sessionId
+                    const sessionStart = bookingData.sessionId?.split('-').pop(); // HH:MM from id
+                    bookingDateTime = `${bookingData.date}T${sessionStart || '09:00'}:00`;
+                } else if (bookingData.date && bookingData.time) {
+                    bookingDateTime = `${bookingData.date}T${bookingData.time}:00`;
+                }
+            }
+
+            // Ensure pet object for pet-care services (fallback from petInfo)
+            let petForBooking = bookingData.pet;
+            if (!isCafe) {
+                if (!petForBooking && bookingData.petInfo) {
+                    petForBooking = {
+                        id: `temp-pet-${Date.now()}`,
+                        name: bookingData.petInfo?.breed || 'Pet',
+                        species: bookingData.petInfo?.species,
+                        breed: bookingData.petInfo?.breed,
+                        weight: bookingData.petInfo?.weight
+                    };
+                }
+            }
+
             const completeBookingData = {
                 ...bookingData,
                 ...paymentData,
+                bookingDateTime,
+                pet: petForBooking,
                 customerId: currentUser.id,
                 status: 'pending',
+                paymentMethod: paymentData.paymentMethod,
+                paymentStatus: paymentData.status === 'completed' ? 'paid' : (paymentData.status || 'pending'),
                 createdAt: new Date().toISOString()
             };
 
@@ -412,8 +449,8 @@ const BookingPage = () => {
                 }} />
 
                 <Box sx={{
-                    py: 1,
-                    px: 0,
+                    py: historyMode ? 0.5 : 1,
+                    px: historyMode ? 0 : 0,
                     position: 'relative',
                     zIndex: 1,
                     width: '100%',
@@ -421,73 +458,75 @@ const BookingPage = () => {
                     minHeight: '100vh'
                 }}>
                     {/* Header */}
-                    <Fade in timeout={800}>
-                        <Box sx={{ textAlign: 'center', mb: 1 }}>
-                            <Typography
-                                variant="h2"
-                                sx={{
-                                    fontWeight: 'bold',
-                                    background: `linear-gradient(135deg, ${COLORS.ERROR[500]} 0%, ${COLORS.SECONDARY[600]} 100%)`,
-                                    backgroundClip: 'text',
-                                    WebkitBackgroundClip: 'text',
-                                    WebkitTextFillColor: 'transparent',
-                                    mb: 0.5,
-                                    fontFamily: '"Comic Sans MS", cursive',
-                                    fontSize: '1.8rem',
-                                    textAlign: 'center',
-                                    letterSpacing: '-0.02em'
-                                }}
-                            >
-                                🐾 Đặt dịch vụ Pet Cafe
-                            </Typography>
-                            <Typography
-                                variant="h6"
-                                sx={{
-                                    color: COLORS.TEXT.SECONDARY,
-                                    maxWidth: '600px',
-                                    mx: 'auto',
-                                    mb: 4
-                                }}
-                            >
-                                Chọn dịch vụ chăm sóc tốt nhất cho thú cưng của bạn
-                            </Typography>
+                    {!historyMode && (
+                        <Fade in timeout={800}>
+                            <Box sx={{ textAlign: 'center', mb: 1 }}>
+                                <Typography
+                                    variant="h2"
+                                    sx={{
+                                        fontWeight: 'bold',
+                                        background: `linear-gradient(135deg, ${COLORS.ERROR[500]} 0%, ${COLORS.SECONDARY[600]} 100%)`,
+                                        backgroundClip: 'text',
+                                        WebkitBackgroundClip: 'text',
+                                        WebkitTextFillColor: 'transparent',
+                                        mb: 0.5,
+                                        fontFamily: '"Comic Sans MS", cursive',
+                                        fontSize: '1.8rem',
+                                        textAlign: 'center',
+                                        letterSpacing: '-0.02em'
+                                    }}
+                                >
+                                    🐾 Đặt dịch vụ Pet Cafe
+                                </Typography>
+                                <Typography
+                                    variant="h6"
+                                    sx={{
+                                        color: COLORS.TEXT.SECONDARY,
+                                        maxWidth: '600px',
+                                        mx: 'auto',
+                                        mb: 4
+                                    }}
+                                >
+                                    Chọn dịch vụ chăm sóc tốt nhất cho thú cưng của bạn
+                                </Typography>
 
-                            {/* Progress Stepper */}
-                            <Box sx={{
-                                maxWidth: 600,
-                                mx: 'auto',
-                                mb: 4,
-                                p: 3,
-                                background: `linear-gradient(135deg, 
+                                {/* Progress Stepper */}
+                                <Box sx={{
+                                    maxWidth: 600,
+                                    mx: 'auto',
+                                    mb: 4,
+                                    p: 3,
+                                    background: `linear-gradient(135deg, 
                                 ${alpha(COLORS.BACKGROUND.DEFAULT, 0.95)} 0%, 
                                 ${alpha(COLORS.SECONDARY[50], 0.9)} 100%
                             )`,
-                                borderRadius: 4,
-                                border: `2px solid ${alpha(COLORS.ERROR[200], 0.3)}`,
-                                boxShadow: `0 8px 32px ${alpha(COLORS.ERROR[200], 0.2)}`
-                            }}>
-                                <Stepper activeStep={currentStep} alternativeLabel>
-                                    {steps.map((label, index) => (
-                                        <Step key={label}>
-                                            <StepLabel
-                                                sx={{
-                                                    '& .MuiStepLabel-label': {
-                                                        color: index <= currentStep ? COLORS.ERROR[600] : COLORS.TEXT.SECONDARY,
-                                                        fontWeight: index <= currentStep ? 'bold' : 'normal'
-                                                    },
-                                                    '& .MuiStepIcon-root': {
-                                                        color: index <= currentStep ? COLORS.ERROR[500] : COLORS.GRAY[300]
-                                                    }
-                                                }}
-                                            >
-                                                {label}
-                                            </StepLabel>
-                                        </Step>
-                                    ))}
-                                </Stepper>
+                                    borderRadius: 4,
+                                    border: `2px solid ${alpha(COLORS.ERROR[200], 0.3)}`,
+                                    boxShadow: `0 8px 32px ${alpha(COLORS.ERROR[200], 0.2)}`
+                                }}>
+                                    <Stepper activeStep={currentStep} alternativeLabel>
+                                        {steps.map((label, index) => (
+                                            <Step key={label}>
+                                                <StepLabel
+                                                    sx={{
+                                                        '& .MuiStepLabel-label': {
+                                                            color: index <= currentStep ? COLORS.ERROR[600] : COLORS.TEXT.SECONDARY,
+                                                            fontWeight: index <= currentStep ? 'bold' : 'normal'
+                                                        },
+                                                        '& .MuiStepIcon-root': {
+                                                            color: index <= currentStep ? COLORS.ERROR[500] : COLORS.GRAY[300]
+                                                        }
+                                                    }}
+                                                >
+                                                    {label}
+                                                </StepLabel>
+                                            </Step>
+                                        ))}
+                                    </Stepper>
+                                </Box>
                             </Box>
-                        </Box>
-                    </Fade>
+                        </Fade>
+                    )}
 
                     {/* Step 0: Service Selection */}
                     {currentStep === 0 && (
@@ -506,65 +545,86 @@ const BookingPage = () => {
                                     boxShadow: `0 12px 48px ${alpha(COLORS.ERROR[200], 0.15)}`,
                                     backdropFilter: 'blur(10px)'
                                 }}>
-                                    <Grid container spacing={6} alignItems="center">
-                                        <Grid item xs={12} md={8}>
-                                            <TextField
-                                                fullWidth
-                                                placeholder="Tìm kiếm dịch vụ chăm sóc thú cưng..."
-                                                size="large"
-                                                value={searchQuery}
-                                                onChange={(e) => setSearchQuery(e.target.value)}
-                                                InputProps={{
-                                                    startAdornment: (
-                                                        <InputAdornment position="start">
-                                                            <Search sx={{ color: COLORS.ERROR[500] }} />
-                                                        </InputAdornment>
-                                                    )
-                                                }}
-                                                sx={{
-                                                    '& .MuiOutlinedInput-root': {
-                                                        borderRadius: 3,
-                                                        backgroundColor: alpha(COLORS.SECONDARY[50], 0.8),
-                                                        '&:hover': {
-                                                            backgroundColor: alpha(COLORS.SECONDARY[50], 0.9)
-                                                        },
-                                                        '&.Mui-focused': {
-                                                            backgroundColor: COLORS.SECONDARY[50]
-                                                        }
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                        <TextField
+                                            placeholder="Tìm kiếm dịch vụ chăm sóc thú cưng..."
+                                            size="large"
+                                            value={searchQuery}
+                                            onChange={(e) => setSearchQuery(e.target.value)}
+                                            InputProps={{
+                                                startAdornment: (
+                                                    <InputAdornment position="start">
+                                                        <Search sx={{ color: COLORS.ERROR[500] }} />
+                                                    </InputAdornment>
+                                                ),
+                                                endAdornment: (
+                                                    <InputAdornment position="end">
+                                                        <Button size="small" onClick={() => setSearchQuery('')} sx={{ minWidth: 0, p: 0.5 }}>
+                                                            <span role="img" aria-label="clear">❌</span>
+                                                        </Button>
+                                                    </InputAdornment>
+                                                )
+                                            }}
+                                            sx={{
+                                                flexGrow: 1,
+                                                '& .MuiOutlinedInput-root': {
+                                                    borderRadius: 3,
+                                                    backgroundColor: alpha(COLORS.SECONDARY[50], 0.8),
+                                                    '&:hover': {
+                                                        backgroundColor: alpha(COLORS.SECONDARY[50], 0.9)
+                                                    },
+                                                    '&.Mui-focused': {
+                                                        backgroundColor: COLORS.SECONDARY[50]
                                                     }
-                                                }}
-                                            />
-                                        </Grid>
-                                        <Grid item xs={12} md={4}>
-                                            <ToggleButtonGroup
-                                                value={categoryFilter}
-                                                exclusive
-                                                onChange={(_, value) => value && setCategoryFilter(value)}
-                                                size="large"
-                                                sx={{
-                                                    width: '100%',
-                                                    '& .MuiToggleButton-root': {
-                                                        textTransform: 'none',
-                                                        borderRadius: 2,
-                                                        border: `1px solid ${alpha(COLORS.ERROR[300], 0.5)}`,
-                                                        color: COLORS.TEXT.SECONDARY,
-                                                        '&.Mui-selected': {
-                                                            backgroundColor: alpha(COLORS.ERROR[100], 0.8),
-                                                            color: COLORS.ERROR[700],
-                                                            fontWeight: 'bold'
-                                                        }
+                                                }
+                                            }}
+                                        />
+                                        <ToggleButtonGroup
+                                            value={categoryFilter}
+                                            exclusive
+                                            onChange={(_, value) => value && setCategoryFilter(value)}
+                                            size="large"
+                                            sx={{
+                                                '& .MuiToggleButton-root': {
+                                                    textTransform: 'none',
+                                                    borderRadius: 2,
+                                                    border: `1px solid ${alpha(COLORS.ERROR[300], 0.5)}`,
+                                                    color: COLORS.TEXT.SECONDARY,
+                                                    '&.Mui-selected': {
+                                                        backgroundColor: alpha(COLORS.ERROR[100], 0.8),
+                                                        color: COLORS.ERROR[700],
+                                                        fontWeight: 'bold'
                                                     }
-                                                }}
-                                            >
-                                                {categories.map((category) => (
-                                                    <ToggleButton key={category.value} value={category.value}>
-                                                        {category.icon}
-                                                        <Box sx={{ ml: 1 }}>{category.label}</Box>
-                                                    </ToggleButton>
-                                                ))}
-                                            </ToggleButtonGroup>
-                                        </Grid>
-                                    </Grid>
+                                                }
+                                            }}
+                                        >
+                                            {categories.map((category) => (
+                                                <ToggleButton key={category.value} value={category.value}>
+                                                    {category.icon}
+                                                    <Box sx={{ ml: 1 }}>{category.label}</Box>
+                                                </ToggleButton>
+                                            ))}
+                                        </ToggleButtonGroup>
+                                        <Button
+                                            variant="outlined"
+                                            onClick={async () => {
+                                                setHistoryMode(true);
+                                                setCurrentStep(3);
+                                                setLoadingHistory(true);
+                                                try {
+                                                    const res = await bookingApi.getMyBookings({});
+                                                    if (res.success) setHistory(res.data);
+                                                } catch (e) {
+                                                    setHistory([]);
+                                                } finally {
+                                                    setLoadingHistory(false);
+                                                }
+                                            }}
+                                        >
+                                            Xem lịch sử đặt lịch
+                                        </Button>
+                                    </Box>
+
                                 </Box>
 
                                 {/* Services Grid - Fixed 3 cards per row with equal height */}
@@ -650,6 +710,141 @@ const BookingPage = () => {
                         </Suspense>
                     )}
 
+                    {/* Step 3: Confirmation Fallback Page (in case modal is closed) */}
+                    {currentStep === 3 && !historyMode && completedBooking && (
+                        <Fade in={true} timeout={600} unmountOnExit={false}>
+                            <Box sx={{ maxWidth: 960, mx: 'auto', mt: 2 }}>
+                                <Card sx={{
+                                    borderRadius: 4,
+                                    border: `2px solid ${alpha(COLORS.SUCCESS[200], 0.4)}`,
+                                    background: `linear-gradient(135deg, ${alpha(COLORS.BACKGROUND.DEFAULT, 0.98)} 0%, ${alpha(COLORS.SUCCESS[50], 0.8)} 100%)`
+                                }}>
+                                    <CardContent sx={{ p: 3 }}>
+                                        <Box sx={{ textAlign: 'center', mb: 3 }}>
+                                            <CheckCircle sx={{ fontSize: 40, color: COLORS.SUCCESS[500], mb: 1 }} />
+                                            <Typography variant="h6" fontWeight="bold" sx={{ color: COLORS.SUCCESS[700] }}>
+                                                Đặt lịch thành công!
+                                            </Typography>
+                                            <Typography variant="body2" color="text.secondary">
+                                                Chúng tôi đã nhận được yêu cầu và sẽ liên hệ xác nhận trong thời gian sớm nhất.
+                                            </Typography>
+                                        </Box>
+
+                                        <Grid container spacing={2}>
+                                            <Grid item xs={12} md={8}>
+                                                <Box>
+                                                    <Typography variant="body2" color="text.secondary">Dịch vụ</Typography>
+                                                    <Typography variant="subtitle1" fontWeight="bold">{completedBooking?.service?.name}</Typography>
+                                                </Box>
+                                                <Box sx={{ mt: 1 }}>
+                                                    <Typography variant="body2" color="text.secondary">Thời gian</Typography>
+                                                    <Typography variant="subtitle2" fontWeight="bold">{new Date(completedBooking?.bookingDateTime).toLocaleString('vi-VN')}</Typography>
+                                                </Box>
+                                            </Grid>
+                                            <Grid item xs={12} md={4}>
+                                                <Box sx={{ p: 2, borderRadius: 2, backgroundColor: alpha(COLORS.ERROR[50], 0.6), border: `1px solid ${alpha(COLORS.ERROR[200], 0.6)}` }}>
+                                                    <Typography variant="body2" color="text.secondary">Tổng cộng</Typography>
+                                                    <Typography variant="h6" fontWeight="bold" sx={{ color: COLORS.ERROR[700] }}>
+                                                        {formatPrice(completedBooking?.finalPrice || completedBooking?.service?.price || 0)}
+                                                    </Typography>
+                                                    <Typography variant="caption" sx={{ display: 'block', mt: 0.5 }}>
+                                                        Trạng thái thanh toán: {completedBooking?.paymentStatus === 'paid' ? 'Đã thanh toán' : 'Chưa thanh toán'}
+                                                    </Typography>
+                                                </Box>
+                                            </Grid>
+                                        </Grid>
+
+                                        <Box sx={{ mt: 3, display: 'flex', gap: 2, justifyContent: 'center' }}>
+                                            <Button variant="outlined" onClick={resetBooking}>
+                                                Quay về trang đặt dịch vụ
+                                            </Button>
+                                            <Button variant="outlined" onClick={() => setShowConfirmation(true)}>
+                                                Xem chi tiết
+                                            </Button>
+                                            <Button variant="contained" onClick={resetBooking}>
+                                                Đặt lịch mới
+                                            </Button>
+                                        </Box>
+                                    </CardContent>
+                                </Card>
+                            </Box>
+                        </Fade>
+                    )}
+
+                    {currentStep === 3 && historyMode && (
+                        <Fade in={true} timeout={400} unmountOnExit={false}>
+                            <Box sx={{ maxWidth: 1600, mx: 'auto', mt: 1 }}>
+                                <Card sx={{
+                                    borderRadius: 2,
+                                    border: `1px solid ${alpha(COLORS.INFO[200], 0.5)}`,
+                                    background: COLORS.BACKGROUND.DEFAULT,
+                                    boxShadow: `0 6px 18px ${alpha(COLORS.INFO[300], 0.25)}`
+                                }}>
+                                    <CardContent sx={{ p: 2 }}>
+                                        <Typography variant="h5" fontWeight="bold" sx={{ mb: 1, color: COLORS.INFO[700] }}>
+                                            Lịch sử đặt lịch
+                                        </Typography>
+                                        {loadingHistory ? (
+                                            <Box sx={{ py: 4, textAlign: 'center' }}>
+                                                <Loading message="Đang tải lịch sử..." />
+                                            </Box>
+                                        ) : (
+                                            <TableContainer>
+                                                <Table size="small" stickyHeader>
+                                                    <TableHead sx={{ '& th': { backgroundColor: alpha(COLORS.INFO[50], 0.8) } }}>
+                                                        <TableRow>
+                                                            <TableCell>Dịch vụ</TableCell>
+                                                            <TableCell>Thời gian</TableCell>
+                                                            <TableCell>Trạng thái dịch vụ</TableCell>
+                                                            <TableCell>Trạng thái thanh toán</TableCell>
+                                                            <TableCell align="right">Hành động</TableCell>
+                                                        </TableRow>
+                                                    </TableHead>
+                                                    <TableBody>
+                                                        {history.map((bk) => (
+                                                            <TableRow key={bk.id} hover sx={{ '&:nth-of-type(odd)': { backgroundColor: alpha(COLORS.GRAY[50], 0.6) } }}>
+                                                                <TableCell sx={{ fontWeight: 600 }}>{bk.service?.name || (services?.find((s) => s.id === bk.serviceId)?.name) || '—'}</TableCell>
+                                                                <TableCell>{new Date(bk.bookingDateTime).toLocaleString('vi-VN')}</TableCell>
+                                                                <TableCell>
+                                                                    {(() => {
+                                                                        const status = bk.status || 'pending';
+                                                                        const label = status === 'completed' ? 'Đã hoàn thành' : status === 'confirmed' ? 'Đã xác nhận' : status === 'cancelled' ? 'Đã hủy' : 'Đang chờ';
+                                                                        const color = status === 'completed' ? 'success' : status === 'confirmed' ? 'info' : status === 'cancelled' ? 'default' : 'warning';
+                                                                        return <Chip size="small" label={label} color={color} />;
+                                                                    })()}
+                                                                </TableCell>
+                                                                <TableCell>
+                                                                    <Chip size="small" label={bk.paymentStatus === 'paid' ? 'Đã thanh toán' : 'Chưa thanh toán'} color={bk.paymentStatus === 'paid' ? 'success' : 'warning'} />
+                                                                </TableCell>
+                                                                <TableCell align="right">
+                                                                    <Button size="small" variant="outlined" onClick={() => { setCompletedBooking(bk); setShowConfirmation(true); }}>
+                                                                        Xem chi tiết
+                                                                    </Button>
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        ))}
+                                                        {history.length === 0 && (
+                                                            <TableRow>
+                                                                <TableCell colSpan={4} align="center">
+                                                                    <Typography color="text.secondary">Chưa có lịch đặt nào</Typography>
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        )}
+                                                    </TableBody>
+                                                </Table>
+                                            </TableContainer>
+                                        )}
+                                        <Box sx={{ mt: 2, textAlign: 'center' }}>
+                                            <Button variant="outlined" onClick={() => { setHistoryMode(false); resetBooking(); }}>
+                                                Quay về trang đặt dịch vụ
+                                            </Button>
+                                        </Box>
+                                    </CardContent>
+                                </Card>
+                            </Box>
+                        </Fade>
+                    )}
+
                     {/* Payment Modal */}
                     <Suspense fallback={<div>Loading...</div>}>
                         <PaymentModal
@@ -657,6 +852,7 @@ const BookingPage = () => {
                             onClose={() => setShowPayment(false)}
                             bookingData={bookingData}
                             onPaymentComplete={handlePaymentComplete}
+                            onBackToForm={() => { setShowPayment(false); resetBooking(); }}
                         />
                     </Suspense>
 
@@ -668,8 +864,10 @@ const BookingPage = () => {
                             booking={completedBooking}
                             onNewBooking={resetBooking}
                             onFeedback={() => setShowFeedback(true)}
+                            onBackToPage={() => { setShowConfirmation(false); resetBooking(); }}
                         />
                     </Suspense>
+
 
                     {/* Feedback Modal */}
                     <Suspense fallback={<div>Loading...</div>}>

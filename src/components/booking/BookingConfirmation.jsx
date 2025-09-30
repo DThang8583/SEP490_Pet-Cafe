@@ -11,7 +11,7 @@ import {
 } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 
-const BookingConfirmation = ({ open, onClose, booking, onNewBooking, onFeedback }) => {
+const BookingConfirmation = ({ open, onClose, booking, onNewBooking, onFeedback, onBackToPage }) => {
     // Format price
     const formatPrice = (price) => {
         return new Intl.NumberFormat('vi-VN', {
@@ -80,7 +80,7 @@ Thời gian: ${formatDateTime(booking?.bookingDateTime).date} lúc ${formatDateT
         <Dialog
             open={open}
             onClose={onClose}
-            maxWidth="md"
+            maxWidth="lg"
             fullWidth
             PaperProps={{
                 sx: {
@@ -418,39 +418,32 @@ Thời gian: ${formatDateTime(booking?.bookingDateTime).date} lúc ${formatDateT
                                                     </Typography>
                                                 </Box>
 
-                                                <Chip
-                                                    label="Đã thanh toán"
-                                                    color="success"
-                                                    sx={{
-                                                        fontWeight: 'bold',
-                                                        '& .MuiChip-label': {
-                                                            px: 2
-                                                        }
-                                                    }}
-                                                />
+                                                {booking.paymentStatus === 'paid' ? (
+                                                    <Chip
+                                                        label="Đã thanh toán"
+                                                        color="success"
+                                                        sx={{ fontWeight: 'bold', '& .MuiChip-label': { px: 2 } }}
+                                                    />
+                                                ) : (
+                                                    <Chip
+                                                        label="Chưa thanh toán"
+                                                        color="warning"
+                                                        sx={{ fontWeight: 'bold', '& .MuiChip-label': { px: 2 } }}
+                                                    />
+                                                )}
                                             </Stack>
                                         </CardContent>
                                     </Card>
 
                                     {/* Status */}
-                                    <Card sx={{
-                                        border: `2px solid ${alpha(COLORS.SUCCESS[200], 0.3)}`,
-                                        background: `linear-gradient(135deg, 
-                                            ${alpha(COLORS.SUCCESS[50], 0.8)} 0%, 
-                                            ${alpha(COLORS.SUCCESS[100], 0.6)} 100%
-                                        )`
-                                    }}>
+                                    <Card sx={{ border: `2px solid ${alpha(COLORS.SUCCESS[200], 0.3)}` }}>
                                         <CardContent sx={{ p: 3, textAlign: 'center' }}>
-                                            <CheckCircle sx={{
-                                                fontSize: 40,
-                                                color: COLORS.SUCCESS[500],
-                                                mb: 1
-                                            }} />
+                                            <CheckCircle sx={{ fontSize: 40, color: COLORS.SUCCESS[500], mb: 1 }} />
                                             <Typography variant="h6" fontWeight="bold" sx={{ mb: 1, color: COLORS.SUCCESS[700] }}>
-                                                Đang chờ xác nhận
+                                                {booking.status === 'completed' ? 'Đã hoàn thành' : booking.status === 'confirmed' ? 'Đã xác nhận' : booking.status === 'cancelled' ? 'Đã hủy' : 'Đang chờ'}
                                             </Typography>
                                             <Typography variant="body2" color="text.secondary">
-                                                Chúng tôi sẽ liên hệ trong vòng 2 giờ để xác nhận lịch hẹn
+                                                {booking.status === 'completed' ? 'Dịch vụ đã được hoàn thành. Cảm ơn bạn đã sử dụng!' : booking.status === 'confirmed' ? 'Lịch hẹn đã được xác nhận.' : 'Chúng tôi sẽ liên hệ sớm để xác nhận lịch hẹn.'}
                                             </Typography>
                                         </CardContent>
                                     </Card>
@@ -519,23 +512,43 @@ Thời gian: ${formatDateTime(booking?.bookingDateTime).date} lúc ${formatDateT
             </DialogContent>
 
             <DialogActions sx={{ p: 3, gap: 2, justifyContent: 'center' }}>
-                <Button
-                    variant="outlined"
-                    startIcon={<BookmarkAdd />}
-                    onClick={onClose}
-                    sx={{
-                        px: 4,
-                        py: 1.5,
-                        borderColor: COLORS.GRAY[400],
-                        color: COLORS.GRAY[600],
-                        '&:hover': {
-                            borderColor: COLORS.GRAY[500],
-                            backgroundColor: alpha(COLORS.GRAY[100], 0.8)
-                        }
-                    }}
-                >
-                    Xem lịch sử đặt lịch
-                </Button>
+                {onBackToPage && (
+                    <Button
+                        variant="outlined"
+                        onClick={onBackToPage}
+                        sx={{
+                            px: 4,
+                            py: 1.5,
+                            borderColor: COLORS.INFO[400],
+                            color: COLORS.INFO[600],
+                            '&:hover': {
+                                borderColor: COLORS.INFO[500],
+                                backgroundColor: alpha(COLORS.INFO[100], 0.8)
+                            }
+                        }}
+                    >
+                        Quay về trang đặt dịch vụ
+                    </Button>
+                )}
+                {booking.status === 'completed' && (
+                    <Button
+                        variant="outlined"
+                        startIcon={<BookmarkAdd />}
+                        onClick={onFeedback}
+                        sx={{
+                            px: 4,
+                            py: 1.5,
+                            borderColor: COLORS.WARNING[400],
+                            color: COLORS.WARNING[600],
+                            '&:hover': {
+                                borderColor: COLORS.WARNING[500],
+                                backgroundColor: alpha(COLORS.WARNING[100], 0.8)
+                            }
+                        }}
+                    >
+                        Đánh giá dịch vụ
+                    </Button>
+                )}
                 <Button
                     variant="contained"
                     startIcon={<Home />}

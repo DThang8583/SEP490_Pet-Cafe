@@ -44,6 +44,9 @@ import { formatPrice } from '../../utils/formatPrice';
 import CalendarGrid from './CalendarGrid';
 
 const BookingForm = ({ service, onBack, onSubmit }) => {
+    // Defaults for cafe-service display when backend data not provided
+    const DEFAULT_CAFE_PET_GROUP = ['Nhóm pet thân thiện', 'Đã huấn luyện cơ bản'];
+    const DEFAULT_CAFE_AREA = 'Khu trải nghiệm A';
     const [formData, setFormData] = useState({
         selectedDate: '',
         selectedTime: '',
@@ -62,6 +65,12 @@ const BookingForm = ({ service, onBack, onSubmit }) => {
     });
 
     const [availableSlots, setAvailableSlots] = useState([]);
+    // Cafe-service sessions
+    const isCafeService = service?.petRequired === false;
+    const [availableSessions, setAvailableSessions] = useState([]);
+    const [selectedSessionId, setSelectedSessionId] = useState('');
+    const [selectedDateForSession, setSelectedDateForSession] = useState('');
+    const [selectedCafeDetail, setSelectedCafeDetail] = useState(null);
     const [checkingAvailability, setCheckingAvailability] = useState(false);
     const [pets, setPets] = useState([]);
     const [loadingPets, setLoadingPets] = useState(false);
@@ -73,6 +82,22 @@ const BookingForm = ({ service, onBack, onSubmit }) => {
             loadPets();
         }
     }, [service.petRequired]);
+
+    // Load cafe sessions when date changes (for cafe_service)
+    useEffect(() => {
+        const fetchSessions = async () => {
+            if (!isCafeService || !selectedDateForSession) return;
+            try {
+                const res = await bookingApi.getCafeSessions(service.id, selectedDateForSession);
+                if (res.success) {
+                    setAvailableSessions(res.data.sessions || []);
+                }
+            } catch (e) {
+                setAvailableSessions([]);
+            }
+        };
+        fetchSessions();
+    }, [isCafeService, selectedDateForSession, service?.id]);
 
     const loadPets = async () => {
         if (service.petRequired === false) return;
@@ -93,10 +118,14 @@ const BookingForm = ({ service, onBack, onSubmit }) => {
 
     const getMinDate = () => {
         const today = new Date();
-        return today.toISOString().split('T')[0];
+        // For cafe services, clamp to service start date if provided
+        const min = service?.serviceStartDate ? new Date(service.serviceStartDate) : today;
+        return new Date(Math.max(min.getTime(), today.setHours(0, 0, 0, 0))).toISOString().split('T')[0];
     };
 
     const getMaxDate = () => {
+        // For cafe services, clamp to service end date if provided
+        if (service?.serviceEndDate) return service.serviceEndDate;
         const maxDate = new Date();
         maxDate.setDate(maxDate.getDate() + 30);
         return maxDate.toISOString().split('T')[0];
@@ -281,45 +310,54 @@ const BookingForm = ({ service, onBack, onSubmit }) => {
     const validateForm = () => {
         const newErrors = {};
 
-        if (!formData.selectedDate) {
-            newErrors.selectedDate = 'Vui lòng chọn ngày';
+        if (isCafeService) {
+            if (!formData.selectedDate) {
+                newErrors.selectedDate = 'Vui lòng chọn ngày';
+            }
+            if (!formData.selectedTime) {
+                newErrors.selectedTime = 'Vui lòng chọn ca dịch vụ';
+            }
         } else {
-            // Kiểm tra ngày không được là hôm nay hoặc quá khứ
-            const today = new Date();
-            const selectedDate = new Date(formData.selectedDate);
-            const isToday = selectedDate.toDateString() === today.toDateString();
+            if (!formData.selectedDate) {
+                newErrors.selectedDate = 'Vui lòng chọn ngày';
+            } else {
+                // Kiểm tra ngày không được là hôm nay hoặc quá khứ
+                const today = new Date();
+                const selectedDate = new Date(formData.selectedDate);
+                const isToday = selectedDate.toDateString() === today.toDateString();
 
-            if (selectedDate < today.setHours(0, 0, 0, 0)) {
-                newErrors.selectedDate = 'Không thể chọn ngày trong quá khứ';
-            } else if (isToday && formData.selectedTime) {
-                // Kiểm tra giờ nếu chọn ngày hôm nay
-                const currentHour = today.getHours();
-                const currentMinute = today.getMinutes();
-                const currentTime = currentHour * 60 + currentMinute;
-                const [selectedHour, selectedMinute] = formData.selectedTime.split(':').map(Number);
-                const selectedTime = selectedHour * 60 + selectedMinute;
+                if (selectedDate < today.setHours(0, 0, 0, 0)) {
+                    newErrors.selectedDate = 'Không thể chọn ngày trong quá khứ';
+                } else if (isToday && formData.selectedTime) {
+                    // Kiểm tra giờ nếu chọn ngày hôm nay
+                    const currentHour = today.getHours();
+                    const currentMinute = today.getMinutes();
+                    const currentTime = currentHour * 60 + currentMinute;
+                    const [selectedHour, selectedMinute] = formData.selectedTime.split(':').map(Number);
+                    const selectedTime = selectedHour * 60 + selectedMinute;
 
-                if (selectedTime <= currentTime) {
-                    newErrors.selectedTime = 'Không thể chọn giờ trong quá khứ';
+                    if (selectedTime <= currentTime) {
+                        newErrors.selectedTime = 'Không thể chọn giờ trong quá khứ';
+                    }
                 }
             }
-        }
 
-        if (!formData.selectedTime) {
-            newErrors.selectedTime = 'Vui lòng chọn khung giờ';
-        }
+            if (!formData.selectedTime) {
+                newErrors.selectedTime = 'Vui lòng chọn khung giờ';
+            }
 
-        // Validate pet info
-        if (!formData.petInfo?.species) {
-            newErrors.petInfo = { ...newErrors.petInfo, species: 'Vui lòng chọn loài thú cưng' };
-        }
+            // Validate pet info
+            if (!formData.petInfo?.species) {
+                newErrors.petInfo = { ...newErrors.petInfo, species: 'Vui lòng chọn loài thú cưng' };
+            }
 
-        if (!formData.petInfo?.breed?.trim()) {
-            newErrors.petInfo = { ...newErrors.petInfo, breed: 'Vui lòng nhập giống thú cưng' };
-        }
+            if (!formData.petInfo?.breed?.trim()) {
+                newErrors.petInfo = { ...newErrors.petInfo, breed: 'Vui lòng nhập giống thú cưng' };
+            }
 
-        if (!formData.petInfo?.weight?.trim()) {
-            newErrors.petInfo = { ...newErrors.petInfo, weight: 'Vui lòng nhập cân nặng thú cưng' };
+            if (!formData.petInfo?.weight?.trim()) {
+                newErrors.petInfo = { ...newErrors.petInfo, weight: 'Vui lòng nhập cân nặng thú cưng' };
+            }
         }
 
         if (!formData.customerInfo.name.trim()) {
@@ -340,14 +378,11 @@ const BookingForm = ({ service, onBack, onSubmit }) => {
 
     // Function to check if all required fields are filled
     const isFormComplete = () => {
-        return formData.selectedDate &&
-            formData.selectedTime &&
-            formData.petInfo.species &&
-            formData.petInfo.breed?.trim() &&
-            formData.petInfo.weight?.trim() &&
-            formData.customerInfo.name.trim() &&
-            formData.customerInfo.phone.trim() &&
-            formData.customerInfo.email.trim();
+        const contactOk = formData.customerInfo.name.trim() && formData.customerInfo.phone.trim() && formData.customerInfo.email.trim();
+        if (isCafeService) {
+            return !!formData.selectedDate && !!formData.selectedTime && !!contactOk;
+        }
+        return !!(formData.selectedDate && formData.selectedTime && formData.petInfo.species && formData.petInfo.breed?.trim() && formData.petInfo.weight?.trim() && contactOk);
     };
 
     // Handle slot selection from calendar
@@ -357,6 +392,28 @@ const BookingForm = ({ service, onBack, onSubmit }) => {
             selectedDate: date,
             selectedTime: time
         }));
+
+        if (isCafeService) {
+            // Build cafe detail for summary panel
+            const duration = service?.sessionDurationMinutes ?? service?.duration ?? 90;
+            const [h, m] = time.split(':').map(Number);
+            const start = h * 60 + m;
+            const end = start + duration;
+            const eh = String(Math.floor(end / 60)).padStart(2, '0');
+            const em = String(end % 60).padStart(2, '0');
+            // Hardcode capacity when missing (temporary until backend supplies per-session slots)
+            const capacity = service?.sessionCapacity ?? service?.maxParticipants ?? 10;
+            // Hardcode remaining slots (override with service.remainingSlots if provided)
+            const remaining = (service?.remainingSlots != null) ? service.remainingSlots : 4;
+            setSelectedCafeDetail({
+                petGroup: (service?.cafePets && service.cafePets.length > 0) ? service.cafePets : DEFAULT_CAFE_PET_GROUP,
+                area: service?.areaName || service?.area || DEFAULT_CAFE_AREA,
+                startTime: time,
+                endTime: `${eh}:${em}`,
+                capacity,
+                remaining
+            });
+        }
     };
 
     // Function to calculate form completion percentage
@@ -395,11 +452,12 @@ const BookingForm = ({ service, onBack, onSubmit }) => {
             serviceId: service.id,
             date: formData.selectedDate,
             time: formData.selectedTime,
-            pet: null, // Using petInfo instead of pet selection
-            petInfo: formData.petInfo,
+            pet: null,
+            petInfo: isCafeService ? undefined : formData.petInfo,
             customerInfo: formData.customerInfo,
-            cafePets: service.petRequired === false ? service.cafePets : null,
-            experienceType: service.petRequired === false ? service.experienceType : null
+            cafePets: isCafeService ? service.cafePets : null,
+            experienceType: isCafeService ? service.experienceType : null,
+            sessionId: undefined
         };
 
         onSubmit(bookingData);
@@ -523,7 +581,7 @@ const BookingForm = ({ service, onBack, onSubmit }) => {
                     </CardContent>
                 </Card>
 
-                {/* Calendar Grid */}
+                {/* Calendar */}
                 <Box sx={{
                     mb: { xs: 4, sm: 5, md: 5 },
                     width: '100%'
@@ -532,17 +590,18 @@ const BookingForm = ({ service, onBack, onSubmit }) => {
                         formData={formData}
                         onSlotSelect={handleSlotSelect}
                         availableSlots={availableSlots}
+                        service={service}
                     />
                 </Box>
 
-                {/* Thông tin thú cưng */}
+                {/* Thông tin thú cưng hoặc Thông tin ca (cafe) */}
                 <Box sx={{ mb: { xs: 4, sm: 5, md: 5 } }}>
                     <Card sx={{
                         borderRadius: 6,
                         background: `linear-gradient(145deg, 
                             ${alpha(COLORS.BACKGROUND.DEFAULT, 0.98)} 0%, 
-                            ${alpha(COLORS.INFO[50], 0.95)} 50%,
-                            ${alpha(COLORS.SUCCESS[50], 0.9)} 100%
+                            ${alpha(isCafeService ? COLORS.PRIMARY[50] : COLORS.INFO[50], 0.95)} 50%,
+                            ${alpha(isCafeService ? COLORS.INFO[50] : COLORS.SUCCESS[50], 0.9)} 100%
                         )`,
                         border: `1px solid ${alpha(COLORS.INFO[200], 0.3)}`,
                         boxShadow: `0 8px 32px ${alpha(COLORS.INFO[200], 0.15)}, 
@@ -558,8 +617,8 @@ const BookingForm = ({ service, onBack, onSubmit }) => {
                             right: 0,
                             height: '3px',
                             background: `linear-gradient(90deg, 
-                                ${COLORS.INFO[400]} 0%, 
-                                ${COLORS.SUCCESS[400]} 100%
+                                ${isCafeService ? COLORS.PRIMARY[400] : COLORS.INFO[400]} 0%, 
+                                ${isCafeService ? COLORS.INFO[400] : COLORS.SUCCESS[400]} 100%
                             )`
                         },
                         '&:hover': {
@@ -576,192 +635,201 @@ const BookingForm = ({ service, onBack, onSubmit }) => {
                                 fontSize: '1.1rem',
                                 letterSpacing: '-0.01em'
                             }}>
-                                🐾 Thông tin thú cưng
+                                {isCafeService ? '🗓️ Thông tin ca dịch vụ' : '🐾 Thông tin thú cưng'}
                             </Typography>
 
-                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 2, sm: 3, md: 3 } }}>
-                                {/* Loài thú cưng */}
-                                <FormControl fullWidth error={!!errors.petInfo?.species}>
-                                    <Select
-                                        value={formData.petInfo.species}
-                                        onChange={(e) => handlePetInfoChange('species', e.target.value)}
-                                        displayEmpty
-                                        renderValue={(selected) => {
-                                            if (!selected) {
+                            {isCafeService ? (
+                                <Stack spacing={2}>
+                                    <Paper sx={{ p: 1.5, borderRadius: 3, background: alpha(COLORS.PRIMARY[50], 0.6), border: `1px solid ${alpha(COLORS.PRIMARY[200], 0.5)}` }}>
+                                        <Typography variant="body2" sx={{ color: COLORS.PRIMARY[700], fontWeight: 700, mb: 0.5 }}>Nhóm pet phục vụ</Typography>
+                                        <Typography variant="body1" sx={{ fontWeight: 600, color: COLORS.TEXT.PRIMARY }}>
+                                            {(selectedCafeDetail?.petGroup && selectedCafeDetail.petGroup.length > 0) ? selectedCafeDetail.petGroup.join(', ') : DEFAULT_CAFE_PET_GROUP.join(', ')}
+                                        </Typography>
+                                    </Paper>
+                                    <Paper sx={{ p: 1.5, borderRadius: 3, background: alpha(COLORS.INFO[50], 0.6), border: `1px solid ${alpha(COLORS.INFO[200], 0.5)}` }}>
+                                        <Typography variant="body2" sx={{ color: COLORS.INFO[700], fontWeight: 700, mb: 0.5 }}>Khu vực thực hiện</Typography>
+                                        <Typography variant="body1" sx={{ fontWeight: 600, color: COLORS.TEXT.PRIMARY }}>
+                                            {selectedCafeDetail?.area || DEFAULT_CAFE_AREA}
+                                        </Typography>
+                                    </Paper>
+                                    <Paper sx={{ p: 1.5, borderRadius: 3, background: alpha(COLORS.WARNING[50], 0.6), border: `1px solid ${alpha(COLORS.WARNING[200], 0.5)}` }}>
+                                        <Typography variant="body2" sx={{ color: COLORS.WARNING[700], fontWeight: 700, mb: 0.5 }}>Thời gian</Typography>
+                                        <Typography variant="body1" sx={{ fontWeight: 700, color: COLORS.WARNING[800] }}>
+                                            {formData.selectedTime ? `${formData.selectedTime} - ${calculateEndTime(formData.selectedDate, formData.selectedTime, service?.sessionDurationMinutes ?? 90)}` : '—'}
+                                        </Typography>
+                                    </Paper>
+                                    <Paper sx={{ p: 1.5, borderRadius: 3, background: alpha(COLORS.SUCCESS[50], 0.6), border: `1px solid ${alpha(COLORS.SUCCESS[200], 0.5)}` }}>
+                                        <Typography variant="body2" sx={{ color: COLORS.SUCCESS[700], fontWeight: 700, mb: 0.5 }}>Số slot còn lại</Typography>
+                                        <Typography variant="body1" sx={{ fontWeight: 700, color: COLORS.SUCCESS[800] }}>
+                                            {selectedCafeDetail?.remaining != null ? `Còn ${selectedCafeDetail.remaining} slot` : 'Còn chỗ'}
+                                        </Typography>
+                                    </Paper>
+                                </Stack>
+                            ) : (
+                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 2, sm: 3, md: 3 } }}>
+                                    {/* Loài thú cưng */}
+                                    <FormControl fullWidth error={!!errors.petInfo?.species}>
+                                        <Select
+                                            value={formData.petInfo.species}
+                                            onChange={(e) => handlePetInfoChange('species', e.target.value)}
+                                            displayEmpty
+                                            renderValue={(selected) => {
+                                                if (!selected) {
+                                                    return (
+                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: COLORS.INFO[500], fontStyle: 'italic' }}>
+                                                            <Typography sx={{ color: COLORS.INFO[500], fontStyle: 'italic' }}>
+                                                                Chọn loài thú cưng
+                                                            </Typography>
+                                                        </Box>
+                                                    );
+                                                }
+                                                const options = {
+                                                    dog: { emoji: '🐕', text: 'Chó' },
+                                                    cat: { emoji: '🐱', text: 'Mèo' }
+                                                };
+                                                const option = options[selected];
                                                 return (
-                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: COLORS.INFO[500], fontStyle: 'italic' }}>
-                                                        <Typography sx={{ color: COLORS.INFO[500], fontStyle: 'italic' }}>
-                                                            Chọn loài thú cưng
-                                                        </Typography>
+                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                        <Typography>{option.emoji}</Typography>
+                                                        <Typography>{option.text}</Typography>
                                                     </Box>
                                                 );
-                                            }
-                                            const options = {
-                                                dog: { emoji: '🐕', text: 'Chó' },
-                                                cat: { emoji: '🐱', text: 'Mèo' },
-                                                bird: { emoji: '🐦', text: 'Chim' },
-                                                rabbit: { emoji: '🐰', text: 'Thỏ' },
-                                                hamster: { emoji: '🐹', text: 'Hamster' },
-                                            };
-                                            const option = options[selected];
-                                            return (
+                                            }}
+                                            sx={{
+                                                borderRadius: 4,
+                                                backgroundColor: alpha(COLORS.BACKGROUND.DEFAULT, 0.95),
+                                                minHeight: '56px',
+                                                border: `1px solid ${alpha(COLORS.INFO[300], 0.3)}`,
+                                                transition: 'all 0.2s ease',
+                                                '&:hover': {
+                                                    borderColor: COLORS.INFO[400],
+                                                    boxShadow: `0 4px 12px ${alpha(COLORS.INFO[300], 0.15)}`,
+                                                    backgroundColor: alpha(COLORS.INFO[50], 0.1)
+                                                },
+                                                '&.Mui-focused': {
+                                                    borderColor: COLORS.INFO[500],
+                                                    boxShadow: `0 0 0 3px ${alpha(COLORS.INFO[300], 0.2)}`,
+                                                    backgroundColor: alpha(COLORS.INFO[50], 0.05)
+                                                },
+                                                '& .MuiSelect-select': {
+                                                    fontSize: '0.95rem',
+                                                    padding: '16px 20px',
+                                                    fontWeight: 500,
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: 1,
+                                                    color: COLORS.TEXT.PRIMARY
+                                                }
+                                            }}
+                                        >
+                                            <MenuItem value="dog">
                                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                    <Typography>{option.emoji}</Typography>
-                                                    <Typography>{option.text}</Typography>
+                                                    <Typography>🐕</Typography>
+                                                    <Typography>Chó</Typography>
                                                 </Box>
-                                            );
-                                        }}
+                                            </MenuItem>
+                                            <MenuItem value="cat">
+                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                    <Typography>🐱</Typography>
+                                                    <Typography>Mèo</Typography>
+                                                </Box>
+                                            </MenuItem>
+
+                                        </Select>
+                                        {errors.petInfo?.species && (
+                                            <Typography variant="caption" sx={{ color: 'error.main', mt: 0.5, ml: 1.5 }}>
+                                                {errors.petInfo.species}
+                                            </Typography>
+                                        )}
+                                    </FormControl>
+
+                                    {/* Giống thú cưng */}
+                                    <TextField
+                                        fullWidth
+                                        placeholder="Nhập giống thú cưng"
+                                        value={formData.petInfo.breed}
+                                        onChange={(e) => handlePetInfoChange('breed', e.target.value)}
+                                        error={!!errors.petInfo?.breed}
+                                        helperText={errors.petInfo?.breed}
                                         sx={{
-                                            borderRadius: 4,
-                                            backgroundColor: alpha(COLORS.BACKGROUND.DEFAULT, 0.95),
-                                            minHeight: '56px',
-                                            border: `1px solid ${alpha(COLORS.INFO[300], 0.3)}`,
-                                            transition: 'all 0.2s ease',
-                                            '&:hover': {
-                                                borderColor: COLORS.INFO[400],
-                                                boxShadow: `0 4px 12px ${alpha(COLORS.INFO[300], 0.15)}`,
-                                                backgroundColor: alpha(COLORS.INFO[50], 0.1)
+                                            '& .MuiOutlinedInput-root': {
+                                                borderRadius: 4,
+                                                backgroundColor: alpha(COLORS.BACKGROUND.DEFAULT, 0.95),
+                                                minHeight: '56px',
+                                                border: `1px solid ${alpha(COLORS.INFO[300], 0.3)}`,
+                                                transition: 'all 0.2s ease',
+                                                '&:hover': {
+                                                    borderColor: COLORS.INFO[400],
+                                                    boxShadow: `0 4px 12px ${alpha(COLORS.INFO[300], 0.15)}`,
+                                                    backgroundColor: alpha(COLORS.INFO[50], 0.1)
+                                                },
+                                                '&.Mui-focused': {
+                                                    borderColor: COLORS.INFO[500],
+                                                    boxShadow: `0 0 0 3px ${alpha(COLORS.INFO[300], 0.2)}`,
+                                                    backgroundColor: alpha(COLORS.INFO[50], 0.05)
+                                                }
                                             },
-                                            '&.Mui-focused': {
-                                                borderColor: COLORS.INFO[500],
-                                                boxShadow: `0 0 0 3px ${alpha(COLORS.INFO[300], 0.2)}`,
-                                                backgroundColor: alpha(COLORS.INFO[50], 0.05)
-                                            },
-                                            '& .MuiSelect-select': {
+                                            '& .MuiInputBase-input': {
                                                 fontSize: '0.95rem',
                                                 padding: '16px 20px',
                                                 fontWeight: 500,
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: 1,
-                                                color: COLORS.TEXT.PRIMARY
+                                                color: COLORS.TEXT.PRIMARY,
+                                                '&::placeholder': {
+                                                    color: COLORS.INFO[500],
+                                                    opacity: 0.7,
+                                                    fontWeight: 400
+                                                }
                                             }
                                         }}
-                                    >
-                                        <MenuItem value="dog">
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                <Typography>🐕</Typography>
-                                                <Typography>Chó</Typography>
-                                            </Box>
-                                        </MenuItem>
-                                        <MenuItem value="cat">
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                <Typography>🐱</Typography>
-                                                <Typography>Mèo</Typography>
-                                            </Box>
-                                        </MenuItem>
-                                        <MenuItem value="bird">
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                <Typography>🐦</Typography>
-                                                <Typography>Chim</Typography>
-                                            </Box>
-                                        </MenuItem>
-                                        <MenuItem value="rabbit">
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                <Typography>🐰</Typography>
-                                                <Typography>Thỏ</Typography>
-                                            </Box>
-                                        </MenuItem>
-                                        <MenuItem value="hamster">
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                <Typography>🐹</Typography>
-                                                <Typography>Hamster</Typography>
-                                            </Box>
-                                        </MenuItem>
-                                    </Select>
-                                    {errors.petInfo?.species && (
-                                        <Typography variant="caption" sx={{ color: 'error.main', mt: 0.5, ml: 1.5 }}>
-                                            {errors.petInfo.species}
-                                        </Typography>
-                                    )}
-                                </FormControl>
+                                    />
 
-                                {/* Giống thú cưng */}
-                                <TextField
-                                    fullWidth
-                                    placeholder="Nhập giống thú cưng"
-                                    value={formData.petInfo.breed}
-                                    onChange={(e) => handlePetInfoChange('breed', e.target.value)}
-                                    error={!!errors.petInfo?.breed}
-                                    helperText={errors.petInfo?.breed}
-                                    sx={{
-                                        '& .MuiOutlinedInput-root': {
-                                            borderRadius: 4,
-                                            backgroundColor: alpha(COLORS.BACKGROUND.DEFAULT, 0.95),
-                                            minHeight: '56px',
-                                            border: `1px solid ${alpha(COLORS.INFO[300], 0.3)}`,
-                                            transition: 'all 0.2s ease',
-                                            '&:hover': {
-                                                borderColor: COLORS.INFO[400],
-                                                boxShadow: `0 4px 12px ${alpha(COLORS.INFO[300], 0.15)}`,
-                                                backgroundColor: alpha(COLORS.INFO[50], 0.1)
+                                    {/* Cân nặng */}
+                                    <TextField
+                                        fullWidth
+                                        placeholder="Nhập cân nặng (kg)"
+                                        type="number"
+                                        value={formData.petInfo.weight}
+                                        onChange={(e) => handlePetInfoChange('weight', e.target.value)}
+                                        error={!!errors.petInfo?.weight}
+                                        helperText={errors.petInfo?.weight}
+                                        InputProps={{
+                                            endAdornment: (
+                                                <InputAdornment position="end">
+                                                    <Typography sx={{ color: COLORS.INFO[500], fontSize: '0.8rem', fontWeight: 'bold' }}>
+                                                        kg
+                                                    </Typography>
+                                                </InputAdornment>
+                                            )
+                                        }}
+                                        sx={{
+                                            '& .MuiOutlinedInput-root': {
+                                                borderRadius: 3,
+                                                backgroundColor: alpha(COLORS.BACKGROUND.DEFAULT, 0.9),
+                                                minHeight: '52px',
+                                                border: `2px solid ${alpha(COLORS.INFO[300], 0.3)}`,
+                                                '&:hover': {
+                                                    borderColor: COLORS.INFO[400],
+                                                    boxShadow: `0 4px 12px ${alpha(COLORS.INFO[300], 0.2)}`
+                                                },
+                                                '&.Mui-focused': {
+                                                    borderColor: COLORS.INFO[500],
+                                                    boxShadow: `0 0 0 3px ${alpha(COLORS.INFO[300], 0.2)}`
+                                                }
                                             },
-                                            '&.Mui-focused': {
-                                                borderColor: COLORS.INFO[500],
-                                                boxShadow: `0 0 0 3px ${alpha(COLORS.INFO[300], 0.2)}`,
-                                                backgroundColor: alpha(COLORS.INFO[50], 0.05)
+                                            '& .MuiInputBase-input': {
+                                                fontSize: '0.9rem',
+                                                padding: '14px 18px',
+                                                fontWeight: 'bold',
+                                                '&::placeholder': {
+                                                    color: COLORS.INFO[500],
+                                                    opacity: 0.8,
+                                                    fontWeight: 'bold'
+                                                }
                                             }
-                                        },
-                                        '& .MuiInputBase-input': {
-                                            fontSize: '0.95rem',
-                                            padding: '16px 20px',
-                                            fontWeight: 500,
-                                            color: COLORS.TEXT.PRIMARY,
-                                            '&::placeholder': {
-                                                color: COLORS.INFO[500],
-                                                opacity: 0.7,
-                                                fontWeight: 400
-                                            }
-                                        }
-                                    }}
-                                />
-
-                                {/* Cân nặng */}
-                                <TextField
-                                    fullWidth
-                                    placeholder="Nhập cân nặng (kg)"
-                                    type="number"
-                                    value={formData.petInfo.weight}
-                                    onChange={(e) => handlePetInfoChange('weight', e.target.value)}
-                                    error={!!errors.petInfo?.weight}
-                                    helperText={errors.petInfo?.weight}
-                                    InputProps={{
-                                        endAdornment: (
-                                            <InputAdornment position="end">
-                                                <Typography sx={{ color: COLORS.INFO[500], fontSize: '0.8rem', fontWeight: 'bold' }}>
-                                                    kg
-                                                </Typography>
-                                            </InputAdornment>
-                                        )
-                                    }}
-                                    sx={{
-                                        '& .MuiOutlinedInput-root': {
-                                            borderRadius: 3,
-                                            backgroundColor: alpha(COLORS.BACKGROUND.DEFAULT, 0.9),
-                                            minHeight: '52px',
-                                            border: `2px solid ${alpha(COLORS.INFO[300], 0.3)}`,
-                                            '&:hover': {
-                                                borderColor: COLORS.INFO[400],
-                                                boxShadow: `0 4px 12px ${alpha(COLORS.INFO[300], 0.2)}`
-                                            },
-                                            '&.Mui-focused': {
-                                                borderColor: COLORS.INFO[500],
-                                                boxShadow: `0 0 0 3px ${alpha(COLORS.INFO[300], 0.2)}`
-                                            }
-                                        },
-                                        '& .MuiInputBase-input': {
-                                            fontSize: '0.9rem',
-                                            padding: '14px 18px',
-                                            fontWeight: 'bold',
-                                            '&::placeholder': {
-                                                color: COLORS.INFO[500],
-                                                opacity: 0.8,
-                                                fontWeight: 'bold'
-                                            }
-                                        }
-                                    }}
-                                />
-                            </Box>
+                                        }}
+                                    />
+                                </Box>
+                            )}
                         </CardContent>
                     </Card>
                 </Box>
@@ -1007,7 +1075,7 @@ const BookingForm = ({ service, onBack, onSubmit }) => {
                                             </Typography>
                                         </Paper>
 
-                                        {formData.selectedDate && (
+                                        {(formData.selectedDate || formData.selectedTime) && (
                                             <Paper sx={{
                                                 p: 1.5,
                                                 borderRadius: 3,
@@ -1015,46 +1083,47 @@ const BookingForm = ({ service, onBack, onSubmit }) => {
                                                 border: `1px solid ${alpha(COLORS.INFO[200], 0.5)}`
                                             }}>
                                                 <Typography variant="body2" sx={{
-                                                    color: COLORS.INFO[600],
-                                                    mb: 0.5,
-                                                    fontWeight: 'bold',
-                                                    fontSize: '0.85rem'
-                                                }}>
-                                                    Ngày
-                                                </Typography>
-                                                <Typography variant="body1" sx={{
-                                                    fontWeight: 'bold',
                                                     color: COLORS.INFO[700],
-                                                    fontSize: '1rem'
-                                                }}>
-                                                    {new Date(formData.selectedDate).toLocaleDateString('vi-VN')}
-                                                </Typography>
-                                            </Paper>
-                                        )}
-
-                                        {formData.selectedTime && (
-                                            <Paper sx={{
-                                                p: 1.5,
-                                                borderRadius: 3,
-                                                background: alpha(COLORS.WARNING[50], 0.6),
-                                                border: `1px solid ${alpha(COLORS.WARNING[200], 0.5)}`
-                                            }}>
-                                                <Typography variant="body2" sx={{
-                                                    color: COLORS.WARNING[600],
                                                     mb: 0.5,
                                                     fontWeight: 'bold',
                                                     fontSize: '0.85rem'
                                                 }}>
-                                                    Giờ
+                                                    Lịch hẹn
                                                 </Typography>
-                                                <Typography variant="body1" sx={{
-                                                    fontWeight: 'bold',
-                                                    color: COLORS.WARNING[700],
-                                                    fontSize: '1rem'
-                                                }}>
-                                                    {formData.selectedTime} - {formData.selectedDate &&
-                                                        calculateEndTime(formData.selectedDate, formData.selectedTime, service.duration)}
-                                                </Typography>
+                                                <Stack direction="row" spacing={1} flexWrap="wrap">
+                                                    <Chip
+                                                        icon={<CalendarToday sx={{ fontSize: '1rem' }} />}
+                                                        label={formData.selectedDate ? new Date(formData.selectedDate).toLocaleDateString('vi-VN') : '—'}
+                                                        variant="outlined"
+                                                        sx={{
+                                                            borderColor: alpha(COLORS.INFO[400], 0.6),
+                                                            color: COLORS.INFO[700],
+                                                            fontWeight: 600
+                                                        }}
+                                                    />
+                                                    <Chip
+                                                        icon={<Schedule sx={{ fontSize: '1rem' }} />}
+                                                        label={formData.selectedDate && formData.selectedTime ? `${formData.selectedTime} - ${calculateEndTime(formData.selectedDate, formData.selectedTime, isCafeService ? (service?.sessionDurationMinutes ?? 90) : service.duration)}` : '—'}
+                                                        variant="outlined"
+                                                        sx={{
+                                                            borderColor: alpha(COLORS.WARNING[400], 0.6),
+                                                            color: COLORS.WARNING[800],
+                                                            fontWeight: 600
+                                                        }}
+                                                    />
+                                                    {isCafeService && (
+                                                        <Chip
+                                                            icon={<LocationOn sx={{ fontSize: '1rem' }} />}
+                                                            label={selectedCafeDetail?.area || DEFAULT_CAFE_AREA}
+                                                            variant="outlined"
+                                                            sx={{
+                                                                borderColor: alpha(COLORS.PRIMARY[400], 0.6),
+                                                                color: COLORS.PRIMARY[800],
+                                                                fontWeight: 600
+                                                            }}
+                                                        />
+                                                    )}
+                                                </Stack>
                                             </Paper>
                                         )}
                                     </Stack>
@@ -1090,18 +1159,15 @@ const BookingForm = ({ service, onBack, onSubmit }) => {
                                                 textShadow: `0 1px 2px ${alpha(COLORS.SUCCESS[200], 0.3)}`
                                             }}>
                                                 {(() => {
-                                                    // Kiểm tra xem đã nhập đầy đủ thông tin chưa
+                                                    if (isCafeService) {
+                                                        return formatPrice(service.price);
+                                                    }
                                                     const hasRequiredInfo = formData.selectedDate &&
                                                         formData.selectedTime &&
                                                         formData.petInfo.species &&
                                                         formData.petInfo.breed &&
                                                         formData.petInfo.weight;
-
-                                                    if (!hasRequiredInfo) {
-                                                        return formatPrice(0);
-                                                    }
-
-                                                    // Nếu có đầy đủ thông tin, tính giá dựa trên slot hoặc giá mặc định
+                                                    if (!hasRequiredInfo) return formatPrice(0);
                                                     const slotPrice = availableSlots.find(slot => slot.time === formData.selectedTime)?.price;
                                                     return formatPrice(slotPrice || service.price);
                                                 })()}

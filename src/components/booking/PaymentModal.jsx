@@ -13,7 +13,14 @@ import {
 } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 
-const PaymentModal = ({ open, onClose, bookingData, onPaymentComplete }) => {
+// Localize species labels
+const getLocalizedSpecies = (species) => {
+    if (!species) return '';
+    const map = { dog: 'Chó', cat: 'Mèo' };
+    return map[species] || species;
+};
+
+const PaymentModal = ({ open, onClose, bookingData, onPaymentComplete, onBackToForm }) => {
     // Debug booking data
     console.log('PaymentModal - bookingData:', bookingData);
 
@@ -162,6 +169,19 @@ const PaymentModal = ({ open, onClose, bookingData, onPaymentComplete }) => {
             return;
         }
 
+        // Business rule: paying at counter does not show payment success screen
+        if (paymentMethod === 'counter_payment') {
+            const paymentResult = {
+                paymentId: `PAY_${Date.now()}`,
+                paymentMethod,
+                amount: bookingData.service?.price || 0,
+                status: 'pending',
+                transactionDate: new Date().toISOString()
+            };
+            onPaymentComplete(paymentResult);
+            return;
+        }
+
         setProcessing(true);
         setStep(2);
 
@@ -187,7 +207,8 @@ const PaymentModal = ({ open, onClose, bookingData, onPaymentComplete }) => {
                         // Mask sensitive data
                         cardNumber: paymentMethod === 'credit_card' ?
                             '**** **** **** ' + paymentData.cardNumber.slice(-4) : undefined
-                    }
+                    },
+                    serviceStatus: 'confirmed'
                 };
 
                 setTimeout(() => {
@@ -350,7 +371,7 @@ const PaymentModal = ({ open, onClose, bookingData, onPaymentComplete }) => {
                     </Typography>
                 </Box>
                 <Button
-                    onClick={onClose}
+                    onClick={() => (onBackToForm ? onBackToForm() : onClose())}
                     sx={{ color: 'white', minWidth: 'auto', p: 1 }}
                 >
                     <Close />
@@ -404,7 +425,7 @@ const PaymentModal = ({ open, onClose, bookingData, onPaymentComplete }) => {
                                                     </Typography>
                                                     <Typography variant="body1" fontWeight="bold">
                                                         {bookingData.petInfo ?
-                                                            `${bookingData.petInfo.species} - ${bookingData.petInfo.breed} (${bookingData.petInfo.weight}kg)` :
+                                                            `${getLocalizedSpecies(bookingData.petInfo.species)} - ${bookingData.petInfo.breed} (${bookingData.petInfo.weight}kg)` :
                                                             'Chưa có thông tin thú cưng'
                                                         }
                                                     </Typography>
@@ -420,6 +441,11 @@ const PaymentModal = ({ open, onClose, bookingData, onPaymentComplete }) => {
                                                     <Typography variant="body2">
                                                         {bookingData.customerInfo?.phone}
                                                     </Typography>
+                                                    {bookingData.customerInfo?.email && (
+                                                        <Typography variant="body2">
+                                                            {bookingData.customerInfo?.email}
+                                                        </Typography>
+                                                    )}
                                                 </Box>
 
                                                 <Divider />
@@ -601,7 +627,7 @@ const PaymentModal = ({ open, onClose, bookingData, onPaymentComplete }) => {
                                         <Typography variant="body2">Thú cưng:</Typography>
                                         <Typography variant="body2" fontWeight="bold">
                                             {bookingData.petInfo ?
-                                                `${bookingData.petInfo.species} - ${bookingData.petInfo.breed} (${bookingData.petInfo.weight}kg)` :
+                                                `${getLocalizedSpecies(bookingData.petInfo.species)} - ${bookingData.petInfo.breed} (${bookingData.petInfo.weight}kg)` :
                                                 'Chưa có thông tin'
                                             }
                                         </Typography>
@@ -718,7 +744,7 @@ const PaymentModal = ({ open, onClose, bookingData, onPaymentComplete }) => {
             {step === 1 && (
                 <DialogActions sx={{ p: 3, gap: 2 }}>
                     <Button
-                        onClick={onClose}
+                        onClick={() => (onBackToForm ? onBackToForm() : onClose())}
                         sx={{
                             color: COLORS.GRAY[600],
                             '&:hover': {
@@ -726,7 +752,7 @@ const PaymentModal = ({ open, onClose, bookingData, onPaymentComplete }) => {
                             }
                         }}
                     >
-                        Hủy
+                        Quay về
                     </Button>
                     <Button
                         variant="contained"
