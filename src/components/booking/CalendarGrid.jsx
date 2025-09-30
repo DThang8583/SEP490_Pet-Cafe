@@ -1,11 +1,12 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
     Box,
     Card,
     CardContent,
     Typography,
     Button,
-    Chip
+    Chip,
+    Tooltip
 } from '@mui/material';
 import { alpha, keyframes } from '@mui/material/styles';
 import { Pets } from '@mui/icons-material';
@@ -52,10 +53,30 @@ if (typeof document !== 'undefined') {
     document.head.appendChild(styleSheet);
 }
 
-const CalendarGrid = ({ formData, onSlotSelect, availableSlots }) => {
+const CalendarGrid = ({ formData, onSlotSelect, availableSlots, service }) => {
     const [currentWeek, setCurrentWeek] = useState(new Date());
     const [selectedPeriod, setSelectedPeriod] = useState('morning');
     const scrollContainerRef = useRef(null);
+
+    const isCafe = service?.petRequired === false;
+    const periodStart = service?.serviceStartDate ? new Date(service.serviceStartDate) : null;
+    const periodEnd = service?.serviceEndDate ? new Date(service.serviceEndDate) : null;
+
+    // Ensure currentWeek falls within cafe period on mount/update
+    useEffect(() => {
+        if (!isCafe || !periodStart || !periodEnd) return;
+        const cw = new Date(currentWeek);
+        const cwStart = new Date(cw);
+        cwStart.setDate(cw.getDate() - cw.getDay() + 1);
+        const cwEnd = new Date(cwStart);
+        cwEnd.setDate(cwStart.getDate() + 6);
+
+        if (cwEnd < periodStart || cwStart > periodEnd) {
+            // Jump to periodStart's week
+            const startWeek = new Date(periodStart);
+            setCurrentWeek(startWeek);
+        }
+    }, [isCafe, periodStart, periodEnd]);
 
     // Calendar functions
     const getWeekDates = (date) => {
@@ -83,6 +104,14 @@ const CalendarGrid = ({ formData, onSlotSelect, availableSlots }) => {
 
         // Business Rule: Chỉ ngăn chặn khi tuần mới hoàn toàn đã qua (tất cả slot đều closed)
         const weekDates = getWeekDates(newWeek);
+        // Cafe service: block navigation outside period entirely
+        if (isCafe && periodStart && periodEnd) {
+            const newStart = weekDates[0];
+            const newEnd = weekDates[6];
+            if (newEnd < periodStart || newStart > periodEnd) {
+                return;
+            }
+        }
         let hasBookableSlot = false;
 
         // Kiểm tra xem tuần mới có còn slot nào có thể đặt lịch không
@@ -108,12 +137,38 @@ const CalendarGrid = ({ formData, onSlotSelect, availableSlots }) => {
     };
 
     const getTimeSlots = () => {
+        // If cafe service, derive fixed sessions per day
+        const isCafe = service?.petRequired === false;
+        if (isCafe) {
+            const startMinutes = service?.serviceStartTime ?? 9 * 60; // default 09:00
+            const endMinutes = service?.serviceEndTime ?? 17 * 60;   // default 17:00
+            const sessionDuration = service?.sessionDurationMinutes ?? 90; // default 90 minutes/ca
+            const sessionsPerDay = service?.sessionsPerDay; // optional explicit number per day
+
+            const out = [];
+            if (sessionsPerDay && sessionsPerDay > 0) {
+                let m = startMinutes;
+                for (let i = 0; i < sessionsPerDay; i++) {
+                    if (m + sessionDuration > endMinutes) break; // avoid overflow beyond window
+                    const hh = String(Math.floor(m / 60)).padStart(2, '0');
+                    const mm = String(m % 60).padStart(2, '0');
+                    out.push(`${hh}:${mm}`);
+                    m += sessionDuration;
+                }
+            } else {
+                // Fill sequentially by duration within window
+                for (let m = startMinutes; m + sessionDuration <= endMinutes; m += sessionDuration) {
+                    const hh = String(Math.floor(m / 60)).padStart(2, '0');
+                    const mm = String(m % 60).padStart(2, '0');
+                    out.push(`${hh}:${mm}`);
+                }
+            }
+            return out;
+        }
+        // Default pet-care grid
         return [
-            // Buổi sáng (8:00 - 12:00) - 8 khung giờ
             '08:00', '08:30', '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
-            // Buổi chiều (12:00 - 16:00) - 8 khung giờ  
             '12:00', '12:30', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30',
-            // Buổi tối (16:00 - 20:00) - 8 khung giờ
             '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30'
         ];
     };
@@ -134,6 +189,7 @@ const CalendarGrid = ({ formData, onSlotSelect, availableSlots }) => {
     };
 
     const getTimeSlotPeriod = (time) => {
+        if (isCafe) return 'session';
         const hour = parseInt(time.split(':')[0]);
         const minute = parseInt(time.split(':')[1]);
 
@@ -148,6 +204,7 @@ const CalendarGrid = ({ formData, onSlotSelect, availableSlots }) => {
             case 'morning': return { label: 'Buổi sáng', emoji: '🌅', color: COLORS.WARNING[500] };
             case 'afternoon': return { label: 'Buổi chiều', emoji: '☀️', color: COLORS.INFO[500] };
             case 'evening': return { label: 'Buổi tối', emoji: '🌆', color: COLORS.PRIMARY[500] };
+            case 'session': return { label: 'Các ca', emoji: '🗓️', color: COLORS.PRIMARY[500] };
             default: return { label: 'Buổi sáng', emoji: '🌅', color: COLORS.WARNING[500] };
         }
     };
@@ -156,6 +213,13 @@ const CalendarGrid = ({ formData, onSlotSelect, availableSlots }) => {
         const dateStr = date.toISOString().split('T')[0];
         const today = new Date();
         const now = new Date();
+
+        // Cafe service: restrict to service period window
+        const isCafe = service?.petRequired === false;
+        if (isCafe) {
+            if (service?.serviceStartDate && dateStr < service.serviceStartDate) return 'closed';
+            if (service?.serviceEndDate && dateStr > service.serviceEndDate) return 'closed';
+        }
 
         // Business Rule: Không thể đặt lịch cho ngày đã qua
         const isPastDate = date < today.setHours(0, 0, 0, 0);
@@ -189,13 +253,22 @@ const CalendarGrid = ({ formData, onSlotSelect, availableSlots }) => {
             }
         }
 
-        // Business Rule: Quán mở cửa từ 8:00 đến 20:00
+        // Business Rule: Quán mở cửa từ 8:00 đến 20:00 (or service window for cafe)
         const slotHour = parseInt(time.split(':')[0]);
         const slotMinute = parseInt(time.split(':')[1]);
 
-        if (slotHour < 8 || slotHour >= 20) {
+        if (!isCafe && (slotHour < 8 || slotHour >= 20)) {
             console.log(`❌ Outside hours: ${time} (shop hours: 8:00-20:00)`);
             return 'closed';
+        }
+
+        if (isCafe) {
+            const startMinutes = service?.serviceStartTime ?? 9 * 60;
+            const endMinutes = service?.serviceEndTime ?? 17 * 60;
+            const t = slotHour * 60 + slotMinute;
+            if (t < startMinutes || t >= endMinutes) {
+                return 'closed';
+            }
         }
 
         // REMOVED: Giờ nghỉ trưa - Quán mở cửa liên tục từ 8:00-20:00
@@ -286,6 +359,15 @@ const CalendarGrid = ({ formData, onSlotSelect, availableSlots }) => {
         }
     };
 
+    // For cafe services: only show dates within service period
+    const weekDates = getWeekDates(currentWeek);
+    const shownDates = (() => {
+        if (!(isCafe && periodStart && periodEnd)) return weekDates;
+        const startDay = new Date(periodStart); startDay.setHours(0, 0, 0, 0);
+        const endDay = new Date(periodEnd); endDay.setHours(23, 59, 59, 999);
+        return weekDates.filter(d => d >= startDay && d <= endDay);
+    })();
+
     return (
         <Card sx={{
             borderRadius: 2,
@@ -317,14 +399,6 @@ const CalendarGrid = ({ formData, onSlotSelect, availableSlots }) => {
                         letterSpacing: '-0.01em'
                     }}>
                         Chọn ngày và giờ
-                    </Typography>
-
-                    <Typography variant="body2" sx={{
-                        color: COLORS.TEXT.SECONDARY,
-                        fontWeight: 500,
-                        fontSize: '0.9rem'
-                    }}>
-                        Tuần {getWeekNumber(currentWeek)}
                     </Typography>
                 </Box>
 
@@ -390,11 +464,11 @@ const CalendarGrid = ({ formData, onSlotSelect, availableSlots }) => {
                         color: COLORS.TEXT.PRIMARY,
                         fontSize: '1rem'
                     }}>
-                        {getWeekDates(currentWeek)[0].toLocaleDateString('vi-VN', {
+                        {(shownDates[0] || weekDates[0]).toLocaleDateString('vi-VN', {
                             day: '2-digit',
                             month: '2-digit',
                             year: 'numeric'
-                        })} - {getWeekDates(currentWeek)[6].toLocaleDateString('vi-VN', {
+                        })} - {(shownDates[shownDates.length - 1] || weekDates[6]).toLocaleDateString('vi-VN', {
                             day: '2-digit',
                             month: '2-digit',
                             year: 'numeric'
@@ -422,35 +496,37 @@ const CalendarGrid = ({ formData, onSlotSelect, availableSlots }) => {
                     </Button>
                 </Box>
 
-                {/* Period Filter */}
-                <Box sx={{
-                    mb: 2,
-                    display: 'flex',
-                    gap: 1,
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                }}>
-                    {['morning', 'afternoon', 'evening'].map((period) => {
-                        const periodInfo = getPeriodInfo(period);
-                        return (
-                            <Chip
-                                key={period}
-                                label={`${periodInfo.emoji} ${periodInfo.label}`}
-                                onClick={() => scrollToPeriod(period)}
-                                variant={selectedPeriod === period ? 'filled' : 'outlined'}
-                                sx={{
-                                    backgroundColor: selectedPeriod === period ? periodInfo.color : 'transparent',
-                                    color: selectedPeriod === period ? 'white' : periodInfo.color,
-                                    borderColor: periodInfo.color,
-                                    fontWeight: 600,
-                                    '&:hover': {
-                                        backgroundColor: alpha(periodInfo.color, 0.1)
-                                    }
-                                }}
-                            />
-                        );
-                    })}
-                </Box>
+                {/* Period Filter (only for pet-care services) */}
+                {!isCafe && (
+                    <Box sx={{
+                        mb: 2,
+                        display: 'flex',
+                        gap: 1,
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                    }}>
+                        {['morning', 'afternoon', 'evening'].map((period) => {
+                            const periodInfo = getPeriodInfo(period);
+                            return (
+                                <Chip
+                                    key={period}
+                                    label={`${periodInfo.emoji} ${periodInfo.label}`}
+                                    onClick={() => scrollToPeriod(period)}
+                                    variant={selectedPeriod === period ? 'filled' : 'outlined'}
+                                    sx={{
+                                        backgroundColor: selectedPeriod === period ? periodInfo.color : 'transparent',
+                                        color: selectedPeriod === period ? 'white' : periodInfo.color,
+                                        borderColor: periodInfo.color,
+                                        fontWeight: 600,
+                                        '&:hover': {
+                                            backgroundColor: alpha(periodInfo.color, 0.1)
+                                        }
+                                    }}
+                                />
+                            );
+                        })}
+                    </Box>
+                )}
 
                 {/* Simple Legend */}
                 <Box sx={{
@@ -471,7 +547,7 @@ const CalendarGrid = ({ formData, onSlotSelect, availableSlots }) => {
                             }}
                         />
                         <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, fontWeight: 500 }}>
-                            Có sẵn
+                            Còn chỗ
                         </Typography>
                     </Box>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -487,11 +563,21 @@ const CalendarGrid = ({ formData, onSlotSelect, availableSlots }) => {
                             <Pets sx={{ fontSize: '1rem', color: 'white' }} />
                         </Box>
                         <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, fontWeight: 500 }}>
-                            Đã đặt
+                            Đầy
                         </Typography>
                     </Box>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Pets sx={{ fontSize: '1.2rem', color: COLORS.GRAY[500] }} />
+                        <Box sx={{
+                            width: 24,
+                            height: 24,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            backgroundColor: COLORS.GRAY[500],
+                            borderRadius: '50%'
+                        }}>
+                            <Pets sx={{ fontSize: '1rem', color: 'white' }} />
+                        </Box>
                         <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, fontWeight: 500 }}>
                             Đóng cửa
                         </Typography>
@@ -509,7 +595,7 @@ const CalendarGrid = ({ formData, onSlotSelect, availableSlots }) => {
                     {/* Clean Header Row - Fixed */}
                     <Box sx={{
                         display: 'grid',
-                        gridTemplateColumns: '100px repeat(7, 1fr)',
+                        gridTemplateColumns: `100px repeat(${shownDates.length}, 1fr)`,
                         background: `linear-gradient(135deg, ${COLORS.GRAY[50]} 0%, ${COLORS.GRAY[100]} 100%)`,
                         borderBottom: `2px solid ${alpha(COLORS.GRAY[200], 0.3)}`,
                         boxShadow: `0 2px 4px ${alpha(COLORS.GRAY[200], 0.1)}`
@@ -529,33 +615,45 @@ const CalendarGrid = ({ formData, onSlotSelect, availableSlots }) => {
                             }}>
                             </Typography>
                         </Box>
-                        {getWeekDates(currentWeek).map((date, index) => (
-                            <Box key={index} sx={{
-                                p: 1.5,
-                                borderRight: index < 6 ? `1px solid ${alpha(COLORS.GRAY[200], 0.5)}` : 'none',
-                                textAlign: 'center',
-                                background: COLORS.GRAY[100]
-                            }}>
-                                <Typography variant="body2" sx={{
-                                    fontWeight: 600,
-                                    color: date.getDay() === 0 ? COLORS.ERROR[600] :
-                                        date.getDay() === 6 ? COLORS.PRIMARY[600] : COLORS.TEXT.PRIMARY,
-                                    fontSize: '0.9rem'
+                        {shownDates.map((date, index) => {
+                            const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+                            const isToday = date.toDateString() === new Date().toDateString();
+                            return (
+                                <Box key={index} sx={{
+                                    p: 1.25,
+                                    borderRight: index < shownDates.length - 1 ? `1px solid ${alpha(COLORS.GRAY[200], 0.5)}` : 'none',
+                                    textAlign: 'center',
+                                    background: COLORS.GRAY[100]
                                 }}>
-                                    {date.getDate()}
-                                </Typography>
-                                <Typography variant="caption" sx={{
-                                    color: date.getDay() === 0 ? COLORS.ERROR[500] :
-                                        date.getDay() === 6 ? COLORS.PRIMARY[500] : COLORS.TEXT.SECONDARY,
-                                    fontSize: '0.7rem',
-                                    fontWeight: 500,
-                                    display: 'block',
-                                    mt: 0.25
-                                }}>
-                                    {['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'][date.getDay()]}
-                                </Typography>
-                            </Box>
-                        ))}
+                                    <Box sx={{
+                                        display: 'inline-flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        px: 1.25,
+                                        py: 0.75,
+                                        borderRadius: 2,
+                                        backgroundColor: isToday ? alpha(COLORS.PRIMARY[100], 0.6) : 'white',
+                                        border: `1px solid ${alpha(COLORS.GRAY[300], 0.8)}`,
+                                        boxShadow: isToday ? `0 2px 6px ${alpha(COLORS.PRIMARY[300], 0.25)}` : 'none'
+                                    }}>
+                                        <Typography variant="caption" sx={{
+                                            fontWeight: 700,
+                                            color: isWeekend ? (date.getDay() === 0 ? COLORS.ERROR[600] : COLORS.PRIMARY[600]) : COLORS.TEXT.PRIMARY,
+                                            letterSpacing: 0.2
+                                        }}>
+                                            {['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'][date.getDay()]}
+                                        </Typography>
+                                        <Typography variant="body2" sx={{
+                                            fontWeight: 700,
+                                            color: COLORS.TEXT.PRIMARY,
+                                            mt: 0.25
+                                        }}>
+                                            {String(date.getDate()).padStart(2, '0')}
+                                        </Typography>
+                                    </Box>
+                                </Box>
+                            );
+                        })}
                     </Box>
 
                     {/* Scrollable Time Slots Container */}
@@ -581,7 +679,7 @@ const CalendarGrid = ({ formData, onSlotSelect, availableSlots }) => {
                     >
                         {/* Time Slots Grouped by Period - Full View */}
                         <Box>
-                            {['morning', 'afternoon', 'evening'].map((period) => {
+                            {(isCafe ? ['session'] : ['morning', 'afternoon', 'evening']).map((period) => {
                                 const periodInfo = getPeriodInfo(period);
                                 const periodSlots = getTimeSlots().filter(time => getTimeSlotPeriod(time) === period);
 
@@ -603,9 +701,12 @@ const CalendarGrid = ({ formData, onSlotSelect, availableSlots }) => {
                                             {periodSlots.map((time, timeIndex) => (
                                                 <Box key={`${period}-${timeIndex}`} sx={{
                                                     display: 'grid',
-                                                    gridTemplateColumns: '100px repeat(7, 1fr)',
-                                                    borderBottom: `1px solid ${alpha(COLORS.GRAY[200], 0.3)}`,
-                                                    minHeight: '50px'
+                                                    gridTemplateColumns: `140px repeat(${shownDates.length}, 1fr)`,
+                                                    borderBottom: `1px solid ${alpha(COLORS.GRAY[200], 0.25)}`,
+                                                    minHeight: '56px',
+                                                    '&:nth-of-type(even)': {
+                                                        backgroundColor: alpha(COLORS.GRAY[50], 0.6)
+                                                    }
                                                 }}>
                                                     {/* Time Label */}
                                                     <Box sx={{
@@ -614,62 +715,103 @@ const CalendarGrid = ({ formData, onSlotSelect, availableSlots }) => {
                                                         display: 'flex',
                                                         alignItems: 'center',
                                                         justifyContent: 'center',
-                                                        background: COLORS.GRAY[50]
+                                                        background: COLORS.GRAY[50],
+                                                        position: 'sticky',
+                                                        left: 0,
+                                                        zIndex: 1
                                                     }}>
-                                                        <Typography variant="body2" sx={{
-                                                            fontWeight: 600,
-                                                            color: COLORS.TEXT.PRIMARY,
-                                                            fontSize: '0.9rem'
-                                                        }}>
-                                                            {time}
-                                                        </Typography>
+                                                        {(() => {
+                                                            if (!isCafe) {
+                                                                return (
+                                                                    <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.TEXT.PRIMARY }}>
+                                                                        {time}
+                                                                    </Typography>
+                                                                );
+                                                            }
+                                                            const [h, m] = time.split(':').map(Number);
+                                                            const start = h * 60 + m;
+                                                            const dur = service?.sessionDurationMinutes ?? 90;
+                                                            const end = start + dur;
+                                                            const eh = String(Math.floor(end / 60)).padStart(2, '0');
+                                                            const em = String(end % 60).padStart(2, '0');
+                                                            const index = periodSlots.findIndex(t => t === time);
+                                                            return (
+                                                                <Chip
+                                                                    label={`Ca ${index + 1}`}
+                                                                    size="small"
+                                                                    sx={{
+                                                                        mr: 1,
+                                                                        fontWeight: 700,
+                                                                        backgroundColor: alpha(COLORS.PRIMARY[500], 0.1),
+                                                                        color: COLORS.PRIMARY[700],
+                                                                        border: `1px solid ${alpha(COLORS.PRIMARY[300], 0.6)}`
+                                                                    }}
+                                                                />
+                                                            );
+                                                        })()}
+                                                        {isCafe && (
+                                                            <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, fontWeight: 600 }}>
+                                                                {(() => {
+                                                                    const [h, m] = time.split(':').map(Number);
+                                                                    const start = h * 60 + m;
+                                                                    const dur = service?.sessionDurationMinutes ?? 90;
+                                                                    const end = start + dur;
+                                                                    const eh = String(Math.floor(end / 60)).padStart(2, '0');
+                                                                    const em = String(end % 60).padStart(2, '0');
+                                                                    return `${time} - ${eh}:${em}`;
+                                                                })()}
+                                                            </Typography>
+                                                        )}
                                                     </Box>
 
                                                     {/* Day Slots */}
-                                                    {getWeekDates(currentWeek).map((date, dayIndex) => {
+                                                    {shownDates.map((date, dayIndex) => {
                                                         const availability = getSlotAvailability(date, time);
                                                         const isSelected = formData.selectedDate === date.toISOString().split('T')[0] &&
                                                             formData.selectedTime === time;
 
                                                         return (
-                                                            <Box
-                                                                key={dayIndex}
-                                                                onClick={() => handleSlotClick(date, time)}
-                                                                sx={{
-                                                                    p: 1.5,
-                                                                    borderRight: dayIndex < 6 ? `1px solid ${alpha(COLORS.GRAY[200], 0.3)}` : 'none',
-                                                                    display: 'flex',
-                                                                    alignItems: 'center',
-                                                                    justifyContent: 'center',
-                                                                    cursor: availability === 'available' ? 'pointer' : 'default',
-                                                                    backgroundColor: isSelected ? COLORS.SUCCESS[100] :
-                                                                        availability === 'available' ? 'transparent' :
-                                                                            availability === 'unavailable' ? COLORS.WARNING[500] : 'transparent',
-                                                                    border: isSelected ? `2px solid ${COLORS.SUCCESS[500]}` :
-                                                                        `1px solid ${alpha(COLORS.GRAY[200], 0.2)}`,
-                                                                    borderRadius: 2,
-                                                                    transition: 'all 0.3s ease',
-                                                                    '&:hover': availability === 'available' ? {
-                                                                        backgroundColor: COLORS.SUCCESS[50],
-                                                                        borderColor: COLORS.SUCCESS[400],
-                                                                        transform: 'scale(1.05)',
-                                                                        boxShadow: `0 4px 12px ${alpha(COLORS.SUCCESS[300], 0.3)}`
-                                                                    } : {}
-                                                                }}
-                                                            >
-                                                                <Pets
+                                                            <Tooltip key={`tip-${dayIndex}`} title={`${date.toLocaleDateString('vi-VN')} • ${time}`}>
+                                                                <Box
+                                                                    key={dayIndex}
+                                                                    onClick={() => handleSlotClick(date, time)}
                                                                     sx={{
-                                                                        fontSize: '1rem',
-                                                                        color: availability === 'available' ? COLORS.TEXT.PRIMARY :
-                                                                            availability === 'unavailable' ? 'white' :
-                                                                                COLORS.GRAY[500],
-                                                                        stroke: availability === 'available' ? COLORS.TEXT.PRIMARY : 'none',
-                                                                        strokeWidth: availability === 'available' ? 1.5 : 0,
-                                                                        fill: availability === 'available' ? 'transparent' :
-                                                                            availability === 'unavailable' ? 'white' : COLORS.GRAY[500]
+                                                                        p: 1.5,
+                                                                        borderRight: dayIndex < shownDates.length - 1 ? `1px solid ${alpha(COLORS.GRAY[200], 0.3)}` : 'none',
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        justifyContent: 'center',
+                                                                        cursor: availability === 'available' ? 'pointer' : 'default',
+                                                                        backgroundColor: isSelected ? alpha(COLORS.SUCCESS[100], 0.7) :
+                                                                            availability === 'available' ? 'white' :
+                                                                                availability === 'unavailable' ? COLORS.WARNING[500] : COLORS.GRAY[500],
+                                                                        border: isSelected ? `2px solid ${COLORS.SUCCESS[500]}` :
+                                                                            `1px solid ${alpha(COLORS.GRAY[200], 0.4)}`,
+                                                                        borderRadius: 2,
+                                                                        transition: 'all 0.2s ease',
+                                                                        boxShadow: isSelected ? `0 2px 10px ${alpha(COLORS.SUCCESS[300], 0.35)}` : 'none',
+                                                                        '&:hover': availability === 'available' ? {
+                                                                            backgroundColor: alpha(COLORS.SUCCESS[50], 0.6),
+                                                                            borderColor: COLORS.SUCCESS[400],
+                                                                            transform: 'scale(1.02)',
+                                                                            boxShadow: `0 4px 10px ${alpha(COLORS.SUCCESS[300], 0.25)}`
+                                                                        } : {}
                                                                     }}
-                                                                />
-                                                            </Box>
+                                                                >
+                                                                    <Pets
+                                                                        sx={{
+                                                                            fontSize: '1rem',
+                                                                            color: availability === 'available' ? COLORS.TEXT.PRIMARY :
+                                                                                availability === 'unavailable' ? 'white' :
+                                                                                    'white',
+                                                                            stroke: availability === 'available' ? COLORS.TEXT.PRIMARY : 'none',
+                                                                            strokeWidth: availability === 'available' ? 1.5 : 0,
+                                                                            fill: availability === 'available' ? 'transparent' :
+                                                                                availability === 'unavailable' ? 'white' : 'white'
+                                                                        }}
+                                                                    />
+                                                                </Box>
+                                                            </Tooltip>
                                                         );
                                                     })}
                                                 </Box>

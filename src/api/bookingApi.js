@@ -181,6 +181,70 @@ const MOCK_SERVICES = [
 
 // Booking APIs
 const bookingApi = {
+    // Get cafe service sessions for a specific date (petRequired === false)
+    async getCafeSessions(serviceId, date) {
+        await delay(250);
+
+        // Validate service and date
+        const service = MOCK_SERVICES.find(s => s.id === serviceId);
+        if (!service) {
+            throw new Error('Không tìm thấy dịch vụ');
+        }
+
+        // Only applicable for cafe_service (petRequired === false) and services with defined period
+        if (service.petRequired !== false) {
+            throw new Error('Dịch vụ này không phải loại của cửa hàng');
+        }
+
+        const dateStr = date;
+
+        // Check date within service period if provided
+        if (service.serviceStartDate && service.serviceEndDate) {
+            if (dateStr < service.serviceStartDate || dateStr > service.serviceEndDate) {
+                return { success: true, data: { date: dateStr, sessions: [] } };
+            }
+        }
+
+        // Determine session duration and daily time range
+        const minutesPerSession = service.duration; // fixed per service
+        const dayStartMinutes = service.serviceStartTime ?? 9 * 60; // fallback 09:00
+        const dayEndMinutes = service.serviceEndTime ?? 17 * 60;   // fallback 17:00
+
+        // Build sessions between [start, end)
+        const sessions = [];
+        for (let start = dayStartMinutes; start + minutesPerSession <= dayEndMinutes; start += minutesPerSession) {
+            const end = start + minutesPerSession;
+            const startHH = String(Math.floor(start / 60)).padStart(2, '0');
+            const startMM = String(start % 60).padStart(2, '0');
+            const endHH = String(Math.floor(end / 60)).padStart(2, '0');
+            const endMM = String(end % 60).padStart(2, '0');
+            const sessionId = `${dateStr}-${startHH}:${startMM}`;
+
+            // Compute current participants for this session from existing bookings
+            const currentParticipants = MOCK_BOOKINGS.filter(b =>
+                b.serviceId === serviceId &&
+                b.sessionId === sessionId &&
+                b.status !== 'cancelled'
+            ).length;
+
+            const capacity = service.maxParticipants ?? 6;
+            const remaining = Math.max(capacity - currentParticipants, 0);
+            const status = remaining > 0 ? 'available' : 'full';
+
+            sessions.push({
+                id: sessionId,
+                startTime: `${startHH}:${startMM}`,
+                endTime: `${endHH}:${endMM}`,
+                duration: minutesPerSession,
+                capacity,
+                currentParticipants,
+                remaining,
+                status
+            });
+        }
+
+        return { success: true, data: { date: dateStr, sessions } };
+    },
     // Check availability for a specific date and service
     async checkAvailability(serviceId, date) {
         console.log('=== BOOKING API checkAvailability START ===');
@@ -305,7 +369,14 @@ const bookingApi = {
             throw new Error('Thiếu thông tin dịch vụ');
         }
 
-        if (!bookingData.pet?.id) {
+        // For pet care services, pet info is required; for cafe_service, it's not
+        const service = MOCK_SERVICES.find(s => s.id === bookingData.service.id);
+        if (!service) {
+            throw new Error('Không tìm thấy dịch vụ');
+        }
+        const isCafeService = service.petRequired === false;
+
+        if (!isCafeService && !bookingData.pet?.id) {
             throw new Error('Thiếu thông tin thú cưng');
         }
 
@@ -315,12 +386,6 @@ const bookingApi = {
 
         if (!bookingData.customerInfo?.name || !bookingData.customerInfo?.phone) {
             throw new Error('Thiếu thông tin liên hệ');
-        }
-
-        // Find service details
-        const service = MOCK_SERVICES.find(s => s.id === bookingData.service.id);
-        if (!service) {
-            throw new Error('Không tìm thấy dịch vụ');
         }
 
         // Check availability one more time
@@ -374,22 +439,33 @@ const bookingApi = {
         const startTime = new Date(bookingData.bookingDateTime);
         const endTime = new Date(startTime.getTime() + service.duration * 60000);
 
+        // Determine payment status based on provided payment data/method
+        let paymentStatus = 'unpaid';
+        if (bookingData.paymentMethod === 'qr_transfer' || bookingData.paymentMethod === 'credit_card' || bookingData.paymentMethod === 'e_wallet') {
+            paymentStatus = bookingData.status === 'completed' ? 'paid' : (bookingData.paymentStatus || 'pending');
+        } else if (bookingData.paymentMethod === 'counter_payment') {
+            paymentStatus = bookingData.paymentStatus || 'pending';
+        }
+
         const newBooking = {
             id: generateId('booking'),
             customerId: currentUser.id,
-            petId: bookingData.pet.id,
+            petId: bookingData.pet?.id,
             serviceId: service.id,
             staffId: assignedStaff?.id,
             bookingDateTime: bookingData.bookingDateTime,
             estimatedEndTime: endTime.toISOString(),
-            status: service.autoApprove ? 'confirmed' : 'pending',
+            status: bookingData.serviceStatus || (service.autoApprove ? 'confirmed' : 'pending'),
             notes: bookingData.notes || '',
             finalPrice: bookingData.finalPrice || service.price,
-            paymentStatus: 'paid',
+            paymentStatus,
             paymentMethod: bookingData.paymentMethod || 'credit_card',
             customerInfo: bookingData.customerInfo,
             service: bookingData.service,
             pet: bookingData.pet,
+            // For cafe_service sessions
+            sessionId: isCafeService ? bookingData.sessionId : undefined,
+            participants: isCafeService ? (bookingData.participants || 1) : undefined,
             staff: assignedStaff,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
