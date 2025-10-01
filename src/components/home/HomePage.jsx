@@ -1,12 +1,17 @@
-import React from 'react';
-import { Box, Container, Typography, Button, Grid, Card, CardContent, CardMedia, Avatar, Chip, Stack, useTheme, alpha, Fade, Zoom, IconButton, Divider } from '@mui/material';
-import { LocalCafe, Pets, Cake, Coffee, Restaurant, ConfirmationNumber, LocationOn, Star, Favorite, ArrowForward, PlayArrow, Facebook, Instagram, Twitter, EmojiFoodBeverage, Cookie, Fastfood, WineBar, HotTub } from '@mui/icons-material';
+import React, { useState, useEffect } from 'react';
+import { Box, Container, Typography, Button, Grid, Card, CardContent, CardMedia, Avatar, Chip, Stack, useTheme, alpha, Fade, Zoom, IconButton, Divider, Slide, Grow } from '@mui/material';
+import { LocalCafe, Pets, Cake, Coffee, Restaurant, ConfirmationNumber, LocationOn, Star, Favorite, ArrowForward, Facebook, Instagram, Twitter, EmojiFoodBeverage, Cookie, Fastfood, WineBar, HotTub, AutoAwesome } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 import { useNavigate } from 'react-router-dom';
 
 const HomePage = () => {
     const theme = useTheme();
     const navigate = useNavigate();
+    const [isVisible, setIsVisible] = useState(false);
+
+    useEffect(() => {
+        setIsVisible(true);
+    }, []);
 
 
     const features = [
@@ -96,21 +101,6 @@ const HomePage = () => {
             ],
             capacity: "Tối đa 15 chú mèo",
             price: "40,000đ/mèo/giờ"
-        },
-        {
-            floor: "Tầng 3",
-            name: "Khu vực chung",
-            icon: <HotTub sx={{ fontSize: 40 }} />,
-            description: "Không gian dành cho cả chó và mèo với sự giám sát chặt chẽ",
-            features: [
-                "Không gian mở thoáng đãng",
-                "Khu vực riêng biệt cho từng loại",
-                "Sân thượng với view đẹp",
-                "Dịch vụ spa cho thú cưng",
-                "Bác sĩ thú y có mặt 24/7"
-            ],
-            capacity: "Tối đa 25 thú cưng",
-            price: "60,000đ/thú cưng/giờ"
         }
     ];
 
@@ -143,17 +133,17 @@ const HomePage = () => {
             {/* Hero Section */}
             <Box
                 sx={{
-                    minHeight: '80vh',
+                    minHeight: '90vh',
                     background: `
-                        radial-gradient(circle at 20% 80%, ${alpha(COLORS.SECONDARY[100], 0.4)} 0%, transparent 50%),
-                        radial-gradient(circle at 80% 20%, ${alpha(COLORS.WARNING[100], 0.4)} 0%, transparent 50%),
-                        radial-gradient(circle at 40% 40%, ${alpha(COLORS.PRIMARY[100], 0.3)} 0%, transparent 50%),
-                        linear-gradient(135deg, ${alpha(COLORS.SECONDARY[50], 0.8)} 0%, ${alpha(COLORS.PRIMARY[50], 0.9)} 50%, ${alpha(COLORS.WARNING[50], 0.7)} 100%)
+                        radial-gradient(circle at 20% 80%, ${alpha(COLORS.SECONDARY[100], 0.6)} 0%, transparent 50%),
+                        radial-gradient(circle at 80% 20%, ${alpha(COLORS.WARNING[100], 0.6)} 0%, transparent 50%),
+                        radial-gradient(circle at 40% 40%, ${alpha(COLORS.PRIMARY[100], 0.5)} 0%, transparent 50%),
+                        linear-gradient(135deg, ${alpha(COLORS.SECONDARY[50], 0.9)} 0%, ${alpha(COLORS.PRIMARY[50], 0.95)} 50%, ${alpha(COLORS.WARNING[50], 0.8)} 100%)
                     `,
                     display: 'flex',
                     alignItems: 'center',
                     position: 'relative',
-                    overflow: 'visible',
+                    overflow: 'hidden',
                     '&::before': {
                         content: '""',
                         position: 'absolute',
@@ -162,12 +152,23 @@ const HomePage = () => {
                         right: 0,
                         bottom: 0,
                         backgroundImage: `
-                            radial-gradient(circle at 15% 15%, ${alpha(COLORS.ERROR[100], 0.1)} 0%, transparent 20%),
-                            radial-gradient(circle at 85% 85%, ${alpha(COLORS.SECONDARY[100], 0.1)} 0%, transparent 20%),
-                            radial-gradient(circle at 50% 20%, ${alpha(COLORS.PRIMARY[100], 0.1)} 0%, transparent 25%),
-                            radial-gradient(circle at 20% 80%, ${alpha(COLORS.WARNING[100], 0.1)} 0%, transparent 25%)
+                            radial-gradient(circle at 15% 15%, ${alpha(COLORS.ERROR[100], 0.2)} 0%, transparent 20%),
+                            radial-gradient(circle at 85% 85%, ${alpha(COLORS.SECONDARY[100], 0.2)} 0%, transparent 20%),
+                            radial-gradient(circle at 50% 20%, ${alpha(COLORS.PRIMARY[100], 0.2)} 0%, transparent 25%),
+                            radial-gradient(circle at 20% 80%, ${alpha(COLORS.WARNING[100], 0.2)} 0%, transparent 25%)
                         `,
-                        pointerEvents: 'none'
+                        pointerEvents: 'none',
+                        animation: 'backgroundShift 8s ease-in-out infinite'
+                    },
+                    '@keyframes backgroundShift': {
+                        '0%, 100%': {
+                            opacity: 1,
+                            transform: 'scale(1)'
+                        },
+                        '50%': {
+                            opacity: 0.8,
+                            transform: 'scale(1.05)'
+                        }
                     }
                 }}
             >
@@ -182,33 +183,63 @@ const HomePage = () => {
                             position: 'absolute',
                             top: '10%',
                             left: '10%',
-                            width: '60px',
-                            height: '60px',
+                            width: '80px',
+                            height: '80px',
                             borderRadius: '50%',
-                            background: `radial-gradient(circle, ${alpha(COLORS.ERROR[200], 0.3)}, transparent)`,
-                            animation: 'float 6s ease-in-out infinite'
+                            background: `radial-gradient(circle, ${alpha(COLORS.ERROR[200], 0.4)}, transparent)`,
+                            animation: 'float 6s ease-in-out infinite',
+                            boxShadow: `0 0 30px ${alpha(COLORS.ERROR[200], 0.3)}`
                         },
                         '&::after': {
                             content: '""',
                             position: 'absolute',
                             top: '15%',
                             right: '12%',
-                            width: '50px',
-                            height: '50px',
+                            width: '60px',
+                            height: '60px',
                             borderRadius: '50%',
-                            background: `radial-gradient(circle, ${alpha(COLORS.SECONDARY[200], 0.3)}, transparent)`,
-                            animation: 'float 7s ease-in-out infinite 1s'
+                            background: `radial-gradient(circle, ${alpha(COLORS.SECONDARY[200], 0.4)}, transparent)`,
+                            animation: 'float 7s ease-in-out infinite 1s',
+                            boxShadow: `0 0 25px ${alpha(COLORS.SECONDARY[200], 0.3)}`
                         },
                         '@keyframes float': {
                             '0%, 100%': {
-                                transform: 'translateY(0px) rotate(0deg)',
+                                transform: 'translateY(0px) rotate(0deg) scale(1)',
                                 opacity: 0.6
                             },
                             '50%': {
-                                transform: 'translateY(-20px) rotate(10deg)',
-                                opacity: 0.8
+                                transform: 'translateY(-25px) rotate(15deg) scale(1.1)',
+                                opacity: 0.9
                             }
                         }
+                    }}
+                />
+
+                {/* Additional Floating Elements */}
+                <Box
+                    sx={{
+                        position: 'absolute',
+                        top: '30%',
+                        left: '5%',
+                        width: '40px',
+                        height: '40px',
+                        borderRadius: '50%',
+                        background: `radial-gradient(circle, ${alpha(COLORS.WARNING[200], 0.4)}, transparent)`,
+                        animation: 'float 8s ease-in-out infinite 2s',
+                        boxShadow: `0 0 20px ${alpha(COLORS.WARNING[200], 0.3)}`
+                    }}
+                />
+                <Box
+                    sx={{
+                        position: 'absolute',
+                        bottom: '20%',
+                        right: '8%',
+                        width: '35px',
+                        height: '35px',
+                        borderRadius: '50%',
+                        background: `radial-gradient(circle, ${alpha(COLORS.INFO[200], 0.4)}, transparent)`,
+                        animation: 'float 9s ease-in-out infinite 3s',
+                        boxShadow: `0 0 18px ${alpha(COLORS.INFO[200], 0.3)}`
                     }}
                 />
 
@@ -219,13 +250,20 @@ const HomePage = () => {
                         top: '20%',
                         right: '15%',
                         animation: 'bounce 4s ease-in-out infinite',
+                        filter: 'drop-shadow(0 0 10px rgba(0,0,0,0.1))',
                         '@keyframes bounce': {
-                            '0%, 100%': { transform: 'translateY(0px) scale(1)' },
-                            '50%': { transform: 'translateY(-15px) scale(1.1)' }
+                            '0%, 100%': { 
+                                transform: 'translateY(0px) scale(1) rotate(0deg)',
+                                opacity: 0.8
+                            },
+                            '50%': { 
+                                transform: 'translateY(-20px) scale(1.15) rotate(5deg)',
+                                opacity: 1
+                            }
                         }
                     }}
                 >
-                    <LocalCafe sx={{ fontSize: 50, color: alpha(COLORS.SECONDARY[500], 0.7) }} />
+                    <LocalCafe sx={{ fontSize: 60, color: alpha(COLORS.SECONDARY[500], 0.8) }} />
                 </Box>
                 <Box
                     sx={{
@@ -233,13 +271,20 @@ const HomePage = () => {
                         bottom: '30%',
                         left: '10%',
                         animation: 'bounce 5s ease-in-out infinite 1s',
+                        filter: 'drop-shadow(0 0 10px rgba(0,0,0,0.1))',
                         '@keyframes bounce': {
-                            '0%, 100%': { transform: 'translateY(0px) scale(1)' },
-                            '50%': { transform: 'translateY(-12px) scale(1.1)' }
+                            '0%, 100%': { 
+                                transform: 'translateY(0px) scale(1) rotate(0deg)',
+                                opacity: 0.8
+                            },
+                            '50%': { 
+                                transform: 'translateY(-18px) scale(1.15) rotate(-5deg)',
+                                opacity: 1
+                            }
                         }
                     }}
                 >
-                    <Pets sx={{ fontSize: 45, color: alpha(COLORS.ERROR[400], 0.7) }} />
+                    <Pets sx={{ fontSize: 55, color: alpha(COLORS.ERROR[400], 0.8) }} />
                 </Box>
                 <Box
                     sx={{
@@ -247,19 +292,68 @@ const HomePage = () => {
                         top: '40%',
                         left: '8%',
                         animation: 'bounce 6s ease-in-out infinite 2s',
+                        filter: 'drop-shadow(0 0 10px rgba(0,0,0,0.1))',
                         '@keyframes bounce': {
-                            '0%, 100%': { transform: 'translateY(0px) scale(1)' },
-                            '50%': { transform: 'translateY(-10px) scale(1.1)' }
+                            '0%, 100%': { 
+                                transform: 'translateY(0px) scale(1) rotate(0deg)',
+                                opacity: 0.8
+                            },
+                            '50%': { 
+                                transform: 'translateY(-15px) scale(1.15) rotate(3deg)',
+                                opacity: 1
+                            }
                         }
                     }}
                 >
-                    <Cake sx={{ fontSize: 40, color: alpha(COLORS.ERROR[300], 0.7) }} />
+                    <Cake sx={{ fontSize: 50, color: alpha(COLORS.ERROR[300], 0.8) }} />
+                </Box>
+
+                {/* Sparkle Effects */}
+                <Box
+                    sx={{
+                        position: 'absolute',
+                        top: '25%',
+                        right: '25%',
+                        animation: 'sparkle 3s ease-in-out infinite',
+                        '@keyframes sparkle': {
+                            '0%, 100%': { 
+                                transform: 'scale(0.8) rotate(0deg)',
+                                opacity: 0.3
+                            },
+                            '50%': { 
+                                transform: 'scale(1.2) rotate(180deg)',
+                                opacity: 1
+                            }
+                        }
+                    }}
+                >
+                    <Star sx={{ fontSize: 30, color: alpha(COLORS.WARNING[400], 0.8) }} />
+                </Box>
+                <Box
+                    sx={{
+                        position: 'absolute',
+                        bottom: '40%',
+                        right: '20%',
+                        animation: 'sparkle 4s ease-in-out infinite 1.5s',
+                        '@keyframes sparkle': {
+                            '0%, 100%': { 
+                                transform: 'scale(0.8) rotate(0deg)',
+                                opacity: 0.3
+                            },
+                            '50%': { 
+                                transform: 'scale(1.2) rotate(180deg)',
+                                opacity: 1
+                            }
+                        }
+                    }}
+                >
+                    <AutoAwesome sx={{ fontSize: 25, color: alpha(COLORS.INFO[400], 0.8) }} />
                 </Box>
 
                 <Container maxWidth="lg">
                     <Grid container spacing={4} alignItems="center">
                         <Grid item xs={12} md={6}>
-                            <Fade in timeout={1000}>
+                            <Slide direction="right" in={isVisible} timeout={1200}>
                                 <Box>
                                     <Typography
                                         variant="h1"
@@ -268,9 +362,18 @@ const HomePage = () => {
                                             fontSize: { xs: '2.5rem', md: '3.5rem', lg: '4rem' },
                                             fontWeight: 'bold',
                                             color: COLORS.ERROR[500],
-                                            textShadow: `2px 2px 4px ${alpha(COLORS.ERROR[300], 0.5)}`,
+                                            textShadow: `3px 3px 6px ${alpha(COLORS.ERROR[300], 0.6)}`,
                                             mb: 2,
-                                            fontFamily: '"Comic Sans MS", cursive'
+                                            fontFamily: '"Comic Sans MS", cursive',
+                                            animation: 'titleGlow 3s ease-in-out infinite',
+                                            '@keyframes titleGlow': {
+                                                '0%, 100%': {
+                                                    textShadow: `3px 3px 6px ${alpha(COLORS.ERROR[300], 0.6)}`
+                                                },
+                                                '50%': {
+                                                    textShadow: `3px 3px 12px ${alpha(COLORS.ERROR[300], 0.8)}, 0 0 20px ${alpha(COLORS.ERROR[200], 0.4)}`
+                                                }
+                                            }
                                         }}
                                     >
                                         Pet Cafe
@@ -281,7 +384,16 @@ const HomePage = () => {
                                             color: COLORS.SECONDARY[600],
                                             mb: 3,
                                             fontWeight: 500,
-                                            textShadow: `1px 1px 2px ${alpha(COLORS.SECONDARY[50], 0.8)}`
+                                            textShadow: `2px 2px 4px ${alpha(COLORS.SECONDARY[50], 0.8)}`,
+                                            animation: 'subtitleFloat 4s ease-in-out infinite',
+                                            '@keyframes subtitleFloat': {
+                                                '0%, 100%': {
+                                                    transform: 'translateY(0px)'
+                                                },
+                                                '50%': {
+                                                    transform: 'translateY(-3px)'
+                                                }
+                                            }
                                         }}
                                     >
                                         🐾 Nơi gặp gỡ ấm áp của những người yêu thú cưng ☕
@@ -292,32 +404,42 @@ const HomePage = () => {
                                             color: COLORS.TEXT.SECONDARY,
                                             mb: 4,
                                             lineHeight: 1.6,
-                                            maxWidth: '500px'
+                                            maxWidth: '500px',
+                                            animation: 'fadeInUp 1.5s ease-out'
                                         }}
                                     >
                                         Khám phá không gian tuyệt vời nơi bạn và thú cưng có thể thư giãn,
                                         thưởng thức đồ uống ngon và tạo nên những kỷ niệm đáng nhớ.
                                     </Typography>
-                                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3}>
                                         <Button
                                             variant="contained"
                                             size="large"
                                             startIcon={<Pets />}
                                             sx={{
-                                                py: 2,
-                                                px: 4,
-                                                borderRadius: 6,
+                                                py: 2.5,
+                                                px: 5,
+                                                borderRadius: 8,
                                                 background: `linear-gradient(135deg, ${COLORS.ERROR[300]}, ${COLORS.ERROR[500]}, ${COLORS.SECONDARY[400]})`,
-                                                boxShadow: `0 15px 35px ${alpha(COLORS.ERROR[300], 0.4)}`,
-                                                fontSize: '1.1rem',
+                                                boxShadow: `0 20px 40px ${alpha(COLORS.ERROR[300], 0.5)}`,
+                                                fontSize: '1.2rem',
                                                 fontWeight: 'bold',
                                                 textTransform: 'none',
+                                                animation: 'buttonPulse 2s ease-in-out infinite',
                                                 '&:hover': {
                                                     background: `linear-gradient(135deg, ${COLORS.ERROR[500]}, ${COLORS.ERROR[600]}, ${COLORS.ERROR[300]})`,
-                                                    transform: 'translateY(-3px)',
-                                                    boxShadow: `0 20px 45px ${alpha(COLORS.ERROR[300], 0.5)}`,
+                                                    transform: 'translateY(-5px) scale(1.05)',
+                                                    boxShadow: `0 25px 50px ${alpha(COLORS.ERROR[300], 0.6)}`,
                                                 },
-                                                transition: 'all 0.3s ease',
+                                                transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+                                                '@keyframes buttonPulse': {
+                                                    '0%, 100%': {
+                                                        boxShadow: `0 20px 40px ${alpha(COLORS.ERROR[300], 0.5)}`
+                                                    },
+                                                    '50%': {
+                                                        boxShadow: `0 20px 40px ${alpha(COLORS.ERROR[300], 0.7)}, 0 0 30px ${alpha(COLORS.ERROR[200], 0.3)}`
+                                                    }
+                                                }
                                             }}
                                         >
                                             Khám phá ngay
@@ -325,108 +447,194 @@ const HomePage = () => {
                                         <Button
                                             variant="outlined"
                                             size="large"
-                                            startIcon={<PlayArrow />}
+                                            startIcon={<Restaurant />}
+                                            onClick={() => navigate('/menu')}
                                             sx={{
-                                                py: 2,
-                                                px: 4,
-                                                borderRadius: 6,
-                                                borderColor: COLORS.ERROR[300],
-                                                color: COLORS.ERROR[500],
-                                                border: `2px solid ${alpha(COLORS.ERROR[200], 0.5)}`,
-                                                fontSize: '1.1rem',
+                                                py: 2.5,
+                                                px: 5,
+                                                borderRadius: 8,
+                                                borderColor: COLORS.SECONDARY[300],
+                                                color: COLORS.SECONDARY[600],
+                                                border: `3px solid ${alpha(COLORS.SECONDARY[200], 0.6)}`,
+                                                fontSize: '1.2rem',
                                                 fontWeight: 'bold',
                                                 textTransform: 'none',
+                                                background: `linear-gradient(135deg, ${alpha(COLORS.SECONDARY[50], 0.3)}, ${alpha(COLORS.SECONDARY[100], 0.2)})`,
                                                 '&:hover': {
-                                                    borderColor: COLORS.ERROR[500],
-                                                    backgroundColor: alpha(COLORS.ERROR[50], 0.8),
-                                                    transform: 'translateY(-3px)',
-                                                    boxShadow: `0 10px 30px ${alpha(COLORS.ERROR[200], 0.3)}`
+                                                    borderColor: COLORS.SECONDARY[500],
+                                                    backgroundColor: alpha(COLORS.SECONDARY[100], 0.8),
+                                                    transform: 'translateY(-5px) scale(1.05)',
+                                                    boxShadow: `0 15px 35px ${alpha(COLORS.SECONDARY[200], 0.4)}`
                                                 },
-                                                transition: 'all 0.3s ease',
+                                                transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
                                             }}
                                         >
-                                            Xem video
+                                            Xem menu
                                         </Button>
                                     </Stack>
                                 </Box>
-                            </Fade>
+                            </Slide>
                         </Grid>
                         <Grid item xs={12} md={6}>
-                            <Zoom in timeout={1200}>
+                            <Slide direction="left" in={isVisible} timeout={1500}>
                                 <Box
                                     sx={{
                                         position: 'relative',
                                         display: 'flex',
                                         justifyContent: 'center',
-                                        alignItems: 'center'
+                                        alignItems: 'center',
+                                        animation: 'containerFloat 6s ease-in-out infinite'
                                     }}
                                 >
                                     <Box
                                         sx={{
-                                            width: { xs: 300, md: 400 },
-                                            height: { xs: 300, md: 400 },
+                                            width: { xs: 320, md: 420 },
+                                            height: { xs: 320, md: 420 },
                                             borderRadius: '50%',
                                             background: `linear-gradient(135deg, ${COLORS.ERROR[300]}, ${COLORS.SECONDARY[300]}, ${COLORS.WARNING[300]})`,
                                             display: 'flex',
                                             alignItems: 'center',
                                             justifyContent: 'center',
                                             boxShadow: `
-                                                0 30px 60px ${alpha(COLORS.ERROR[300], 0.4)},
-                                                inset 0 2px 4px ${alpha(COLORS.BACKGROUND.DEFAULT, 0.3)}
+                                                0 40px 80px ${alpha(COLORS.ERROR[300], 0.5)},
+                                                inset 0 4px 8px ${alpha(COLORS.BACKGROUND.DEFAULT, 0.3)},
+                                                0 0 0 1px ${alpha(COLORS.ERROR[200], 0.2)}
                                             `,
                                             position: 'relative',
+                                            animation: 'mainCircle 8s ease-in-out infinite',
                                             '&:hover': {
-                                                transform: 'scale(1.05) rotate(5deg)',
-                                                transition: 'all 0.4s ease'
+                                                transform: 'scale(1.08) rotate(8deg)',
+                                                transition: 'all 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
+                                                boxShadow: `
+                                                    0 50px 100px ${alpha(COLORS.ERROR[300], 0.6)},
+                                                    inset 0 4px 8px ${alpha(COLORS.BACKGROUND.DEFAULT, 0.3)},
+                                                    0 0 0 2px ${alpha(COLORS.ERROR[200], 0.3)}
+                                                `
                                             },
                                             '&::before': {
                                                 content: '""',
                                                 position: 'absolute',
-                                                top: -15,
-                                                right: -15,
-                                                width: 40,
-                                                height: 40,
+                                                top: -20,
+                                                right: -20,
+                                                width: 50,
+                                                height: 50,
                                                 borderRadius: '50%',
-                                                background: COLORS.ERROR[500],
-                                                animation: 'pulse 2s infinite',
-                                                boxShadow: `0 0 20px ${alpha(COLORS.ERROR[500], 0.6)}`
+                                                background: `linear-gradient(135deg, ${COLORS.ERROR[500]}, ${COLORS.ERROR[600]})`,
+                                                animation: 'pulse 3s infinite',
+                                                boxShadow: `0 0 30px ${alpha(COLORS.ERROR[500], 0.8)}`
                                             },
                                             '&::after': {
                                                 content: '""',
                                                 position: 'absolute',
-                                                bottom: -12,
-                                                left: -12,
-                                                width: 35,
-                                                height: 35,
+                                                bottom: -15,
+                                                left: -15,
+                                                width: 45,
+                                                height: 45,
                                                 borderRadius: '50%',
-                                                background: COLORS.INFO[400],
-                                                animation: 'pulse 2.5s infinite 0.5s',
-                                                boxShadow: `0 0 15px ${alpha(COLORS.INFO[400], 0.6)}`
+                                                background: `linear-gradient(135deg, ${COLORS.INFO[400]}, ${COLORS.INFO[500]})`,
+                                                animation: 'pulse 3.5s infinite 0.8s',
+                                                boxShadow: `0 0 25px ${alpha(COLORS.INFO[400], 0.8)}`
+                                            },
+                                            '@keyframes mainCircle': {
+                                                '0%, 100%': {
+                                                    transform: 'rotate(0deg) scale(1)',
+                                                    boxShadow: `
+                                                        0 40px 80px ${alpha(COLORS.ERROR[300], 0.5)},
+                                                        inset 0 4px 8px ${alpha(COLORS.BACKGROUND.DEFAULT, 0.3)}
+                                                    `
+                                                },
+                                                '50%': {
+                                                    transform: 'rotate(2deg) scale(1.02)',
+                                                    boxShadow: `
+                                                        0 45px 90px ${alpha(COLORS.ERROR[300], 0.6)},
+                                                        inset 0 4px 8px ${alpha(COLORS.BACKGROUND.DEFAULT, 0.3)}
+                                                    `
+                                                }
+                                            },
+                                            '@keyframes containerFloat': {
+                                                '0%, 100%': {
+                                                    transform: 'translateY(0px)'
+                                                },
+                                                '50%': {
+                                                    transform: 'translateY(-10px)'
+                                                }
                                             }
                                         }}
                                     >
-                                        <LocalCafe sx={{ fontSize: { xs: 80, md: 120 }, color: 'white' }} />
+                                        <LocalCafe sx={{ 
+                                            fontSize: { xs: 90, md: 130 }, 
+                                            color: 'white',
+                                            filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.2))',
+                                            animation: 'iconFloat 4s ease-in-out infinite'
+                                        }} />
                                     </Box>
+
+                                    {/* Additional decorative elements */}
+                                    <Box
+                                        sx={{
+                                            position: 'absolute',
+                                            top: '10%',
+                                            left: '5%',
+                                            width: 30,
+                                            height: 30,
+                                            borderRadius: '50%',
+                                            background: `linear-gradient(135deg, ${COLORS.WARNING[400]}, ${COLORS.WARNING[500]})`,
+                                            animation: 'orbit 6s linear infinite',
+                                            boxShadow: `0 0 15px ${alpha(COLORS.WARNING[400], 0.6)}`
+                                        }}
+                                    />
+                                    <Box
+                                        sx={{
+                                            position: 'absolute',
+                                            bottom: '15%',
+                                            right: '8%',
+                                            width: 25,
+                                            height: 25,
+                                            borderRadius: '50%',
+                                            background: `linear-gradient(135deg, ${COLORS.SECONDARY[400]}, ${COLORS.SECONDARY[500]})`,
+                                            animation: 'orbit 8s linear infinite reverse',
+                                            boxShadow: `0 0 12px ${alpha(COLORS.SECONDARY[400], 0.6)}`
+                                        }}
+                                    />
                                 </Box>
-                            </Zoom>
+                            </Slide>
                         </Grid>
                     </Grid>
                 </Container>
             </Box>
 
             {/* Features Section */}
-            <Box sx={{ py: 8, backgroundColor: COLORS.BACKGROUND.NEUTRAL }}>
+            <Box sx={{ 
+                py: 10, 
+                background: `linear-gradient(135deg, ${alpha(COLORS.BACKGROUND.NEUTRAL, 0.8)} 0%, ${alpha(COLORS.SECONDARY[50], 0.6)} 100%)`,
+                position: 'relative',
+                '&::before': {
+                    content: '""',
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: `
+                        radial-gradient(circle at 20% 20%, ${alpha(COLORS.ERROR[100], 0.1)} 0%, transparent 30%),
+                        radial-gradient(circle at 80% 80%, ${alpha(COLORS.SECONDARY[100], 0.1)} 0%, transparent 30%)
+                    `,
+                    pointerEvents: 'none'
+                }
+            }}>
                 <Container maxWidth="lg">
-                    <Fade in timeout={1000}>
-                        <Box sx={{ textAlign: 'center', mb: 6 }}>
+                    <Slide direction="up" in={isVisible} timeout={1000}>
+                        <Box sx={{ textAlign: 'center', mb: 8 }}>
                             <Typography
                                 variant="h2"
                                 component="h2"
                                 sx={{
                                     fontWeight: 'bold',
                                     color: COLORS.ERROR[500],
-                                    mb: 2,
-                                    fontFamily: '"Comic Sans MS", cursive'
+                                    mb: 3,
+                                    fontFamily: '"Comic Sans MS", cursive',
+                                    animation: 'titleSlide 1.5s ease-out',
+                                    textShadow: `2px 2px 4px ${alpha(COLORS.ERROR[200], 0.3)}`
                                 }}
                             >
                                 🎯 Dịch vụ của chúng tôi
@@ -435,48 +643,73 @@ const HomePage = () => {
                                 variant="h6"
                                 sx={{
                                     color: COLORS.TEXT.SECONDARY,
-                                    maxWidth: '600px',
-                                    mx: 'auto'
+                                    maxWidth: '700px',
+                                    mx: 'auto',
+                                    lineHeight: 1.8,
+                                    animation: 'fadeInUp 2s ease-out'
                                 }}
                             >
                                 Pet Cafe mang đến trải nghiệm tuyệt vời với đầy đủ dịch vụ
-                                dành cho bạn và thú cưng
+                                dành cho bạn và thú cưng. Khám phá những điều tuyệt vời đang chờ đón!
                             </Typography>
                         </Box>
-                    </Fade>
+                    </Slide>
 
-                    <Grid container spacing={4}>
+                    <Grid container spacing={5}>
                         {features.map((feature, index) => (
                             <Grid item xs={12} sm={6} md={3} key={index}>
-                                <Zoom in timeout={1000 + index * 200}>
+                                <Grow in timeout={1200 + index * 300}>
                                     <Card
                                         sx={{
                                             height: '100%',
-                                            borderRadius: 4,
-                                            background: `linear-gradient(145deg, ${alpha(COLORS.BACKGROUND.DEFAULT, 0.95)}, ${alpha(COLORS.SECONDARY[50], 0.9)})`,
-                                            backdropFilter: 'blur(25px)',
-                                            border: `2px solid ${alpha(COLORS.ERROR[200], 0.3)}`,
-                                            boxShadow: `0 20px 40px ${alpha(COLORS.ERROR[200], 0.2)}`,
-                                            transition: 'all 0.3s ease',
+                                            borderRadius: 6,
+                                            background: `linear-gradient(145deg, ${alpha(COLORS.BACKGROUND.DEFAULT, 0.98)}, ${alpha(COLORS.SECONDARY[50], 0.95)})`,
+                                            backdropFilter: 'blur(30px)',
+                                            border: `3px solid ${alpha(COLORS.ERROR[200], 0.4)}`,
+                                            boxShadow: `0 25px 50px ${alpha(COLORS.ERROR[200], 0.25)}`,
+                                            transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
+                                            position: 'relative',
+                                            overflow: 'hidden',
+                                            '&::before': {
+                                                content: '""',
+                                                position: 'absolute',
+                                                top: 0,
+                                                left: 0,
+                                                right: 0,
+                                                bottom: 0,
+                                                background: `linear-gradient(135deg, ${alpha(COLORS.ERROR[100], 0.1)}, ${alpha(COLORS.SECONDARY[100], 0.1)})`,
+                                                opacity: 0,
+                                                transition: 'opacity 0.3s ease'
+                                            },
                                             '&:hover': {
-                                                transform: 'translateY(-10px)',
-                                                boxShadow: `0 30px 60px ${alpha(COLORS.ERROR[200], 0.3)}`,
+                                                transform: 'translateY(-15px) scale(1.02)',
+                                                boxShadow: `0 35px 70px ${alpha(COLORS.ERROR[200], 0.4)}`,
+                                                border: `3px solid ${alpha(COLORS.ERROR[300], 0.6)}`,
+                                                '&::before': {
+                                                    opacity: 1
+                                                }
                                             }
                                         }}
                                     >
-                                        <CardContent sx={{ p: 4, textAlign: 'center' }}>
+                                        <CardContent sx={{ p: 5, textAlign: 'center', position: 'relative', zIndex: 1 }}>
                                             <Box
                                                 sx={{
-                                                    width: 80,
-                                                    height: 80,
+                                                    width: 100,
+                                                    height: 100,
                                                     borderRadius: '50%',
                                                     background: `linear-gradient(135deg, ${COLORS.ERROR[300]}, ${COLORS.SECONDARY[300]})`,
                                                     display: 'flex',
                                                     alignItems: 'center',
                                                     justifyContent: 'center',
                                                     mx: 'auto',
-                                                    mb: 3,
-                                                    color: 'white'
+                                                    mb: 4,
+                                                    color: 'white',
+                                                    boxShadow: `0 15px 30px ${alpha(COLORS.ERROR[300], 0.4)}`,
+                                                    transition: 'all 0.4s ease',
+                                                    '&:hover': {
+                                                        transform: 'scale(1.1) rotate(5deg)',
+                                                        boxShadow: `0 20px 40px ${alpha(COLORS.ERROR[300], 0.6)}`
+                                                    }
                                                 }}
                                             >
                                                 {feature.icon}
@@ -486,23 +719,26 @@ const HomePage = () => {
                                                 sx={{
                                                     fontWeight: 'bold',
                                                     color: COLORS.ERROR[500],
-                                                    mb: 2
+                                                    mb: 3,
+                                                    fontSize: '1.3rem',
+                                                    textShadow: `1px 1px 2px ${alpha(COLORS.ERROR[200], 0.3)}`
                                                 }}
                                             >
                                                 {feature.title}
                                             </Typography>
                                             <Typography
-                                                variant="body2"
+                                                variant="body1"
                                                 sx={{
                                                     color: COLORS.TEXT.SECONDARY,
-                                                    lineHeight: 1.6
+                                                    lineHeight: 1.7,
+                                                    fontSize: '1rem'
                                                 }}
                                             >
                                                 {feature.description}
                                             </Typography>
                                         </CardContent>
                                     </Card>
-                                </Zoom>
+                                </Grow>
                             </Grid>
                         ))}
                     </Grid>
@@ -510,18 +746,38 @@ const HomePage = () => {
             </Box>
 
             {/* Menu Section */}
-            <Box sx={{ py: 8, backgroundColor: COLORS.BACKGROUND.DEFAULT, minHeight: '80vh' }}>
+            <Box sx={{ 
+                py: 10, 
+                background: `linear-gradient(135deg, ${alpha(COLORS.BACKGROUND.DEFAULT, 0.9)} 0%, ${alpha(COLORS.PRIMARY[50], 0.8)} 100%)`,
+                minHeight: '90vh',
+                position: 'relative',
+                '&::before': {
+                    content: '""',
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    background: `
+                        radial-gradient(circle at 30% 30%, ${alpha(COLORS.WARNING[100], 0.15)} 0%, transparent 40%),
+                        radial-gradient(circle at 70% 70%, ${alpha(COLORS.ERROR[100], 0.15)} 0%, transparent 40%)
+                    `,
+                    pointerEvents: 'none'
+                }
+            }}>
                 <Container maxWidth="lg">
-                    <Fade in timeout={1000}>
-                        <Box sx={{ textAlign: 'center', mb: 6 }}>
+                    <Slide direction="up" in={isVisible} timeout={1200}>
+                        <Box sx={{ textAlign: 'center', mb: 8 }}>
                             <Typography
                                 variant="h2"
                                 component="h2"
                                 sx={{
                                     fontWeight: 'bold',
                                     color: COLORS.ERROR[500],
-                                    mb: 2,
-                                    fontFamily: '"Comic Sans MS", cursive'
+                                    mb: 3,
+                                    fontFamily: '"Comic Sans MS", cursive',
+                                    animation: 'titleSlide 1.8s ease-out',
+                                    textShadow: `2px 2px 4px ${alpha(COLORS.ERROR[200], 0.3)}`
                                 }}
                             >
                                 🍽️ Thực đơn đa dạng
@@ -530,12 +786,15 @@ const HomePage = () => {
                                 variant="h6"
                                 sx={{
                                     color: COLORS.TEXT.SECONDARY,
-                                    maxWidth: '600px',
+                                    maxWidth: '700px',
                                     mx: 'auto',
-                                    mb: 4
+                                    mb: 5,
+                                    lineHeight: 1.8,
+                                    animation: 'fadeInUp 2.2s ease-out'
                                 }}
                             >
-                                Khám phá các món ăn và thức uống thơm ngon tại Pet Cafe
+                                Khám phá các món ăn và thức uống thơm ngon tại Pet Cafe.
+                                Từ cà phê thơm lừng đến bánh ngọt tươi ngon!
                             </Typography>
                             <Button
                                 variant="contained"
@@ -543,59 +802,83 @@ const HomePage = () => {
                                 startIcon={<Restaurant />}
                                 onClick={() => navigate('/menu')}
                                 sx={{
-                                    py: 2,
-                                    px: 4,
-                                    borderRadius: 6,
+                                    py: 3,
+                                    px: 6,
+                                    borderRadius: 8,
                                     background: `linear-gradient(135deg, ${COLORS.ERROR[300]}, ${COLORS.ERROR[500]}, ${COLORS.SECONDARY[400]})`,
-                                    boxShadow: `0 15px 35px ${alpha(COLORS.ERROR[300], 0.4)}`,
-                                    fontSize: '1.1rem',
+                                    boxShadow: `0 20px 40px ${alpha(COLORS.ERROR[300], 0.5)}`,
+                                    fontSize: '1.2rem',
                                     fontWeight: 'bold',
                                     textTransform: 'none',
+                                    animation: 'buttonPulse 2.5s ease-in-out infinite',
                                     '&:hover': {
                                         background: `linear-gradient(135deg, ${COLORS.ERROR[500]}, ${COLORS.ERROR[600]}, ${COLORS.ERROR[300]})`,
-                                        transform: 'translateY(-3px)',
-                                        boxShadow: `0 20px 45px ${alpha(COLORS.ERROR[300], 0.5)}`,
+                                        transform: 'translateY(-5px) scale(1.05)',
+                                        boxShadow: `0 25px 50px ${alpha(COLORS.ERROR[300], 0.6)}`,
                                     },
-                                    transition: 'all 0.3s ease',
+                                    transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
                                 }}
                             >
                                 Xem toàn bộ menu
                             </Button>
                         </Box>
-                    </Fade>
+                    </Slide>
 
-                    <Grid container spacing={4}>
+                    <Grid container spacing={5}>
                         {menuItems.map((category, index) => (
                             <Grid item xs={12} md={4} key={index}>
-                                <Zoom in timeout={1000 + index * 200}>
+                                <Grow in timeout={1400 + index * 400}>
                                     <Card
                                         sx={{
                                             height: '100%',
-                                            borderRadius: 4,
-                                            background: `linear-gradient(145deg, ${alpha(COLORS.BACKGROUND.DEFAULT, 0.95)}, ${alpha(COLORS.SECONDARY[50], 0.9)})`,
-                                            backdropFilter: 'blur(25px)',
-                                            border: `2px solid ${alpha(COLORS.ERROR[200], 0.3)}`,
-                                            boxShadow: `0 20px 40px ${alpha(COLORS.ERROR[200], 0.2)}`,
-                                            transition: 'all 0.3s ease',
+                                            borderRadius: 6,
+                                            background: `linear-gradient(145deg, ${alpha(COLORS.BACKGROUND.DEFAULT, 0.98)}, ${alpha(COLORS.SECONDARY[50], 0.95)})`,
+                                            backdropFilter: 'blur(30px)',
+                                            border: `3px solid ${alpha(COLORS.ERROR[200], 0.4)}`,
+                                            boxShadow: `0 25px 50px ${alpha(COLORS.ERROR[200], 0.25)}`,
+                                            transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
+                                            position: 'relative',
+                                            overflow: 'hidden',
+                                            '&::before': {
+                                                content: '""',
+                                                position: 'absolute',
+                                                top: 0,
+                                                left: 0,
+                                                right: 0,
+                                                bottom: 0,
+                                                background: `linear-gradient(135deg, ${alpha(COLORS.WARNING[100], 0.1)}, ${alpha(COLORS.ERROR[100], 0.1)})`,
+                                                opacity: 0,
+                                                transition: 'opacity 0.3s ease'
+                                            },
                                             '&:hover': {
-                                                transform: 'translateY(-10px)',
-                                                boxShadow: `0 30px 60px ${alpha(COLORS.ERROR[200], 0.3)}`,
+                                                transform: 'translateY(-15px) scale(1.02)',
+                                                boxShadow: `0 35px 70px ${alpha(COLORS.ERROR[200], 0.4)}`,
+                                                border: `3px solid ${alpha(COLORS.ERROR[300], 0.6)}`,
+                                                '&::before': {
+                                                    opacity: 1
+                                                }
                                             }
                                         }}
                                     >
-                                        <CardContent sx={{ p: 4 }}>
-                                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+                                        <CardContent sx={{ p: 5, position: 'relative', zIndex: 1 }}>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>
                                                 <Box
                                                     sx={{
-                                                        width: 60,
-                                                        height: 60,
+                                                        width: 80,
+                                                        height: 80,
                                                         borderRadius: '50%',
                                                         background: `linear-gradient(135deg, ${COLORS.ERROR[300]}, ${COLORS.SECONDARY[300]})`,
                                                         display: 'flex',
                                                         alignItems: 'center',
                                                         justifyContent: 'center',
-                                                        mr: 2,
-                                                        color: 'white'
+                                                        mr: 3,
+                                                        color: 'white',
+                                                        boxShadow: `0 15px 30px ${alpha(COLORS.ERROR[300], 0.4)}`,
+                                                        transition: 'all 0.4s ease',
+                                                        '&:hover': {
+                                                            transform: 'scale(1.1) rotate(5deg)',
+                                                            boxShadow: `0 20px 40px ${alpha(COLORS.ERROR[300], 0.6)}`
+                                                        }
                                                     }}
                                                 >
                                                     {category.icon}
@@ -604,29 +887,49 @@ const HomePage = () => {
                                                     variant="h5"
                                                     sx={{
                                                         fontWeight: 'bold',
-                                                        color: COLORS.ERROR[500]
+                                                        color: COLORS.ERROR[500],
+                                                        fontSize: '1.5rem',
+                                                        textShadow: `1px 1px 2px ${alpha(COLORS.ERROR[200], 0.3)}`
                                                     }}
                                                 >
                                                     {category.category}
                                                 </Typography>
                                             </Box>
-                                            <Stack spacing={2}>
+                                            <Stack spacing={3}>
                                                 {category.items.slice(0, 3).map((item, itemIndex) => (
                                                     <Box key={itemIndex} sx={{
-                                                        p: 2,
-                                                        borderRadius: 2,
-                                                        backgroundColor: alpha(COLORS.SECONDARY[50], 0.5),
-                                                        border: `1px solid ${alpha(COLORS.ERROR[100], 0.3)}`
+                                                        p: 3,
+                                                        borderRadius: 4,
+                                                        backgroundColor: alpha(COLORS.SECONDARY[50], 0.6),
+                                                        border: `2px solid ${alpha(COLORS.ERROR[100], 0.4)}`,
+                                                        transition: 'all 0.3s ease',
+                                                        '&:hover': {
+                                                            backgroundColor: alpha(COLORS.SECONDARY[100], 0.8),
+                                                            border: `2px solid ${alpha(COLORS.ERROR[200], 0.6)}`,
+                                                            transform: 'translateX(5px)'
+                                                        }
                                                     }}>
                                                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                                                            <Typography variant="subtitle1" sx={{ fontWeight: 'bold', color: COLORS.ERROR[500] }}>
+                                                            <Typography variant="subtitle1" sx={{ 
+                                                                fontWeight: 'bold', 
+                                                                color: COLORS.ERROR[500],
+                                                                fontSize: '1.1rem'
+                                                            }}>
                                                                 {item.name}
                                                             </Typography>
-                                                            <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: COLORS.SECONDARY[600] }}>
+                                                            <Typography variant="subtitle2" sx={{ 
+                                                                fontWeight: 'bold', 
+                                                                color: COLORS.SECONDARY[600],
+                                                                fontSize: '1rem'
+                                                            }}>
                                                                 {item.price}
                                                             </Typography>
                                                         </Box>
-                                                        <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, fontSize: '0.85rem' }}>
+                                                        <Typography variant="body2" sx={{ 
+                                                            color: COLORS.TEXT.SECONDARY, 
+                                                            fontSize: '0.9rem',
+                                                            lineHeight: 1.5
+                                                        }}>
                                                             {item.description}
                                                         </Typography>
                                                     </Box>
@@ -636,7 +939,9 @@ const HomePage = () => {
                                                         color: COLORS.ERROR[500],
                                                         textAlign: 'center',
                                                         fontStyle: 'italic',
-                                                        mt: 1
+                                                        mt: 2,
+                                                        fontWeight: 'bold',
+                                                        fontSize: '1rem'
                                                     }}>
                                                         +{category.items.length - 3} món khác...
                                                     </Typography>
@@ -644,7 +949,7 @@ const HomePage = () => {
                                             </Stack>
                                         </CardContent>
                                     </Card>
-                                </Zoom>
+                                </Grow>
                             </Grid>
                         ))}
                     </Grid>
@@ -709,7 +1014,7 @@ const HomePage = () => {
                     <Grid container spacing={4}>
                         {petAreas.map((area, index) => (
                             <Grid item xs={12} md={4} key={index}>
-                                <Zoom in timeout={1000 + index * 200}>
+                                <Grow in timeout={1000 + index * 200}>
                                     <Card
                                         sx={{
                                             height: '100%',
@@ -829,7 +1134,7 @@ const HomePage = () => {
                                             </Button>
                                         </CardContent>
                                     </Card>
-                                </Zoom>
+                                </Grow>
                             </Grid>
                         ))}
                     </Grid>
@@ -869,7 +1174,7 @@ const HomePage = () => {
                     <Grid container spacing={4}>
                         {testimonials.map((testimonial, index) => (
                             <Grid item xs={12} md={4} key={index}>
-                                <Zoom in timeout={1000 + index * 200}>
+                                <Grow in timeout={1000 + index * 200}>
                                     <Card
                                         sx={{
                                             height: '100%',
@@ -920,7 +1225,7 @@ const HomePage = () => {
                                             </Typography>
                                         </CardContent>
                                     </Card>
-                                </Zoom>
+                                </Grow>
                             </Grid>
                         ))}
                     </Grid>
