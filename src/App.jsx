@@ -9,6 +9,7 @@ import MenuPage from "./pages/menu/MenuPage";
 import AreasPage from "./pages/areas/AreasPage";
 import ProfilePage from "./pages/profile/ProfilePage";
 import BookingPage from "./pages/booking/BookingPage";
+import managerRoutes from "./routes/managerRoutes";
 
 function App() {
   return (
@@ -27,6 +28,7 @@ function App() {
           <Route path="/booking" element={<BookingPage />} />
           <Route path="/areas" element={<AreasPage />} />
           <Route path="/profile" element={<ProfilePage />} />
+          {managerRoutes}
         </Route>
       </Routes>
     </div>

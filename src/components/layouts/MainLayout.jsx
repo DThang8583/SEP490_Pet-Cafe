@@ -5,17 +5,20 @@ import Navbar from "./navbar/Navbar";
 
 const MainLayout = () => {
     return (
-        <div style={{ 
-            display: 'flex', 
+        <div style={{
+            display: 'flex',
             flexDirection: 'column',
             minHeight: '100vh',
             overflow: 'auto'
         }}>
             <Navbar />
-            <main style={{ 
+            <main style={{
                 flex: 1,
-                overflow: 'auto',
-                width: '100%'
+                overflowX: 'hidden',
+                overflowY: 'auto',
+                width: 'calc(100% - var(--sidebar-width, 0px))',
+                marginLeft: 'var(--sidebar-width, 0px)',
+                transition: 'margin-left 0.2s ease, width 0.2s ease'
             }}>
                 <Outlet />
             </main>

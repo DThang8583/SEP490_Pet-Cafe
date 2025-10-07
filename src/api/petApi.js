@@ -21,9 +21,11 @@ const checkPermission = (user, permission) => {
     if (!user) return false;
 
     const rolePermissions = {
-        'customer': ['pet_management', 'pet_view_own'],
-        'working_staff': ['pet_view_assigned'],
-        'manager': ['pet_management', 'pet_view_all'],
+        // Khách hàng không quản lý thú cưng của quán
+        'customer': [],
+        // Nhân viên và quản lý có thể xem/tác động lên thú cưng của quán
+        'working_staff': ['pet_view_all', 'pet_management'],
+        'manager': ['pet_view_all', 'pet_management'],
         'admin': ['full_access']
     };
 
@@ -35,7 +37,7 @@ const checkPermission = (user, permission) => {
 let MOCK_PETS = [
     {
         id: 'pet-001',
-        ownerId: 'user-007',
+        ownerId: 'cafe',
         name: 'Bông',
         species: 'dog',
         breed: 'Golden Retriever',
@@ -89,7 +91,7 @@ let MOCK_PETS = [
     },
     {
         id: 'pet-002',
-        ownerId: 'user-007',
+        ownerId: 'cafe',
         name: 'Miu',
         species: 'cat',
         breed: 'Mèo Anh lông ngắn',
@@ -137,7 +139,7 @@ let MOCK_PETS = [
     },
     {
         id: 'pet-003',
-        ownerId: 'user-008',
+        ownerId: 'cafe',
         name: 'Max',
         species: 'dog',
         breed: 'Husky',
@@ -174,6 +176,195 @@ let MOCK_PETS = [
         notes: 'Thông minh, cần luyện tập thường xuyên',
         createdAt: '2023-01-05T16:30:00',
         updatedAt: '2023-12-01T11:20:00'
+    },
+    {
+        id: 'pet-004',
+        ownerId: 'cafe',
+        name: 'Luna',
+        species: 'cat',
+        breed: 'Persian',
+        age: 3,
+        weight: 4.8,
+        gender: 'female',
+        color: 'Trắng kem',
+        avatar: 'https://images.unsplash.com/photo-1596854307943-279c4d3c7433?q=80&w=300&auto=format&fit=crop',
+        microchipId: 'MC001234570',
+        vaccinations: [],
+        medicalHistory: [],
+        preferences: { favoriteToys: ['Cần câu lông vũ'], favoriteFood: 'Royal Canin Persian', allergies: [], specialNeeds: '' },
+        behavior: { temperament: 'calm', energyLevel: 'low', trainingLevel: 'none', socializedWithDogs: false, socializedWithCats: true, goodWithChildren: true },
+        services: ['grooming'],
+        notes: '',
+        createdAt: '2024-01-18T10:00:00',
+        updatedAt: '2024-01-18T10:00:00'
+    },
+    {
+        id: 'pet-005',
+        ownerId: 'cafe',
+        name: 'Buddy',
+        species: 'dog',
+        breed: 'Labrador',
+        age: 5,
+        weight: 28.3,
+        gender: 'male',
+        color: 'Vàng nhạt',
+        avatar: 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?q=80&w=300&auto=format&fit=crop',
+        microchipId: 'MC001234571',
+        vaccinations: [],
+        medicalHistory: [],
+        preferences: { favoriteToys: ['Xương cao su'], favoriteFood: 'Pedigree Adult', allergies: [], specialNeeds: '' },
+        behavior: { temperament: 'friendly', energyLevel: 'medium', trainingLevel: 'intermediate', socializedWithDogs: true, socializedWithCats: true, goodWithChildren: true },
+        services: ['training', 'grooming'],
+        notes: '',
+        createdAt: '2024-01-19T10:00:00',
+        updatedAt: '2024-01-19T10:00:00'
+    },
+    {
+        id: 'pet-006',
+        ownerId: 'cafe',
+        name: 'Coco',
+        species: 'cat',
+        breed: 'Siamese',
+        age: 1,
+        weight: 3.1,
+        gender: 'female',
+        color: 'Be nâu',
+        avatar: 'https://images.unsplash.com/photo-1508672019048-805c876b67e2?q=80&w=300&auto=format&fit=crop',
+        microchipId: 'MC001234572',
+        vaccinations: [],
+        medicalHistory: [],
+        preferences: { favoriteToys: ['Chuột vải'], favoriteFood: 'Whiskas', allergies: [], specialNeeds: '' },
+        behavior: { temperament: 'curious', energyLevel: 'medium', trainingLevel: 'none', socializedWithDogs: false, socializedWithCats: true, goodWithChildren: true },
+        services: ['grooming'],
+        notes: '',
+        createdAt: '2024-01-20T10:00:00',
+        updatedAt: '2024-01-20T10:00:00'
+    },
+    {
+        id: 'pet-007',
+        ownerId: 'cafe',
+        name: 'Rocky',
+        species: 'dog',
+        breed: 'German Shepherd',
+        age: 6,
+        weight: 34.7,
+        gender: 'male',
+        color: 'Nâu đen',
+        avatar: 'https://images.unsplash.com/photo-1546527868-ccb7ee7dfa6a?q=80&w=300&auto=format&fit=crop',
+        microchipId: 'MC001234573',
+        vaccinations: [],
+        medicalHistory: [],
+        preferences: { favoriteToys: ['Bóng cao su'], favoriteFood: 'Royal Canin', allergies: [], specialNeeds: '' },
+        behavior: { temperament: 'alert', energyLevel: 'high', trainingLevel: 'advanced', socializedWithDogs: true, socializedWithCats: false, goodWithChildren: true },
+        services: ['training'],
+        notes: '',
+        createdAt: '2024-01-21T10:00:00',
+        updatedAt: '2024-01-21T10:00:00'
+    },
+    {
+        id: 'pet-008',
+        ownerId: 'cafe',
+        name: 'Mochi',
+        species: 'cat',
+        breed: 'British Shorthair',
+        age: 2,
+        weight: 4.5,
+        gender: 'male',
+        color: 'Xám xanh',
+        avatar: 'https://images.unsplash.com/photo-1555685812-4b943f1cb0eb?q=80&w=300&auto=format&fit=crop',
+        microchipId: 'MC001234574',
+        vaccinations: [],
+        medicalHistory: [],
+        preferences: { favoriteToys: ['Banh nhỏ'], favoriteFood: 'Royal Canin British', allergies: [], specialNeeds: '' },
+        behavior: { temperament: 'calm', energyLevel: 'low', trainingLevel: 'none', socializedWithDogs: false, socializedWithCats: true, goodWithChildren: true },
+        services: ['grooming'],
+        notes: '',
+        createdAt: '2024-01-22T10:00:00',
+        updatedAt: '2024-01-22T10:00:00'
+    },
+    {
+        id: 'pet-009',
+        ownerId: 'cafe',
+        name: 'Zoe',
+        species: 'dog',
+        breed: 'Poodle',
+        age: 2,
+        weight: 6.2,
+        gender: 'female',
+        color: 'Nâu đỏ',
+        avatar: 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?q=80&w=300&auto=format&fit=crop',
+        microchipId: 'MC001234575',
+        vaccinations: [],
+        medicalHistory: [],
+        preferences: { favoriteToys: ['Búp bê vải'], favoriteFood: 'SmartHeart', allergies: [], specialNeeds: '' },
+        behavior: { temperament: 'playful', energyLevel: 'medium', trainingLevel: 'basic', socializedWithDogs: true, socializedWithCats: true, goodWithChildren: true },
+        services: ['grooming'],
+        notes: '',
+        createdAt: '2024-01-23T10:00:00',
+        updatedAt: '2024-01-23T10:00:00'
+    },
+    {
+        id: 'pet-010',
+        ownerId: 'cafe',
+        name: 'Leo',
+        species: 'cat',
+        breed: 'Ragdoll',
+        age: 3,
+        weight: 5.1,
+        gender: 'male',
+        color: 'Trắng nâu',
+        avatar: 'https://images.unsplash.com/photo-1561948955-570b270e7c36?q=80&w=300&auto=format&fit=crop',
+        microchipId: 'MC001234576',
+        vaccinations: [],
+        medicalHistory: [],
+        preferences: { favoriteToys: ['Cần câu lông vũ'], favoriteFood: 'Monge', allergies: [], specialNeeds: '' },
+        behavior: { temperament: 'friendly', energyLevel: 'low', trainingLevel: 'none', socializedWithDogs: true, socializedWithCats: true, goodWithChildren: true },
+        services: ['grooming'],
+        notes: '',
+        createdAt: '2024-01-24T10:00:00',
+        updatedAt: '2024-01-24T10:00:00'
+    },
+    {
+        id: 'pet-011',
+        ownerId: 'cafe',
+        name: 'Bolt',
+        species: 'dog',
+        breed: 'Shiba Inu',
+        age: 2,
+        weight: 10.4,
+        gender: 'male',
+        color: 'Vàng cam',
+        avatar: 'https://images.unsplash.com/photo-1583511655826-05700d52f4d9?q=80&w=300&auto=format&fit=crop',
+        microchipId: 'MC001234577',
+        vaccinations: [],
+        medicalHistory: [],
+        preferences: { favoriteToys: ['Bóng'], favoriteFood: 'Fitmin', allergies: [], specialNeeds: '' },
+        behavior: { temperament: 'alert', energyLevel: 'high', trainingLevel: 'intermediate', socializedWithDogs: true, socializedWithCats: false, goodWithChildren: true },
+        services: ['training', 'grooming'],
+        notes: '',
+        createdAt: '2024-01-25T10:00:00',
+        updatedAt: '2024-01-25T10:00:00'
+    },
+    {
+        id: 'pet-012',
+        ownerId: 'cafe',
+        name: 'Mimi',
+        species: 'cat',
+        breed: 'Maine Coon',
+        age: 4,
+        weight: 6.8,
+        gender: 'female',
+        color: 'Nâu sọc',
+        avatar: 'https://images.unsplash.com/photo-1574158622682-e40e69881006?q=80&w=300&auto=format&fit=crop',
+        microchipId: 'MC001234578',
+        vaccinations: [],
+        medicalHistory: [],
+        preferences: { favoriteToys: ['Bóng lò xo'], favoriteFood: 'Hill’s', allergies: [], specialNeeds: '' },
+        behavior: { temperament: 'curious', energyLevel: 'medium', trainingLevel: 'none', socializedWithDogs: true, socializedWithCats: true, goodWithChildren: true },
+        services: ['grooming'],
+        notes: '',
+        createdAt: '2024-01-26T10:00:00',
+        updatedAt: '2024-01-26T10:00:00'
     }
 ];
 
@@ -187,30 +378,17 @@ const PET_BREEDS = {
     cat: [
         'Mèo Anh lông ngắn', 'Mèo Anh lông dài', 'Mèo Nga', 'Persian',
         'Maine Coon', 'Siamese', 'Ragdoll', 'Bengal', 'Scottish Fold',
-        'Munchkin', 'Sphynx', 'Abyssinian', 'Mèo ta', 'Exotic Shorthair'
-    ],
-    bird: [
-        'Vẹt', 'Chim cảnh', 'Yến', 'Chào mào', 'Họa mi',
-        'Cảnh cửu', 'Chim sẻ', 'Chim ri', 'Chim khướu'
-    ],
-    rabbit: [
-        'Thỏ Hà Lan', 'Thỏ Angora', 'Thỏ tai cụp', 'Thỏ Mini Lop',
-        'Thỏ Rex', 'Thỏ Lion Head'
+        'Munchkin', 'Sphynx', 'Abyssinian', 'Mèo ta', 'Exotic Shorthair', 'British Shorthair'
     ]
 };
 
 // Pet APIs
 const petApi = {
-    // Get customer's pets
-    async getMyPets() {
+    // Get all pets of cafe (manager/staff)
+    async getPets() {
         await delay(300);
-        const currentUser = getCurrentUser();
-
-        if (!checkPermission(currentUser, 'pet_view_own')) {
-            throw new Error('Không có quyền xem thú cưng');
-        }
-
-        const pets = MOCK_PETS.filter(pet => pet.ownerId === currentUser.id);
+        // Development mode: always return all cafe pets; role guard handled at page level if needed
+        const pets = [...MOCK_PETS];
 
         // Sort by creation date (newest first)
         pets.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -218,18 +396,22 @@ const petApi = {
         return { success: true, data: pets };
     },
 
+    // Backward compatibility (alias)
+    async getMyPets() { return await this.getPets(); },
+
     // Get pet by ID
     async getPetById(petId) {
         await delay(200);
         const currentUser = getCurrentUser();
 
-        const pet = MOCK_PETS.find(p =>
-            p.id === petId &&
-            (p.ownerId === currentUser.id || checkPermission(currentUser, 'pet_view_all'))
-        );
+        if (!checkPermission(currentUser, 'pet_view_all')) {
+            throw new Error('Không có quyền xem thú cưng');
+        }
+
+        const pet = MOCK_PETS.find(p => p.id === petId);
 
         if (!pet) {
-            throw new Error('Không tìm thấy thú cưng hoặc không có quyền truy cập');
+            throw new Error('Không tìm thấy thú cưng');
         }
 
         return { success: true, data: pet };
@@ -265,9 +447,8 @@ const petApi = {
             throw new Error('Giới tính thú cưng không hợp lệ');
         }
 
-        // Check if pet name already exists for this owner
+        // Check if pet name already exists in cafe
         const existingPet = MOCK_PETS.find(pet =>
-            pet.ownerId === currentUser.id &&
             pet.name.toLowerCase() === petData.name.toLowerCase().trim()
         );
 
@@ -277,7 +458,7 @@ const petApi = {
 
         const newPet = {
             id: generateId('pet'),
-            ownerId: currentUser.id,
+            ownerId: 'cafe',
             name: petData.name.trim(),
             species: petData.species,
             breed: petData.breed,
@@ -323,9 +504,7 @@ const petApi = {
             throw new Error('Không có quyền cập nhật thú cưng');
         }
 
-        const petIndex = MOCK_PETS.findIndex(p =>
-            p.id === petId && p.ownerId === currentUser.id
-        );
+        const petIndex = MOCK_PETS.findIndex(p => p.id === petId);
 
         if (petIndex === -1) {
             throw new Error('Không tìm thấy thú cưng hoặc không có quyền cập nhật');
@@ -347,7 +526,6 @@ const petApi = {
         // Check for duplicate name if name is being updated
         if (updates.name && updates.name.toLowerCase().trim() !== MOCK_PETS[petIndex].name.toLowerCase()) {
             const existingPet = MOCK_PETS.find(pet =>
-                pet.ownerId === currentUser.id &&
                 pet.id !== petId &&
                 pet.name.toLowerCase() === updates.name.toLowerCase().trim()
             );
@@ -394,9 +572,7 @@ const petApi = {
             throw new Error('Không có quyền xóa thú cưng');
         }
 
-        const petIndex = MOCK_PETS.findIndex(p =>
-            p.id === petId && p.ownerId === currentUser.id
-        );
+        const petIndex = MOCK_PETS.findIndex(p => p.id === petId);
 
         if (petIndex === -1) {
             throw new Error('Không tìm thấy thú cưng hoặc không có quyền xóa');
@@ -441,9 +617,7 @@ const petApi = {
             throw new Error('Không có quyền cập nhật thông tin thú cưng');
         }
 
-        const petIndex = MOCK_PETS.findIndex(p =>
-            p.id === petId && p.ownerId === currentUser.id
-        );
+        const petIndex = MOCK_PETS.findIndex(p => p.id === petId);
 
         if (petIndex === -1) {
             throw new Error('Không tìm thấy thú cưng');
@@ -482,9 +656,7 @@ const petApi = {
             throw new Error('Không có quyền cập nhật thông tin thú cưng');
         }
 
-        const petIndex = MOCK_PETS.findIndex(p =>
-            p.id === petId && p.ownerId === currentUser.id
-        );
+        const petIndex = MOCK_PETS.findIndex(p => p.id === petId);
 
         if (petIndex === -1) {
             throw new Error('Không tìm thấy thú cưng');
@@ -519,9 +691,11 @@ const petApi = {
         await delay(200);
         const currentUser = getCurrentUser();
 
-        const pet = MOCK_PETS.find(p =>
-            p.id === petId && p.ownerId === currentUser.id
-        );
+        if (!checkPermission(currentUser, 'pet_view_all')) {
+            throw new Error('Không có quyền xem thú cưng');
+        }
+
+        const pet = MOCK_PETS.find(p => p.id === petId);
 
         if (!pet) {
             throw new Error('Không tìm thấy thú cưng');

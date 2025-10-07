@@ -1,0 +1,23 @@
+import React from "react";
+import { Route } from "react-router-dom";
+import DashboardPage from "../pages/manager/DashboardPage";
+import PetsPage from "../pages/manager/PetsPage";
+import StaffPage from "../pages/manager/StaffPage";
+import TasksPage from "../pages/manager/TasksPage";
+import ServicesPage from "../pages/manager/ServicesPage";
+import InventoryPage from "../pages/manager/InventoryPage";
+
+const managerRoutes = (
+    <>
+        <Route path="/manager/dashboard" element={<DashboardPage />} />
+        <Route path="/manager/pets" element={<PetsPage />} />
+        <Route path="/manager/staff" element={<StaffPage />} />
+        <Route path="/manager/tasks" element={<TasksPage />} />
+        <Route path="/manager/services" element={<ServicesPage />} />
+        <Route path="/manager/inventory" element={<InventoryPage />} />
+    </>
+);
+
+export default managerRoutes;
+
+
