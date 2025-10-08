@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Box, Container, Typography, Grid, Card, CardContent, CardMedia, Chip, Stack, Divider, Collapse, IconButton, Button, Menu, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Select, FormControl, InputLabel } from '@mui/material';
+import { Box, Container, Typography, Grid, Card, CardContent, CardMedia, Chip, Stack, Divider, Collapse, IconButton, Button, Menu, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Select, FormControl, InputLabel, Tooltip } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import { Pets as PetsIcon } from '@mui/icons-material';
 import { ExpandMore, ExpandLess, MoreVert, Edit, Delete, Check } from '@mui/icons-material';
@@ -282,12 +282,15 @@ const PetsPage = () => {
                         <Chip
                             key={s}
                             label={prettySpecies(s)}
-                            onClick={() => setSelectedSpecies(s)}
+                            onClick={() => {
+                                setSelectedSpecies(s);
+                                setScheduleOverviewOpen(false); // Ẩn lịch tiêm khi chọn tab
+                            }}
                             sx={{
                                 cursor: 'pointer',
-                                backgroundColor: selectedSpecies === s ? alpha(COLORS.ERROR[100], 0.7) : alpha(COLORS.SECONDARY[50], 0.8),
-                                color: selectedSpecies === s ? COLORS.ERROR[700] : COLORS.TEXT.SECONDARY,
-                                fontWeight: selectedSpecies === s ? 800 : 600,
+                                backgroundColor: selectedSpecies === s && !scheduleOverviewOpen ? alpha(COLORS.ERROR[100], 0.7) : alpha(COLORS.SECONDARY[50], 0.8),
+                                color: selectedSpecies === s && !scheduleOverviewOpen ? COLORS.ERROR[700] : COLORS.TEXT.SECONDARY,
+                                fontWeight: selectedSpecies === s && !scheduleOverviewOpen ? 800 : 600,
                                 px: 2,
                                 py: 0.5,
                                 fontSize: { xs: '0.9rem', md: '1rem' }
@@ -296,12 +299,15 @@ const PetsPage = () => {
                     ))}
                     <Chip
                         label="Lịch tiêm"
-                        onClick={() => setScheduleOverviewOpen((v) => !v)}
+                        onClick={() => {
+                            setScheduleOverviewOpen((v) => !v);
+                            // Không cần set selectedSpecies vì lịch tiêm hiển thị tất cả
+                        }}
                         sx={{
                             cursor: 'pointer',
-                            backgroundColor: alpha(COLORS.ERROR[100], 0.7),
-                            color: COLORS.ERROR[800],
-                            fontWeight: 800,
+                            backgroundColor: scheduleOverviewOpen ? alpha(COLORS.ERROR[100], 0.7) : alpha(COLORS.SECONDARY[50], 0.8),
+                            color: scheduleOverviewOpen ? COLORS.ERROR[800] : COLORS.TEXT.SECONDARY,
+                            fontWeight: scheduleOverviewOpen ? 800 : 600,
                             px: 2,
                             py: 0.5,
                             fontSize: { xs: '0.9rem', md: '1rem' }
@@ -312,77 +318,215 @@ const PetsPage = () => {
                 {scheduleOverviewOpen && (
                     <Box sx={{ mb: 3, p: 2, borderRadius: 2, background: `linear-gradient(145deg, ${alpha(COLORS.BACKGROUND.DEFAULT, 0.98)}, ${alpha(COLORS.SECONDARY[50], 0.95)})`, border: `2px solid ${alpha(COLORS.ERROR[200], 0.4)}` }}>
                         <Typography variant="h6" sx={{ fontWeight: 800, color: COLORS.ERROR[600], mb: 1 }}>
-                            Lịch tiêm - {selectedSpecies ? prettySpecies(selectedSpecies) : 'Tất cả'}
+                            📅 Lịch tiêm tổng quan - Tất cả thú cưng
                         </Typography>
                         <Divider sx={{ mb: 2, borderColor: alpha(COLORS.ERROR[200], 0.6) }} />
-                        <Stack spacing={2}>
-                            {(() => {
-                                const petsInScope = selectedSpecies ? pets.filter(p => p.species === selectedSpecies) : pets;
-                                if (!petsInScope.length) return <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>Không có thú cưng.</Typography>;
-                                return petsInScope.map((p) => {
-                                    const upcoming = p.upcomingVaccinations || [];
-                                    const list = upcoming.filter((u) => u && u.name);
-                                    return (
-                                        <Box key={`sch-inline-${p.id}`}>
-                                            <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
-                                                <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>{p.name}</Typography>
-                                                <Chip size="small" label={`Mã: ${p.id}`} sx={{ background: alpha(COLORS.GRAY[200], 0.5) }} />
-                                                <Box sx={{ flexGrow: 1 }} />
-                                                <Button size="small" variant="outlined" onClick={() => {
-                                                    setScheduleMode('add');
-                                                    setScheduleForm({ petId: p.id, name: '', date: '', index: -1 });
-                                                    setScheduleEditOpen(true);
-                                                }}>Thêm lịch</Button>
-                                            </Stack>
-                                            <Stack direction="row" spacing={1} flexWrap="wrap">
-                                                {(p.vaccinations || []).map((v) => (
-                                                    <Chip key={`${p.id}-done-inline-${v.name}-${v.date}`} label={`Đã tiêm: ${v.name} (${v.date})`} size="small" sx={{ background: alpha(COLORS.SECONDARY[100], 0.9), color: COLORS.SECONDARY[800], fontWeight: 600 }} />
-                                                ))}
-                                                {list.length ? list.map((u, idx) => (
-                                                    <Stack key={`${p.id}-up-inline-${u.name}-${u.date || idx}`} direction="row" alignItems="center" spacing={0.5} sx={{ mr: 1, mb: 1 }}>
-                                                        <Chip label={`Sắp tiêm: ${u.name}${u.date ? ` (${u.date})` : ''}`} size="small" sx={{ background: alpha(COLORS.ERROR[100], 0.7), color: COLORS.ERROR[800], fontWeight: 600 }} />
-                                                        <IconButton size="small" onClick={() => {
-                                                            setScheduleMode('edit');
-                                                            setScheduleForm({ petId: p.id, name: u.name, date: u.date || '', index: idx });
+                        
+                        {/* Hiển thị theo từng loài */}
+                        {['dog', 'cat'].map((species) => {
+                            const petsInSpecies = pets.filter(p => p.species === species);
+                            if (!petsInSpecies.length) return null;
+                            
+                            return (
+                                <Box key={species} sx={{ mb: 3 }}>
+                                    <Typography variant="h6" sx={{ 
+                                        fontWeight: 700, 
+                                        color: COLORS.ERROR[500], 
+                                        mb: 2,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 1
+                                    }}>
+                                        {species === 'dog' ? '🐕' : '🐱'} {prettySpecies(species)}
+                                        <Chip 
+                                            size="small" 
+                                            label={`${petsInSpecies.length} thú cưng`} 
+                                            sx={{ 
+                                                background: alpha(COLORS.ERROR[100], 0.7), 
+                                                color: COLORS.ERROR[700],
+                                                fontWeight: 600
+                                            }} 
+                                        />
+                                    </Typography>
+                                    
+                                    <Stack spacing={2}>
+                                        {petsInSpecies.map((p) => {
+                                            const upcoming = p.upcomingVaccinations || [];
+                                            const list = upcoming.filter((u) => u && u.name);
+                                            const hasVaccinations = (p.vaccinations || []).length > 0;
+                                            const hasUpcoming = list.length > 0;
+                                            
+                                            return (
+                                                <Box key={`sch-inline-${p.id}`} sx={{
+                                                    p: 2,
+                                                    borderRadius: 2,
+                                                    background: alpha(COLORS.BACKGROUND.NEUTRAL, 0.5),
+                                                    border: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.3)}`
+                                                }}>
+                                                    <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1.5 }}>
+                                                        <Typography variant="subtitle1" sx={{ fontWeight: 800, color: COLORS.TEXT.PRIMARY }}>{p.name}</Typography>
+                                                        <Chip size="small" label={`Mã: ${p.id}`} sx={{ background: alpha(COLORS.GRAY[200], 0.5) }} />
+                                                        <Chip size="small" label={p.breed || 'Chưa rõ giống'} sx={{ background: alpha(COLORS.SECONDARY[100], 0.7), color: COLORS.SECONDARY[700] }} />
+                                                        <Box sx={{ flexGrow: 1 }} />
+                                                        <Button size="small" variant="outlined" onClick={() => {
+                                                            setScheduleMode('add');
+                                                            setScheduleForm({ petId: p.id, name: '', date: '', index: -1 });
                                                             setScheduleEditOpen(true);
-                                                        }}><Edit fontSize="inherit" /></IconButton>
-                                                        <IconButton size="small" onClick={async () => {
-                                                            try {
-                                                                const pet = pets.find(pt => pt.id === p.id);
-                                                                const upcomingNew = (pet.upcomingVaccinations || []).filter((_, i) => i !== idx);
-                                                                await petApi.updatePet(p.id, { upcomingVaccinations: upcomingNew });
-                                                                const res = await petApi.getPets();
-                                                                setPets(res?.data || []);
-                                                            } catch (e) { console.error(e); }
-                                                        }}><Delete fontSize="inherit" /></IconButton>
-                                                        <Tooltip title="Đánh dấu đã tiêm">
-                                                            <IconButton size="small" onClick={async () => {
-                                                                try {
-                                                                    const pet = pets.find(pt => pt.id === p.id);
-                                                                    const upcomingArr = pet.upcomingVaccinations || [];
-                                                                    const item = upcomingArr[idx];
-                                                                    const upcomingNew = upcomingArr.filter((_, i) => i !== idx);
-                                                                    const vaccinationsNew = [...(pet.vaccinations || []), { name: item.name, date: item.date || new Date().toISOString().slice(0, 10) }];
-                                                                    await petApi.updatePet(p.id, { upcomingVaccinations: upcomingNew, vaccinations: vaccinationsNew });
-                                                                    const res = await petApi.getPets();
-                                                                    setPets(res?.data || []);
-                                                                } catch (e) { console.error(e); }
-                                                            }}><Check fontSize="inherit" /></IconButton>
-                                                        </Tooltip>
+                                                        }} sx={{
+                                                            borderColor: COLORS.ERROR[300],
+                                                            color: COLORS.ERROR[600],
+                                                            '&:hover': {
+                                                                borderColor: COLORS.ERROR[500],
+                                                                backgroundColor: alpha(COLORS.ERROR[50], 0.8)
+                                                            }
+                                                        }}>Thêm lịch</Button>
                                                     </Stack>
-                                                )) : (
-                                                    <Chip label="Không có lịch sắp tới" size="small" sx={{ background: alpha(COLORS.GRAY[200], 0.6), color: COLORS.TEXT.SECONDARY }} />
-                                                )}
-                                            </Stack>
-                                        </Box>
-                                    );
-                                });
-                            })()}
-                        </Stack>
+                                                    
+                                                    {/* Đã tiêm */}
+                                                    {hasVaccinations && (
+                                                        <Box sx={{ mb: 1.5 }}>
+                                                            <Typography variant="body2" sx={{ 
+                                                                fontWeight: 700, 
+                                                                color: COLORS.SUCCESS[600], 
+                                                                mb: 1,
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                gap: 0.5
+                                                            }}>
+                                                                ✅ Đã tiêm ({p.vaccinations.length})
+                                                            </Typography>
+                                                            <Stack direction="row" spacing={1} flexWrap="wrap">
+                                                                {p.vaccinations.map((v) => (
+                                                                    <Chip 
+                                                                        key={`${p.id}-done-inline-${v.name}-${v.date}`} 
+                                                                        label={`${v.name} (${v.date})`} 
+                                                                        size="small" 
+                                                                        sx={{ 
+                                                                            background: alpha(COLORS.SUCCESS[100], 0.8), 
+                                                                            color: COLORS.SUCCESS[700], 
+                                                                            fontWeight: 600 
+                                                                        }} 
+                                                                    />
+                                                                ))}
+                                                            </Stack>
+                                                        </Box>
+                                                    )}
+                                                    
+                                                    {/* Sắp tiêm */}
+                                                    <Box>
+                                                        <Typography variant="body2" sx={{ 
+                                                            fontWeight: 700, 
+                                                            color: COLORS.WARNING[600], 
+                                                            mb: 1,
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: 0.5
+                                                        }}>
+                                                            ⏰ Sắp tiêm ({list.length})
+                                                        </Typography>
+                                                        <Stack direction="row" spacing={1} flexWrap="wrap">
+                                                            {hasUpcoming ? list.map((u, idx) => (
+                                                                <Stack key={`${p.id}-up-inline-${u.name}-${u.date || idx}`} direction="row" alignItems="center" spacing={0.5} sx={{ mr: 1, mb: 1 }}>
+                                                                    <Chip 
+                                                                        label={`${u.name}${u.date ? ` (${u.date})` : ''}`} 
+                                                                        size="small" 
+                                                                        sx={{ 
+                                                                            background: alpha(COLORS.WARNING[100], 0.8), 
+                                                                            color: COLORS.WARNING[700], 
+                                                                            fontWeight: 600 
+                                                                        }} 
+                                                                    />
+                                                                    <IconButton size="small" onClick={() => {
+                                                                        setScheduleMode('edit');
+                                                                        setScheduleForm({ petId: p.id, name: u.name, date: u.date || '', index: idx });
+                                                                        setScheduleEditOpen(true);
+                                                                    }} sx={{ color: COLORS.TEXT.SECONDARY }}>
+                                                                        <Edit fontSize="inherit" />
+                                                                    </IconButton>
+                                                                    <IconButton size="small" onClick={async () => {
+                                                                        try {
+                                                                            const pet = pets.find(pt => pt.id === p.id);
+                                                                            const upcomingNew = (pet.upcomingVaccinations || []).filter((_, i) => i !== idx);
+                                                                            await petApi.updatePet(p.id, { upcomingVaccinations: upcomingNew });
+                                                                            const res = await petApi.getPets();
+                                                                            setPets(res?.data || []);
+                                                                        } catch (e) { console.error(e); }
+                                                                    }} sx={{ color: COLORS.ERROR[500] }}>
+                                                                        <Delete fontSize="inherit" />
+                                                                    </IconButton>
+                                                                    <IconButton size="small" onClick={async () => {
+                                                                        try {
+                                                                            const pet = pets.find(pt => pt.id === p.id);
+                                                                            const upcomingArr = pet.upcomingVaccinations || [];
+                                                                            const item = upcomingArr[idx];
+                                                                            const upcomingNew = upcomingArr.filter((_, i) => i !== idx);
+                                                                            const vaccinationsNew = [...(pet.vaccinations || []), { name: item.name, date: item.date || new Date().toISOString().slice(0, 10) }];
+                                                                            await petApi.updatePet(p.id, { upcomingVaccinations: upcomingNew, vaccinations: vaccinationsNew });
+                                                                            const res = await petApi.getPets();
+                                                                            setPets(res?.data || []);
+                                                                        } catch (e) { console.error(e); }
+                                                                    }} sx={{ color: COLORS.SUCCESS[500] }}>
+                                                                        <Check fontSize="inherit" />
+                                                                    </IconButton>
+                                                                </Stack>
+                                                            )) : (
+                                                                <Chip 
+                                                                    label="Không có lịch sắp tới" 
+                                                                    size="small" 
+                                                                    sx={{ 
+                                                                        background: alpha(COLORS.GRAY[200], 0.6), 
+                                                                        color: COLORS.TEXT.SECONDARY 
+                                                                    }} 
+                                                                />
+                                                            )}
+                                                        </Stack>
+                                                    </Box>
+                                                </Box>
+                                            );
+                                        })}
+                                    </Stack>
+                                </Box>
+                            );
+                        })}
+                        
+                        {/* Thống kê tổng quan */}
+                        <Box sx={{ 
+                            mt: 3, 
+                            p: 2, 
+                            borderRadius: 2, 
+                            background: alpha(COLORS.ERROR[50], 0.3),
+                            border: `1px solid ${alpha(COLORS.ERROR[200], 0.4)}`
+                        }}>
+                            <Typography variant="subtitle1" sx={{ fontWeight: 700, color: COLORS.ERROR[600], mb: 1 }}>
+                                📊 Thống kê tổng quan
+                            </Typography>
+                            <Stack direction="row" spacing={2} flexWrap="wrap">
+                                <Chip 
+                                    label={`Tổng: ${pets.length} thú cưng`} 
+                                    sx={{ background: alpha(COLORS.PRIMARY[100], 0.7), color: COLORS.PRIMARY[700] }} 
+                                />
+                                <Chip 
+                                    label={`Chó: ${pets.filter(p => p.species === 'dog').length}`} 
+                                    sx={{ background: alpha(COLORS.SECONDARY[100], 0.7), color: COLORS.SECONDARY[700] }} 
+                                />
+                                <Chip 
+                                    label={`Mèo: ${pets.filter(p => p.species === 'cat').length}`} 
+                                    sx={{ background: alpha(COLORS.INFO[100], 0.7), color: COLORS.INFO[700] }} 
+                                />
+                                <Chip 
+                                    label={`Đã tiêm: ${pets.reduce((sum, p) => sum + (p.vaccinations || []).length, 0)} mũi`} 
+                                    sx={{ background: alpha(COLORS.SUCCESS[100], 0.7), color: COLORS.SUCCESS[700] }} 
+                                />
+                                <Chip 
+                                    label={`Sắp tiêm: ${pets.reduce((sum, p) => sum + (p.upcomingVaccinations || []).length, 0)} mũi`} 
+                                    sx={{ background: alpha(COLORS.WARNING[100], 0.7), color: COLORS.WARNING[700] }} 
+                                />
+                            </Stack>
+                        </Box>
                     </Box>
                 )}
 
-                {selectedSpecies && (
+                {selectedSpecies && !scheduleOverviewOpen && (
                     <Box key={selectedSpecies} sx={{ mb: 4 }}>
                         <Typography variant="h5" sx={{ fontWeight: 800, color: COLORS.ERROR[500], mb: 2 }}>
                             {prettySpecies(selectedSpecies)}
