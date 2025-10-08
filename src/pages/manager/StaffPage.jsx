@@ -393,6 +393,18 @@ const StaffPage = () => {
                                     <MenuItem value="working_staff">Working staff</MenuItem>
                                 </Select>
                             </FormControl>
+                            <FormControl fullWidth error={!!formErrors.status}>
+                                <InputLabel>Trạng thái</InputLabel>
+                                <Select label="Trạng thái" value={editForm.status} onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}>
+                                    <MenuItem value="active">Đang làm</MenuItem>
+                                    <MenuItem value="on_leave">Nghỉ phép</MenuItem>
+                                </Select>
+                                {formErrors.status && (
+                                    <Typography variant="caption" sx={{ color: 'error.main', mt: 0.5, ml: 1.5 }}>
+                                        {formErrors.status}
+                                    </Typography>
+                                )}
+                            </FormControl>
                         </Stack>
                     </Box>
                     <Stack direction="row" spacing={1} sx={{ p: 2, justifyContent: 'flex-end' }}>
@@ -406,6 +418,7 @@ const StaffPage = () => {
                             if (!editForm.dob?.trim()) errs.dob = 'Bắt buộc';
                             if (!editForm.address?.trim()) errs.address = 'Bắt buộc';
                             if (!editForm.role?.trim()) errs.role = 'Bắt buộc';
+                            if (!editForm.status?.trim()) errs.status = 'Bắt buộc';
                             setFormErrors(errs);
                             if (Object.keys(errs).length) return;
 
