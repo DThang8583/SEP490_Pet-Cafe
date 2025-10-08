@@ -454,7 +454,7 @@ const StaffPage = () => {
                         setEditMenuAnchor(null);
                     }}>Xóa nhóm</MenuItem>
                     <MenuItem onClick={() => {
-                        // Save edits: simply ensure the group remains marked as saved
+                        // Save edits: đánh dấu nhóm là đã lưu để chuyển sang chế độ "Chỉnh sửa"
                         const key = `${editMenuContext.shiftName}-${editMenuContext.groupName}`;
                         setSavedGroups(prev => new Set([...prev, key]));
                         setEditMenuAnchor(null);
@@ -668,9 +668,9 @@ const StaffPage = () => {
                                     return s;
                                 }));
 
-                                // Đánh dấu nhóm đã được lưu sau khi chỉnh sửa
-                                const groupKey = `${shiftName}-${groupName}`;
-                                setSavedGroups(prev => new Set([...prev, groupKey]));
+                                // KHÔNG đánh dấu nhóm là đã lưu - giữ nguyên các button quản lý
+                                // const groupKey = `${shiftName}-${groupName}`;
+                                // setSavedGroups(prev => new Set([...prev, groupKey]));
 
                                 setEditMembersOpen(false);
                             }}>Lưu</Button>

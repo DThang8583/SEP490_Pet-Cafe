@@ -3,15 +3,35 @@ import { Box, Container, Typography, Button, Grid, Card, CardContent, CardMedia,
 import { LocalCafe, Pets, Cake, Coffee, Restaurant, ConfirmationNumber, LocationOn, Star, Favorite, ArrowForward, Facebook, Instagram, Twitter, EmojiFoodBeverage, Cookie, Fastfood, WineBar, HotTub, AutoAwesome } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 import { useNavigate } from 'react-router-dom';
+import { authApi } from '../../api/authApi';
 
 const HomePage = () => {
     const theme = useTheme();
     const navigate = useNavigate();
     const [isVisible, setIsVisible] = useState(false);
+    const [userRole, setUserRole] = useState(null);
 
     useEffect(() => {
+        // Check user role
+        const checkUserRole = () => {
+            try {
+                const role = authApi.getUserRole();
+                setUserRole(role);
+                
+                // Redirect non-customer users to appropriate dashboard
+                if (role === 'manager' || role === 'sales_staff' || role === 'working_staff') {
+                    navigate('/manager/dashboard', { replace: true });
+                    return;
+                }
+            } catch (error) {
+                console.error('Error checking user role:', error);
+                setUserRole(null);
+            }
+        };
+
+        checkUserRole();
         setIsVisible(true);
-    }, []);
+    }, [navigate]);
 
 
     const features = [

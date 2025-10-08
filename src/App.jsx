@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import MainLayout from "./components/layouts/MainLayout";
 import AuthLayout from "./components/layouts/AuthLayout";
 import HomePage from "./components/home/HomePage";
+import RoleBasedRedirect from "./components/auth/RoleBasedRedirect";
 import LoginPage from "./pages/auth/LoginPage";
 import RegisterPage from "./pages/auth/RegisterPage";
 import MenuPage from "./pages/menu/MenuPage";
@@ -23,7 +24,8 @@ function App() {
 
         {/* Main Routes */}
         <Route element={<MainLayout />}>
-          <Route path="/" element={<HomePage />} />
+          <Route path="/" element={<RoleBasedRedirect />} />
+          <Route path="/home" element={<HomePage />} />
           <Route path="/menu" element={<MenuPage />} />
           <Route path="/booking" element={<BookingPage />} />
           <Route path="/areas" element={<AreasPage />} />
