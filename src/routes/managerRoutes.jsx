@@ -6,11 +6,13 @@ import StaffPage from "../pages/manager/StaffPage";
 import TasksPage from "../pages/manager/TasksPage";
 import ServicesPage from "../pages/manager/ServicesPage";
 import InventoryPage from "../pages/manager/InventoryPage";
+import AreasPage from "../pages/manager/AreasPage";
 
 const managerRoutes = (
     <>
         <Route path="/manager/dashboard" element={<DashboardPage />} />
         <Route path="/manager/pets" element={<PetsPage />} />
+        <Route path="/manager/areas" element={<AreasPage />} />
         <Route path="/manager/staff" element={<StaffPage />} />
         <Route path="/manager/tasks" element={<TasksPage />} />
         <Route path="/manager/services" element={<ServicesPage />} />
