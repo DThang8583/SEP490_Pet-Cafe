@@ -35,352 +35,385 @@ const checkPermission = (user, permission) => {
 
 // Mock pets database
 let MOCK_PETS = [
+    { id: 'pet-001', name: 'Bông', age: 3, species_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6', breed_id: 'breed-001', color: 'Vàng', weight: 25.5, preferences: 'Thích chơi bóng tennis và dây kéo, thức ăn yêu thích là Royal Canin Adult', special_notes: 'Rất thân thiện và năng động, cần vận động nhiều mỗi ngày', image_url: 'https://images.unsplash.com/photo-1552053831-71594a27632d?q=80&w=300&auto=format&fit=crop', arrival_date: '2023-01-10T10:00:00Z', gender: 'female' },
+    { id: 'pet-002', name: 'Miu', age: 2, species_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7', breed_id: 'breed-016', color: 'Xám', weight: 4.2, preferences: 'Thích chơi chuột nhồi bông và banh nhỏ, thức ăn yêu thích là Whiskas Adult, dị ứng với cá ngừ', special_notes: 'Tính tình hiền lành dễ thương, cần môi trường yên tĩnh', image_url: 'https://images.unsplash.com/photo-1574158622682-e40e69881006?q=80&w=300&auto=format&fit=crop', arrival_date: '2023-02-15T14:20:00Z', gender: 'female' },
+    { id: 'pet-003', name: 'Max', age: 4, species_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6', breed_id: 'breed-003', color: 'Đen trắng', weight: 30.0, preferences: 'Thích chơi Frisbee và xương cao su, thức ăn yêu thích là Pedigree Adult, dị ứng với gà', special_notes: 'Thông minh, năng động, cần luyện tập thường xuyên', image_url: 'https://images.unsplash.com/photo-1605568427561-40dd23c2acea?q=80&w=300&auto=format&fit=crop', arrival_date: '2023-01-05T16:30:00Z', gender: 'male' },
+    { id: 'pet-004', name: 'Luna', age: 3, species_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7', breed_id: 'breed-017', color: 'Trắng kem', weight: 4.8, preferences: 'Thích chơi cần câu lông vũ, thức ăn yêu thích là Royal Canin Persian', special_notes: 'Tính tình hiền lành, cần chăm sóc đặc biệt', image_url: 'https://images.unsplash.com/photo-1596854307943-279c4d3c7433?q=80&w=300&auto=format&fit=crop', arrival_date: '2024-01-18T10:00:00Z', gender: 'female' },
+    { id: 'pet-005', name: 'Buddy', age: 5, species_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6', breed_id: 'breed-002', color: 'Vàng nhạt', weight: 28.3, preferences: 'Thích chơi xương cao su, thức ăn yêu thích là Pedigree Adult', special_notes: 'Trung thành, thân thiện với mọi người', image_url: 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?q=80&w=300&auto=format&fit=crop', arrival_date: '2024-01-19T10:00:00Z', gender: 'male' },
+    { id: 'pet-006', name: 'Coco', age: 1, species_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7', breed_id: 'breed-018', color: 'Be nâu', weight: 3.1, preferences: 'Thích chơi chuột vải, thức ăn yêu thích là Whiskas', special_notes: 'Tò mò, năng động, thích khám phá', image_url: 'https://images.unsplash.com/photo-1508672019048-805c876b67e2?q=80&w=300&auto=format&fit=crop', arrival_date: '2024-01-20T10:00:00Z', gender: 'female' },
+    { id: 'pet-007', name: 'Rocky', age: 6, species_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6', breed_id: 'breed-006', color: 'Nâu đen', weight: 34.7, preferences: 'Thích chơi bóng cao su, thức ăn yêu thích là Royal Canin', special_notes: 'Cảnh giác, thông minh, dễ huấn luyện', image_url: 'https://images.unsplash.com/photo-1546527868-ccb7ee7dfa6a?q=80&w=300&auto=format&fit=crop', arrival_date: '2024-01-21T10:00:00Z', gender: 'male' },
+    { id: 'pet-008', name: 'Mochi', age: 2, species_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7', breed_id: 'breed-023', color: 'Xám xanh', weight: 4.5, preferences: 'Thích chơi banh nhỏ, thức ăn yêu thích là Royal Canin British', special_notes: 'Tính tình hiền lành, ít vận động', image_url: 'https://images.unsplash.com/photo-1555685812-4b943f1cb0eb?q=80&w=300&auto=format&fit=crop', arrival_date: '2024-01-22T10:00:00Z', gender: 'male' },
+    { id: 'pet-009', name: 'Zoe', age: 2, species_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6', breed_id: 'breed-004', color: 'Nâu đỏ', weight: 6.2, preferences: 'Thích chơi búp bê vải, thức ăn yêu thích là SmartHeart', special_notes: 'Vui tươi, thích chơi đùa', image_url: 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?q=80&w=300&auto=format&fit=crop', arrival_date: '2024-01-23T10:00:00Z', gender: 'female' },
+    { id: 'pet-010', name: 'Leo', age: 3, species_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7', breed_id: 'breed-020', color: 'Trắng nâu', weight: 5.1, preferences: 'Thích chơi cần câu lông vũ, thức ăn yêu thích là Monge', special_notes: 'Thân thiện, dễ bế', image_url: 'https://images.unsplash.com/photo-1561948955-570b270e7c36?q=80&w=300&auto=format&fit=crop', arrival_date: '2024-01-24T10:00:00Z', gender: 'male' },
+    { id: 'pet-011', name: 'Bolt', age: 2, species_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6', breed_id: 'breed-007', color: 'Vàng cam', weight: 10.4, preferences: 'Thích chơi bóng, thức ăn yêu thích là Fitmin', special_notes: 'Cảnh giác, trung thành', image_url: 'https://images.unsplash.com/photo-1583511655826-05700d52f4d9?q=80&w=300&auto=format&fit=crop', arrival_date: '2024-01-25T10:00:00Z', gender: 'male' },
+    { id: 'pet-012', name: 'Mimi', age: 4, species_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7', breed_id: 'breed-019', color: 'Nâu sọc', weight: 6.8, preferences: 'Thích chơi bóng lò xo, thức ăn yêu thích là Hill\'s', special_notes: 'Tò mò, thích khám phá', image_url: 'https://images.unsplash.com/photo-1574158622682-e40e69881006?q=80&w=300&auto=format&fit=crop', arrival_date: '2024-01-26T10:00:00Z', gender: 'female' },
+    { id: 'pet-013', name: 'Bella', age: 2, species_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6', breed_id: 'breed-001', color: 'Vàng nhạt', weight: 22.0, preferences: 'Thích chơi bóng cao su, thức ăn yêu thích là Royal Canin', special_notes: 'Rất thích chơi với trẻ em, năng động', image_url: 'https://images.unsplash.com/photo-1633722715463-d30f4f325e24?q=80&w=300&auto=format&fit=crop', arrival_date: '2024-01-27T10:00:00Z', gender: 'female' },
+    { id: 'pet-014', name: 'Charlie', age: 5, species_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6', breed_id: 'breed-001', color: 'Vàng đậm', weight: 28.0, preferences: 'Thích chơi Frisbee, thức ăn yêu thích là Pedigree', special_notes: 'Thân thiện, dễ huấn luyện', image_url: 'https://images.unsplash.com/photo-1558788353-f76d92427f16?q=80&w=300&auto=format&fit=crop', arrival_date: '2024-01-28T10:00:00Z', gender: 'male' },
+    { id: 'pet-015', name: 'Luna', age: 2, species_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6', breed_id: 'breed-003', color: 'Xám trắng', weight: 26.0, preferences: 'Thích chơi dây kéo, thức ăn yêu thích là Royal Canin', special_notes: 'Năng động, cần nhiều vận động mỗi ngày', image_url: 'https://images.unsplash.com/photo-1568572933382-74d440642117?q=80&w=300&auto=format&fit=crop', arrival_date: '2024-01-29T10:00:00Z', gender: 'female' },
+    { id: 'pet-016', name: 'Storm', age: 3, species_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6', breed_id: 'breed-003', color: 'Đen trắng', weight: 29.5, preferences: 'Thích chơi xương cao su, thức ăn yêu thích là Fitmin', special_notes: 'Cảnh giác, thích vận động', image_url: 'https://images.unsplash.com/photo-1568393691622-c7ba131d63b4?q=80&w=300&auto=format&fit=crop', arrival_date: '2024-01-30T10:00:00Z', gender: 'male' },
+    { id: 'pet-017', name: 'Cooper', age: 3, species_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6', breed_id: 'breed-002', color: 'Nâu sô-cô-la', weight: 27.5, preferences: 'Thích chơi bóng tennis, thức ăn yêu thích là Pedigree', special_notes: 'Thân thiện, năng động', image_url: 'https://images.unsplash.com/photo-1588943211346-0908a1fb0b01?q=80&w=300&auto=format&fit=crop', arrival_date: '2024-01-31T10:00:00Z', gender: 'male' },
+    { id: 'pet-018', name: 'Daisy', age: 4, species_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6', breed_id: 'breed-002', color: 'Vàng', weight: 26.0, preferences: 'Thích chơi dây kéo, thức ăn yêu thích là Royal Canin', special_notes: 'Hiền lành, thân thiện', image_url: 'https://images.unsplash.com/photo-1583337130417-3346a1be7dee?q=80&w=300&auto=format&fit=crop', arrival_date: '2024-02-01T10:00:00Z', gender: 'female' },
+    { id: 'pet-019', name: 'Teddy', age: 3, species_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6', breed_id: 'breed-004', color: 'Trắng', weight: 7.0, preferences: 'Thích chơi gấu bông, thức ăn yêu thích là SmartHeart', special_notes: 'Vui tươi, thích chơi đùa', image_url: 'https://images.unsplash.com/photo-1619505835763-37d53e044e5d?q=80&w=300&auto=format&fit=crop', arrival_date: '2024-02-02T10:00:00Z', gender: 'male' },
+    { id: 'pet-020', name: 'Chloe', age: 1, species_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6', breed_id: 'breed-004', color: 'Đen', weight: 5.5, preferences: 'Thích chơi búp bê, thức ăn yêu thích là Royal Canin', special_notes: 'Năng động, vui vẻ', image_url: 'https://images.unsplash.com/photo-1616032947837-d4a3b2881926?q=80&w=300&auto=format&fit=crop', arrival_date: '2024-02-03T10:00:00Z', gender: 'female' },
+    { id: 'pet-021', name: 'Rex', age: 5, species_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6', breed_id: 'breed-006', color: 'Đen vàng', weight: 35.0, preferences: 'Thích chơi bóng cao su, thức ăn yêu thích là Pedigree', special_notes: 'Cảnh giác, dũng cảm, dễ huấn luyện', image_url: 'https://images.unsplash.com/photo-1568572933382-74d440642117?q=80&w=300&auto=format&fit=crop', arrival_date: '2024-02-04T10:00:00Z', gender: 'male' },
+    { id: 'pet-022', name: 'Sasha', age: 3, species_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6', breed_id: 'breed-006', color: 'Nâu đen', weight: 30.0, preferences: 'Thích chơi Frisbee, thức ăn yêu thích là Royal Canin', special_notes: 'Thông minh, năng động', image_url: 'https://images.unsplash.com/photo-1576201836106-db1758fd1c97?q=80&w=300&auto=format&fit=crop', arrival_date: '2024-02-05T10:00:00Z', gender: 'female' },
+    { id: 'pet-023', name: 'Hachi', age: 3, species_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6', breed_id: 'breed-007', color: 'Cam đỏ', weight: 11.0, preferences: 'Thích chơi bóng, thức ăn yêu thích là Fitmin', special_notes: 'Cảnh giác, trung thành', image_url: 'https://images.unsplash.com/photo-1583512603806-077998240c7a?q=80&w=300&auto=format&fit=crop', arrival_date: '2024-02-06T10:00:00Z', gender: 'male' },
+    { id: 'pet-024', name: 'Yuki', age: 1, species_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6', breed_id: 'breed-007', color: 'Trắng kem', weight: 8.5, preferences: 'Thích chơi dây kéo, thức ăn yêu thích là SmartHeart', special_notes: 'Tò mò, năng động', image_url: 'https://images.unsplash.com/photo-1600804340584-c7db2eacf0bf?q=80&w=300&auto=format&fit=crop', arrival_date: '2024-02-07T10:00:00Z', gender: 'female' },
+    { id: 'pet-025', name: 'Momo', age: 2, species_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6', breed_id: 'breed-008', color: 'Vàng trắng', weight: 12.0, preferences: 'Thích chơi bóng tennis, thức ăn yêu thích là Pedigree', special_notes: 'Vui tươi, năng động', image_url: 'https://images.unsplash.com/photo-1546527868-ccb7ee7dfa6a?q=80&w=300&auto=format&fit=crop', arrival_date: '2024-02-08T10:00:00Z', gender: 'male' },
+    { id: 'pet-026', name: 'Pudding', age: 3, species_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6', breed_id: 'breed-008', color: 'Nâu trắng', weight: 11.5, preferences: 'Thích chơi gấu bông, thức ăn yêu thích là Royal Canin', special_notes: 'Thân thiện, hiền lành', image_url: 'https://images.unsplash.com/photo-1612536980763-5f48d7ef6b56?q=80&w=300&auto=format&fit=crop', arrival_date: '2024-02-09T10:00:00Z', gender: 'female' },
+    { id: 'pet-027', name: 'Dobby', age: 4, species_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6', breed_id: 'breed-008', color: 'Vàng đen', weight: 13.0, preferences: 'Thích chơi xương cao su, thức ăn yêu thích là Fitmin', special_notes: 'Vui vẻ, năng động', image_url: 'https://images.unsplash.com/photo-1518717758536-85ae29035b6d?q=80&w=300&auto=format&fit=crop', arrival_date: '2024-02-10T10:00:00Z', gender: 'male' },
+    { id: 'pet-028', name: 'Tank', age: 4, species_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6', breed_id: 'breed-005', color: 'Trắng vàng', weight: 24.0, preferences: 'Thích chơi bóng cao su, thức ăn yêu thích là Royal Canin', special_notes: 'Hiền lành, cần theo dõi hô hấp', image_url: 'https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?q=80&w=300&auto=format&fit=crop', arrival_date: '2024-02-11T10:00:00Z', gender: 'male' },
+    { id: 'pet-029', name: 'Brutus', age: 3, species_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6', breed_id: 'breed-005', color: 'Nâu trắng', weight: 23.5, preferences: 'Thích chơi xương nhồi bông, thức ăn yêu thích là Pedigree', special_notes: 'Hiền lành, ít vận động', image_url: 'https://images.unsplash.com/photo-1544787219-7f47ccb76574?q=80&w=300&auto=format&fit=crop', arrival_date: '2024-02-12T10:00:00Z', gender: 'male' },
+    { id: 'pet-030', name: 'Lola', age: 2, species_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6', breed_id: 'breed-005', color: 'Trắng', weight: 20.0, preferences: 'Thích chơi gấu bông, thức ăn yêu thích là SmartHeart', special_notes: 'Thân thiện, vui vẻ', image_url: 'https://images.unsplash.com/photo-1568822617270-2c1579f8dfe2?q=80&w=300&auto=format&fit=crop', arrival_date: '2024-02-13T10:00:00Z', gender: 'female' },
+    { id: 'pet-031', name: 'Peanut', age: 2, species_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6', breed_id: 'breed-010', color: 'Vàng nâu', weight: 7.5, preferences: 'Thích chơi bóng nhỏ, thức ăn yêu thích là Royal Canin', special_notes: 'Vui tươi, cần làm sạch nếp da thường xuyên', image_url: 'https://images.unsplash.com/photo-1517849845537-4d257902454a?q=80&w=300&auto=format&fit=crop', arrival_date: '2024-02-14T10:00:00Z', gender: 'male' },
+    { id: 'pet-032', name: 'Olive', age: 3, species_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6', breed_id: 'breed-010', color: 'Đen', weight: 8.0, preferences: 'Thích chơi chuột nhồi bông, thức ăn yêu thích là Pedigree', special_notes: 'Thân thiện, hiền lành', image_url: 'https://images.unsplash.com/photo-1559190394-df5a28aab5c5?q=80&w=300&auto=format&fit=crop', arrival_date: '2024-02-15T10:00:00Z', gender: 'female' },
+    { id: 'pet-033', name: 'Oscar', age: 4, species_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6', breed_id: 'breed-010', color: 'Vàng nhạt', weight: 8.5, preferences: 'Thích chơi banh, thức ăn yêu thích là SmartHeart', special_notes: 'Hiền lành, ít vận động', image_url: 'https://images.unsplash.com/photo-1518020382113-a7e8fc38eac9?q=80&w=300&auto=format&fit=crop', arrival_date: '2024-02-16T10:00:00Z', gender: 'male' },
+    { id: 'pet-034', name: 'Kitty', age: 1, species_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7', breed_id: 'breed-016', color: 'Xám bạc', weight: 3.5, preferences: 'Thích chơi cần câu, thức ăn yêu thích là Whiskas', special_notes: 'Hiền lành, ít vận động', image_url: 'https://images.unsplash.com/photo-1511044568932-338cba0ad803?q=80&w=300&auto=format&fit=crop', arrival_date: '2024-02-17T10:00:00Z', gender: 'female' },
+    { id: 'pet-035', name: 'Smokey', age: 3, species_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7', breed_id: 'breed-016', color: 'Xám đậm', weight: 4.8, preferences: 'Thích chơi bóng nhỏ, thức ăn yêu thích là Royal Canin', special_notes: 'Hiền lành, tính tình ổn định', image_url: 'https://images.unsplash.com/photo-1513360371669-4adf3dd7dff8?q=80&w=300&auto=format&fit=crop', arrival_date: '2024-02-18T10:00:00Z', gender: 'male' },
+    { id: 'pet-036', name: 'Princess', age: 2, species_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7', breed_id: 'breed-017', color: 'Trắng', weight: 4.5, preferences: 'Thích chơi chuột vải, thức ăn yêu thích là Royal Canin Persian', special_notes: 'Hiền lành, cần chải lông hàng ngày', image_url: 'https://images.unsplash.com/photo-1535241749838-299277b6305f?q=80&w=300&auto=format&fit=crop', arrival_date: '2024-02-19T10:00:00Z', gender: 'female' },
+    { id: 'pet-037', name: 'Fluffy', age: 4, species_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7', breed_id: 'breed-017', color: 'Cam nhạt', weight: 5.2, preferences: 'Thích chơi bóng lông, thức ăn yêu thích là Monge', special_notes: 'Hiền lành, ít vận động', image_url: 'https://images.unsplash.com/photo-1568152950566-c1bf43f4ab28?q=80&w=300&auto=format&fit=crop', arrival_date: '2024-02-20T10:00:00Z', gender: 'male' },
+    { id: 'pet-038', name: 'Simba', age: 2, species_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7', breed_id: 'breed-018', color: 'Be nâu đậm', weight: 3.8, preferences: 'Thích chơi chuột vải, thức ăn yêu thích là Whiskas', special_notes: 'Tò mò, năng động', image_url: 'https://images.unsplash.com/photo-1543852786-1cf6624b9987?q=80&w=300&auto=format&fit=crop', arrival_date: '2024-02-21T10:00:00Z', gender: 'male' },
+    { id: 'pet-039', name: 'Nala', age: 3, species_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7', breed_id: 'breed-018', color: 'Be nhạt', weight: 3.3, preferences: 'Thích chơi cần câu lông vũ, thức ăn yêu thích là Royal Canin', special_notes: 'Vui vẻ, thích chơi đùa', image_url: 'https://images.unsplash.com/photo-1513245543132-31f507417b26?q=80&w=300&auto=format&fit=crop', arrival_date: '2024-02-22T10:00:00Z', gender: 'female' },
+    { id: 'pet-040', name: 'Oliver', age: 3, species_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7', breed_id: 'breed-023', color: 'Xám xanh', weight: 5.0, preferences: 'Thích chơi bóng nhỏ, thức ăn yêu thích là Royal Canin British', special_notes: 'Hiền lành, ít vận động', image_url: 'https://images.unsplash.com/photo-1548247416-ec66f4900b2e?q=80&w=300&auto=format&fit=crop', arrival_date: '2024-02-23T10:00:00Z', gender: 'male' },
+    { id: 'pet-041', name: 'Stella', age: 1, species_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7', breed_id: 'breed-023', color: 'Kem', weight: 3.8, preferences: 'Thích chơi chuột nhồi bông, thức ăn yêu thích là Whiskas', special_notes: 'Thân thiện, vui vẻ', image_url: 'https://images.unsplash.com/photo-1606214174585-fe31582dc6ee?q=80&w=300&auto=format&fit=crop', arrival_date: '2024-02-24T10:00:00Z', gender: 'female' },
+    { id: 'pet-042', name: 'Angel', age: 2, species_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7', breed_id: 'breed-020', color: 'Trắng xám', weight: 4.8, preferences: 'Thích chơi cần câu lông, thức ăn yêu thích là Monge', special_notes: 'Thân thiện, dễ bế', image_url: 'https://images.unsplash.com/photo-1529778873920-4da4926a72c2?q=80&w=300&auto=format&fit=crop', arrival_date: '2024-02-25T10:00:00Z', gender: 'female' },
+    { id: 'pet-043', name: 'Casper', age: 4, species_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7', breed_id: 'breed-020', color: 'Trắng nâu đậm', weight: 5.5, preferences: 'Thích chơi bóng lò xo, thức ăn yêu thích là Hill\'s', special_notes: 'Hiền lành, ít vận động', image_url: 'https://images.unsplash.com/photo-1526336024174-e58f5cdd8e13?q=80&w=300&auto=format&fit=crop', arrival_date: '2024-02-26T10:00:00Z', gender: 'male' },
+    { id: 'pet-044', name: 'Tiger', age: 3, species_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7', breed_id: 'breed-019', color: 'Nâu sọc đen', weight: 7.0, preferences: 'Thích chơi cần câu, thức ăn yêu thích là Hill\'s', special_notes: 'Tò mò, thích khám phá', image_url: 'https://images.unsplash.com/photo-1571566882372-1598d88abd90?q=80&w=300&auto=format&fit=crop', arrival_date: '2024-02-27T10:00:00Z', gender: 'male' },
+    { id: 'pet-045', name: 'Bella', age: 5, species_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7', breed_id: 'breed-019', color: 'Xám sọc', weight: 6.5, preferences: 'Thích chơi bóng lò xo, thức ăn yêu thích là Royal Canin', special_notes: 'Thân thiện, năng động', image_url: 'https://images.unsplash.com/photo-1495360010541-f48722b34f7d?q=80&w=300&auto=format&fit=crop', arrival_date: '2024-02-28T10:00:00Z', gender: 'female' },
+    { id: 'pet-046', name: 'Cookie', age: 2, species_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7', breed_id: 'breed-022', color: 'Vàng cam', weight: 4.0, preferences: 'Thích chơi chuột vải, thức ăn yêu thích là Royal Canin', special_notes: 'Hiền lành, dễ thương', image_url: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?q=80&w=300&auto=format&fit=crop', arrival_date: '2024-02-29T10:00:00Z', gender: 'female' },
+    { id: 'pet-047', name: 'Muffin', age: 1, species_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7', breed_id: 'breed-022', color: 'Xám trắng', weight: 3.2, preferences: 'Thích chơi bóng nhỏ, thức ăn yêu thích là Whiskas', special_notes: 'Vui vẻ, năng động', image_url: 'https://images.unsplash.com/photo-1519052537078-e6302a4968d4?q=80&w=300&auto=format&fit=crop', arrival_date: '2024-03-01T10:00:00Z', gender: 'male' },
+    { id: 'pet-048', name: 'Marshmallow', age: 3, species_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7', breed_id: 'breed-022', color: 'Trắng', weight: 4.3, preferences: 'Thích chơi cần câu, thức ăn yêu thích là Monge', special_notes: 'Thân thiện, dễ thương', image_url: 'https://images.unsplash.com/photo-1541781774459-bb2af2f05b55?q=80&w=300&auto=format&fit=crop', arrival_date: '2024-03-02T10:00:00Z', gender: 'female' },
+    { id: 'pet-049', name: 'Cheetah', age: 2, species_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7', breed_id: 'breed-021', color: 'Vàng đốm đen', weight: 5.5, preferences: 'Thích chơi chuột vải, thức ăn yêu thích là Royal Canin', special_notes: 'Năng động, cần vận động nhiều', image_url: 'https://images.unsplash.com/photo-1589883661923-6476cb0ae9f2?q=80&w=300&auto=format&fit=crop', arrival_date: '2024-03-03T10:00:00Z', gender: 'male' },
+    { id: 'pet-050', name: 'Leopard', age: 3, species_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7', breed_id: 'breed-021', color: 'Nâu đốm', weight: 6.0, preferences: 'Thích chơi bóng, thức ăn yêu thích là Hill\'s', special_notes: 'Tò mò, thích leo trèo', image_url: 'https://images.unsplash.com/photo-1569591159212-b02ea8a9f239?q=80&w=300&auto=format&fit=crop', arrival_date: '2024-03-04T10:00:00Z', gender: 'male' },
+    { id: 'pet-051', name: 'Amber', age: 1, species_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7', breed_id: 'breed-021', color: 'Cam đốm', weight: 4.2, preferences: 'Thích chơi cần câu lông vũ, thức ăn yêu thích là Monge', special_notes: 'Vui vẻ, năng động', image_url: 'https://images.unsplash.com/photo-1615789591457-74a63395c990?q=80&w=300&auto=format&fit=crop', arrival_date: '2024-03-05T10:00:00Z', gender: 'female' },
+    { id: 'pet-052', name: 'Tèo', age: 2, species_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7', breed_id: 'breed-029', color: 'Vàng sọc', weight: 3.5, preferences: 'Thích chơi chuột vải, thức ăn yêu thích là Whiskas', special_notes: 'Thân thiện, khỏe mạnh', image_url: 'https://images.unsplash.com/photo-1573865526739-10c1d3a1f0cc?q=80&w=300&auto=format&fit=crop', arrival_date: '2024-03-06T10:00:00Z', gender: 'male' },
+    { id: 'pet-053', name: 'Ti', age: 1, species_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7', breed_id: 'breed-029', color: 'Trắng đen', weight: 2.8, preferences: 'Thích chơi bóng nhỏ, thức ăn yêu thích là thức ăn tự nhiên', special_notes: 'Vui vẻ, năng động', image_url: 'https://images.unsplash.com/photo-1574158622682-e40e69881006?q=80&w=300&auto=format&fit=crop', arrival_date: '2024-03-07T10:00:00Z', gender: 'female' },
+    { id: 'pet-054', name: 'Mướp', age: 3, species_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7', breed_id: 'breed-029', color: 'Xám trắng', weight: 4.0, preferences: 'Thích chơi cần câu, thức ăn yêu thích là Whiskas', special_notes: 'Hiền lành, ít vận động', image_url: 'https://images.unsplash.com/photo-1549891117-7a83ca0aeb37?q=80&w=300&auto=format&fit=crop', arrival_date: '2024-03-08T10:00:00Z', gender: 'male' }
+];
+
+// Mock Pet Species database (ONLY 2 species: Dog and Cat - CANNOT add more)
+const MOCK_PET_SPECIES = [
     {
-        id: 'pet-001',
-        ownerId: 'cafe',
-        name: 'Bông',
-        species: 'dog',
-        breed: 'Golden Retriever',
-        age: 3,
-        weight: 25.5,
-        gender: 'female',
-        color: 'Vàng',
-        avatar: 'https://images.unsplash.com/photo-1552053831-71594a27632d?q=80&w=300&auto=format&fit=crop',
-        microchipId: 'MC001234567',
-        vaccinations: [
-            {
-                name: 'Dại',
-                date: '2023-01-15',
-                nextDue: '2024-01-15',
-                veterinarian: 'Dr. Nguyễn Văn A'
-            },
-            {
-                name: 'Viêm gan',
-                date: '2023-06-20',
-                nextDue: '2024-06-20',
-                veterinarian: 'Dr. Trần Thị B'
-            }
-        ],
-        medicalHistory: [
-            {
-                date: '2023-12-10',
-                condition: 'Khám định kỳ',
-                treatment: 'Khỏe mạnh',
-                veterinarian: 'Dr. Nguyễn Văn A',
-                notes: 'Sức khỏe tốt, cần tiếp tục chế độ ăn hiện tại'
-            }
-        ],
-        preferences: {
-            favoriteToys: ['Bóng tennis', 'Dây kéo'],
-            favoriteFood: 'Royal Canin Adult',
-            allergies: [],
-            specialNeeds: 'Cần vận động nhiều'
-        },
-        behavior: {
-            temperament: 'friendly',
-            energyLevel: 'high',
-            trainingLevel: 'basic',
-            socializedWithDogs: true,
-            socializedWithCats: false,
-            goodWithChildren: true
-        },
-        services: ['grooming', 'training'],
-        notes: 'Rất thân thiện và năng động',
-        createdAt: '2023-01-10T10:00:00',
-        updatedAt: '2023-12-10T15:30:00'
+        id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+        name: 'Chó',
+        description: 'Chó là loài động vật được thuần hóa từ sói, thân thiện với con người và rất trung thành'
     },
     {
-        id: 'pet-002',
-        ownerId: 'cafe',
-        name: 'Miu',
-        species: 'cat',
-        breed: 'Mèo Anh lông ngắn',
-        age: 2,
-        weight: 4.2,
-        gender: 'female',
-        color: 'Xám',
-        avatar: 'https://images.unsplash.com/photo-1574158622682-e40e69881006?q=80&w=300&auto=format&fit=crop',
-        microchipId: 'MC001234568',
-        vaccinations: [
-            {
-                name: 'Dại',
-                date: '2023-03-10',
-                nextDue: '2024-03-10',
-                veterinarian: 'Dr. Lê Văn C'
-            }
-        ],
-        medicalHistory: [
-            {
-                date: '2023-11-15',
-                condition: 'Cảm lạnh nhẹ',
-                treatment: 'Thuốc kháng sinh',
-                veterinarian: 'Dr. Lê Văn C',
-                notes: 'Đã khỏi hoàn toàn'
-            }
-        ],
-        preferences: {
-            favoriteToys: ['Chuột nhồi bông', 'Banh nhỏ'],
-            favoriteFood: 'Whiskas Adult',
-            allergies: ['Cá ngừ'],
-            specialNeeds: 'Cần môi trường yên tĩnh'
-        },
-        behavior: {
-            temperament: 'calm',
-            energyLevel: 'medium',
-            trainingLevel: 'none',
-            socializedWithDogs: false,
-            socializedWithCats: true,
-            goodWithChildren: true
-        },
-        services: ['grooming', 'healthcare'],
-        notes: 'Tính tình hiền lành, dễ thương',
-        createdAt: '2023-02-15T14:20:00',
-        updatedAt: '2023-11-15T09:45:00'
-    },
-    {
-        id: 'pet-003',
-        ownerId: 'cafe',
-        name: 'Max',
-        species: 'dog',
-        breed: 'Husky',
-        age: 4,
-        weight: 30.0,
-        gender: 'male',
-        color: 'Đen trắng',
-        avatar: 'https://images.unsplash.com/photo-1605568427561-40dd23c2acea?q=80&w=300&auto=format&fit=crop',
-        microchipId: 'MC001234569',
-        vaccinations: [
-            {
-                name: 'Dại',
-                date: '2023-02-20',
-                nextDue: '2024-02-20',
-                veterinarian: 'Dr. Phạm Thị D'
-            }
-        ],
-        medicalHistory: [],
-        preferences: {
-            favoriteToys: ['Frisbee', 'Xương cao su'],
-            favoriteFood: 'Pedigree Adult',
-            allergies: ['Gà'],
-            specialNeeds: 'Cần luyện tập thường xuyên'
-        },
-        behavior: {
-            temperament: 'energetic',
-            energyLevel: 'very_high',
-            trainingLevel: 'intermediate',
-            socializedWithDogs: true,
-            socializedWithCats: false,
-            goodWithChildren: true
-        },
-        services: ['training', 'healthcare'],
-        notes: 'Thông minh, cần luyện tập thường xuyên',
-        createdAt: '2023-01-05T16:30:00',
-        updatedAt: '2023-12-01T11:20:00'
-    },
-    {
-        id: 'pet-004',
-        ownerId: 'cafe',
-        name: 'Luna',
-        species: 'cat',
-        breed: 'Persian',
-        age: 3,
-        weight: 4.8,
-        gender: 'female',
-        color: 'Trắng kem',
-        avatar: 'https://images.unsplash.com/photo-1596854307943-279c4d3c7433?q=80&w=300&auto=format&fit=crop',
-        microchipId: 'MC001234570',
-        vaccinations: [],
-        medicalHistory: [],
-        preferences: { favoriteToys: ['Cần câu lông vũ'], favoriteFood: 'Royal Canin Persian', allergies: [], specialNeeds: '' },
-        behavior: { temperament: 'calm', energyLevel: 'low', trainingLevel: 'none', socializedWithDogs: false, socializedWithCats: true, goodWithChildren: true },
-        services: ['grooming'],
-        notes: '',
-        createdAt: '2024-01-18T10:00:00',
-        updatedAt: '2024-01-18T10:00:00'
-    },
-    {
-        id: 'pet-005',
-        ownerId: 'cafe',
-        name: 'Buddy',
-        species: 'dog',
-        breed: 'Labrador',
-        age: 5,
-        weight: 28.3,
-        gender: 'male',
-        color: 'Vàng nhạt',
-        avatar: 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?q=80&w=300&auto=format&fit=crop',
-        microchipId: 'MC001234571',
-        vaccinations: [],
-        medicalHistory: [],
-        preferences: { favoriteToys: ['Xương cao su'], favoriteFood: 'Pedigree Adult', allergies: [], specialNeeds: '' },
-        behavior: { temperament: 'friendly', energyLevel: 'medium', trainingLevel: 'intermediate', socializedWithDogs: true, socializedWithCats: true, goodWithChildren: true },
-        services: ['training', 'grooming'],
-        notes: '',
-        createdAt: '2024-01-19T10:00:00',
-        updatedAt: '2024-01-19T10:00:00'
-    },
-    {
-        id: 'pet-006',
-        ownerId: 'cafe',
-        name: 'Coco',
-        species: 'cat',
-        breed: 'Siamese',
-        age: 1,
-        weight: 3.1,
-        gender: 'female',
-        color: 'Be nâu',
-        avatar: 'https://images.unsplash.com/photo-1508672019048-805c876b67e2?q=80&w=300&auto=format&fit=crop',
-        microchipId: 'MC001234572',
-        vaccinations: [],
-        medicalHistory: [],
-        preferences: { favoriteToys: ['Chuột vải'], favoriteFood: 'Whiskas', allergies: [], specialNeeds: '' },
-        behavior: { temperament: 'curious', energyLevel: 'medium', trainingLevel: 'none', socializedWithDogs: false, socializedWithCats: true, goodWithChildren: true },
-        services: ['grooming'],
-        notes: '',
-        createdAt: '2024-01-20T10:00:00',
-        updatedAt: '2024-01-20T10:00:00'
-    },
-    {
-        id: 'pet-007',
-        ownerId: 'cafe',
-        name: 'Rocky',
-        species: 'dog',
-        breed: 'German Shepherd',
-        age: 6,
-        weight: 34.7,
-        gender: 'male',
-        color: 'Nâu đen',
-        avatar: 'https://images.unsplash.com/photo-1546527868-ccb7ee7dfa6a?q=80&w=300&auto=format&fit=crop',
-        microchipId: 'MC001234573',
-        vaccinations: [],
-        medicalHistory: [],
-        preferences: { favoriteToys: ['Bóng cao su'], favoriteFood: 'Royal Canin', allergies: [], specialNeeds: '' },
-        behavior: { temperament: 'alert', energyLevel: 'high', trainingLevel: 'advanced', socializedWithDogs: true, socializedWithCats: false, goodWithChildren: true },
-        services: ['training'],
-        notes: '',
-        createdAt: '2024-01-21T10:00:00',
-        updatedAt: '2024-01-21T10:00:00'
-    },
-    {
-        id: 'pet-008',
-        ownerId: 'cafe',
-        name: 'Mochi',
-        species: 'cat',
-        breed: 'British Shorthair',
-        age: 2,
-        weight: 4.5,
-        gender: 'male',
-        color: 'Xám xanh',
-        avatar: 'https://images.unsplash.com/photo-1555685812-4b943f1cb0eb?q=80&w=300&auto=format&fit=crop',
-        microchipId: 'MC001234574',
-        vaccinations: [],
-        medicalHistory: [],
-        preferences: { favoriteToys: ['Banh nhỏ'], favoriteFood: 'Royal Canin British', allergies: [], specialNeeds: '' },
-        behavior: { temperament: 'calm', energyLevel: 'low', trainingLevel: 'none', socializedWithDogs: false, socializedWithCats: true, goodWithChildren: true },
-        services: ['grooming'],
-        notes: '',
-        createdAt: '2024-01-22T10:00:00',
-        updatedAt: '2024-01-22T10:00:00'
-    },
-    {
-        id: 'pet-009',
-        ownerId: 'cafe',
-        name: 'Zoe',
-        species: 'dog',
-        breed: 'Poodle',
-        age: 2,
-        weight: 6.2,
-        gender: 'female',
-        color: 'Nâu đỏ',
-        avatar: 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?q=80&w=300&auto=format&fit=crop',
-        microchipId: 'MC001234575',
-        vaccinations: [],
-        medicalHistory: [],
-        preferences: { favoriteToys: ['Búp bê vải'], favoriteFood: 'SmartHeart', allergies: [], specialNeeds: '' },
-        behavior: { temperament: 'playful', energyLevel: 'medium', trainingLevel: 'basic', socializedWithDogs: true, socializedWithCats: true, goodWithChildren: true },
-        services: ['grooming'],
-        notes: '',
-        createdAt: '2024-01-23T10:00:00',
-        updatedAt: '2024-01-23T10:00:00'
-    },
-    {
-        id: 'pet-010',
-        ownerId: 'cafe',
-        name: 'Leo',
-        species: 'cat',
-        breed: 'Ragdoll',
-        age: 3,
-        weight: 5.1,
-        gender: 'male',
-        color: 'Trắng nâu',
-        avatar: 'https://images.unsplash.com/photo-1561948955-570b270e7c36?q=80&w=300&auto=format&fit=crop',
-        microchipId: 'MC001234576',
-        vaccinations: [],
-        medicalHistory: [],
-        preferences: { favoriteToys: ['Cần câu lông vũ'], favoriteFood: 'Monge', allergies: [], specialNeeds: '' },
-        behavior: { temperament: 'friendly', energyLevel: 'low', trainingLevel: 'none', socializedWithDogs: true, socializedWithCats: true, goodWithChildren: true },
-        services: ['grooming'],
-        notes: '',
-        createdAt: '2024-01-24T10:00:00',
-        updatedAt: '2024-01-24T10:00:00'
-    },
-    {
-        id: 'pet-011',
-        ownerId: 'cafe',
-        name: 'Bolt',
-        species: 'dog',
-        breed: 'Shiba Inu',
-        age: 2,
-        weight: 10.4,
-        gender: 'male',
-        color: 'Vàng cam',
-        avatar: 'https://images.unsplash.com/photo-1583511655826-05700d52f4d9?q=80&w=300&auto=format&fit=crop',
-        microchipId: 'MC001234577',
-        vaccinations: [],
-        medicalHistory: [],
-        preferences: { favoriteToys: ['Bóng'], favoriteFood: 'Fitmin', allergies: [], specialNeeds: '' },
-        behavior: { temperament: 'alert', energyLevel: 'high', trainingLevel: 'intermediate', socializedWithDogs: true, socializedWithCats: false, goodWithChildren: true },
-        services: ['training', 'grooming'],
-        notes: '',
-        createdAt: '2024-01-25T10:00:00',
-        updatedAt: '2024-01-25T10:00:00'
-    },
-    {
-        id: 'pet-012',
-        ownerId: 'cafe',
-        name: 'Mimi',
-        species: 'cat',
-        breed: 'Maine Coon',
-        age: 4,
-        weight: 6.8,
-        gender: 'female',
-        color: 'Nâu sọc',
-        avatar: 'https://images.unsplash.com/photo-1574158622682-e40e69881006?q=80&w=300&auto=format&fit=crop',
-        microchipId: 'MC001234578',
-        vaccinations: [],
-        medicalHistory: [],
-        preferences: { favoriteToys: ['Bóng lò xo'], favoriteFood: 'Hill’s', allergies: [], specialNeeds: '' },
-        behavior: { temperament: 'curious', energyLevel: 'medium', trainingLevel: 'none', socializedWithDogs: true, socializedWithCats: true, goodWithChildren: true },
-        services: ['grooming'],
-        notes: '',
-        createdAt: '2024-01-26T10:00:00',
-        updatedAt: '2024-01-26T10:00:00'
+        id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7',
+        name: 'Mèo',
+        description: 'Mèo là loài động vật có vú nhỏ, thuần hóa, thường được nuôi làm thú cưng vì tính độc lập và dễ thương'
     }
 ];
 
-// Pet breeds by species
-const PET_BREEDS = {
-    dog: [
-        'Golden Retriever', 'Labrador', 'Husky', 'Poodle', 'Bulldog',
-        'German Shepherd', 'Shiba Inu', 'Corgi', 'Chihuahua', 'Pug',
-        'Border Collie', 'Rottweiler', 'Beagle', 'Dachshund', 'Boxer'
-    ],
-    cat: [
-        'Mèo Anh lông ngắn', 'Mèo Anh lông dài', 'Mèo Nga', 'Persian',
-        'Maine Coon', 'Siamese', 'Ragdoll', 'Bengal', 'Scottish Fold',
-        'Munchkin', 'Sphynx', 'Abyssinian', 'Mèo ta', 'Exotic Shorthair', 'British Shorthair'
-    ]
-};
+// Mock Pet Breeds database
+let MOCK_PET_BREEDS = [
+    // Dog Breeds
+    {
+        id: 'breed-001',
+        name: 'Golden Retriever',
+        species_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+        description: 'Giống chó thân thiện, thông minh, dễ huấn luyện, lông vàng dài',
+        average_weight: 30,
+        average_lifespan: 12
+    },
+    {
+        id: 'breed-002',
+        name: 'Labrador',
+        species_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+        description: 'Giống chó trung thành, năng động, phù hợp với gia đình',
+        average_weight: 32,
+        average_lifespan: 12
+    },
+    {
+        id: 'breed-003',
+        name: 'Husky',
+        species_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+        description: 'Giống chó có nguồn gốc từ vùng Siberia, năng động, thích vận động',
+        average_weight: 23,
+        average_lifespan: 13
+    },
+    {
+        id: 'breed-004',
+        name: 'Poodle',
+        species_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+        description: 'Giống chó thông minh, lông xoăn, dễ huấn luyện',
+        average_weight: 25,
+        average_lifespan: 14
+    },
+    {
+        id: 'breed-005',
+        name: 'Bulldog',
+        species_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+        description: 'Giống chó có thân hình chắc nịch, hiền lành, trung thành',
+        average_weight: 23,
+        average_lifespan: 10
+    },
+    {
+        id: 'breed-006',
+        name: 'German Shepherd',
+        species_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+        description: 'Giống chó thông minh, dũng cảm, thường dùng làm chó nghiệp vụ',
+        average_weight: 35,
+        average_lifespan: 11
+    },
+    {
+        id: 'breed-007',
+        name: 'Shiba Inu',
+        species_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+        description: 'Giống chó Nhật Bản, độc lập, trung thành với chủ',
+        average_weight: 10,
+        average_lifespan: 14
+    },
+    {
+        id: 'breed-008',
+        name: 'Corgi',
+        species_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+        description: 'Giống chó chân ngắn, thông minh, năng động',
+        average_weight: 12,
+        average_lifespan: 13
+    },
+    {
+        id: 'breed-009',
+        name: 'Chihuahua',
+        species_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+        description: 'Giống chó nhỏ nhất thế giới, nhanh nhẹn, thích được chăm sóc',
+        average_weight: 3,
+        average_lifespan: 16
+    },
+    {
+        id: 'breed-010',
+        name: 'Pug',
+        species_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+        description: 'Giống chó có khuôn mặt nhăn nheo đặc trưng, thân thiện',
+        average_weight: 8,
+        average_lifespan: 13
+    },
+    {
+        id: 'breed-011',
+        name: 'Border Collie',
+        species_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+        description: 'Giống chó chăn cừu thông minh nhất, năng động',
+        average_weight: 18,
+        average_lifespan: 14
+    },
+    {
+        id: 'breed-012',
+        name: 'Rottweiler',
+        species_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+        description: 'Giống chó mạnh mẽ, dũng cảm, bảo vệ tốt',
+        average_weight: 50,
+        average_lifespan: 10
+    },
+    {
+        id: 'breed-013',
+        name: 'Beagle',
+        species_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+        description: 'Giống chó săn nhỏ, thân thiện, ham ăn',
+        average_weight: 13,
+        average_lifespan: 13
+    },
+    {
+        id: 'breed-014',
+        name: 'Dachshund',
+        species_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+        description: 'Giống chó xúc xích, thân hình dài, chân ngắn',
+        average_weight: 9,
+        average_lifespan: 14
+    },
+    {
+        id: 'breed-015',
+        name: 'Boxer',
+        species_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+        description: 'Giống chó năng động, trung thành, thân thiện với trẻ em',
+        average_weight: 30,
+        average_lifespan: 11
+    },
+    // Cat Breeds
+    {
+        id: 'breed-016',
+        name: 'Mèo Anh lông ngắn',
+        species_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7',
+        description: 'Giống mèo có bộ lông ngắn, mặt tròn, tính tình hiền lành',
+        average_weight: 5,
+        average_lifespan: 15
+    },
+    {
+        id: 'breed-017',
+        name: 'Persian',
+        species_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7',
+        description: 'Giống mèo Ba Tư có bộ lông dài, mặt tẹt, thanh lịch',
+        average_weight: 5,
+        average_lifespan: 15
+    },
+    {
+        id: 'breed-018',
+        name: 'Siamese',
+        species_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7',
+        description: 'Giống mèo Xiêm có mắt xanh, lông ngắn, thích giao tiếp',
+        average_weight: 4,
+        average_lifespan: 15
+    },
+    {
+        id: 'breed-019',
+        name: 'Maine Coon',
+        species_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7',
+        description: 'Giống mèo lớn nhất, lông dài, tính tình thân thiện',
+        average_weight: 7,
+        average_lifespan: 13
+    },
+    {
+        id: 'breed-020',
+        name: 'Ragdoll',
+        species_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7',
+        description: 'Giống mèo có tính tình hiền lành, dễ bế như búp bê',
+        average_weight: 6,
+        average_lifespan: 15
+    },
+    {
+        id: 'breed-021',
+        name: 'Bengal',
+        species_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7',
+        description: 'Giống mèo có vằn như báo, năng động, thích leo trèo',
+        average_weight: 6,
+        average_lifespan: 14
+    },
+    {
+        id: 'breed-022',
+        name: 'Scottish Fold',
+        species_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7',
+        description: 'Giống mèo có tai gấp xuống, dễ thương',
+        average_weight: 4,
+        average_lifespan: 14
+    },
+    {
+        id: 'breed-023',
+        name: 'British Shorthair',
+        species_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7',
+        description: 'Giống mèo Anh có thân hình chắc nịch, mặt tròn',
+        average_weight: 5,
+        average_lifespan: 15
+    },
+    {
+        id: 'breed-024',
+        name: 'Mèo Anh lông dài',
+        species_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7',
+        description: 'Giống mèo Anh có bộ lông dài, mềm mại',
+        average_weight: 5,
+        average_lifespan: 15
+    },
+    {
+        id: 'breed-025',
+        name: 'Mèo Nga',
+        species_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7',
+        description: 'Giống mèo có bộ lông xanh xám đặc trưng',
+        average_weight: 4,
+        average_lifespan: 15
+    },
+    {
+        id: 'breed-026',
+        name: 'Munchkin',
+        species_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7',
+        description: 'Giống mèo chân ngắn, dễ thương, năng động',
+        average_weight: 3,
+        average_lifespan: 13
+    },
+    {
+        id: 'breed-027',
+        name: 'Sphynx',
+        species_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7',
+        description: 'Giống mèo không lông, cần chăm sóc đặc biệt',
+        average_weight: 4,
+        average_lifespan: 14
+    },
+    {
+        id: 'breed-028',
+        name: 'Abyssinian',
+        species_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7',
+        description: 'Giống mèo có bộ lông ngắn, năng động, tò mò',
+        average_weight: 4,
+        average_lifespan: 14
+    },
+    {
+        id: 'breed-029',
+        name: 'Mèo ta',
+        species_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7',
+        description: 'Giống mèo bản địa Việt Nam, khỏe mạnh, dễ nuôi',
+        average_weight: 4,
+        average_lifespan: 15
+    },
+    {
+        id: 'breed-030',
+        name: 'Exotic Shorthair',
+        species_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7',
+        description: 'Giống mèo có khuôn mặt giống Persian nhưng lông ngắn',
+        average_weight: 5,
+        average_lifespan: 14
+    }
+];
+
+// Mock Pet Groups database
+let MOCK_PET_GROUPS = [
+    {
+        id: 'group-001',
+        name: 'Khu vực chó cỡ lớn',
+        description: 'Khu vực dành cho các giống chó có trọng lượng từ 20kg trở lên',
+        max_capacity: 10,
+        pet_species_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+        pet_breed_id: 'breed-001',
+        current_count: 8,
+        createdAt: '2023-01-01T10:00:00Z'
+    },
+    {
+        id: 'group-002',
+        name: 'Khu vực chó cỡ nhỏ',
+        description: 'Khu vực dành cho các giống chó có trọng lượng dưới 15kg',
+        max_capacity: 15,
+        pet_species_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+        pet_breed_id: 'breed-007',
+        current_count: 12,
+        createdAt: '2023-01-01T10:00:00Z'
+    },
+    {
+        id: 'group-003',
+        name: 'Khu vực mèo lông ngắn',
+        description: 'Khu vực dành cho các giống mèo lông ngắn',
+        max_capacity: 12,
+        pet_species_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7',
+        pet_breed_id: 'breed-016',
+        current_count: 9,
+        createdAt: '2023-01-01T10:00:00Z'
+    },
+    {
+        id: 'group-004',
+        name: 'Khu vực mèo lông dài',
+        description: 'Khu vực dành cho các giống mèo lông dài, cần chăm sóc đặc biệt',
+        max_capacity: 8,
+        pet_species_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7',
+        pet_breed_id: 'breed-017',
+        current_count: 6,
+        createdAt: '2023-01-01T10:00:00Z'
+    },
+    {
+        id: 'group-005',
+        name: 'Khu vực Husky',
+        description: 'Khu vực riêng cho giống chó Husky năng động',
+        max_capacity: 8,
+        pet_species_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+        pet_breed_id: 'breed-003',
+        current_count: 3,
+        createdAt: '2023-02-15T10:00:00Z'
+    },
+    {
+        id: 'group-006',
+        name: 'Khu vực Golden Retriever',
+        description: 'Khu vực dành cho giống chó Golden Retriever',
+        max_capacity: 10,
+        pet_species_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+        pet_breed_id: 'breed-001',
+        current_count: 3,
+        createdAt: '2023-03-10T10:00:00Z'
+    }
+];
 
 // Pet APIs
 const petApi = {
@@ -764,9 +797,307 @@ const petApi = {
             },
             message: 'Cập nhật ảnh thú cưng thành công'
         };
+    },
+
+    // ==================== PET SPECIES APIs ====================
+
+    // Get all pet species (ONLY 2: Dog and Cat)
+    async getPetSpecies() {
+        await delay(100);
+        return { success: true, data: [...MOCK_PET_SPECIES] };
+    },
+
+    // NOTE: Creating new species is NOT ALLOWED - cafe only has dogs and cats
+    async createPetSpecies() {
+        throw new Error('Quán chỉ phục vụ 2 loài: Chó và Mèo. Không thể thêm loài mới!');
+    },
+
+    // ==================== PET BREEDS APIs ====================
+
+    // Get all breeds (optionally filter by species)
+    async getPetBreeds(speciesId = null) {
+        await delay(200);
+        let breeds = [...MOCK_PET_BREEDS];
+
+        if (speciesId) {
+            breeds = breeds.filter(b => b.species_id === speciesId);
+        }
+
+        return { success: true, data: breeds };
+    },
+
+    // Create new breed
+    async createPetBreed(breedData) {
+        await delay(400);
+        const currentUser = getCurrentUser();
+
+        if (!checkPermission(currentUser, 'pet_management')) {
+            throw new Error('Không có quyền thêm giống thú cưng');
+        }
+
+        // Validate
+        if (!breedData.name || !breedData.name.trim()) {
+            throw new Error('Tên giống là bắt buộc');
+        }
+
+        if (!breedData.species_id) {
+            throw new Error('Loài thú cưng là bắt buộc');
+        }
+
+        // Check if species exists and is valid (only dog or cat)
+        const species = MOCK_PET_SPECIES.find(s => s.id === breedData.species_id);
+        if (!species) {
+            throw new Error('Loài thú cưng không hợp lệ. Quán chỉ phục vụ chó và mèo');
+        }
+
+        if (!breedData.average_weight || breedData.average_weight <= 0) {
+            throw new Error('Trọng lượng trung bình phải lớn hơn 0');
+        }
+
+        if (!breedData.average_lifespan || breedData.average_lifespan <= 0) {
+            throw new Error('Tuổi thọ trung bình phải lớn hơn 0');
+        }
+
+        const newBreed = {
+            id: generateId('breed'),
+            name: breedData.name.trim(),
+            species_id: breedData.species_id,
+            description: breedData.description || '',
+            average_weight: parseFloat(breedData.average_weight),
+            average_lifespan: parseInt(breedData.average_lifespan),
+            createdAt: new Date().toISOString()
+        };
+
+        MOCK_PET_BREEDS.push(newBreed);
+
+        return { success: true, data: newBreed, message: 'Thêm giống thú cưng thành công' };
+    },
+
+    // Update breed
+    async updatePetBreed(breedId, updates) {
+        await delay(400);
+        const currentUser = getCurrentUser();
+
+        if (!checkPermission(currentUser, 'pet_management')) {
+            throw new Error('Không có quyền cập nhật giống thú cưng');
+        }
+
+        const breedIndex = MOCK_PET_BREEDS.findIndex(b => b.id === breedId);
+
+        if (breedIndex === -1) {
+            throw new Error('Không tìm thấy giống thú cưng');
+        }
+
+        // Apply updates
+        const allowedFields = ['name', 'description', 'average_weight', 'average_lifespan'];
+        allowedFields.forEach(field => {
+            if (updates[field] !== undefined) {
+                if (field === 'average_weight' || field === 'average_lifespan') {
+                    MOCK_PET_BREEDS[breedIndex][field] = parseFloat(updates[field]);
+                } else {
+                    MOCK_PET_BREEDS[breedIndex][field] = updates[field];
+                }
+            }
+        });
+
+        MOCK_PET_BREEDS[breedIndex].updatedAt = new Date().toISOString();
+
+        return {
+            success: true,
+            data: MOCK_PET_BREEDS[breedIndex],
+            message: 'Cập nhật giống thú cưng thành công'
+        };
+    },
+
+    // Delete breed
+    async deletePetBreed(breedId) {
+        await delay(300);
+        const currentUser = getCurrentUser();
+
+        if (!checkPermission(currentUser, 'pet_management')) {
+            throw new Error('Không có quyền xóa giống thú cưng');
+        }
+
+        // Check if breed is used by any pet
+        const petUsingBreed = MOCK_PETS.find(p => p.breed_id === breedId);
+        if (petUsingBreed) {
+            throw new Error('Không thể xóa giống này vì đang có thú cưng sử dụng');
+        }
+
+        const breedIndex = MOCK_PET_BREEDS.findIndex(b => b.id === breedId);
+
+        if (breedIndex === -1) {
+            throw new Error('Không tìm thấy giống thú cưng');
+        }
+
+        const deletedBreed = MOCK_PET_BREEDS[breedIndex];
+        MOCK_PET_BREEDS.splice(breedIndex, 1);
+
+        return {
+            success: true,
+            data: deletedBreed,
+            message: 'Xóa giống thú cưng thành công'
+        };
+    },
+
+    // ==================== PET GROUPS APIs ====================
+
+    // Get all pet groups
+    async getPetGroups() {
+        await delay(200);
+        const groups = MOCK_PET_GROUPS.map(group => {
+            const species = MOCK_PET_SPECIES.find(s => s.id === group.pet_species_id);
+            const breed = MOCK_PET_BREEDS.find(b => b.id === group.pet_breed_id);
+
+            // Calculate current_count dynamically based on pets matching group criteria
+            const groupPets = MOCK_PETS.filter(p => {
+                const matchSpecies = p.species_id === group.pet_species_id;
+                const matchBreed = !group.pet_breed_id || p.breed_id === group.pet_breed_id;
+                return matchSpecies && matchBreed;
+            });
+
+            return {
+                ...group,
+                current_count: groupPets.length, // Override with actual count
+                species: species,
+                breed: breed
+            };
+        });
+
+        return { success: true, data: groups };
+    },
+
+    // Create pet group
+    async createPetGroup(groupData) {
+        await delay(400);
+        const currentUser = getCurrentUser();
+
+        if (!checkPermission(currentUser, 'pet_management')) {
+            throw new Error('Không có quyền tạo nhóm thú cưng');
+        }
+
+        // Validate
+        if (!groupData.name || !groupData.name.trim()) {
+            throw new Error('Tên nhóm là bắt buộc');
+        }
+
+        if (!groupData.pet_species_id) {
+            throw new Error('Loài thú cưng là bắt buộc');
+        }
+
+        if (!groupData.max_capacity || groupData.max_capacity <= 0) {
+            throw new Error('Sức chứa tối đa phải lớn hơn 0');
+        }
+
+        // Calculate current_count dynamically based on pets matching group criteria
+        const groupPets = MOCK_PETS.filter(p => {
+            const matchSpecies = p.species_id === groupData.pet_species_id;
+            const matchBreed = !groupData.pet_breed_id || p.breed_id === groupData.pet_breed_id;
+            return matchSpecies && matchBreed;
+        });
+
+        const newGroup = {
+            id: generateId('group'),
+            name: groupData.name.trim(),
+            description: groupData.description || '',
+            max_capacity: parseInt(groupData.max_capacity),
+            pet_species_id: groupData.pet_species_id,
+            pet_breed_id: groupData.pet_breed_id || null,
+            current_count: groupPets.length, // Auto-calculated
+            createdAt: new Date().toISOString()
+        };
+
+        MOCK_PET_GROUPS.push(newGroup);
+
+        return { success: true, data: newGroup, message: 'Tạo nhóm thú cưng thành công' };
+    },
+
+    // Update pet group
+    async updatePetGroup(groupId, updates) {
+        await delay(400);
+        const currentUser = getCurrentUser();
+
+        if (!checkPermission(currentUser, 'pet_management')) {
+            throw new Error('Không có quyền cập nhật nhóm thú cưng');
+        }
+
+        const groupIndex = MOCK_PET_GROUPS.findIndex(g => g.id === groupId);
+
+        if (groupIndex === -1) {
+            throw new Error('Không tìm thấy nhóm thú cưng');
+        }
+
+        // Apply updates (current_count is NOT allowed - it's auto-calculated)
+        const allowedFields = ['name', 'description', 'max_capacity', 'pet_species_id', 'pet_breed_id'];
+        allowedFields.forEach(field => {
+            if (updates[field] !== undefined) {
+                if (field === 'max_capacity') {
+                    MOCK_PET_GROUPS[groupIndex][field] = parseInt(updates[field]);
+                } else if (field === 'pet_breed_id') {
+                    MOCK_PET_GROUPS[groupIndex][field] = updates[field] || null;
+                } else {
+                    MOCK_PET_GROUPS[groupIndex][field] = updates[field];
+                }
+            }
+        });
+
+        MOCK_PET_GROUPS[groupIndex].updatedAt = new Date().toISOString();
+
+        // Calculate current_count dynamically
+        const groupPets = MOCK_PETS.filter(p => {
+            const matchSpecies = p.species_id === MOCK_PET_GROUPS[groupIndex].pet_species_id;
+            const matchBreed = !MOCK_PET_GROUPS[groupIndex].pet_breed_id || p.breed_id === MOCK_PET_GROUPS[groupIndex].pet_breed_id;
+            return matchSpecies && matchBreed;
+        });
+
+        const updatedGroup = {
+            ...MOCK_PET_GROUPS[groupIndex],
+            current_count: groupPets.length
+        };
+
+        return {
+            success: true,
+            data: updatedGroup,
+            message: 'Cập nhật nhóm thú cưng thành công'
+        };
+    },
+
+    // Delete pet group
+    async deletePetGroup(groupId) {
+        await delay(300);
+        const currentUser = getCurrentUser();
+
+        if (!checkPermission(currentUser, 'pet_management')) {
+            throw new Error('Không có quyền xóa nhóm thú cưng');
+        }
+
+        const groupIndex = MOCK_PET_GROUPS.findIndex(g => g.id === groupId);
+
+        if (groupIndex === -1) {
+            throw new Error('Không tìm thấy nhóm thú cưng');
+        }
+
+        // Check if group has pets
+        if (MOCK_PET_GROUPS[groupIndex].current_count > 0) {
+            throw new Error('Không thể xóa nhóm đang có thú cưng');
+        }
+
+        const deletedGroup = MOCK_PET_GROUPS[groupIndex];
+        MOCK_PET_GROUPS.splice(groupIndex, 1);
+
+        return {
+            success: true,
+            data: deletedGroup,
+            message: 'Xóa nhóm thú cưng thành công'
+        };
     }
 };
 
 // Export both named and default
-export { petApi };
+export {
+    petApi,
+    MOCK_PET_SPECIES,
+    MOCK_PET_BREEDS,
+    MOCK_PET_GROUPS
+};
 export default petApi;

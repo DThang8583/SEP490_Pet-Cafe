@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AppBar, Toolbar, Typography, Button, Box, IconButton, Avatar, Menu, MenuItem, useTheme, alpha, Container, Stack, Drawer, List, ListItemButton, ListItemIcon, ListItemText, Divider, Tooltip, ListSubheader, useMediaQuery } from '@mui/material';
-import { LocalCafe, Restaurant, ConfirmationNumber, LocationOn, AccountCircle, Menu as MenuIcon, Close, Pets, Schedule, Dashboard, People, Assignment, DesignServices, Inventory2, Logout } from '@mui/icons-material';
+import { LocalCafe, Restaurant, ConfirmationNumber, LocationOn, AccountCircle, Menu as MenuIcon, Close, Pets, Schedule, Dashboard, People, Assignment, DesignServices, Inventory2, Logout, Vaccines } from '@mui/icons-material';
 import { COLORS } from '../../../constants/colors';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { authApi } from '../../../api/authApi';
@@ -60,6 +60,7 @@ const Navbar = () => {
     const managerItems = useMemo(() => ([
         { label: 'Dashboard', icon: <Dashboard />, path: '/manager/dashboard' },
         { label: 'Thú cưng', icon: <Pets />, path: '/manager/pets' },
+        { label: 'Tiêm phòng', icon: <Vaccines />, path: '/manager/vaccinations' },
         { label: 'Khu vực', icon: <LocationOn />, path: '/manager/areas' },
         { label: 'Dịch vụ', icon: <DesignServices />, path: '/manager/services' },
         { label: 'Nhân viên', icon: <People />, path: '/manager/staff' },

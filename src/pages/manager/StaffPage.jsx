@@ -1,83 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Stack, Toolbar, TextField, Select, MenuItem, InputLabel, FormControl, IconButton, Button, Dialog, DialogTitle, DialogContent, DialogActions, Avatar } from '@mui/material';
+import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Stack, Toolbar, TextField, Select, MenuItem, InputLabel, FormControl, IconButton, Button, Avatar } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import { COLORS } from '../../constants/colors';
 import Loading from '../../components/loading/Loading';
 import Pagination from '../../components/common/Pagination';
+import ConfirmModal from '../../components/modals/ConfirmModal';
+import AddStaffModal from '../../components/modals/AddStaffModal';
+import AlertModal from '../../components/modals/AlertModal';
 import { Edit, Delete } from '@mui/icons-material';
-
-const mockFetchStaff = () => new Promise((resolve) => {
-    setTimeout(() => {
-        resolve([
-            {
-                id: 'u-001',
-                full_name: 'Nguyễn Văn An',
-                phone: '0901 111 222',
-                email: 'an@petcafe.com',
-                address: '12 Trần Hưng Đạo, Q1, TP.HCM',
-                salary: 8000000,
-                role: 'sale_staff',
-                status: 'active',
-                avatar_url: 'https://i.pravatar.cc/150?img=1'
-            },
-            {
-                id: 'u-002',
-                full_name: 'Trần Thị Bình',
-                phone: '0902 222 333',
-                email: 'binh@petcafe.com',
-                address: '45 Lê Lợi, Q1, TP.HCM',
-                salary: 7500000,
-                role: 'sale_staff',
-                status: 'active',
-                avatar_url: 'https://i.pravatar.cc/150?img=5'
-            },
-            {
-                id: 'u-003',
-                full_name: 'Lê Văn Chi',
-                phone: '0903 333 444',
-                email: 'chi@petcafe.com',
-                address: '88 Nguyễn Trãi, Q5, TP.HCM',
-                salary: 9000000,
-                role: 'working_staff',
-                status: 'on_leave',
-                avatar_url: 'https://i.pravatar.cc/150?img=12'
-            },
-            {
-                id: 'u-004',
-                full_name: 'Phạm Thị Dung',
-                phone: '0904 444 555',
-                email: 'dung@petcafe.com',
-                address: '23 CMT8, Q10, TP.HCM',
-                salary: 7000000,
-                role: 'working_staff',
-                status: 'active',
-                avatar_url: 'https://i.pravatar.cc/150?img=9'
-            },
-            {
-                id: 'u-005',
-                full_name: 'Hoàng Văn Minh',
-                phone: '0905 555 666',
-                email: 'minh@petcafe.com',
-                address: '101 Điện Biên Phủ, Q3, TP.HCM',
-                salary: 8500000,
-                role: 'working_staff',
-                status: 'active',
-                avatar_url: 'https://i.pravatar.cc/150?img=13'
-            },
-            {
-                id: 'u-006',
-                full_name: 'Vũ Thị Nga',
-                phone: '0906 666 777',
-                email: 'nga@petcafe.com',
-                address: '5 Pasteur, Q1, TP.HCM',
-                salary: 6500000,
-                role: 'sale_staff',
-                status: 'on_leave',
-                avatar_url: 'https://i.pravatar.cc/150?img=10'
-            },
-        ]);
-    }, 500);
-});
+import { managerApi } from '../../api/userApi';
 
 const formatSalary = (salary) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(salary);
@@ -118,38 +49,43 @@ const StaffPage = () => {
     // Pagination state
     const [page, setPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
-    const [editOpen, setEditOpen] = useState(false);
-    const [editMode, setEditMode] = useState('add');
-    const [editForm, setEditForm] = useState({
-        id: '',
-        full_name: '',
-        email: '',
-        phone: '',
-        address: '',
-        salary: '',
-        role: '',
-        status: 'active',
-        avatar_url: '',
-        password: ''
-    });
+
+    // Modal states
+    const [addStaffModalOpen, setAddStaffModalOpen] = useState(false);
+    const [editMode, setEditMode] = useState(false);
+    const [selectedStaff, setSelectedStaff] = useState(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Delete confirmation
     const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
     const [pendingDeleteId, setPendingDeleteId] = useState('');
-    const [formErrors, setFormErrors] = useState({});
 
+    // Alert modal
+    const [alert, setAlert] = useState({ open: false, message: '', type: 'info', title: 'Thông báo' });
+
+    // Load staff data from API
     useEffect(() => {
-        const load = async () => {
+        const loadStaff = async () => {
             try {
                 setIsLoading(true);
                 setError('');
-                const data = await mockFetchStaff();
-                setStaff(data);
+                const response = await managerApi.getStaff();
+                if (response.success) {
+                    setStaff(response.data);
+                }
             } catch (e) {
-                setError('Không thể tải danh sách nhân viên');
+                setError(e.message || 'Không thể tải danh sách nhân viên');
+                setAlert({
+                    open: true,
+                    title: 'Lỗi',
+                    message: e.message || 'Không thể tải danh sách nhân viên',
+                    type: 'error'
+                });
             } finally {
                 setIsLoading(false);
             }
         };
-        load();
+        loadStaff();
     }, []);
 
     const filtered = useMemo(() => {
@@ -167,6 +103,79 @@ const StaffPage = () => {
         const startIndex = (page - 1) * itemsPerPage;
         return filtered.slice(startIndex, startIndex + itemsPerPage);
     }, [page, itemsPerPage, filtered]);
+
+    // Handle submit staff (add/edit)
+    const handleSubmitStaff = async (staffData) => {
+        try {
+            setIsSubmitting(true);
+
+            if (editMode) {
+                // Update existing staff
+                const response = await managerApi.updateStaff(selectedStaff.id, {
+                    full_name: staffData.full_name,
+                    email: staffData.email,
+                    phone: staffData.phone,
+                    address: staffData.address,
+                    salary: parseFloat(staffData.salary),
+                    role: staffData.role,
+                    avatar_url: staffData.avatar_url || selectedStaff.avatar_url || ''
+                });
+
+                if (response.success) {
+                    // Update local state
+                    setStaff(prev => prev.map(s =>
+                        s.id === selectedStaff.id ? response.data : s
+                    ));
+
+                    setAlert({
+                        open: true,
+                        title: 'Thành công',
+                        message: 'Cập nhật thông tin nhân viên thành công!',
+                        type: 'success'
+                    });
+                }
+            } else {
+                // Add new staff
+                const response = await managerApi.createStaff({
+                    full_name: staffData.full_name,
+                    email: staffData.email,
+                    phone: staffData.phone,
+                    address: staffData.address,
+                    salary: parseFloat(staffData.salary),
+                    role: staffData.role,
+                    avatar_url: staffData.avatar_url || '',
+                    password: staffData.password
+                });
+
+                if (response.success) {
+                    // Add to local state
+                    setStaff(prev => [...prev, response.data]);
+
+                    setAlert({
+                        open: true,
+                        title: 'Thành công',
+                        message: 'Thêm nhân viên mới thành công!',
+                        type: 'success'
+                    });
+                }
+            }
+
+            // Close modal
+            setAddStaffModalOpen(false);
+            setSelectedStaff(null);
+            setEditMode(false);
+        } catch (error) {
+            console.error('Error submitting staff:', error);
+            setAlert({
+                open: true,
+                title: 'Lỗi',
+                message: error.message || 'Không thể lưu thông tin nhân viên',
+                type: 'error'
+            });
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
 
     if (isLoading) {
         return (
@@ -212,20 +221,9 @@ const StaffPage = () => {
                     <Button
                         variant="contained"
                         onClick={() => {
-                            setEditMode('add');
-                            setEditForm({
-                                id: '',
-                                full_name: '',
-                                email: '',
-                                phone: '',
-                                address: '',
-                                salary: '',
-                                role: '',
-                                status: 'active',
-                                avatar_url: '',
-                                password: ''
-                            });
-                            setEditOpen(true);
+                            setEditMode(false);
+                            setSelectedStaff(null);
+                            setAddStaffModalOpen(true);
                         }}
                         sx={{ backgroundColor: COLORS.ERROR[500], '&:hover': { backgroundColor: COLORS.ERROR[600] } }}
                     >
@@ -277,12 +275,9 @@ const StaffPage = () => {
                                                 size="small"
                                                 color="primary"
                                                 onClick={() => {
-                                                    setEditMode('edit');
-                                                    setEditForm({
-                                                        ...s,
-                                                        password: '' // Don't show password when editing
-                                                    });
-                                                    setEditOpen(true);
+                                                    setEditMode(true);
+                                                    setSelectedStaff(s);
+                                                    setAddStaffModalOpen(true);
                                                 }}
                                             >
                                                 <Edit fontSize="small" />
@@ -320,165 +315,66 @@ const StaffPage = () => {
                     />
                 )}
 
-                {/* Add/Edit Staff Dialog */}
-                <Dialog open={editOpen} onClose={() => setEditOpen(false)} fullWidth maxWidth="sm">
-                    <Box sx={{ px: 3, pt: 3 }}>
-                        <Typography variant="h6" sx={{ fontWeight: 800, color: COLORS.ERROR[600] }}>
-                            {editMode === 'add' ? 'Thêm nhân viên' : 'Sửa thông tin nhân viên'}
-                        </Typography>
-                    </Box>
-                    <Box sx={{ px: 3, pt: 1, pb: 2 }}>
-                        <Stack spacing={2}>
-                            <TextField
-                                label="Họ và tên *"
-                                value={editForm.full_name}
-                                error={!!formErrors.full_name}
-                                helperText={formErrors.full_name}
-                                onChange={(e) => setEditForm({ ...editForm, full_name: e.target.value })}
-                                fullWidth
-                            />
-                            <TextField
-                                label="Email *"
-                                type="email"
-                                value={editForm.email}
-                                error={!!formErrors.email}
-                                helperText={formErrors.email}
-                                onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                                fullWidth
-                            />
-                            <TextField
-                                label="Số điện thoại *"
-                                value={editForm.phone}
-                                error={!!formErrors.phone}
-                                helperText={formErrors.phone}
-                                onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
-                                fullWidth
-                            />
-                            <TextField
-                                label="Địa chỉ *"
-                                value={editForm.address}
-                                error={!!formErrors.address}
-                                helperText={formErrors.address}
-                                onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
-                                fullWidth
-                            />
-                            <TextField
-                                label="Lương (VNĐ) *"
-                                type="number"
-                                value={editForm.salary}
-                                error={!!formErrors.salary}
-                                helperText={formErrors.salary}
-                                onChange={(e) => setEditForm({ ...editForm, salary: e.target.value })}
-                                fullWidth
-                            />
-                            <FormControl fullWidth error={!!formErrors.role}>
-                                <InputLabel>Vai trò *</InputLabel>
-                                <Select
-                                    label="Vai trò *"
-                                    value={editForm.role}
-                                    onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}
-                                >
-                                    <MenuItem value="sale_staff">Sale staff</MenuItem>
-                                    <MenuItem value="working_staff">Working staff</MenuItem>
-                                </Select>
-                                {formErrors.role && (
-                                    <Typography variant="caption" sx={{ color: 'error.main', mt: 0.5, ml: 1.5 }}>
-                                        {formErrors.role}
-                                    </Typography>
-                                )}
-                            </FormControl>
-                            <FormControl fullWidth error={!!formErrors.status}>
-                                <InputLabel>Trạng thái *</InputLabel>
-                                <Select
-                                    label="Trạng thái *"
-                                    value={editForm.status}
-                                    onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
-                                >
-                                    <MenuItem value="active">Đang làm</MenuItem>
-                                    <MenuItem value="on_leave">Nghỉ phép</MenuItem>
-                                </Select>
-                                {formErrors.status && (
-                                    <Typography variant="caption" sx={{ color: 'error.main', mt: 0.5, ml: 1.5 }}>
-                                        {formErrors.status}
-                                    </Typography>
-                                )}
-                            </FormControl>
-                            <TextField
-                                label="URL Avatar"
-                                value={editForm.avatar_url}
-                                onChange={(e) => setEditForm({ ...editForm, avatar_url: e.target.value })}
-                                fullWidth
-                                placeholder="https://example.com/avatar.jpg"
-                                helperText="Để trống nếu muốn sử dụng avatar mặc định"
-                            />
-                            {editMode === 'add' && (
-                                <TextField
-                                    label="Mật khẩu *"
-                                    type="password"
-                                    value={editForm.password}
-                                    error={!!formErrors.password}
-                                    helperText={formErrors.password || "Mật khẩu cho tài khoản nhân viên"}
-                                    onChange={(e) => setEditForm({ ...editForm, password: e.target.value })}
-                                    fullWidth
-                                />
-                            )}
-                        </Stack>
-                    </Box>
-                    <Stack direction="row" spacing={1} sx={{ p: 2, justifyContent: 'flex-end' }}>
-                        <Button onClick={() => setEditOpen(false)}>Hủy</Button>
-                        <Button variant="contained" onClick={() => {
-                            // Validation
-                            const errs = {};
-                            if (!editForm.full_name?.trim()) errs.full_name = 'Bắt buộc';
-                            if (!editForm.email?.trim()) errs.email = 'Bắt buộc';
-                            if (!editForm.phone?.trim()) errs.phone = 'Bắt buộc';
-                            if (!editForm.address?.trim()) errs.address = 'Bắt buộc';
-                            if (!editForm.salary || parseFloat(editForm.salary) <= 0) errs.salary = 'Lương phải lớn hơn 0';
-                            if (!editForm.role) errs.role = 'Bắt buộc';
-                            if (!editForm.status) errs.status = 'Bắt buộc';
-                            if (editMode === 'add' && !editForm.password?.trim()) errs.password = 'Bắt buộc';
+                {/* Add/Edit Staff Modal */}
+                <AddStaffModal
+                    isOpen={addStaffModalOpen}
+                    onClose={() => {
+                        setAddStaffModalOpen(false);
+                        setSelectedStaff(null);
+                        setEditMode(false);
+                    }}
+                    onSubmit={handleSubmitStaff}
+                    editMode={editMode}
+                    initialData={selectedStaff}
+                    isLoading={isSubmitting}
+                />
 
-                            setFormErrors(errs);
-                            if (Object.keys(errs).length) return;
-
-                            let next = [...staff];
-                            if (editMode === 'add') {
-                                const newItem = {
-                                    ...editForm,
-                                    id: `u-${Math.random().toString(36).slice(2, 7)}`,
-                                    salary: parseFloat(editForm.salary)
-                                };
-                                // Don't save password in state (it would be sent to API)
-                                delete newItem.password;
-                                next.push(newItem);
-                            } else {
-                                const idx = next.findIndex(x => x.id === editForm.id);
-                                if (idx !== -1) {
-                                    next[idx] = {
-                                        ...editForm,
-                                        salary: parseFloat(editForm.salary)
-                                    };
-                                }
+                {/* Confirm Delete Modal */}
+                <ConfirmModal
+                    isOpen={confirmDeleteOpen}
+                    onClose={() => {
+                        setConfirmDeleteOpen(false);
+                        setPendingDeleteId('');
+                    }}
+                    onConfirm={async () => {
+                        try {
+                            const response = await managerApi.deleteStaff(pendingDeleteId);
+                            if (response.success) {
+                                setStaff(prev => prev.filter(s => s.id !== pendingDeleteId));
+                                setAlert({
+                                    open: true,
+                                    title: 'Thành công',
+                                    message: 'Xóa nhân viên thành công!',
+                                    type: 'success'
+                                });
                             }
-                            setStaff(next);
-                            setEditOpen(false);
-                            setFormErrors({});
-                        }}>Lưu</Button>
-                    </Stack>
-                </Dialog>
-
-                {/* Confirm delete staff */}
-                <Dialog open={confirmDeleteOpen} onClose={() => setConfirmDeleteOpen(false)}>
-                    <DialogTitle>Xóa nhân viên</DialogTitle>
-                    <DialogContent>Bạn có chắc muốn xóa nhân viên này?</DialogContent>
-                    <DialogActions>
-                        <Button onClick={() => setConfirmDeleteOpen(false)}>Hủy</Button>
-                        <Button color="error" variant="contained" onClick={() => {
-                            setStaff(prev => prev.filter(s => s.id !== pendingDeleteId));
+                        } catch (error) {
+                            setAlert({
+                                open: true,
+                                title: 'Lỗi',
+                                message: error.message || 'Không thể xóa nhân viên',
+                                type: 'error'
+                            });
+                        } finally {
                             setConfirmDeleteOpen(false);
-                        }}>Xóa</Button>
-                    </DialogActions>
-                </Dialog>
+                            setPendingDeleteId('');
+                        }
+                    }}
+                    title="Xóa nhân viên"
+                    message="Bạn có chắc chắn muốn xóa nhân viên này? Hành động này không thể hoàn tác."
+                    confirmText="Xóa"
+                    cancelText="Hủy"
+                    type="error"
+                />
+
+                {/* Alert Modal */}
+                <AlertModal
+                    isOpen={alert.open}
+                    onClose={() => setAlert({ ...alert, open: false })}
+                    title={alert.title}
+                    message={alert.message}
+                    type={alert.type}
+                />
             </Box>
         </Box>
     );

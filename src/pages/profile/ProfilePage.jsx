@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Container, Typography, Grid, Avatar, TextField, Button, IconButton, Chip, Paper, Fade, Alert, Snackbar, keyframes } from '@mui/material';
+import { Box, Container, Typography, Grid, Avatar, TextField, Button, IconButton, Chip, Paper, Fade, Alert, keyframes } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import { Edit, PhotoCamera, Save, Cancel, Star } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 import Loading from '../../components/loading/Loading';
+import AlertModal from '../../components/modals/AlertModal';
 import { authApi } from '../../api/authApi';
 
 // Animations
@@ -21,8 +22,7 @@ const ProfilePage = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [editMode, setEditMode] = useState(false);
-    const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
+    const [alert, setAlert] = useState({ open: false, message: '', type: 'info', title: 'Thông báo' });
 
     // Field container styling
     const getFieldContainerStyle = (getRoleColor) => ({
@@ -144,7 +144,12 @@ const ProfilePage = () => {
 
                 const currentUser = authApi.getCurrentUser();
                 if (!currentUser) {
-                    setError('Vui lòng đăng nhập để xem hồ sơ');
+                    setAlert({
+                        open: true,
+                        title: 'Lỗi',
+                        message: 'Vui lòng đăng nhập để xem hồ sơ',
+                        type: 'error'
+                    });
                     setIsLoading(false);
                     return;
                 }
@@ -165,7 +170,12 @@ const ProfilePage = () => {
 
                 setIsLoading(false);
             } catch (err) {
-                setError(err.message || 'Có lỗi xảy ra khi tải dữ liệu');
+                setAlert({
+                    open: true,
+                    title: 'Lỗi',
+                    message: err.message || 'Có lỗi xảy ra khi tải dữ liệu',
+                    type: 'error'
+                });
                 setIsLoading(false);
             }
         };
@@ -188,14 +198,23 @@ const ProfilePage = () => {
     const handleSaveProfile = async () => {
         try {
             setIsSaving(true);
-            setError('');
 
             const updatedUser = { ...currentUser, ...user };
             setUser(user);
-            setSuccess('Cập nhật hồ sơ thành công!');
+            setAlert({
+                open: true,
+                title: 'Thành công',
+                message: 'Cập nhật hồ sơ thành công!',
+                type: 'success'
+            });
             setEditMode(false);
         } catch (err) {
-            setError(err.message || 'Có lỗi xảy ra khi cập nhật hồ sơ');
+            setAlert({
+                open: true,
+                title: 'Lỗi',
+                message: err.message || 'Có lỗi xảy ra khi cập nhật hồ sơ',
+                type: 'error'
+            });
         } finally {
             setIsSaving(false);
         }
@@ -986,28 +1005,14 @@ const ProfilePage = () => {
             </Box>
 
 
-            {/* Snackbar for messages */}
-            <Snackbar
-                open={!!error}
-                autoHideDuration={6000}
-                onClose={() => setError('')}
-                anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-            >
-                <Alert onClose={() => setError('')} severity="error" sx={{ width: '100%' }}>
-                    {error}
-                </Alert>
-            </Snackbar>
-
-            <Snackbar
-                open={!!success}
-                autoHideDuration={4000}
-                onClose={() => setSuccess('')}
-                anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-            >
-                <Alert onClose={() => setSuccess('')} severity="success" sx={{ width: '100%' }}>
-                    {success}
-                </Alert>
-            </Snackbar>
+            {/* Alert Modal */}
+            <AlertModal
+                isOpen={alert.open}
+                onClose={() => setAlert({ ...alert, open: false })}
+                title={alert.title}
+                message={alert.message}
+                type={alert.type}
+            />
         </Box>
     );
 };
