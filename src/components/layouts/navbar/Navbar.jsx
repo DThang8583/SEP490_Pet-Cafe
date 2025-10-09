@@ -1,12 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import {
-    AppBar, Toolbar, Typography, Button, Box, IconButton, Avatar,
-    Menu, MenuItem, useTheme, alpha, Container, Stack, Drawer, List, ListItemButton, ListItemIcon, ListItemText, Divider, Tooltip, ListSubheader, useMediaQuery
-} from '@mui/material';
-import {
-    LocalCafe, Restaurant, ConfirmationNumber, LocationOn, AccountCircle,
-    Menu as MenuIcon, Close, Pets, Schedule, Dashboard, People, Assignment, DesignServices, Inventory2, Logout
-} from '@mui/icons-material';
+import { AppBar, Toolbar, Typography, Button, Box, IconButton, Avatar, Menu, MenuItem, useTheme, alpha, Container, Stack, Drawer, List, ListItemButton, ListItemIcon, ListItemText, Divider, Tooltip, ListSubheader, useMediaQuery } from '@mui/material';
+import { LocalCafe, Restaurant, ConfirmationNumber, LocationOn, AccountCircle, Menu as MenuIcon, Close, Pets, Schedule, Dashboard, People, Assignment, DesignServices, Inventory2, Logout } from '@mui/icons-material';
 import { COLORS } from '../../../constants/colors';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { authApi } from '../../../api/authApi';
@@ -67,9 +61,9 @@ const Navbar = () => {
         { label: 'Dashboard', icon: <Dashboard />, path: '/manager/dashboard' },
         { label: 'Thú cưng', icon: <Pets />, path: '/manager/pets' },
         { label: 'Khu vực', icon: <LocationOn />, path: '/manager/areas' },
+        { label: 'Dịch vụ', icon: <DesignServices />, path: '/manager/services' },
         { label: 'Nhân viên', icon: <People />, path: '/manager/staff' },
         { label: 'Nhiệm vụ', icon: <Assignment />, path: '/manager/tasks' },
-        { label: 'Dịch vụ', icon: <DesignServices />, path: '/manager/services' },
         { label: 'Kho', icon: <Inventory2 />, path: '/manager/inventory' },
         { label: 'Tài khoản', icon: <AccountCircle />, path: '/profile' }
     ]), []);
