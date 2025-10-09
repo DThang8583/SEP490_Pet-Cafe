@@ -1,43 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { 
-    Box, 
-    Container, 
-    Typography, 
-    Grid, 
-    Card, 
-    CardContent, 
-    CardHeader,
-    Avatar,
-    Chip,
-    Stack,
-    Button,
-    LinearProgress,
-    IconButton,
-    useTheme,
-    alpha,
-    Fade,
-    Slide,
-    Grow
-} from '@mui/material';
-import { 
-    Dashboard as DashboardIcon,
-    Pets,
-    People,
-    Assignment,
-    Build,
-    Inventory,
-    TrendingUp,
-    TrendingDown,
-    AttachMoney,
-    Schedule,
-    Notifications,
-    Refresh,
-    MoreVert,
-    Star,
-    CheckCircle,
-    Warning,
-    Error
-} from '@mui/icons-material';
+import { Box, Container, Typography, Grid, Card, CardContent, CardHeader, Avatar, Chip, Stack, Button, LinearProgress, IconButton, useTheme, alpha, Fade, Slide, Grow } from '@mui/material';
+import { Dashboard as DashboardIcon, Pets, People, Assignment, Build, Inventory, TrendingUp, TrendingDown, AttachMoney, Schedule, Notifications, Refresh, MoreVert, Star, CheckCircle, Warning, Error as ErrorIcon } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 
 const DashboardPage = () => {
@@ -151,13 +114,13 @@ const DashboardPage = () => {
     ];
 
     const getTrendIcon = (trend) => {
-        return trend === 'up' ? 
-            <TrendingUp sx={{ color: COLORS.SUCCESS[500] }} /> : 
+        return trend === 'up' ?
+            <TrendingUp sx={{ color: COLORS.SUCCESS[500] }} /> :
             <TrendingDown sx={{ color: COLORS.ERROR[500] }} />;
     };
 
     return (
-        <Box sx={{ 
+        <Box sx={{
             minHeight: '100vh',
             background: `linear-gradient(135deg, ${alpha(COLORS.BACKGROUND.NEUTRAL, 0.8)} 0%, ${alpha(COLORS.PRIMARY[50], 0.6)} 100%)`,
             py: 4
@@ -168,8 +131,8 @@ const DashboardPage = () => {
                     <Box sx={{ mb: 4 }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                             <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                                <Avatar sx={{ 
-                                    bgcolor: COLORS.ERROR[500], 
+                                <Avatar sx={{
+                                    bgcolor: COLORS.ERROR[500],
                                     mr: 2,
                                     width: 50,
                                     height: 50
@@ -177,8 +140,8 @@ const DashboardPage = () => {
                                     <DashboardIcon sx={{ fontSize: 30 }} />
                                 </Avatar>
                                 <Box>
-                                    <Typography variant="h4" sx={{ 
-                                        fontWeight: 'bold', 
+                                    <Typography variant="h4" sx={{
+                                        fontWeight: 'bold',
                                         color: COLORS.ERROR[500],
                                         fontFamily: '"Comic Sans MS", cursive'
                                     }}>
@@ -193,7 +156,7 @@ const DashboardPage = () => {
                                 <Button
                                     variant="outlined"
                                     startIcon={<Refresh />}
-            sx={{
+                                    sx={{
                                         borderColor: COLORS.ERROR[300],
                                         color: COLORS.ERROR[500],
                                         '&:hover': {
@@ -233,7 +196,7 @@ const DashboardPage = () => {
                                 }}>
                                     <CardContent sx={{ p: 3 }}>
                                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                                            <Avatar sx={{ 
+                                            <Avatar sx={{
                                                 bgcolor: alpha(stat.color, 0.1),
                                                 color: stat.color,
                                                 width: 60,
@@ -243,7 +206,7 @@ const DashboardPage = () => {
                                             </Avatar>
                                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                                                 {getTrendIcon(stat.trend)}
-                                                <Typography variant="body2" sx={{ 
+                                                <Typography variant="body2" sx={{
                                                     color: stat.trend === 'up' ? COLORS.SUCCESS[500] : COLORS.ERROR[500],
                                                     fontWeight: 'bold'
                                                 }}>
@@ -251,14 +214,14 @@ const DashboardPage = () => {
                                                 </Typography>
                                             </Box>
                                         </Box>
-                                        <Typography variant="h4" sx={{ 
-                                            fontWeight: 'bold', 
+                                        <Typography variant="h4" sx={{
+                                            fontWeight: 'bold',
                                             color: COLORS.TEXT.PRIMARY,
                                             mb: 1
                                         }}>
                                             {stat.value}
                                         </Typography>
-                                        <Typography variant="body2" sx={{ 
+                                        <Typography variant="body2" sx={{
                                             color: COLORS.TEXT.SECONDARY,
                                             fontSize: '0.9rem'
                                         }}>
@@ -285,8 +248,8 @@ const DashboardPage = () => {
                             }}>
                                 <CardHeader
                                     title={
-                                        <Typography variant="h6" sx={{ 
-                                            fontWeight: 'bold', 
+                                        <Typography variant="h6" sx={{
+                                            fontWeight: 'bold',
                                             color: COLORS.ERROR[500],
                                             display: 'flex',
                                             alignItems: 'center',
@@ -319,13 +282,13 @@ const DashboardPage = () => {
                                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                                                     {activity.icon}
                                                     <Box sx={{ flex: 1 }}>
-                                                        <Typography variant="body2" sx={{ 
+                                                        <Typography variant="body2" sx={{
                                                             color: COLORS.TEXT.PRIMARY,
                                                             mb: 0.5
                                                         }}>
                                                             {activity.message}
                                                         </Typography>
-                                                        <Typography variant="caption" sx={{ 
+                                                        <Typography variant="caption" sx={{
                                                             color: COLORS.TEXT.SECONDARY
                                                         }}>
                                                             {activity.time}
@@ -353,11 +316,11 @@ const DashboardPage = () => {
                             }}>
                                 <CardHeader
                                     title={
-                                        <Typography variant="h6" sx={{ 
-                                            fontWeight: 'bold', 
+                                        <Typography variant="h6" sx={{
+                                            fontWeight: 'bold',
                                             color: COLORS.ERROR[500],
-                display: 'flex',
-                alignItems: 'center',
+                                            display: 'flex',
+                                            alignItems: 'center',
                                             gap: 1
                                         }}>
                                             <Assignment sx={{ fontSize: 24 }} />
@@ -373,7 +336,7 @@ const DashboardPage = () => {
                                                 variant="outlined"
                                                 fullWidth
                                                 startIcon={
-                                                    <Avatar sx={{ 
+                                                    <Avatar sx={{
                                                         bgcolor: alpha(action.color, 0.1),
                                                         color: action.color,
                                                         width: 35,
@@ -397,18 +360,18 @@ const DashboardPage = () => {
                                                 }}
                                             >
                                                 <Box>
-                                                    <Typography variant="subtitle2" sx={{ 
+                                                    <Typography variant="subtitle2" sx={{
                                                         fontWeight: 'bold',
                                                         mb: 0.5
                                                     }}>
                                                         {action.title}
                                                     </Typography>
-                                                    <Typography variant="caption" sx={{ 
+                                                    <Typography variant="caption" sx={{
                                                         color: COLORS.TEXT.SECONDARY,
                                                         display: 'block'
                                                     }}>
                                                         {action.description}
-            </Typography>
+                                                    </Typography>
                                                 </Box>
                                             </Button>
                                         ))}

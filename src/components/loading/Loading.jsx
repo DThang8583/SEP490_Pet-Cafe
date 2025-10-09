@@ -80,7 +80,6 @@ const Loading = ({
     const LoadingSpinner = () => (
         <Box
             sx={{
-                position: 'relative',
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
@@ -88,13 +87,25 @@ const Loading = ({
                 gap: 3
             }}
         >
-            {/* Main Loading Circle */}
-            <Box sx={{ position: 'relative' }}>
+            {/* Main Loading Circle with Centered Icon */}
+            <Box
+                sx={{
+                    position: 'relative',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: config.progress,
+                    height: config.progress
+                }}
+            >
                 <CircularProgress
                     size={config.progress}
                     thickness={4}
                     sx={{
                         color: COLORS.ERROR[500],
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
                         '& .MuiCircularProgress-circle': {
                             strokeLinecap: 'round'
                         }
@@ -102,22 +113,14 @@ const Loading = ({
                 />
 
                 {/* Center Pet Icon */}
-                <Box
+                <Pets
                     sx={{
-                        position: 'absolute',
-                        top: '50%',
-                        left: '50%',
-                        transform: 'translate(-50%, -50%)',
-                        animation: `${pulse} 2s ease-in-out infinite`
+                        fontSize: config.icon * 0.6,
+                        color: COLORS.SECONDARY[500],
+                        animation: `${pulse} 2s ease-in-out infinite`,
+                        zIndex: 1
                     }}
-                >
-                    <Pets
-                        sx={{
-                            fontSize: config.icon * 0.6,
-                            color: COLORS.SECONDARY[500]
-                        }}
-                    />
-                </Box>
+                />
             </Box>
 
             {/* Loading Text */}
@@ -264,8 +267,8 @@ const Loading = ({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                width: fullScreen ? '100vw' : config.container.width,
-                height: fullScreen ? '100vh' : config.container.height,
+                width: fullScreen ? '100%' : config.container.width,
+                minHeight: fullScreen ? 'calc(100vh - 80px)' : config.container.height,
                 background: fullScreen ? `
                     radial-gradient(circle at 25% 25%, ${alpha(COLORS.SECONDARY[200], 0.4)} 0%, transparent 60%),
                     radial-gradient(circle at 75% 75%, ${alpha(COLORS.WARNING[200], 0.3)} 0%, transparent 60%),
@@ -276,10 +279,7 @@ const Loading = ({
                         ${alpha(COLORS.SECONDARY[100], 0.6)} 100%
                     )
                 ` : 'transparent',
-                position: fullScreen ? 'fixed' : 'relative',
-                top: fullScreen ? 0 : 'auto',
-                left: fullScreen ? 0 : 'auto',
-                zIndex: fullScreen ? 9999 : 'auto',
+                position: 'relative',
                 borderRadius: fullScreen ? 0 : 3,
                 mx: 'auto'
             }}

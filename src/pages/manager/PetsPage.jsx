@@ -149,14 +149,12 @@ const PetsPage = () => {
         }
     };
 
+    // Show loading state
+    if (isLoading) {
+        return <Loading message="Đang tải danh sách thú cưng..." fullScreen />;
+    }
+
     const renderTopState = () => {
-        if (isLoading) {
-            return (
-                <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', py: 6 }}>
-                    <Loading fullScreen={false} variant="cafe" size="large" message="Đang tải danh sách thú cưng..." />
-                </Box>
-            );
-        }
         if (error) {
             return (
                 <Box sx={{ width: '100%', p: 2 }}>
@@ -321,41 +319,41 @@ const PetsPage = () => {
                             📅 Lịch tiêm tổng quan - Tất cả thú cưng
                         </Typography>
                         <Divider sx={{ mb: 2, borderColor: alpha(COLORS.ERROR[200], 0.6) }} />
-                        
+
                         {/* Hiển thị theo từng loài */}
                         {['dog', 'cat'].map((species) => {
                             const petsInSpecies = pets.filter(p => p.species === species);
                             if (!petsInSpecies.length) return null;
-                            
+
                             return (
                                 <Box key={species} sx={{ mb: 3 }}>
-                                    <Typography variant="h6" sx={{ 
-                                        fontWeight: 700, 
-                                        color: COLORS.ERROR[500], 
+                                    <Typography variant="h6" sx={{
+                                        fontWeight: 700,
+                                        color: COLORS.ERROR[500],
                                         mb: 2,
                                         display: 'flex',
                                         alignItems: 'center',
                                         gap: 1
                                     }}>
                                         {species === 'dog' ? '🐕' : '🐱'} {prettySpecies(species)}
-                                        <Chip 
-                                            size="small" 
-                                            label={`${petsInSpecies.length} thú cưng`} 
-                                            sx={{ 
-                                                background: alpha(COLORS.ERROR[100], 0.7), 
+                                        <Chip
+                                            size="small"
+                                            label={`${petsInSpecies.length} thú cưng`}
+                                            sx={{
+                                                background: alpha(COLORS.ERROR[100], 0.7),
                                                 color: COLORS.ERROR[700],
                                                 fontWeight: 600
-                                            }} 
+                                            }}
                                         />
                                     </Typography>
-                                    
+
                                     <Stack spacing={2}>
                                         {petsInSpecies.map((p) => {
                                             const upcoming = p.upcomingVaccinations || [];
                                             const list = upcoming.filter((u) => u && u.name);
                                             const hasVaccinations = (p.vaccinations || []).length > 0;
                                             const hasUpcoming = list.length > 0;
-                                            
+
                                             return (
                                                 <Box key={`sch-inline-${p.id}`} sx={{
                                                     p: 2,
@@ -381,13 +379,13 @@ const PetsPage = () => {
                                                             }
                                                         }}>Thêm lịch</Button>
                                                     </Stack>
-                                                    
+
                                                     {/* Đã tiêm */}
                                                     {hasVaccinations && (
                                                         <Box sx={{ mb: 1.5 }}>
-                                                            <Typography variant="body2" sx={{ 
-                                                                fontWeight: 700, 
-                                                                color: COLORS.SUCCESS[600], 
+                                                            <Typography variant="body2" sx={{
+                                                                fontWeight: 700,
+                                                                color: COLORS.SUCCESS[600],
                                                                 mb: 1,
                                                                 display: 'flex',
                                                                 alignItems: 'center',
@@ -397,26 +395,26 @@ const PetsPage = () => {
                                                             </Typography>
                                                             <Stack direction="row" spacing={1} flexWrap="wrap">
                                                                 {p.vaccinations.map((v) => (
-                                                                    <Chip 
-                                                                        key={`${p.id}-done-inline-${v.name}-${v.date}`} 
-                                                                        label={`${v.name} (${v.date})`} 
-                                                                        size="small" 
-                                                                        sx={{ 
-                                                                            background: alpha(COLORS.SUCCESS[100], 0.8), 
-                                                                            color: COLORS.SUCCESS[700], 
-                                                                            fontWeight: 600 
-                                                                        }} 
+                                                                    <Chip
+                                                                        key={`${p.id}-done-inline-${v.name}-${v.date}`}
+                                                                        label={`${v.name} (${v.date})`}
+                                                                        size="small"
+                                                                        sx={{
+                                                                            background: alpha(COLORS.SUCCESS[100], 0.8),
+                                                                            color: COLORS.SUCCESS[700],
+                                                                            fontWeight: 600
+                                                                        }}
                                                                     />
                                                                 ))}
                                                             </Stack>
                                                         </Box>
                                                     )}
-                                                    
+
                                                     {/* Sắp tiêm */}
                                                     <Box>
-                                                        <Typography variant="body2" sx={{ 
-                                                            fontWeight: 700, 
-                                                            color: COLORS.WARNING[600], 
+                                                        <Typography variant="body2" sx={{
+                                                            fontWeight: 700,
+                                                            color: COLORS.WARNING[600],
                                                             mb: 1,
                                                             display: 'flex',
                                                             alignItems: 'center',
@@ -427,14 +425,14 @@ const PetsPage = () => {
                                                         <Stack direction="row" spacing={1} flexWrap="wrap">
                                                             {hasUpcoming ? list.map((u, idx) => (
                                                                 <Stack key={`${p.id}-up-inline-${u.name}-${u.date || idx}`} direction="row" alignItems="center" spacing={0.5} sx={{ mr: 1, mb: 1 }}>
-                                                                    <Chip 
-                                                                        label={`${u.name}${u.date ? ` (${u.date})` : ''}`} 
-                                                                        size="small" 
-                                                                        sx={{ 
-                                                                            background: alpha(COLORS.WARNING[100], 0.8), 
-                                                                            color: COLORS.WARNING[700], 
-                                                                            fontWeight: 600 
-                                                                        }} 
+                                                                    <Chip
+                                                                        label={`${u.name}${u.date ? ` (${u.date})` : ''}`}
+                                                                        size="small"
+                                                                        sx={{
+                                                                            background: alpha(COLORS.WARNING[100], 0.8),
+                                                                            color: COLORS.WARNING[700],
+                                                                            fontWeight: 600
+                                                                        }}
                                                                     />
                                                                     <IconButton size="small" onClick={() => {
                                                                         setScheduleMode('edit');
@@ -470,13 +468,13 @@ const PetsPage = () => {
                                                                     </IconButton>
                                                                 </Stack>
                                                             )) : (
-                                                                <Chip 
-                                                                    label="Không có lịch sắp tới" 
-                                                                    size="small" 
-                                                                    sx={{ 
-                                                                        background: alpha(COLORS.GRAY[200], 0.6), 
-                                                                        color: COLORS.TEXT.SECONDARY 
-                                                                    }} 
+                                                                <Chip
+                                                                    label="Không có lịch sắp tới"
+                                                                    size="small"
+                                                                    sx={{
+                                                                        background: alpha(COLORS.GRAY[200], 0.6),
+                                                                        color: COLORS.TEXT.SECONDARY
+                                                                    }}
                                                                 />
                                                             )}
                                                         </Stack>
@@ -488,12 +486,12 @@ const PetsPage = () => {
                                 </Box>
                             );
                         })}
-                        
+
                         {/* Thống kê tổng quan */}
-                        <Box sx={{ 
-                            mt: 3, 
-                            p: 2, 
-                            borderRadius: 2, 
+                        <Box sx={{
+                            mt: 3,
+                            p: 2,
+                            borderRadius: 2,
                             background: alpha(COLORS.ERROR[50], 0.3),
                             border: `1px solid ${alpha(COLORS.ERROR[200], 0.4)}`
                         }}>
@@ -501,25 +499,25 @@ const PetsPage = () => {
                                 📊 Thống kê tổng quan
                             </Typography>
                             <Stack direction="row" spacing={2} flexWrap="wrap">
-                                <Chip 
-                                    label={`Tổng: ${pets.length} thú cưng`} 
-                                    sx={{ background: alpha(COLORS.PRIMARY[100], 0.7), color: COLORS.PRIMARY[700] }} 
+                                <Chip
+                                    label={`Tổng: ${pets.length} thú cưng`}
+                                    sx={{ background: alpha(COLORS.PRIMARY[100], 0.7), color: COLORS.PRIMARY[700] }}
                                 />
-                                <Chip 
-                                    label={`Chó: ${pets.filter(p => p.species === 'dog').length}`} 
-                                    sx={{ background: alpha(COLORS.SECONDARY[100], 0.7), color: COLORS.SECONDARY[700] }} 
+                                <Chip
+                                    label={`Chó: ${pets.filter(p => p.species === 'dog').length}`}
+                                    sx={{ background: alpha(COLORS.SECONDARY[100], 0.7), color: COLORS.SECONDARY[700] }}
                                 />
-                                <Chip 
-                                    label={`Mèo: ${pets.filter(p => p.species === 'cat').length}`} 
-                                    sx={{ background: alpha(COLORS.INFO[100], 0.7), color: COLORS.INFO[700] }} 
+                                <Chip
+                                    label={`Mèo: ${pets.filter(p => p.species === 'cat').length}`}
+                                    sx={{ background: alpha(COLORS.INFO[100], 0.7), color: COLORS.INFO[700] }}
                                 />
-                                <Chip 
-                                    label={`Đã tiêm: ${pets.reduce((sum, p) => sum + (p.vaccinations || []).length, 0)} mũi`} 
-                                    sx={{ background: alpha(COLORS.SUCCESS[100], 0.7), color: COLORS.SUCCESS[700] }} 
+                                <Chip
+                                    label={`Đã tiêm: ${pets.reduce((sum, p) => sum + (p.vaccinations || []).length, 0)} mũi`}
+                                    sx={{ background: alpha(COLORS.SUCCESS[100], 0.7), color: COLORS.SUCCESS[700] }}
                                 />
-                                <Chip 
-                                    label={`Sắp tiêm: ${pets.reduce((sum, p) => sum + (p.upcomingVaccinations || []).length, 0)} mũi`} 
-                                    sx={{ background: alpha(COLORS.WARNING[100], 0.7), color: COLORS.WARNING[700] }} 
+                                <Chip
+                                    label={`Sắp tiêm: ${pets.reduce((sum, p) => sum + (p.upcomingVaccinations || []).length, 0)} mũi`}
+                                    sx={{ background: alpha(COLORS.WARNING[100], 0.7), color: COLORS.WARNING[700] }}
                                 />
                             </Stack>
                         </Box>

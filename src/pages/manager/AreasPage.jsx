@@ -1,76 +1,10 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import {
-    Box, Typography, Button, Stack, Dialog, DialogTitle, DialogContent, DialogActions,
-    TextField, IconButton, Alert, Snackbar, Chip,
-    Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-    Paper, alpha
-} from '@mui/material';
-import {
-    Add, Edit, Delete, LocationOn, Search
-} from '@mui/icons-material';
+import { Box, Typography, Button, Stack, Dialog, DialogTitle, DialogContent, DialogActions, TextField, IconButton, Alert, Snackbar, Chip, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, alpha } from '@mui/material';
+import { Add, Edit, Delete, LocationOn, Search } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 import Loading from '../../components/loading/Loading';
 import Pagination from '../../components/common/Pagination';
-
-// Mock data - chỉ 5 thông tin chính
-const INITIAL_AREAS = [
-    {
-        id: 'area-1',
-        name: 'Khu vực chính - Tầng 1',
-        image: 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=800&auto=format&fit=crop',
-        description: 'Không gian rộng rãi và ấm cúng với thiết kế hiện đại, phù hợp cho khách ngồi uống nước và tương tác với thú cưng. Khu vực được trang bị đầy đủ tiện nghi với ghế ngồi thoải mái và không gian chơi cho pets.',
-        location: 'Tầng 1, Phía trước quán, Gần cửa chính',
-        capacity: 30
-    },
-    {
-        id: 'area-2',
-        name: 'Khu VIP - Tầng 2',
-        image: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&auto=format&fit=crop',
-        description: 'Khu vực cao cấp với không gian riêng tư và view đẹp, dành cho khách hàng muốn có trải nghiệm đặc biệt. Được phục vụ riêng với menu đặc biệt và không gian yên tĩnh.',
-        location: 'Tầng 2, Phía góc view đẹp, Khu vực biệt lập',
-        capacity: 15
-    },
-    {
-        id: 'area-3',
-        name: 'Phòng Grooming',
-        image: 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=800&auto=format&fit=crop',
-        description: 'Phòng chuyên dụng cho việc tắm rửa, cắt tỉa lông và chăm sóc vệ sinh cho thú cưng. Được trang bị đầy đủ thiết bị grooming chuyên nghiệp và khu vực sấy khô an toàn.',
-        location: 'Tầng 1, Khu vực phía sau, Gần kho đồ dùng',
-        capacity: 2
-    },
-    {
-        id: 'area-4',
-        name: 'Phòng Thú Y',
-        image: 'https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=800&auto=format&fit=crop',
-        description: 'Phòng khám sức khỏe và chăm sóc y tế cho thú cưng với trang thiết bị y tế cơ bản. Có bác sĩ thú y thường trực để kiểm tra sức khỏe định kỳ và xử lý các trường hợp khẩn cấp.',
-        location: 'Tầng 1, Khu vực riêng biệt, Gần lối thoát hiểm',
-        capacity: 1
-    },
-    {
-        id: 'area-5',
-        name: 'Phòng Spa Pet',
-        image: 'https://images.unsplash.com/photo-1601758228041-f3b2795255f1?w=800&auto=format&fit=crop',
-        description: 'Phòng spa cao cấp với dịch vụ massage và chăm sóc thư giãn cho thú cưng. Không gian được thiết kế để tạo cảm giác thư thái với ánh sáng dịu nhẹ và âm nhạc êm ái.',
-        location: 'Tầng 2, Khu vực yên tĩnh, Gần khu nghỉ dưỡng',
-        capacity: 4
-    },
-    {
-        id: 'area-6',
-        name: 'Phòng Training',
-        image: 'https://images.unsplash.com/photo-1450778869180-41d0601e046e?w=800&auto=format&fit=crop',
-        description: 'Phòng huấn luyện rộng rãi với đầy đủ dụng cụ để dạy kỹ năng và hành vi cho thú cưng. Có gương lớn để quan sát và không gian thoáng đãng cho các hoạt động vận động.',
-        location: 'Tầng 2, Phía cuối hành lang, Khu vực rộng',
-        capacity: 6
-    },
-    {
-        id: 'area-7',
-        name: 'Khu Outdoor Garden',
-        image: 'https://images.unsplash.com/photo-1588421357574-87938a86fa28?w=800&auto=format&fit=crop',
-        description: 'Khu vườn ngoài trời xanh mát với sân cỏ tự nhiên và cây xanh. Là nơi lý tưởng cho thú cưng vui chơi và khách hàng thư giãn trong không khí trong lành.',
-        location: 'Tầng 1, Sân ngoài trời, Khu vực có mái che',
-        capacity: 20
-    }
-];
+import { getAllAreas, createArea, updateArea, deleteArea } from '../../api/areasApi';
 
 const AreasPage = () => {
     const [loading, setLoading] = useState(true);
@@ -94,14 +28,23 @@ const AreasPage = () => {
         capacity: ''
     });
 
-    // Simulate loading initial data
+    // Load areas from API
     useEffect(() => {
         const loadAreas = async () => {
             setLoading(true);
-            // Simulate API call
-            await new Promise(resolve => setTimeout(resolve, 800));
-            setAreas(INITIAL_AREAS);
-            setLoading(false);
+            try {
+                const data = await getAllAreas();
+                setAreas(data);
+            } catch (error) {
+                console.error('Error loading areas:', error);
+                setSnackbar({
+                    open: true,
+                    message: 'Lỗi tải dữ liệu khu vực!',
+                    severity: 'error'
+                });
+            } finally {
+                setLoading(false);
+            }
         };
         loadAreas();
     }, []);
@@ -158,7 +101,7 @@ const AreasPage = () => {
         setEditingArea(null);
     };
 
-    const handleSaveArea = () => {
+    const handleSaveArea = async () => {
         if (!formData.name || !formData.capacity || !formData.description || !formData.location) {
             setSnackbar({
                 open: true,
@@ -168,43 +111,45 @@ const AreasPage = () => {
             return;
         }
 
-        if (editingArea) {
-            // Update
-            setAreas(prev => prev.map(area =>
-                area.id === editingArea.id
-                    ? {
-                        ...area,
-                        name: formData.name,
-                        image: formData.image,
-                        description: formData.description,
-                        location: formData.location,
-                        capacity: parseInt(formData.capacity)
-                    }
-                    : area
-            ));
-            setSnackbar({
-                open: true,
-                message: 'Cập nhật khu vực thành công!',
-                severity: 'success'
-            });
-        } else {
-            // Add new
-            const newArea = {
-                id: `area-${Date.now()}`,
+        try {
+            const areaData = {
                 name: formData.name,
                 image: formData.image || 'https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=800&auto=format&fit=crop',
                 description: formData.description,
                 location: formData.location,
                 capacity: parseInt(formData.capacity)
             };
-            setAreas(prev => [...prev, newArea]);
+
+            if (editingArea) {
+                // Update
+                const updatedArea = await updateArea(editingArea.id, areaData);
+                setAreas(prev => prev.map(area =>
+                    area.id === editingArea.id ? updatedArea : area
+                ));
+                setSnackbar({
+                    open: true,
+                    message: 'Cập nhật khu vực thành công!',
+                    severity: 'success'
+                });
+            } else {
+                // Add new
+                const newArea = await createArea(areaData);
+                setAreas(prev => [...prev, newArea]);
+                setSnackbar({
+                    open: true,
+                    message: 'Thêm khu vực mới thành công!',
+                    severity: 'success'
+                });
+            }
+            handleCloseDialog();
+        } catch (error) {
+            console.error('Error saving area:', error);
             setSnackbar({
                 open: true,
-                message: 'Thêm khu vực mới thành công!',
-                severity: 'success'
+                message: 'Lỗi khi lưu khu vực!',
+                severity: 'error'
             });
         }
-        handleCloseDialog();
     };
 
     const handleDeleteArea = (areaId) => {
@@ -212,15 +157,26 @@ const AreasPage = () => {
         setOpenDeleteDialog(true);
     };
 
-    const confirmDelete = () => {
-        setAreas(prev => prev.filter(area => area.id !== deleteAreaId));
-        setSnackbar({
-            open: true,
-            message: 'Xóa khu vực thành công!',
-            severity: 'success'
-        });
-        setOpenDeleteDialog(false);
-        setDeleteAreaId(null);
+    const confirmDelete = async () => {
+        try {
+            await deleteArea(deleteAreaId);
+            setAreas(prev => prev.filter(area => area.id !== deleteAreaId));
+            setSnackbar({
+                open: true,
+                message: 'Xóa khu vực thành công!',
+                severity: 'success'
+            });
+        } catch (error) {
+            console.error('Error deleting area:', error);
+            setSnackbar({
+                open: true,
+                message: 'Lỗi khi xóa khu vực!',
+                severity: 'error'
+            });
+        } finally {
+            setOpenDeleteDialog(false);
+            setDeleteAreaId(null);
+        }
     };
 
     // Show loading state
@@ -257,15 +213,6 @@ const AreasPage = () => {
                         sx={{
                             background: alpha(COLORS.SECONDARY[100], 0.7),
                             color: COLORS.SECONDARY[800],
-                            fontWeight: 700
-                        }}
-                    />
-                    <Chip
-                        label={`Sức chứa: ${stats.totalCapacity}`}
-                        size="small"
-                        sx={{
-                            background: alpha(COLORS.INFO[100], 0.7),
-                            color: COLORS.INFO[800],
                             fontWeight: 700
                         }}
                     />
