@@ -620,8 +620,112 @@ const serviceApi = {
             return MOCK_SERVICES[serviceIndex];
         }
         return null;
+    },
+
+    // ============ MANAGER APIs ============
+
+    // Get all services (for manager)
+    async getAllServices() {
+        await delay(500);
+        const currentUser = getCurrentUser();
+
+        if (!checkPermission(currentUser, 'service_management')) {
+            throw new Error('Không có quyền truy cập');
+        }
+
+        return {
+            success: true,
+            data: MOCK_SERVICES
+        };
+    },
+
+    // Create new service
+    async createService(serviceData) {
+        await delay(700);
+        const currentUser = getCurrentUser();
+
+        if (!checkPermission(currentUser, 'service_management')) {
+            throw new Error('Không có quyền tạo dịch vụ');
+        }
+
+        const newService = {
+            id: generateId('service'),
+            ...serviceData,
+            status: 'active',
+            rating: 0,
+            reviewCount: 0,
+            createdAt: new Date().toISOString(),
+            createdBy: currentUser.id
+        };
+
+        MOCK_SERVICES.push(newService);
+
+        return {
+            success: true,
+            data: newService,
+            message: 'Tạo dịch vụ thành công'
+        };
+    },
+
+    // Update service
+    async updateService(serviceId, updateData) {
+        await delay(500);
+        const currentUser = getCurrentUser();
+
+        if (!checkPermission(currentUser, 'service_management')) {
+            throw new Error('Không có quyền cập nhật dịch vụ');
+        }
+
+        const serviceIndex = MOCK_SERVICES.findIndex(s => s.id === serviceId);
+        if (serviceIndex === -1) {
+            throw new Error('Không tìm thấy dịch vụ');
+        }
+
+        MOCK_SERVICES[serviceIndex] = {
+            ...MOCK_SERVICES[serviceIndex],
+            ...updateData,
+            updatedAt: new Date().toISOString(),
+            updatedBy: currentUser.id
+        };
+
+        return {
+            success: true,
+            data: MOCK_SERVICES[serviceIndex],
+            message: 'Cập nhật dịch vụ thành công'
+        };
+    },
+
+    // Delete service
+    async deleteService(serviceId) {
+        await delay(500);
+        const currentUser = getCurrentUser();
+
+        if (!checkPermission(currentUser, 'service_management')) {
+            throw new Error('Không có quyền xóa dịch vụ');
+        }
+
+        const serviceIndex = MOCK_SERVICES.findIndex(s => s.id === serviceId);
+        if (serviceIndex === -1) {
+            throw new Error('Không tìm thấy dịch vụ');
+        }
+
+        // Soft delete - just mark as inactive
+        MOCK_SERVICES[serviceIndex].status = 'inactive';
+        MOCK_SERVICES[serviceIndex].deletedAt = new Date().toISOString();
+        MOCK_SERVICES[serviceIndex].deletedBy = currentUser.id;
+
+        // Or hard delete (uncomment if needed)
+        // MOCK_SERVICES.splice(serviceIndex, 1);
+
+        return {
+            success: true,
+            message: 'Xóa dịch vụ thành công'
+        };
     }
 };
+
+// Service types for manager
+export const SERVICE_TYPES = ['Training', 'Spa', 'Grooming', 'Entertainment', 'Consultation', 'Photography', 'Healthcare', 'Daycare', 'Cafe_Service'];
 
 // Export both named and default
 export { serviceApi };

@@ -6,10 +6,12 @@ import { COLORS } from '../../../constants/colors';
 import { WIZARD_STEPS, createInitialFormData } from '../../../api/tasksApi';
 import { StaffGroupDialog, PetGroupDialog } from './TaskDialogs';
 import { StepTaskType, StepSelectTask, StepTimeframe, StepShift, StepAssignment, StepConfirmation } from './WizardSteps';
+import AlertModal from '../../../components/modals/AlertModal';
 
 const TaskWizard = ({ open, onClose, onCreateTask, onUpdateTask, editingTask, services, areas, staff, petGroupNames, petGroupsMap }) => {
     const [activeStep, setActiveStep] = useState(0);
     const [formData, setFormData] = useState(createInitialFormData());
+    const [alert, setAlert] = useState({ open: false, message: '', type: 'error', title: 'Lỗi' });
 
     // Load data when editing
     React.useEffect(() => {
@@ -42,7 +44,12 @@ const TaskWizard = ({ open, onClose, onCreateTask, onUpdateTask, editingTask, se
         if (activeStep === 4) { // Assignment step
             const validationError = validateAssignments();
             if (validationError) {
-                alert(validationError);
+                setAlert({
+                    open: true,
+                    title: 'Lỗi',
+                    message: validationError,
+                    type: 'error'
+                });
                 return;
             }
         }
@@ -386,6 +393,15 @@ const TaskWizard = ({ open, onClose, onCreateTask, onUpdateTask, editingTask, se
                 petGroupContext={petGroupContext}
                 formData={formData}
                 togglePetGroup={togglePetGroup}
+            />
+
+            {/* Alert Modal */}
+            <AlertModal
+                isOpen={alert.open}
+                onClose={() => setAlert({ ...alert, open: false })}
+                title={alert.title}
+                message={alert.message}
+                type={alert.type}
             />
         </>
     );

@@ -3,7 +3,7 @@ import {
     Box, Container, Typography, Grid, Card, CardContent, CardMedia,
     Button, Chip, Stack, TextField, InputAdornment, ToggleButton,
     ToggleButtonGroup, Dialog, DialogTitle, DialogContent, DialogActions,
-    Stepper, Step, StepLabel, Alert, Snackbar, alpha, Fade, Zoom,
+    Stepper, Step, StepLabel, Alert, alpha, Fade, Zoom,
     Table, TableHead, TableRow, TableCell, TableBody, TableContainer
 } from '@mui/material';
 import {
@@ -17,6 +17,7 @@ import { serviceApi } from '../../api/serviceApi';
 import { bookingApi } from '../../api/bookingApi';
 import { notificationApi } from '../../api/notificationApi';
 import { feedbackApi } from '../../api/feedbackApi';
+import AlertModal from '../../components/modals/AlertModal';
 
 // Custom Icon Components to force re-render
 const SpaIcon = () => <Spa />;
@@ -116,8 +117,7 @@ const BookingPage = () => {
     const [history, setHistory] = useState([]);
     const [loadingHistory, setLoadingHistory] = useState(false);
     const [historyMode, setHistoryMode] = useState(false);
-    const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
+    const [alert, setAlert] = useState({ open: false, message: '', type: 'info', title: 'Thông báo' });
     const [currentUser, setCurrentUser] = useState(null);
 
     const steps = ['Chọn dịch vụ', 'Điền thông tin', 'Thanh toán', 'Xác nhận'];
@@ -181,13 +181,23 @@ const BookingPage = () => {
             } else {
                 console.error('Failed to load services:', servicesResponse);
                 // Fallback: Load services directly from serviceApi if needed
-                setError('Không thể tải danh sách dịch vụ');
+                setAlert({
+                    open: true,
+                    title: 'Lỗi',
+                    message: 'Không thể tải danh sách dịch vụ',
+                    type: 'error'
+                });
             }
 
             setLoading(false);
         } catch (err) {
             console.error('LoadInitialData error:', err);
-            setError(err.message || 'Có lỗi xảy ra khi tải dữ liệu');
+            setAlert({
+                open: true,
+                title: 'Lỗi',
+                message: err.message || 'Có lỗi xảy ra khi tải dữ liệu',
+                type: 'error'
+            });
             setLoading(false);
         }
     };
@@ -313,7 +323,12 @@ const BookingPage = () => {
             setCurrentStep(1);
         } catch (error) {
             console.error('Error selecting service:', error);
-            setError('Có lỗi xảy ra khi chọn dịch vụ');
+            setAlert({
+                open: true,
+                title: 'Lỗi',
+                message: 'Có lỗi xảy ra khi chọn dịch vụ',
+                type: 'error'
+            });
         }
     };
 
@@ -376,10 +391,20 @@ const BookingPage = () => {
                 setCompletedBooking(response.data);
                 setCurrentStep(3);
                 setShowConfirmation(true);
-                setSuccess('Đặt dịch vụ thành công! Chúng tôi sẽ liên hệ xác nhận trong thời gian sớm nhất.');
+                setAlert({
+                    open: true,
+                    title: 'Thành công',
+                    message: 'Đặt dịch vụ thành công! Chúng tôi sẽ liên hệ xác nhận trong thời gian sớm nhất.',
+                    type: 'success'
+                });
             }
         } catch (err) {
-            setError(err.message || 'Có lỗi xảy ra khi xử lý thanh toán');
+            setAlert({
+                open: true,
+                title: 'Lỗi',
+                message: err.message || 'Có lỗi xảy ra khi xử lý thanh toán',
+                type: 'error'
+            });
         }
     };
 
@@ -392,9 +417,19 @@ const BookingPage = () => {
                 type: 'service_feedback'
             });
             setShowFeedback(false);
-            setSuccess('Cảm ơn bạn đã gửi phản hồi!');
+            setAlert({
+                open: true,
+                title: 'Thành công',
+                message: 'Cảm ơn bạn đã gửi phản hồi!',
+                type: 'success'
+            });
         } catch (err) {
-            setError(err.message || 'Có lỗi xảy ra khi gửi phản hồi');
+            setAlert({
+                open: true,
+                title: 'Lỗi',
+                message: err.message || 'Có lỗi xảy ra khi gửi phản hồi',
+                type: 'error'
+            });
         }
     };
 
@@ -880,28 +915,14 @@ const BookingPage = () => {
                     </Suspense>
                 </Box>
 
-                {/* Snackbar for notifications */}
-                <Snackbar
-                    open={!!error}
-                    autoHideDuration={6000}
-                    onClose={() => setError('')}
-                    anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-                >
-                    <Alert onClose={() => setError('')} severity="error">
-                        {error}
-                    </Alert>
-                </Snackbar>
-
-                <Snackbar
-                    open={!!success}
-                    autoHideDuration={4000}
-                    onClose={() => setSuccess('')}
-                    anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-                >
-                    <Alert onClose={() => setSuccess('')} severity="success">
-                        {success}
-                    </Alert>
-                </Snackbar>
+                {/* Alert Modal */}
+                <AlertModal
+                    isOpen={alert.open}
+                    onClose={() => setAlert({ ...alert, open: false })}
+                    title={alert.title}
+                    message={alert.message}
+                    type={alert.type}
+                />
             </Box>
         </ErrorBoundary>
     );

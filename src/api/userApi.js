@@ -64,6 +64,7 @@ const MOCK_DATABASE = {
             address: '789 Điện Biên Phủ, Q.1, TP.HCM',
             birthDate: '1990-11-08',
             avatar: '',
+            salary: 8000000,
             status: 'active',
             permissions: [
                 'product_sales',
@@ -91,6 +92,7 @@ const MOCK_DATABASE = {
             address: '321 Cách Mạng Tháng 8, Q.3, TP.HCM',
             birthDate: '1988-05-14',
             avatar: '',
+            salary: 7500000,
             status: 'active',
             permissions: [
                 'product_sales',
@@ -108,9 +110,291 @@ const MOCK_DATABASE = {
             }
         },
 
-        // Working Staff
+        // Thêm 10 Sales Staff
         {
-            id: 'user-005',
+            id: 'user-007',
+            username: 'sales.minh',
+            email: 'minh.nguyen@petcafe.com',
+            password: 'sales789',
+            role: 'sales_staff',
+            name: 'Nguyễn Văn Minh',
+            phone: '0967890123',
+            address: '45 Lê Duẩn, Q.1, TP.HCM',
+            birthDate: '1993-03-20',
+            avatar: '',
+            salary: 8200000,
+            status: 'active',
+            permissions: [
+                'product_sales',
+                'invoice_management',
+                'customer_support',
+                'payment_processing'
+            ],
+            createdAt: '2023-07-12',
+            lastLogin: '2024-01-20',
+            salesStats: {
+                totalSales: 21300000,
+                monthlyTarget: 15000000,
+                completedOrders: 142,
+                customerRating: 4.6
+            }
+        },
+        {
+            id: 'user-008',
+            username: 'sales.thu',
+            email: 'thu.tran@petcafe.com',
+            password: 'sales111',
+            role: 'sales_staff',
+            name: 'Trần Thị Thu',
+            phone: '0978901234',
+            address: '123 Nguyễn Thị Minh Khai, Q.3, TP.HCM',
+            birthDate: '1995-06-15',
+            avatar: '',
+            salary: 7800000,
+            status: 'active',
+            permissions: [
+                'product_sales',
+                'invoice_management',
+                'customer_support',
+                'payment_processing'
+            ],
+            createdAt: '2023-08-05',
+            lastLogin: '2024-01-19',
+            salesStats: {
+                totalSales: 19800000,
+                monthlyTarget: 15000000,
+                completedOrders: 128,
+                customerRating: 4.9
+            }
+        },
+        {
+            id: 'user-009',
+            username: 'sales.khanh',
+            email: 'khanh.le@petcafe.com',
+            password: 'sales222',
+            role: 'sales_staff',
+            name: 'Lê Minh Khánh',
+            phone: '0989012345',
+            address: '78 Võ Thị Sáu, Q.3, TP.HCM',
+            birthDate: '1992-09-10',
+            avatar: '',
+            salary: 8500000,
+            status: 'active',
+            permissions: [
+                'product_sales',
+                'invoice_management',
+                'customer_support',
+                'payment_processing'
+            ],
+            createdAt: '2023-09-20',
+            lastLogin: '2024-01-20',
+            salesStats: {
+                totalSales: 27500000,
+                monthlyTarget: 15000000,
+                completedOrders: 168,
+                customerRating: 4.8
+            }
+        },
+        {
+            id: 'user-010',
+            username: 'sales.hoa',
+            email: 'hoa.pham@petcafe.com',
+            password: 'sales333',
+            role: 'sales_staff',
+            name: 'Phạm Thị Hoa',
+            phone: '0990123456',
+            address: '234 Hai Bà Trưng, Q.1, TP.HCM',
+            birthDate: '1994-12-05',
+            avatar: '',
+            salary: 7600000,
+            status: 'on_leave',
+            permissions: [
+                'product_sales',
+                'invoice_management',
+                'customer_support',
+                'payment_processing'
+            ],
+            createdAt: '2023-10-15',
+            lastLogin: '2024-01-15',
+            salesStats: {
+                totalSales: 16200000,
+                monthlyTarget: 15000000,
+                completedOrders: 115,
+                customerRating: 4.5
+            }
+        },
+        {
+            id: 'user-011',
+            username: 'sales.long',
+            email: 'long.vo@petcafe.com',
+            password: 'sales444',
+            role: 'sales_staff',
+            name: 'Võ Thành Long',
+            phone: '0901234567',
+            address: '567 Lý Thường Kiệt, Q.10, TP.HCM',
+            birthDate: '1991-04-25',
+            avatar: '',
+            salary: 8800000,
+            status: 'active',
+            permissions: [
+                'product_sales',
+                'invoice_management',
+                'customer_support',
+                'payment_processing'
+            ],
+            createdAt: '2023-11-01',
+            lastLogin: '2024-01-20',
+            salesStats: {
+                totalSales: 29100000,
+                monthlyTarget: 15000000,
+                completedOrders: 175,
+                customerRating: 4.9
+            }
+        },
+        {
+            id: 'user-012',
+            username: 'sales.lan',
+            email: 'lan.hoang@petcafe.com',
+            password: 'sales555',
+            role: 'sales_staff',
+            name: 'Hoàng Thị Lan',
+            phone: '0912345678',
+            address: '89 Trần Hưng Đạo, Q.5, TP.HCM',
+            birthDate: '1996-07-18',
+            avatar: '',
+            salary: 7400000,
+            status: 'active',
+            permissions: [
+                'product_sales',
+                'invoice_management',
+                'customer_support',
+                'payment_processing'
+            ],
+            createdAt: '2023-11-20',
+            lastLogin: '2024-01-19',
+            salesStats: {
+                totalSales: 17800000,
+                monthlyTarget: 15000000,
+                completedOrders: 122,
+                customerRating: 4.7
+            }
+        },
+        {
+            id: 'user-013',
+            username: 'sales.nam',
+            email: 'nam.dang@petcafe.com',
+            password: 'sales666',
+            role: 'sales_staff',
+            name: 'Đặng Hoàng Nam',
+            phone: '0923456789',
+            address: '345 Nguyễn Đình Chiểu, Q.3, TP.HCM',
+            birthDate: '1993-11-30',
+            avatar: '',
+            salary: 8100000,
+            status: 'active',
+            permissions: [
+                'product_sales',
+                'invoice_management',
+                'customer_support',
+                'payment_processing'
+            ],
+            createdAt: '2023-12-10',
+            lastLogin: '2024-01-20',
+            salesStats: {
+                totalSales: 23400000,
+                monthlyTarget: 15000000,
+                completedOrders: 151,
+                customerRating: 4.8
+            }
+        },
+        {
+            id: 'user-014',
+            username: 'sales.my',
+            email: 'my.bui@petcafe.com',
+            password: 'sales777',
+            role: 'sales_staff',
+            name: 'Bùi Thị Mỹ',
+            phone: '0934567890',
+            address: '678 Phan Xích Long, Q.Phú Nhuận, TP.HCM',
+            birthDate: '1994-02-14',
+            avatar: '',
+            salary: 7900000,
+            status: 'active',
+            permissions: [
+                'product_sales',
+                'invoice_management',
+                'customer_support',
+                'payment_processing'
+            ],
+            createdAt: '2024-01-05',
+            lastLogin: '2024-01-20',
+            salesStats: {
+                totalSales: 8500000,
+                monthlyTarget: 15000000,
+                completedOrders: 45,
+                customerRating: 4.6
+            }
+        },
+        {
+            id: 'user-015',
+            username: 'sales.tuan',
+            email: 'tuan.ngo@petcafe.com',
+            password: 'sales888',
+            role: 'sales_staff',
+            name: 'Ngô Anh Tuấn',
+            phone: '0945678901',
+            address: '901 Lê Văn Sỹ, Q.3, TP.HCM',
+            birthDate: '1992-08-08',
+            avatar: '',
+            salary: 8300000,
+            status: 'active',
+            permissions: [
+                'product_sales',
+                'invoice_management',
+                'customer_support',
+                'payment_processing'
+            ],
+            createdAt: '2024-01-15',
+            lastLogin: '2024-01-19',
+            salesStats: {
+                totalSales: 4200000,
+                monthlyTarget: 15000000,
+                completedOrders: 28,
+                customerRating: 4.5
+            }
+        },
+        {
+            id: 'user-016',
+            username: 'sales.linh',
+            email: 'linh.duong@petcafe.com',
+            password: 'sales999',
+            role: 'sales_staff',
+            name: 'Dương Khánh Linh',
+            phone: '0956789012',
+            address: '212 Hoàng Văn Thụ, Q.Tân Bình, TP.HCM',
+            birthDate: '1995-05-22',
+            avatar: '',
+            salary: 7700000,
+            status: 'on_leave',
+            permissions: [
+                'product_sales',
+                'invoice_management',
+                'customer_support',
+                'payment_processing'
+            ],
+            createdAt: '2024-01-18',
+            lastLogin: '2024-01-18',
+            salesStats: {
+                totalSales: 1800000,
+                monthlyTarget: 15000000,
+                completedOrders: 12,
+                customerRating: 4.4
+            }
+        },
+
+        // Working Staff - Thêm 15 người
+        {
+            id: 'user-017',
             username: 'staff.charlie',
             email: 'charlie@petcafe.com',
             password: 'staff123',
@@ -120,6 +404,7 @@ const MOCK_DATABASE = {
             address: '654 Võ Văn Tần, Q.3, TP.HCM',
             birthDate: '1992-12-25',
             avatar: '',
+            salary: 7000000,
             status: 'active',
             permissions: [
                 'task_management',
@@ -137,7 +422,7 @@ const MOCK_DATABASE = {
             }
         },
         {
-            id: 'user-006',
+            id: 'user-018',
             username: 'staff.diana',
             email: 'diana@petcafe.com',
             password: 'staff456',
@@ -147,6 +432,7 @@ const MOCK_DATABASE = {
             address: '987 Pasteur, Q.1, TP.HCM',
             birthDate: '1991-04-18',
             avatar: '',
+            salary: 7500000,
             status: 'active',
             permissions: [
                 'task_management',
@@ -163,10 +449,374 @@ const MOCK_DATABASE = {
                 specialization: 'Chăm sóc mèo'
             }
         },
+        {
+            id: 'user-019',
+            username: 'staff.hung',
+            email: 'hung.nguyen@petcafe.com',
+            password: 'staff789',
+            role: 'working_staff',
+            name: 'Nguyễn Quốc Hùng',
+            phone: '0967890123',
+            address: '123 Bà Huyện Thanh Quan, Q.3, TP.HCM',
+            birthDate: '1990-01-15',
+            avatar: '',
+            salary: 8000000,
+            status: 'active',
+            permissions: [
+                'task_management',
+                'pet_status_update',
+                'service_execution',
+                'booking_management'
+            ],
+            createdAt: '2023-06-25',
+            lastLogin: '2024-01-20',
+            workStats: {
+                assignedTasks: 20,
+                completedTasks: 18,
+                activePets: 28,
+                specialization: 'Huấn luyện chó'
+            }
+        },
+        {
+            id: 'user-020',
+            username: 'staff.mai',
+            email: 'mai.pham@petcafe.com',
+            password: 'staff101',
+            role: 'working_staff',
+            name: 'Phạm Thị Mai',
+            phone: '0978901234',
+            address: '456 Cộng Hòa, Q.Tân Bình, TP.HCM',
+            birthDate: '1993-05-08',
+            avatar: '',
+            salary: 7200000,
+            status: 'active',
+            permissions: [
+                'task_management',
+                'pet_status_update',
+                'service_execution',
+                'booking_management'
+            ],
+            createdAt: '2023-07-10',
+            lastLogin: '2024-01-19',
+            workStats: {
+                assignedTasks: 15,
+                completedTasks: 12,
+                activePets: 19,
+                specialization: 'Grooming'
+            }
+        },
+        {
+            id: 'user-021',
+            username: 'staff.dat',
+            email: 'dat.le@petcafe.com',
+            password: 'staff202',
+            role: 'working_staff',
+            name: 'Lê Hoàng Đạt',
+            phone: '0989012345',
+            address: '789 Hoàng Diệu, Q.4, TP.HCM',
+            birthDate: '1994-09-20',
+            avatar: '',
+            salary: 7800000,
+            status: 'active',
+            permissions: [
+                'task_management',
+                'pet_status_update',
+                'service_execution',
+                'booking_management'
+            ],
+            createdAt: '2023-08-15',
+            lastLogin: '2024-01-20',
+            workStats: {
+                assignedTasks: 16,
+                completedTasks: 15,
+                activePets: 21,
+                specialization: 'Spa thú cưng'
+            }
+        },
+        {
+            id: 'user-022',
+            username: 'staff.tam',
+            email: 'tam.tran@petcafe.com',
+            password: 'staff303',
+            role: 'working_staff',
+            name: 'Trần Minh Tâm',
+            phone: '0990123456',
+            address: '234 Trường Chinh, Q.12, TP.HCM',
+            birthDate: '1992-03-12',
+            avatar: '',
+            salary: 7400000,
+            status: 'on_leave',
+            permissions: [
+                'task_management',
+                'pet_status_update',
+                'service_execution',
+                'booking_management'
+            ],
+            createdAt: '2023-09-05',
+            lastLogin: '2024-01-10',
+            workStats: {
+                assignedTasks: 10,
+                completedTasks: 9,
+                activePets: 13,
+                specialization: 'Chăm sóc mèo'
+            }
+        },
+        {
+            id: 'user-023',
+            username: 'staff.thuy',
+            email: 'thuy.vo@petcafe.com',
+            password: 'staff404',
+            role: 'working_staff',
+            name: 'Võ Thị Thúy',
+            phone: '0901234567',
+            address: '567 Phan Văn Trị, Q.Gò Vấp, TP.HCM',
+            birthDate: '1995-07-28',
+            avatar: '',
+            salary: 6800000,
+            status: 'active',
+            permissions: [
+                'task_management',
+                'pet_status_update',
+                'service_execution',
+                'booking_management'
+            ],
+            createdAt: '2023-10-01',
+            lastLogin: '2024-01-20',
+            workStats: {
+                assignedTasks: 14,
+                completedTasks: 11,
+                activePets: 17,
+                specialization: 'Vệ sinh thú cưng'
+            }
+        },
+        {
+            id: 'user-024',
+            username: 'staff.quan',
+            email: 'quan.hoang@petcafe.com',
+            password: 'staff505',
+            role: 'working_staff',
+            name: 'Hoàng Minh Quân',
+            phone: '0912345678',
+            address: '890 Lạc Long Quân, Q.11, TP.HCM',
+            birthDate: '1991-11-05',
+            avatar: '',
+            salary: 8200000,
+            status: 'active',
+            permissions: [
+                'task_management',
+                'pet_status_update',
+                'service_execution',
+                'booking_management'
+            ],
+            createdAt: '2023-10-20',
+            lastLogin: '2024-01-19',
+            workStats: {
+                assignedTasks: 22,
+                completedTasks: 20,
+                activePets: 30,
+                specialization: 'Thú y'
+            }
+        },
+        {
+            id: 'user-025',
+            username: 'staff.nhi',
+            email: 'nhi.bui@petcafe.com',
+            password: 'staff606',
+            role: 'working_staff',
+            name: 'Bùi Thị Nhi',
+            phone: '0923456789',
+            address: '123 Quang Trung, Q.Gò Vấp, TP.HCM',
+            birthDate: '1996-02-14',
+            avatar: '',
+            salary: 7100000,
+            status: 'active',
+            permissions: [
+                'task_management',
+                'pet_status_update',
+                'service_execution',
+                'booking_management'
+            ],
+            createdAt: '2023-11-15',
+            lastLogin: '2024-01-20',
+            workStats: {
+                assignedTasks: 13,
+                completedTasks: 10,
+                activePets: 16,
+                specialization: 'Chăm sóc chó'
+            }
+        },
+        {
+            id: 'user-026',
+            username: 'staff.hieu',
+            email: 'hieu.dang@petcafe.com',
+            password: 'staff707',
+            role: 'working_staff',
+            name: 'Đặng Trung Hiếu',
+            phone: '0934567890',
+            address: '456 Nguyễn Oanh, Q.Gò Vấp, TP.HCM',
+            birthDate: '1993-08-30',
+            avatar: '',
+            salary: 7600000,
+            status: 'active',
+            permissions: [
+                'task_management',
+                'pet_status_update',
+                'service_execution',
+                'booking_management'
+            ],
+            createdAt: '2023-12-01',
+            lastLogin: '2024-01-19',
+            workStats: {
+                assignedTasks: 17,
+                completedTasks: 14,
+                activePets: 23,
+                specialization: 'Huấn luyện'
+            }
+        },
+        {
+            id: 'user-027',
+            username: 'staff.anh',
+            email: 'anh.nguyen@petcafe.com',
+            password: 'staff808',
+            role: 'working_staff',
+            name: 'Nguyễn Thị Anh',
+            phone: '0945678901',
+            address: '789 Lê Đức Thọ, Q.Gò Vấp, TP.HCM',
+            birthDate: '1994-12-18',
+            avatar: '',
+            salary: 7300000,
+            status: 'active',
+            permissions: [
+                'task_management',
+                'pet_status_update',
+                'service_execution',
+                'booking_management'
+            ],
+            createdAt: '2023-12-20',
+            lastLogin: '2024-01-20',
+            workStats: {
+                assignedTasks: 11,
+                completedTasks: 9,
+                activePets: 14,
+                specialization: 'Grooming'
+            }
+        },
+        {
+            id: 'user-028',
+            username: 'staff.khoa',
+            email: 'khoa.pham@petcafe.com',
+            password: 'staff909',
+            role: 'working_staff',
+            name: 'Phạm Anh Khoa',
+            phone: '0956789012',
+            address: '321 Phạm Văn Đồng, Q.Thủ Đức, TP.HCM',
+            birthDate: '1992-06-22',
+            avatar: '',
+            salary: 7900000,
+            status: 'on_leave',
+            permissions: [
+                'task_management',
+                'pet_status_update',
+                'service_execution',
+                'booking_management'
+            ],
+            createdAt: '2024-01-05',
+            lastLogin: '2024-01-12',
+            workStats: {
+                assignedTasks: 8,
+                completedTasks: 7,
+                activePets: 11,
+                specialization: 'Spa thú cưng'
+            }
+        },
+        {
+            id: 'user-029',
+            username: 'staff.phuong',
+            email: 'phuong.le@petcafe.com',
+            password: 'staff1010',
+            role: 'working_staff',
+            name: 'Lê Thị Phương',
+            phone: '0967890123',
+            address: '654 Kha Vạn Cân, Q.Thủ Đức, TP.HCM',
+            birthDate: '1995-10-10',
+            avatar: '',
+            salary: 6900000,
+            status: 'active',
+            permissions: [
+                'task_management',
+                'pet_status_update',
+                'service_execution',
+                'booking_management'
+            ],
+            createdAt: '2024-01-10',
+            lastLogin: '2024-01-20',
+            workStats: {
+                assignedTasks: 9,
+                completedTasks: 7,
+                activePets: 12,
+                specialization: 'Chăm sóc mèo'
+            }
+        },
+        {
+            id: 'user-030',
+            username: 'staff.binh',
+            email: 'binh.tran@petcafe.com',
+            password: 'staff1111',
+            role: 'working_staff',
+            name: 'Trần Văn Bình',
+            phone: '0978901234',
+            address: '987 Võ Văn Ngân, Q.Thủ Đức, TP.HCM',
+            birthDate: '1990-04-05',
+            avatar: '',
+            salary: 8500000,
+            status: 'active',
+            permissions: [
+                'task_management',
+                'pet_status_update',
+                'service_execution',
+                'booking_management'
+            ],
+            createdAt: '2024-01-12',
+            lastLogin: '2024-01-19',
+            workStats: {
+                assignedTasks: 19,
+                completedTasks: 17,
+                activePets: 26,
+                specialization: 'Thú y'
+            }
+        },
+        {
+            id: 'user-031',
+            username: 'staff.yen',
+            email: 'yen.hoang@petcafe.com',
+            password: 'staff1212',
+            role: 'working_staff',
+            name: 'Hoàng Thị Yến',
+            phone: '0989012345',
+            address: '147 Tô Ngọc Vân, Q.Thủ Đức, TP.HCM',
+            birthDate: '1997-01-20',
+            avatar: '',
+            salary: 7000000,
+            status: 'active',
+            permissions: [
+                'task_management',
+                'pet_status_update',
+                'service_execution',
+                'booking_management'
+            ],
+            createdAt: '2024-01-15',
+            lastLogin: '2024-01-20',
+            workStats: {
+                assignedTasks: 10,
+                completedTasks: 8,
+                activePets: 13,
+                specialization: 'Vệ sinh thú cưng'
+            }
+        },
 
         // Customers
         {
-            id: 'user-007',
+            id: 'user-032',
             username: 'customer.eva',
             email: 'eva@gmail.com',
             password: 'customer123',
@@ -195,7 +845,7 @@ const MOCK_DATABASE = {
             }
         },
         {
-            id: 'user-008',
+            id: 'user-033',
             username: 'customer.frank',
             email: 'frank@yahoo.com',
             password: 'customer456',
@@ -233,7 +883,7 @@ const MOCK_DATABASE = {
             breed: 'Golden Retriever',
             age: 3,
             gender: 'Cái',
-            ownerId: 'user-007',
+            ownerId: 'user-032',
             status: 'healthy',
             lastCheckup: '2024-01-15',
             services: ['grooming', 'daycare'],
@@ -246,7 +896,7 @@ const MOCK_DATABASE = {
             breed: 'Scottish Fold',
             age: 2,
             gender: 'Đực',
-            ownerId: 'user-007',
+            ownerId: 'user-032',
             status: 'healthy',
             lastCheckup: '2024-01-10',
             services: ['grooming'],
@@ -259,7 +909,7 @@ const MOCK_DATABASE = {
             breed: 'German Shepherd',
             age: 4,
             gender: 'Đực',
-            ownerId: 'user-008',
+            ownerId: 'user-033',
             status: 'healthy',
             lastCheckup: '2024-01-12',
             services: ['training', 'healthcare'],
@@ -465,7 +1115,7 @@ const MOCK_DATABASE = {
     bookings: [
         {
             id: 'booking-001',
-            customerId: 'user-007',
+            customerId: 'user-032',
             petId: 'pet-001',
             serviceId: 'service-001',
             staffId: 'user-005',
@@ -487,7 +1137,7 @@ const MOCK_DATABASE = {
         },
         {
             id: 'booking-002',
-            customerId: 'user-008',
+            customerId: 'user-033',
             petId: 'pet-003',
             serviceId: 'service-004',
             staffId: 'user-006',
@@ -509,7 +1159,7 @@ const MOCK_DATABASE = {
         },
         {
             id: 'booking-003',
-            customerId: 'user-007',
+            customerId: 'user-032',
             petId: 'pet-002',
             serviceId: 'service-006',
             staffId: 'user-005',
@@ -581,7 +1231,7 @@ const MOCK_DATABASE = {
         },
         {
             id: 'notif-002',
-            userId: 'user-007',
+            userId: 'user-032',
             type: 'booking_confirmed',
             title: 'Lịch hẹn được xác nhận',
             message: 'Lịch hẹn grooming cho Bông đã được xác nhận',
@@ -591,7 +1241,7 @@ const MOCK_DATABASE = {
         },
         {
             id: 'notif-003',
-            userId: 'user-007',
+            userId: 'user-032',
             type: 'service_completed',
             title: 'Dịch vụ hoàn thành',
             message: 'Dịch vụ tắm nhanh cho Miu đã hoàn thành. Hãy đánh giá dịch vụ!',
@@ -606,7 +1256,7 @@ const MOCK_DATABASE = {
         {
             id: 'feedback-001',
             bookingId: 'booking-003',
-            customerId: 'user-007',
+            customerId: 'user-032',
             serviceId: 'service-006',
             overallRating: 5,
             serviceQuality: 5,
@@ -810,9 +1460,17 @@ export const managerApi = {
             throw new Error('Không có quyền truy cập');
         }
 
-        const staff = MOCK_DATABASE.users.filter(u =>
-            u.role === 'sales_staff' || u.role === 'working_staff'
-        );
+        const staff = MOCK_DATABASE.users
+            .filter(u => u.role === 'sales_staff' || u.role === 'working_staff')
+            .map(user => {
+                // Map data for compatibility with StaffPage
+                const { password, ...userWithoutPassword } = user;
+                return {
+                    ...userWithoutPassword,
+                    full_name: user.full_name || user.name,
+                    avatar_url: user.avatar_url || user.avatar || ''
+                };
+            });
 
         return { success: true, data: staff };
     },
@@ -825,9 +1483,21 @@ export const managerApi = {
             throw new Error('Không có quyền tạo nhân viên');
         }
 
+        // Map full_name to name for consistency with database
         const newStaff = {
             id: generateId('user'),
-            ...staffData,
+            username: staffData.email.split('@')[0], // Generate username from email
+            email: staffData.email,
+            password: staffData.password,
+            role: staffData.role,
+            name: staffData.full_name || staffData.name,
+            full_name: staffData.full_name || staffData.name, // Keep both for compatibility
+            phone: staffData.phone,
+            address: staffData.address,
+            salary: staffData.salary,
+            birthDate: staffData.birthDate || '',
+            avatar: staffData.avatar_url || '',
+            avatar_url: staffData.avatar_url || '',
             status: 'active',
             createdAt: new Date().toISOString().split('T')[0],
             lastLogin: null
@@ -864,7 +1534,10 @@ export const managerApi = {
 
         MOCK_DATABASE.users.push(newStaff);
 
-        return { success: true, data: newStaff, message: 'Tạo nhân viên thành công' };
+        // Remove password from response
+        const { password: _, ...staffWithoutPassword } = newStaff;
+
+        return { success: true, data: staffWithoutPassword, message: 'Tạo nhân viên thành công' };
     },
 
     async updateStaff(staffId, updateData) {
@@ -880,15 +1553,60 @@ export const managerApi = {
             throw new Error('Không tìm thấy nhân viên');
         }
 
+        // Map full_name to name for consistency
+        if (updateData.full_name) {
+            updateData.name = updateData.full_name;
+        }
+        if (updateData.avatar_url) {
+            updateData.avatar = updateData.avatar_url;
+        }
+
         MOCK_DATABASE.users[staffIndex] = {
             ...MOCK_DATABASE.users[staffIndex],
             ...updateData
         };
 
+        // Remove password from response if it exists
+        const { password: _, ...staffWithoutPassword } = MOCK_DATABASE.users[staffIndex];
+
         return {
             success: true,
-            data: MOCK_DATABASE.users[staffIndex],
+            data: staffWithoutPassword,
             message: 'Cập nhật nhân viên thành công'
+        };
+    },
+
+    async deleteStaff(staffId) {
+        await delay(500);
+        const currentUser = getCurrentUser();
+
+        if (!checkPermission(currentUser, 'staff_management')) {
+            throw new Error('Không có quyền xóa nhân viên');
+        }
+
+        const staffIndex = MOCK_DATABASE.users.findIndex(u => u.id === staffId);
+        if (staffIndex === -1) {
+            throw new Error('Không tìm thấy nhân viên');
+        }
+
+        const staff = MOCK_DATABASE.users[staffIndex];
+
+        // Check if staff can be deleted (không thể xóa nếu đang có booking active)
+        const hasActiveBookings = MOCK_DATABASE.bookings.some(booking =>
+            booking.staffId === staffId &&
+            (booking.status === 'confirmed' || booking.status === 'pending')
+        );
+
+        if (hasActiveBookings) {
+            throw new Error('Không thể xóa nhân viên đang có lịch hẹn đang hoạt động');
+        }
+
+        // Remove staff from database
+        MOCK_DATABASE.users.splice(staffIndex, 1);
+
+        return {
+            success: true,
+            message: 'Xóa nhân viên thành công'
         };
     },
 
@@ -1019,7 +1737,7 @@ export const salesApi = {
         const invoices = [
             {
                 id: 'invoice-001',
-                customerId: 'user-007',
+                customerId: 'user-032',
                 salesStaffId: 'user-003',
                 items: [
                     { productId: 'product-001', quantity: 1, price: 450000 }

@@ -1,9 +1,11 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Box, Typography, Button, Stack, Dialog, DialogTitle, DialogContent, DialogActions, TextField, IconButton, Alert, Snackbar, Chip, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, alpha } from '@mui/material';
+import { Box, Typography, Button, Stack, Dialog, DialogTitle, DialogContent, DialogActions, TextField, IconButton, Alert, Chip, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, alpha } from '@mui/material';
 import { Add, Edit, Delete, LocationOn, Search } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 import Loading from '../../components/loading/Loading';
 import Pagination from '../../components/common/Pagination';
+import AlertModal from '../../components/modals/AlertModal';
+import ConfirmModal from '../../components/modals/ConfirmModal';
 import { getAllAreas, createArea, updateArea, deleteArea } from '../../api/areasApi';
 
 const AreasPage = () => {
@@ -14,7 +16,7 @@ const AreasPage = () => {
     const [editingArea, setEditingArea] = useState(null);
     const [deleteAreaId, setDeleteAreaId] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
-    const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+    const [alert, setAlert] = useState({ open: false, message: '', type: 'info', title: 'Thông báo' });
 
     // Pagination state
     const [page, setPage] = useState(1);
@@ -37,10 +39,11 @@ const AreasPage = () => {
                 setAreas(data);
             } catch (error) {
                 console.error('Error loading areas:', error);
-                setSnackbar({
+                setAlert({
                     open: true,
+                    title: 'Lỗi',
                     message: 'Lỗi tải dữ liệu khu vực!',
-                    severity: 'error'
+                    type: 'error'
                 });
             } finally {
                 setLoading(false);
@@ -103,10 +106,11 @@ const AreasPage = () => {
 
     const handleSaveArea = async () => {
         if (!formData.name || !formData.capacity || !formData.description || !formData.location) {
-            setSnackbar({
+            setAlert({
                 open: true,
+                title: 'Lỗi',
                 message: 'Vui lòng điền đầy đủ 5 thông tin: Tên, Hình ảnh, Mô tả, Vị trí, Sức chứa!',
-                severity: 'error'
+                type: 'error'
             });
             return;
         }
@@ -126,28 +130,31 @@ const AreasPage = () => {
                 setAreas(prev => prev.map(area =>
                     area.id === editingArea.id ? updatedArea : area
                 ));
-                setSnackbar({
+                setAlert({
                     open: true,
+                    title: 'Thành công',
                     message: 'Cập nhật khu vực thành công!',
-                    severity: 'success'
+                    type: 'success'
                 });
             } else {
                 // Add new
                 const newArea = await createArea(areaData);
                 setAreas(prev => [...prev, newArea]);
-                setSnackbar({
+                setAlert({
                     open: true,
+                    title: 'Thành công',
                     message: 'Thêm khu vực mới thành công!',
-                    severity: 'success'
+                    type: 'success'
                 });
             }
             handleCloseDialog();
         } catch (error) {
             console.error('Error saving area:', error);
-            setSnackbar({
+            setAlert({
                 open: true,
+                title: 'Lỗi',
                 message: 'Lỗi khi lưu khu vực!',
-                severity: 'error'
+                type: 'error'
             });
         }
     };
@@ -161,17 +168,19 @@ const AreasPage = () => {
         try {
             await deleteArea(deleteAreaId);
             setAreas(prev => prev.filter(area => area.id !== deleteAreaId));
-            setSnackbar({
+            setAlert({
                 open: true,
+                title: 'Thành công',
                 message: 'Xóa khu vực thành công!',
-                severity: 'success'
+                type: 'success'
             });
         } catch (error) {
             console.error('Error deleting area:', error);
-            setSnackbar({
+            setAlert({
                 open: true,
+                title: 'Lỗi',
                 message: 'Lỗi khi xóa khu vực!',
-                severity: 'error'
+                type: 'error'
             });
         } finally {
             setOpenDeleteDialog(false);
@@ -476,32 +485,26 @@ const AreasPage = () => {
                 </Stack>
             </Dialog>
 
-            {/* Delete Confirmation Dialog - Style giống StaffPage */}
-            <Dialog open={openDeleteDialog} onClose={() => setOpenDeleteDialog(false)}>
-                <DialogTitle>Xóa khu vực</DialogTitle>
-                <DialogContent>Bạn có chắc muốn xóa khu vực này?</DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setOpenDeleteDialog(false)}>Hủy</Button>
-                    <Button color="error" variant="contained" onClick={confirmDelete}>
-                        Xóa
-                    </Button>
-                </DialogActions>
-            </Dialog>
+            {/* Confirm Delete Modal */}
+            <ConfirmModal
+                isOpen={openDeleteDialog}
+                onClose={() => setOpenDeleteDialog(false)}
+                onConfirm={confirmDelete}
+                title="Xóa khu vực"
+                message="Bạn có chắc chắn muốn xóa khu vực này? Hành động này không thể hoàn tác."
+                confirmText="Xóa"
+                cancelText="Hủy"
+                type="error"
+            />
 
-            {/* Snackbar */}
-            <Snackbar
-                open={snackbar.open}
-                autoHideDuration={4000}
-                onClose={() => setSnackbar({ ...snackbar, open: false })}
-                anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-            >
-                <Alert
-                    onClose={() => setSnackbar({ ...snackbar, open: false })}
-                    severity={snackbar.severity}
-                >
-                    {snackbar.message}
-                </Alert>
-            </Snackbar>
+            {/* Alert Modal */}
+            <AlertModal
+                isOpen={alert.open}
+                onClose={() => setAlert({ ...alert, open: false })}
+                title={alert.title}
+                message={alert.message}
+                type={alert.type}
+            />
         </Box>
     );
 };

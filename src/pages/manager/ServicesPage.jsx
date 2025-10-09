@@ -1,72 +1,13 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Box, Typography, Button, Stack, Dialog, DialogTitle, DialogContent, DialogActions, TextField, IconButton, Alert, Snackbar, Chip, FormControl, InputLabel, Select, MenuItem, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, alpha } from '@mui/material';
+import { Box, Typography, Button, Stack, Dialog, DialogTitle, DialogContent, DialogActions, TextField, IconButton, Alert, Chip, FormControl, InputLabel, Select, MenuItem, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, alpha } from '@mui/material';
 import { Add, Edit, Delete, MiscellaneousServices, Search } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 import Loading from '../../components/loading/Loading';
 import Pagination from '../../components/common/Pagination';
+import AlertModal from '../../components/modals/AlertModal';
+import ConfirmModal from '../../components/modals/ConfirmModal';
 import { AREAS_DATA } from '../../api/areasApi';
-
-// Mock services data
-const INITIAL_SERVICES = [
-    {
-        id: 'service-1',
-        name: 'Huấn luyện cơ bản',
-        description: 'Khóa huấn luyện các kỹ năng cơ bản cho thú cưng như ngồi, nằm, đứng, đi theo chủ. Phù hợp cho chó mèo mới bắt đầu.',
-        durationMinutes: 60,
-        basePrice: 300000,
-        serviceType: 'Training',
-        requiresAreaId: 'area-5',
-        image: 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=800&auto=format&fit=crop',
-        thumbnails: ['https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=200', 'https://images.unsplash.com/photo-1450778869180-41d0601e046e?w=200'],
-        timeSlots: ['08:00 - 09:00', '14:00 - 15:00'], // 60 phút mỗi khung
-        startDate: '',
-        endDate: ''
-    },
-    {
-        id: 'service-2',
-        name: 'Spa thư giãn',
-        description: 'Dịch vụ spa cao cấp bao gồm massage, chăm sóc da lông, cắt móng, vệ sinh tai mắt. Giúp thú cưng thư giãn và khỏe mạnh.',
-        durationMinutes: 90,
-        basePrice: 500000,
-        serviceType: 'Spa',
-        requiresAreaId: 'area-4',
-        image: 'https://images.unsplash.com/photo-1601758228041-f3b2795255f1?w=800&auto=format&fit=crop',
-        thumbnails: ['https://images.unsplash.com/photo-1601758228041-f3b2795255f1?w=200', 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=200'],
-        timeSlots: ['09:00 - 10:30', '13:00 - 14:30', '15:00 - 16:30'], // 90 phút mỗi khung
-        startDate: '',
-        endDate: ''
-    },
-    {
-        id: 'service-3',
-        name: 'Grooming chuyên nghiệp',
-        description: 'Tắm rửa, cắt tỉa lông theo yêu cầu, tạo kiểu cho thú cưng. Sử dụng sản phẩm chuyên dụng cao cấp, an toàn.',
-        durationMinutes: 120,
-        basePrice: 400000,
-        serviceType: 'Grooming',
-        requiresAreaId: 'area-3',
-        image: 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=800&auto=format&fit=crop',
-        thumbnails: ['https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=200'],
-        timeSlots: ['08:00 - 10:00', '13:00 - 15:00'], // 120 phút mỗi khung
-        startDate: '',
-        endDate: ''
-    },
-    {
-        id: 'service-4',
-        name: 'Khóa huấn luyện mùa hè',
-        description: 'Khóa huấn luyện chuyên sâu về kỹ năng phức tạp, điều khiển hành vi, rèn luyện tính kỷ luật cho thú cưng. Chỉ diễn ra trong mùa hè.',
-        durationMinutes: 90,
-        basePrice: 600000,
-        serviceType: 'Training',
-        requiresAreaId: 'area-5',
-        image: 'https://images.unsplash.com/photo-1450778869180-41d0601e046e?w=800&auto=format&fit=crop',
-        thumbnails: ['https://images.unsplash.com/photo-1450778869180-41d0601e046e?w=200', 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=200'],
-        timeSlots: ['07:00 - 08:30', '17:00 - 18:30'], // 90 phút mỗi khung
-        startDate: '2025-06-01',
-        endDate: '2025-08-31'
-    }
-];
-
-const SERVICE_TYPES = ['Training', 'Spa', 'Grooming', 'Entertainment', 'Consultation', 'Photography'];
+import serviceApi, { SERVICE_TYPES } from '../../api/serviceApi';
 
 const ServicesPage = () => {
     const [loading, setLoading] = useState(true);
@@ -76,7 +17,7 @@ const ServicesPage = () => {
     const [editingService, setEditingService] = useState(null);
     const [deleteServiceId, setDeleteServiceId] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
-    const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
+    const [alert, setAlert] = useState({ open: false, message: '', type: 'info', title: 'Thông báo' });
 
     // Pagination state
     const [page, setPage] = useState(1);
@@ -96,13 +37,26 @@ const ServicesPage = () => {
         endDate: ''
     });
 
-    // Simulate loading initial data
+    // Load services from API
     useEffect(() => {
         const loadServices = async () => {
-            setLoading(true);
-            await new Promise(resolve => setTimeout(resolve, 800));
-            setServices(INITIAL_SERVICES);
-            setLoading(false);
+            try {
+                setLoading(true);
+                const response = await serviceApi.getAllServices();
+                if (response.success) {
+                    setServices(response.data);
+                }
+            } catch (error) {
+                console.error('Error loading services:', error);
+                setAlert({
+                    open: true,
+                    title: 'Lỗi',
+                    message: error.message || 'Không thể tải danh sách dịch vụ',
+                    type: 'error'
+                });
+            } finally {
+                setLoading(false);
+            }
         };
         loadServices();
     }, []);
@@ -173,10 +127,11 @@ const ServicesPage = () => {
     const handleSaveService = () => {
         if (!formData.name || !formData.description || !formData.durationMinutes ||
             !formData.basePrice || !formData.serviceType || !formData.requiresAreaId) {
-            setSnackbar({
+            setAlert({
                 open: true,
+                title: 'Lỗi',
                 message: 'Vui lòng điền đầy đủ thông tin bắt buộc!',
-                severity: 'error'
+                type: 'error'
             });
             return;
         }
@@ -208,10 +163,11 @@ const ServicesPage = () => {
                     }
                     : service
             ));
-            setSnackbar({
+            setAlert({
                 open: true,
+                title: 'Thành công',
                 message: 'Cập nhật dịch vụ thành công!',
-                severity: 'success'
+                type: 'success'
             });
         } else {
             const newService = {
@@ -229,10 +185,11 @@ const ServicesPage = () => {
                 endDate: formData.endDate
             };
             setServices(prev => [...prev, newService]);
-            setSnackbar({
+            setAlert({
                 open: true,
+                title: 'Thành công',
                 message: 'Thêm dịch vụ mới thành công!',
-                severity: 'success'
+                type: 'success'
             });
         }
         handleCloseDialog();
@@ -245,10 +202,11 @@ const ServicesPage = () => {
 
     const confirmDelete = () => {
         setServices(prev => prev.filter(service => service.id !== deleteServiceId));
-        setSnackbar({
+        setAlert({
             open: true,
+            title: 'Thành công',
             message: 'Xóa dịch vụ thành công!',
-            severity: 'success'
+            type: 'success'
         });
         setOpenDeleteDialog(false);
         setDeleteServiceId(null);
@@ -735,32 +693,26 @@ const ServicesPage = () => {
                 </Stack>
             </Dialog>
 
-            {/* Delete Confirmation Dialog */}
-            <Dialog open={openDeleteDialog} onClose={() => setOpenDeleteDialog(false)}>
-                <DialogTitle>Xóa dịch vụ</DialogTitle>
-                <DialogContent>Bạn có chắc muốn xóa dịch vụ này?</DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setOpenDeleteDialog(false)}>Hủy</Button>
-                    <Button color="error" variant="contained" onClick={confirmDelete}>
-                        Xóa
-                    </Button>
-                </DialogActions>
-            </Dialog>
+            {/* Confirm Delete Modal */}
+            <ConfirmModal
+                isOpen={openDeleteDialog}
+                onClose={() => setOpenDeleteDialog(false)}
+                onConfirm={confirmDelete}
+                title="Xóa dịch vụ"
+                message="Bạn có chắc chắn muốn xóa dịch vụ này? Hành động này không thể hoàn tác."
+                confirmText="Xóa"
+                cancelText="Hủy"
+                type="error"
+            />
 
-            {/* Snackbar */}
-            <Snackbar
-                open={snackbar.open}
-                autoHideDuration={4000}
-                onClose={() => setSnackbar({ ...snackbar, open: false })}
-                anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
-            >
-                <Alert
-                    onClose={() => setSnackbar({ ...snackbar, open: false })}
-                    severity={snackbar.severity}
-                >
-                    {snackbar.message}
-                </Alert>
-            </Snackbar>
+            {/* Alert Modal */}
+            <AlertModal
+                isOpen={alert.open}
+                onClose={() => setAlert({ ...alert, open: false })}
+                title={alert.title}
+                message={alert.message}
+                type={alert.type}
+            />
         </Box>
     );
 };

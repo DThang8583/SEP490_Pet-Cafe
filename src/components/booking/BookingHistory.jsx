@@ -17,6 +17,7 @@ import { bookingApi } from '../../api/bookingApi';
 import { feedbackApi } from '../../api/feedbackApi';
 import Loading from '../loading/Loading';
 import FeedbackModal from './FeedbackModal';
+import AlertModal from '../modals/AlertModal';
 
 const BookingHistory = ({ open, onClose }) => {
     // State management
@@ -32,6 +33,9 @@ const BookingHistory = ({ open, onClose }) => {
     const [showDetails, setShowDetails] = useState(false);
     const [showFeedback, setShowFeedback] = useState(false);
     const [actionLoading, setActionLoading] = useState(false);
+    const [confirmCancel, setConfirmCancel] = useState(false);
+    const [bookingToCancel, setBookingToCancel] = useState(null);
+    const [alert, setAlert] = useState({ open: false, message: '', type: 'info', title: 'Thông báo' });
 
     const itemsPerPage = 6;
 
@@ -183,23 +187,37 @@ const BookingHistory = ({ open, onClose }) => {
     };
 
     // Handle cancel booking
-    const handleCancelBooking = async (bookingId) => {
-        if (!window.confirm('Bạn có chắc chắn muốn hủy lịch hẹn này?')) {
-            return;
-        }
+    const handleCancelBooking = (bookingId) => {
+        setBookingToCancel(bookingId);
+        setConfirmCancel(true);
+    };
 
+    const confirmCancelBooking = async () => {
         try {
             setActionLoading(true);
-            const response = await bookingApi.cancelBooking(bookingId, 'Khách hàng hủy');
+            const response = await bookingApi.cancelBooking(bookingToCancel, 'Khách hàng hủy');
 
             if (response.success) {
                 await loadBookingHistory();
                 setShowDetails(false);
+                setAlert({
+                    open: true,
+                    title: 'Thành công',
+                    message: 'Hủy lịch hẹn thành công!',
+                    type: 'success'
+                });
             }
         } catch (err) {
-            setError(err.message || 'Có lỗi xảy ra khi hủy lịch hẹn');
+            setAlert({
+                open: true,
+                title: 'Lỗi',
+                message: err.message || 'Có lỗi xảy ra khi hủy lịch hẹn',
+                type: 'error'
+            });
         } finally {
             setActionLoading(false);
+            setConfirmCancel(false);
+            setBookingToCancel(null);
         }
     };
 
@@ -660,6 +678,46 @@ const BookingHistory = ({ open, onClose }) => {
                     onSubmit={handleFeedbackSubmit}
                 />
             )}
+
+            {/* Confirm Cancel Dialog */}
+            <Dialog
+                open={confirmCancel}
+                onClose={() => setConfirmCancel(false)}
+                maxWidth="xs"
+                fullWidth
+            >
+                <DialogTitle>Xác nhận hủy lịch hẹn</DialogTitle>
+                <DialogContent>
+                    <Typography>
+                        Bạn có chắc chắn muốn hủy lịch hẹn này?
+                    </Typography>
+                </DialogContent>
+                <DialogActions>
+                    <Button
+                        onClick={() => setConfirmCancel(false)}
+                        disabled={actionLoading}
+                    >
+                        Không
+                    </Button>
+                    <Button
+                        onClick={confirmCancelBooking}
+                        variant="contained"
+                        color="error"
+                        disabled={actionLoading}
+                    >
+                        {actionLoading ? <CircularProgress size={20} /> : 'Hủy lịch hẹn'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Alert Modal */}
+            <AlertModal
+                isOpen={alert.open}
+                onClose={() => setAlert({ ...alert, open: false })}
+                title={alert.title}
+                message={alert.message}
+                type={alert.type}
+            />
         </Dialog>
     );
 };

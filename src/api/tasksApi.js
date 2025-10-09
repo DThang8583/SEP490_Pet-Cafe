@@ -1,7 +1,8 @@
 // Tasks API - Constants, mock data, and data fetching logic
 
 import { AREAS_DATA } from './areasApi';
-import { petApi } from './petApi';
+import { petApi, MOCK_PET_GROUPS } from './petApi';
+import { managerApi } from './userApi';
 
 // ========== CONSTANTS ==========
 
@@ -57,18 +58,13 @@ const MOCK_SERVICES = [
     }
 ];
 
-// Pets data will be fetched from petApi (same as PetsPage)
-
-// Mock staff data (should be replaced with real API call)
-const MOCK_STAFF = [
-    { id: 'u-001', full_name: 'Nguyễn Văn An', role: 'sale_staff', status: 'active' },
-    { id: 'u-002', full_name: 'Trần Thị Bình', role: 'sale_staff', status: 'active' },
-    { id: 'u-003', full_name: 'Lê Văn Chi', role: 'working_staff', status: 'on_leave' },
-    { id: 'u-004', full_name: 'Phạm Thị Dung', role: 'working_staff', status: 'active' },
-    { id: 'u-005', full_name: 'Hoàng Văn Minh', role: 'working_staff', status: 'active' },
-];
-
 // ========== API FUNCTIONS ==========
+
+// NOTE: All data (pets, staff, pet groups) are now fetched from their respective APIs
+// - Pets: petApi.getPets()
+// - Staff: managerApi.getStaff() from userApi
+// - Pet Groups: petApi.getPetGroups()
+// This ensures data consistency across all manager pages
 
 /**
  * Get all services for task assignment
@@ -111,52 +107,93 @@ export const getPetsForTasks = async () => {
 
 /**
  * Get all staff for task assignment
+ * Uses managerApi from userApi.js to ensure data consistency
  * @returns {Promise<Array>} Array of staff objects
  */
 export const getStaffForTasks = async () => {
-    // Simulate API call
-    return new Promise((resolve) => {
-        setTimeout(() => resolve(MOCK_STAFF), 100);
-    });
+    try {
+        const response = await managerApi.getStaff();
+        const staff = response?.data || [];
+        console.log('[tasksApi] getStaffForTasks() - loaded from userApi:', staff.length);
+        return staff;
+    } catch (error) {
+        console.error('[tasksApi] getStaffForTasks() error:', error);
+        return [];
+    }
 };
 
 /**
- * Get pet groups map from pets array
- * Uses the same grouping logic as PetsPage: groupName -> breed -> fallback
- * @param {Array} pets - Array of pet objects
+ * Get pet groups for task assignment
+ * Uses MOCK_PET_GROUPS from petApi.js to ensure data consistency
+ * @returns {Promise<Array>} Array of pet group objects
+ */
+export const getPetGroupsForTasks = async () => {
+    try {
+        const response = await petApi.getPetGroups();
+        const groups = response?.data || [];
+        console.log('[tasksApi] getPetGroupsForTasks() - loaded from petApi:', groups.length);
+        return groups;
+    } catch (error) {
+        console.error('[tasksApi] getPetGroupsForTasks() error:', error);
+        return [];
+    }
+};
+
+/**
+ * Get pet groups map from groups and pets arrays
+ * Maps each group to its associated pets based on species_id and breed_id
+ * @param {Array} groups - Array of pet group objects from petApi
+ * @param {Array} pets - Array of pet objects from petApi
  * @returns {Object} Map of group name to pets
  */
-export const getPetGroupsMap = (pets) => {
+export const getPetGroupsMap = (groups, pets) => {
     const map = {};
-    pets.forEach(pet => {
-        // Same logic as PetsPage: use groupName, fallback to breed, then to default
-        const groupName = pet.groupName || pet.breed || 'Chưa rõ nhóm';
-        if (!map[groupName]) map[groupName] = [];
-        map[groupName].push(pet);
+
+    groups.forEach(group => {
+        // Filter pets that match this group's criteria
+        const matchingPets = pets.filter(pet => {
+            // Must match species
+            if (pet.species_id !== group.pet_species_id) return false;
+
+            // If group has a specific breed, pet must match it
+            if (group.pet_breed_id && group.pet_breed_id !== '') {
+                return pet.breed_id === group.pet_breed_id;
+            }
+
+            // If group has no specific breed, all pets of that species match
+            return true;
+        });
+
+        map[group.name] = matchingPets;
     });
+
     return map;
 };
 
 /**
  * Get all tasks data needed for task management
- * @returns {Promise<Object>} Object containing services, areas, pets, staff
+ * @returns {Promise<Object>} Object containing services, areas, pets, staff, groups
  */
 export const getAllTasksData = async () => {
-    const [services, areas, pets, staff] = await Promise.all([
+    const [services, areas, pets, staff, groups] = await Promise.all([
         getServicesForTasks(),
         getAreasForTasks(),
         getPetsForTasks(),
-        getStaffForTasks()
+        getStaffForTasks(),
+        getPetGroupsForTasks()
     ]);
 
-    const petGroupsMap = getPetGroupsMap(pets);
+    const petGroupsMap = getPetGroupsMap(groups, pets);
     const petGroupNames = Object.keys(petGroupsMap);
+
+    console.log('[tasksApi] getAllTasksData() - Pet Groups:', groups.length, '| Staff:', staff.length);
 
     return {
         services,
         areas,
         pets,
         staff,
+        groups,
         petGroupsMap,
         petGroupNames
     };

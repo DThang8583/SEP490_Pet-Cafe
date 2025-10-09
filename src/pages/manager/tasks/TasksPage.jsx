@@ -4,6 +4,7 @@ import { alpha } from '@mui/material/styles';
 import { Add } from '@mui/icons-material';
 import { COLORS } from '../../../constants/colors';
 import Loading from '../../../components/loading/Loading';
+import ConfirmModal from '../../../components/modals/ConfirmModal';
 
 // Task components
 import TaskList from './TaskList';
@@ -20,6 +21,8 @@ const TasksPage = () => {
     const [detailsOpen, setDetailsOpen] = useState(false);
     const [detailsTask, setDetailsTask] = useState(null);
     const [editingTask, setEditingTask] = useState(null);
+    const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+    const [taskToDelete, setTaskToDelete] = useState(null);
 
     // Task data
     const [services, setServices] = useState([]);
@@ -76,7 +79,17 @@ const TasksPage = () => {
     };
 
     const handleDeleteTask = (taskId) => {
-        setTasks(prev => prev.filter(t => t.id !== taskId));
+        const task = tasks.find(t => t.id === taskId);
+        setTaskToDelete(task);
+        setConfirmDeleteOpen(true);
+    };
+
+    const confirmDeleteTask = () => {
+        if (taskToDelete) {
+            setTasks(prev => prev.filter(t => t.id !== taskToDelete.id));
+        }
+        setConfirmDeleteOpen(false);
+        setTaskToDelete(null);
     };
 
     const handleCloseWizard = () => {
@@ -150,6 +163,21 @@ const TasksPage = () => {
                 areas={areas}
                 staff={staff}
                 petGroupsMap={petGroupsMap}
+            />
+
+            {/* Confirm Delete Modal */}
+            <ConfirmModal
+                isOpen={confirmDeleteOpen}
+                onClose={() => {
+                    setConfirmDeleteOpen(false);
+                    setTaskToDelete(null);
+                }}
+                onConfirm={confirmDeleteTask}
+                title="Xóa nhiệm vụ"
+                message={`Bạn có chắc chắn muốn xóa nhiệm vụ "${taskToDelete?.internalName || taskToDelete?.serviceName || ''}"? Hành động này không thể hoàn tác.`}
+                confirmText="Xóa"
+                cancelText="Hủy"
+                type="error"
             />
         </Box>
     );
