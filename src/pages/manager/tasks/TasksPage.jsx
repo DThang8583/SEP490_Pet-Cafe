@@ -2,20 +2,24 @@ import React, { useEffect, useState } from 'react';
 import { Box, Typography, Stack, Chip, Button } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import { Add } from '@mui/icons-material';
-import { COLORS } from '../../constants/colors';
-import Loading from '../../components/loading/Loading';
+import { COLORS } from '../../../constants/colors';
+import Loading from '../../../components/loading/Loading';
 
 // Task components
-import TaskList from './tasks/TaskList';
-import TaskWizard from './tasks/TaskWizard';
+import TaskList from './TaskList';
+import TaskWizard from './TaskWizard';
+import TaskDetailsDialog from './TaskDetailsDialog';
 
 // API
-import { getAllTasksData } from '../../api/tasksApi';
+import { getAllTasksData } from '../../../api/tasksApi';
 
 const TasksPage = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [tasks, setTasks] = useState([]);
     const [wizardOpen, setWizardOpen] = useState(false);
+    const [detailsOpen, setDetailsOpen] = useState(false);
+    const [detailsTask, setDetailsTask] = useState(null);
+    const [editingTask, setEditingTask] = useState(null);
 
     // Task data
     const [services, setServices] = useState([]);
@@ -62,8 +66,27 @@ const TasksPage = () => {
         setTasks(prev => [...prev, newTask]);
     };
 
+    const handleUpdateTask = (updatedTask) => {
+        setTasks(prev => prev.map(t => t.id === updatedTask.id ? updatedTask : t));
+    };
+
+    const handleEditTask = (task) => {
+        setEditingTask(task);
+        setWizardOpen(true);
+    };
+
     const handleDeleteTask = (taskId) => {
         setTasks(prev => prev.filter(t => t.id !== taskId));
+    };
+
+    const handleCloseWizard = () => {
+        setWizardOpen(false);
+        setEditingTask(null);
+    };
+
+    const handleViewTask = (task) => {
+        setDetailsTask(task);
+        setDetailsOpen(true);
     };
 
     if (isLoading) {
@@ -95,18 +118,37 @@ const TasksPage = () => {
                 </Stack>
 
                 {/* Task List */}
-                <TaskList tasks={tasks} services={services} onDeleteTask={handleDeleteTask} />
+                <TaskList
+                    tasks={tasks}
+                    services={services}
+                    onDeleteTask={handleDeleteTask}
+                    onEditTask={handleEditTask}
+                    onViewTask={handleViewTask}
+                />
             </Box>
 
-            {/* Task Creation Wizard */}
+            {/* Task Creation/Edit Wizard */}
             <TaskWizard
                 open={wizardOpen}
-                onClose={() => setWizardOpen(false)}
+                onClose={handleCloseWizard}
                 onCreateTask={handleCreateTask}
+                onUpdateTask={handleUpdateTask}
+                editingTask={editingTask}
                 services={services}
                 areas={areas}
                 staff={staff}
                 petGroupNames={petGroupNames}
+                petGroupsMap={petGroupsMap}
+            />
+
+            {/* Task Details */}
+            <TaskDetailsDialog
+                open={detailsOpen}
+                onClose={() => setDetailsOpen(false)}
+                task={detailsTask}
+                services={services}
+                areas={areas}
+                staff={staff}
                 petGroupsMap={petGroupsMap}
             />
         </Box>

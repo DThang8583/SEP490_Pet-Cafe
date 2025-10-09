@@ -78,7 +78,7 @@ const DashboardPage = () => {
             message: 'Lỗi hệ thống thanh toán, cần kiểm tra',
             time: '2 giờ trước',
             status: 'error',
-            icon: <Error sx={{ color: COLORS.ERROR[500] }} />
+            icon: <ErrorIcon sx={{ color: COLORS.ERROR[500] }} />
         }
     ];
 
