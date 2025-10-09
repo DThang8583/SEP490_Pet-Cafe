@@ -4,36 +4,30 @@ import { alpha } from '@mui/material/styles';
 import { Close } from '@mui/icons-material';
 import { COLORS } from '../../../constants/colors';
 import { WIZARD_STEPS, createInitialFormData } from '../../../api/tasksApi';
+import { StaffGroupDialog, PetGroupDialog } from './TaskDialogs';
+import { StepTaskType, StepSelectTask, StepTimeframe, StepShift, StepAssignment, StepConfirmation } from './WizardSteps';
 
-// Wizard Steps
-import StepTaskType from './wizardSteps/StepTaskType';
-import StepSelectTask from './wizardSteps/StepSelectTask';
-import StepTimeframe from './wizardSteps/StepTimeframe';
-import StepShift from './wizardSteps/StepShift';
-import StepAssignment from './wizardSteps/StepAssignment';
-import StepConfirmation from './wizardSteps/StepConfirmation';
-
-// Dialogs
-import StaffGroupDialog from './dialogs/StaffGroupDialog';
-import PetGroupDialog from './dialogs/PetGroupDialog';
-
-const TaskWizard = ({
-    open,
-    onClose,
-    onCreateTask,
-    services,
-    areas,
-    staff,
-    petGroupNames,
-    petGroupsMap
-}) => {
+const TaskWizard = ({ open, onClose, onCreateTask, onUpdateTask, editingTask, services, areas, staff, petGroupNames, petGroupsMap }) => {
     const [activeStep, setActiveStep] = useState(0);
     const [formData, setFormData] = useState(createInitialFormData());
+
+    // Load data when editing
+    React.useEffect(() => {
+        if (open && editingTask) {
+            setFormData(editingTask);
+            setActiveStep(1); // Bắt đầu từ bước "Chọn nhiệm vụ" khi edit
+        } else if (open && !editingTask) {
+            setFormData(createInitialFormData());
+            setActiveStep(0);
+        }
+    }, [open, editingTask]);
 
     // Staff group dialog
     const [staffGroupDialogOpen, setStaffGroupDialogOpen] = useState(false);
     const [staffGroupForm, setStaffGroupForm] = useState({ name: '', staffIds: [], leaderId: '' });
     const [staffGroupContext, setStaffGroupContext] = useState(null);
+    const [isEditMode, setIsEditMode] = useState(false);
+    const [editGroupIndex, setEditGroupIndex] = useState(-1);
 
     // Pet group dialog
     const [petGroupDialogOpen, setPetGroupDialogOpen] = useState(false);
@@ -43,21 +37,109 @@ const TaskWizard = ({
         return services.find(s => s.id === formData.serviceId);
     }, [services, formData.serviceId]);
 
-    const handleNext = () => setActiveStep((prev) => prev + 1);
+    const handleNext = () => {
+        // Validate assignment step before proceeding
+        if (activeStep === 4) { // Assignment step
+            const validationError = validateAssignments();
+            if (validationError) {
+                alert(validationError);
+                return;
+            }
+        }
+        setActiveStep((prev) => prev + 1);
+    };
+
     const handleBack = () => setActiveStep((prev) => prev - 1);
+
+    const validateAssignments = () => {
+        if (formData.type === 'internal') {
+            // Validate internal task assignments
+            const shifts = formData.shifts || [];
+            if (shifts.length === 0) {
+                return 'Vui lòng chọn ít nhất một ca làm việc';
+            }
+
+            for (const shift of shifts) {
+                const assignment = formData.shiftAssignments?.[shift];
+                if (!assignment) {
+                    return `Chưa phân công cho ca "${shift}"`;
+                }
+
+                // Check if at least one staff group is assigned
+                if (!assignment.staffGroups || assignment.staffGroups.length === 0) {
+                    return `Ca "${shift}": Chưa có nhóm nhân viên nào được phân công`;
+                }
+
+                // Validate each staff group has a leader
+                for (let i = 0; i < assignment.staffGroups.length; i++) {
+                    const group = assignment.staffGroups[i];
+                    if (!group.leaderId) {
+                        return `Ca "${shift}", Nhóm "${group.name}": Chưa chọn Leader`;
+                    }
+                    if (!group.staffIds || group.staffIds.length === 0) {
+                        return `Ca "${shift}", Nhóm "${group.name}": Chưa có thành viên nào`;
+                    }
+                }
+            }
+        } else if (formData.type === 'service') {
+            // Validate service task assignments
+            const selectedService = services?.find(s => s.id === formData.serviceId);
+            const serviceTimeSlots = selectedService?.timeSlots || [];
+
+            if (serviceTimeSlots.length === 0) {
+                return 'Dịch vụ này chưa có ca làm việc';
+            }
+
+            for (const timeSlot of serviceTimeSlots) {
+                const assignment = formData.timeSlotAssignments?.[timeSlot];
+                if (!assignment) {
+                    return `Chưa phân công cho khung giờ "${timeSlot}"`;
+                }
+
+                // Check if at least one staff group is assigned
+                if (!assignment.staffGroups || assignment.staffGroups.length === 0) {
+                    return `Khung giờ "${timeSlot}": Chưa có nhóm nhân viên nào được phân công`;
+                }
+
+                // Validate each staff group has a leader
+                for (let i = 0; i < assignment.staffGroups.length; i++) {
+                    const group = assignment.staffGroups[i];
+                    if (!group.leaderId) {
+                        return `Khung giờ "${timeSlot}", Nhóm "${group.name}": Chưa chọn Leader`;
+                    }
+                    if (!group.staffIds || group.staffIds.length === 0) {
+                        return `Khung giờ "${timeSlot}", Nhóm "${group.name}": Chưa có thành viên nào`;
+                    }
+                }
+            }
+        }
+
+        return null; // No errors
+    };
 
     const handleReset = () => {
         setActiveStep(0);
         setFormData(createInitialFormData());
     };
 
-    const handleCreateTask = () => {
-        const newTask = {
-            id: `task-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-            ...formData,
-            createdAt: Date.now()
-        };
-        onCreateTask(newTask);
+    const handleSaveTask = () => {
+        if (editingTask) {
+            // Update existing task
+            const updatedTask = {
+                ...editingTask,
+                ...formData,
+                updatedAt: Date.now()
+            };
+            onUpdateTask(updatedTask);
+        } else {
+            // Create new task
+            const newTask = {
+                id: `task-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+                ...formData,
+                createdAt: Date.now()
+            };
+            onCreateTask(newTask);
+        }
         onClose();
         handleReset();
     };
@@ -65,38 +147,69 @@ const TaskWizard = ({
     const openStaffGroupDialog = (context) => {
         setStaffGroupContext(context);
         setStaffGroupForm({ name: '', staffIds: [], leaderId: '' });
+        setIsEditMode(false);
+        setEditGroupIndex(-1);
+        setStaffGroupDialogOpen(true);
+    };
+
+    const editStaffGroup = (context, groupIndex, groupData) => {
+        setStaffGroupContext(context);
+        setStaffGroupForm({
+            name: groupData.name,
+            staffIds: [...groupData.staffIds],
+            leaderId: groupData.leaderId
+        });
+        setIsEditMode(true);
+        setEditGroupIndex(groupIndex);
         setStaffGroupDialogOpen(true);
     };
 
     const saveStaffGroup = () => {
-        const newGroup = { ...staffGroupForm };
+        const groupData = { ...staffGroupForm };
 
-        if (staffGroupContext === 'internal') {
-            setFormData(prev => ({
-                ...prev,
-                internalAssignment: {
-                    ...prev.internalAssignment,
-                    staffGroups: [...prev.internalAssignment.staffGroups, newGroup]
-                }
-            }));
+        if (staffGroupContext?.shift) {
+            const shift = staffGroupContext.shift;
+            setFormData(prev => {
+                const currentGroups = prev.shiftAssignments?.[shift]?.staffGroups || [];
+                const updatedGroups = isEditMode
+                    ? currentGroups.map((g, idx) => idx === editGroupIndex ? groupData : g)
+                    : [...currentGroups, groupData];
+
+                return {
+                    ...prev,
+                    shiftAssignments: {
+                        ...prev.shiftAssignments,
+                        [shift]: {
+                            ...prev.shiftAssignments[shift],
+                            staffGroups: updatedGroups
+                        }
+                    }
+                };
+            });
         } else if (staffGroupContext?.timeSlot) {
             const timeSlot = staffGroupContext.timeSlot;
-            setFormData(prev => ({
-                ...prev,
-                timeSlotAssignments: {
-                    ...prev.timeSlotAssignments,
-                    [timeSlot]: {
-                        ...prev.timeSlotAssignments[timeSlot],
-                        staffGroups: [
-                            ...(prev.timeSlotAssignments[timeSlot]?.staffGroups || []),
-                            newGroup
-                        ]
+            setFormData(prev => {
+                const currentGroups = prev.timeSlotAssignments[timeSlot]?.staffGroups || [];
+                const updatedGroups = isEditMode
+                    ? currentGroups.map((g, idx) => idx === editGroupIndex ? groupData : g)
+                    : [...currentGroups, groupData];
+
+                return {
+                    ...prev,
+                    timeSlotAssignments: {
+                        ...prev.timeSlotAssignments,
+                        [timeSlot]: {
+                            ...prev.timeSlotAssignments[timeSlot],
+                            staffGroups: updatedGroups
+                        }
                     }
-                }
-            }));
+                };
+            });
         }
 
         setStaffGroupDialogOpen(false);
+        setIsEditMode(false);
+        setEditGroupIndex(-1);
     };
 
     const openPetGroupDialog = (context) => {
@@ -108,23 +221,32 @@ const TaskWizard = ({
         const petIds = petGroupsMap[groupName].map(p => p.id);
         const count = petIds.length;
 
-        if (petGroupContext === 'internal') {
+        if (petGroupContext?.shift) {
+            const shift = petGroupContext.shift;
             setFormData(prev => {
-                const existing = prev.internalAssignment.petGroups.find(pg => pg.groupName === groupName);
+                const assignment = prev.shiftAssignments[shift] || { areaIds: [], petGroups: [], staffGroups: [] };
+                const existing = assignment.petGroups.find(pg => pg.groupName === groupName);
+
                 if (existing) {
                     return {
                         ...prev,
-                        internalAssignment: {
-                            ...prev.internalAssignment,
-                            petGroups: prev.internalAssignment.petGroups.filter(pg => pg.groupName !== groupName)
+                        shiftAssignments: {
+                            ...prev.shiftAssignments,
+                            [shift]: {
+                                ...assignment,
+                                petGroups: assignment.petGroups.filter(pg => pg.groupName !== groupName)
+                            }
                         }
                     };
                 } else {
                     return {
                         ...prev,
-                        internalAssignment: {
-                            ...prev.internalAssignment,
-                            petGroups: [...prev.internalAssignment.petGroups, { groupName, petIds, count }]
+                        shiftAssignments: {
+                            ...prev.shiftAssignments,
+                            [shift]: {
+                                ...assignment,
+                                petGroups: [...assignment.petGroups, { groupName, petIds, count }]
+                            }
                         }
                     };
                 }
@@ -167,11 +289,11 @@ const TaskWizard = ({
             case 0:
                 return <StepTaskType formData={formData} setFormData={setFormData} />;
             case 1:
-                return <StepSelectTask formData={formData} setFormData={setFormData} services={services} />;
+                return <StepSelectTask formData={formData} setFormData={setFormData} services={services} isEditMode={!!editingTask} />;
             case 2:
                 return <StepTimeframe formData={formData} setFormData={setFormData} selectedService={selectedService} />;
             case 3:
-                return <StepShift formData={formData} setFormData={setFormData} />;
+                return <StepShift formData={formData} setFormData={setFormData} selectedService={selectedService} />;
             case 4:
                 return (
                     <StepAssignment
@@ -182,10 +304,11 @@ const TaskWizard = ({
                         selectedService={selectedService}
                         openStaffGroupDialog={openStaffGroupDialog}
                         openPetGroupDialog={openPetGroupDialog}
+                        editStaffGroup={editStaffGroup}
                     />
                 );
             case 5:
-                return <StepConfirmation formData={formData} selectedService={selectedService} />;
+                return <StepConfirmation formData={formData} selectedService={selectedService} areas={areas} staff={staff} petGroupsMap={petGroupsMap} />;
             default:
                 return null;
         }
@@ -198,7 +321,7 @@ const TaskWizard = ({
                     <Box sx={{ p: 3, borderBottom: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.2)}` }}>
                         <Stack direction="row" alignItems="center" justifyContent="space-between">
                             <Typography variant="h6" sx={{ fontWeight: 800, color: COLORS.ERROR[600] }}>
-                                Tạo nhiệm vụ mới
+                                {editingTask ? 'Chỉnh sửa nhiệm vụ' : 'Tạo nhiệm vụ mới'}
                             </Typography>
                             <IconButton onClick={onClose}>
                                 <Close />
@@ -222,12 +345,15 @@ const TaskWizard = ({
                 <DialogActions sx={{ p: 3, borderTop: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.2)}` }}>
                     <Button onClick={onClose}>Hủy</Button>
                     <Box sx={{ flexGrow: 1 }} />
-                    <Button disabled={activeStep === 0} onClick={handleBack}>
+                    <Button
+                        disabled={editingTask ? activeStep === 1 : activeStep === 0}
+                        onClick={handleBack}
+                    >
                         Quay lại
                     </Button>
                     {activeStep === WIZARD_STEPS.length - 1 ? (
-                        <Button variant="contained" onClick={handleCreateTask}>
-                            Tạo nhiệm vụ
+                        <Button variant="contained" onClick={handleSaveTask}>
+                            {editingTask ? 'Cập nhật' : 'Tạo nhiệm vụ'}
                         </Button>
                     ) : (
                         <Button variant="contained" onClick={handleNext}>
@@ -245,6 +371,10 @@ const TaskWizard = ({
                 staffGroupForm={staffGroupForm}
                 setStaffGroupForm={setStaffGroupForm}
                 onSave={saveStaffGroup}
+                formData={formData}
+                staffGroupContext={staffGroupContext}
+                isEditMode={isEditMode}
+                editGroupIndex={editGroupIndex}
             />
 
             {/* Pet Group Dialog */}
