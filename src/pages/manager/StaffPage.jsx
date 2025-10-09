@@ -3,6 +3,7 @@ import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, Ta
 import { alpha } from '@mui/material/styles';
 import { COLORS } from '../../constants/colors';
 import Loading from '../../components/loading/Loading';
+import Pagination from '../../components/common/Pagination';
 import { Edit, Delete, GroupAdd } from '@mui/icons-material';
 
 const mockFetchStaff = () => new Promise((resolve) => {
@@ -49,6 +50,10 @@ const StaffPage = () => {
     const [q, setQ] = useState('');
     const [filterRole, setFilterRole] = useState('all');
     const [filterStatus, setFilterStatus] = useState('all');
+
+    // Pagination state
+    const [page, setPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
     const [editOpen, setEditOpen] = useState(false);
     const [editMode, setEditMode] = useState('add');
     const [editForm, setEditForm] = useState({ id: '', name: '', email: '', phone: '', dob: '', address: '', role: '', status: 'active' });
@@ -123,6 +128,13 @@ const StaffPage = () => {
             return text.includes(q.toLowerCase());
         });
     }, [staff, q, filterRole, filterStatus]);
+
+    // Pagination calculations
+    const totalPages = Math.ceil(filtered.length / itemsPerPage);
+    const currentPageStaff = useMemo(() => {
+        const startIndex = (page - 1) * itemsPerPage;
+        return filtered.slice(startIndex, startIndex + itemsPerPage);
+    }, [page, itemsPerPage, filtered]);
 
     if (isLoading) {
         return (
@@ -209,47 +221,64 @@ const StaffPage = () => {
                 )}
 
                 {tab === 'list' && (
-                    <TableContainer component={Paper} sx={{ borderRadius: 3, border: `2px solid ${alpha(COLORS.ERROR[200], 0.4)}`, boxShadow: `0 10px 24px ${alpha(COLORS.ERROR[200], 0.15)}`, overflowX: 'auto' }}>
-                        <Table size="medium" stickyHeader>
-                            <TableHead>
-                                <TableRow>
-                                    <TableCell sx={{ fontWeight: 800 }}>Họ tên</TableCell>
-                                    <TableCell sx={{ fontWeight: 800, display: { xs: 'none', md: 'table-cell' } }}>Email</TableCell>
-                                    <TableCell sx={{ fontWeight: 800, display: { xs: 'none', sm: 'table-cell' } }}>SĐT</TableCell>
-                                    <TableCell sx={{ fontWeight: 800, display: { xs: 'none', md: 'table-cell' } }}>Ngày sinh</TableCell>
-                                    <TableCell sx={{ fontWeight: 800, display: { xs: 'none', lg: 'table-cell' } }}>Địa chỉ</TableCell>
-                                    <TableCell sx={{ fontWeight: 800 }}>Vai trò</TableCell>
-                                    <TableCell sx={{ fontWeight: 800 }}>Trạng thái</TableCell>
-                                    <TableCell sx={{ fontWeight: 800, textAlign: 'right' }}>Hành động</TableCell>
-                                </TableRow>
-                            </TableHead>
-                            <TableBody>
-                                {filtered.map((s) => {
-                                    const rColor = roleColor(s.role);
-                                    const st = statusColor(s.status);
-                                    return (
-                                        <TableRow key={s.id} hover>
-                                            <TableCell sx={{ fontWeight: 600 }}>{s.name}</TableCell>
-                                            <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>{s.email}</TableCell>
-                                            <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>{s.phone}</TableCell>
-                                            <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>{s.dob || '—'}</TableCell>
-                                            <TableCell sx={{ display: { xs: 'none', lg: 'table-cell' } }}>{s.address || '—'}</TableCell>
-                                            <TableCell>
-                                                <Chip size="small" label={roleLabel(s.role)} sx={{ background: rColor.bg, color: rColor.color, fontWeight: 700 }} />
-                                            </TableCell>
-                                            <TableCell>
-                                                <Chip size="small" label={st.label} sx={{ background: st.bg, color: st.color, fontWeight: 700 }} />
-                                            </TableCell>
-                                            <TableCell align="right">
-                                                <IconButton size="small" color="primary" onClick={() => { setEditMode('edit'); setEditForm({ ...s }); setEditOpen(true); }}><Edit fontSize="small" /></IconButton>
-                                                <IconButton size="small" color="error" onClick={() => { setPendingDeleteId(s.id); setConfirmDeleteOpen(true); }}><Delete fontSize="small" /></IconButton>
-                                            </TableCell>
-                                        </TableRow>
-                                    );
-                                })}
-                            </TableBody>
-                        </Table>
-                    </TableContainer>
+                    <>
+                        <TableContainer component={Paper} sx={{ borderRadius: 3, border: `2px solid ${alpha(COLORS.ERROR[200], 0.4)}`, boxShadow: `0 10px 24px ${alpha(COLORS.ERROR[200], 0.15)}`, overflowX: 'auto' }}>
+                            <Table size="medium" stickyHeader>
+                                <TableHead>
+                                    <TableRow>
+                                        <TableCell sx={{ fontWeight: 800 }}>Họ tên</TableCell>
+                                        <TableCell sx={{ fontWeight: 800, display: { xs: 'none', md: 'table-cell' } }}>Email</TableCell>
+                                        <TableCell sx={{ fontWeight: 800, display: { xs: 'none', sm: 'table-cell' } }}>SĐT</TableCell>
+                                        <TableCell sx={{ fontWeight: 800, display: { xs: 'none', md: 'table-cell' } }}>Ngày sinh</TableCell>
+                                        <TableCell sx={{ fontWeight: 800, display: { xs: 'none', lg: 'table-cell' } }}>Địa chỉ</TableCell>
+                                        <TableCell sx={{ fontWeight: 800 }}>Vai trò</TableCell>
+                                        <TableCell sx={{ fontWeight: 800 }}>Trạng thái</TableCell>
+                                        <TableCell sx={{ fontWeight: 800, textAlign: 'right' }}>Hành động</TableCell>
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {currentPageStaff.map((s) => {
+                                        const rColor = roleColor(s.role);
+                                        const st = statusColor(s.status);
+                                        return (
+                                            <TableRow key={s.id} hover>
+                                                <TableCell sx={{ fontWeight: 600 }}>{s.name}</TableCell>
+                                                <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>{s.email}</TableCell>
+                                                <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>{s.phone}</TableCell>
+                                                <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>{s.dob || '—'}</TableCell>
+                                                <TableCell sx={{ display: { xs: 'none', lg: 'table-cell' } }}>{s.address || '—'}</TableCell>
+                                                <TableCell>
+                                                    <Chip size="small" label={roleLabel(s.role)} sx={{ background: rColor.bg, color: rColor.color, fontWeight: 700 }} />
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Chip size="small" label={st.label} sx={{ background: st.bg, color: st.color, fontWeight: 700 }} />
+                                                </TableCell>
+                                                <TableCell align="right">
+                                                    <IconButton size="small" color="primary" onClick={() => { setEditMode('edit'); setEditForm({ ...s }); setEditOpen(true); }}><Edit fontSize="small" /></IconButton>
+                                                    <IconButton size="small" color="error" onClick={() => { setPendingDeleteId(s.id); setConfirmDeleteOpen(true); }}><Delete fontSize="small" /></IconButton>
+                                                </TableCell>
+                                            </TableRow>
+                                        );
+                                    })}
+                                </TableBody>
+                            </Table>
+                        </TableContainer>
+
+                        {/* Pagination */}
+                        {filtered.length > 0 && (
+                            <Pagination
+                                page={page}
+                                totalPages={totalPages}
+                                onPageChange={setPage}
+                                itemsPerPage={itemsPerPage}
+                                onItemsPerPageChange={(newValue) => {
+                                    setItemsPerPage(newValue);
+                                    setPage(1);
+                                }}
+                                totalItems={filtered.length}
+                            />
+                        )}
+                    </>
                 )}
 
                 {tab === 'shifts' && (

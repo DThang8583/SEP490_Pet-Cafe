@@ -66,6 +66,7 @@ const Navbar = () => {
     const managerItems = useMemo(() => ([
         { label: 'Dashboard', icon: <Dashboard />, path: '/manager/dashboard' },
         { label: 'Thú cưng', icon: <Pets />, path: '/manager/pets' },
+        { label: 'Khu vực', icon: <LocationOn />, path: '/manager/areas' },
         { label: 'Nhân viên', icon: <People />, path: '/manager/staff' },
         { label: 'Nhiệm vụ', icon: <Assignment />, path: '/manager/tasks' },
         { label: 'Dịch vụ', icon: <DesignServices />, path: '/manager/services' },
