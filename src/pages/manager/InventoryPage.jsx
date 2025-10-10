@@ -218,18 +218,21 @@ const InventoryPage = () => {
 
             const responses = await Promise.all(updatePromises);
 
-            // Log restock history for each item
-            const historyPromises = bulkData.map(data => {
-                const material = items.find(item => item.id === data.materialId);
-                if (!material) return null;
+            // Log restock history for each item (use updated data from responses)
+            const historyPromises = bulkData.map((data, index) => {
+                const updatedMaterial = responses[index]?.data;
+                if (!updatedMaterial) return null;
+
+                // Get quantity before from items state
+                const materialBefore = items.find(item => item.id === data.materialId);
 
                 return inventoryApi.addRestockHistory({
                     materialId: data.materialId,
-                    materialName: material.name,
-                    quantityAdded: data.quantity,
-                    quantityBefore: material.quantity,
+                    materialName: updatedMaterial.name,
+                    quantityAdded: data.restockQuantity,
+                    quantityBefore: materialBefore?.quantity || 0,
                     quantityAfter: data.newTotal,
-                    unit: material.unit,
+                    unit: updatedMaterial.unit,
                     supplier: data.supplier,
                     expiryDate: data.expiryDate
                 });

@@ -8,6 +8,7 @@ import TasksPage from "../pages/manager/tasks/TasksPage";
 import ServicesPage from "../pages/manager/ServicesPage";
 import InventoryPage from "../pages/manager/InventoryPage";
 import AreasPage from "../pages/manager/AreasPage";
+import ProductPage from "../pages/manager/ProductPage";
 
 const managerRoutes = (
     <>
@@ -19,6 +20,7 @@ const managerRoutes = (
         <Route path="/manager/tasks" element={<TasksPage />} />
         <Route path="/manager/services" element={<ServicesPage />} />
         <Route path="/manager/inventory" element={<InventoryPage />} />
+        <Route path="/manager/products" element={<ProductPage />} />
     </>
 );
 
