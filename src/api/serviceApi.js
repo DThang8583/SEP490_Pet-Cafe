@@ -1,3 +1,173 @@
+/**
+ * SERVICE API - Data Mapping & Mock Implementation
+ * 
+ * ============================================
+ * FIELD MAPPING: FRONTEND ↔ BACKEND
+ * ============================================
+ * 
+ * | Frontend Field | Backend Field      | Type     | Required | Description                    |
+ * |----------------|-------------------|----------|----------|--------------------------------|
+ * | name           | name              | string   | ✅ Yes   | Service name                   |
+ * | description    | description       | string   | ⚠️ Opt   | Service description            |
+ * | duration       | duration_minutes  | number   | ✅ Yes   | Service duration in minutes    |
+ * | price          | base_price        | number   | ✅ Yes   | Base price in VND              |
+ * | category       | service_type      | string   | ✅ Yes   | Service type/category          |
+ * | petRequired    | requires_area     | boolean  | ⚠️ Opt   | Whether service requires area  |
+ * | image          | image_url         | string   | ⚠️ Opt   | Main image URL                 |
+ * | thumbnails     | thumbnails        | string[] | ⚠️ Opt   | Array of thumbnail URLs        |
+ * 
+ * ============================================
+ * BACKEND SCHEMA (from Swagger API)
+ * ============================================
+ * {
+ *   "name": "string",
+ *   "description": "string",
+ *   "duration_minutes": 0,
+ *   "base_price": 0,
+ *   "service_type": "string",
+ *   "requires_area": true,
+ *   "image_url": "string",
+ *   "thumbnails": ["string"]
+ * }
+ * 
+ * ============================================
+ * FRONTEND SCHEMA (Current)
+ * ============================================
+ * {
+ *   id: "string",
+ *   name: "string",
+ *   description: "string",
+ *   duration: 90,           // minutes
+ *   price: 150000,          // VND
+ *   category: "Chăm sóc & Làm đẹp",
+ *   petRequired: true,
+ *   image: "url",
+ *   thumbnails: [],
+ *   status: "active",
+ *   rating: 4.5,
+ *   reviewCount: 128,
+ *   features: [],
+ *   location: "string",
+ *   staffRequired: 1,
+ *   autoApprove: true
+ * }
+ * 
+ * ============================================
+ * TRANSFORMER FUNCTIONS
+ * ============================================
+ * 
+ * transformToBackendFormat(frontendService)
+ * - Converts frontend service object to backend API format
+ * 
+ * Example:
+ *   const frontendService = {
+ *     name: "Tắm và chải lông",
+ *     description: "Dịch vụ tắm cơ bản",
+ *     duration: 90,
+ *     price: 150000,
+ *     category: "Chăm sóc & Làm đẹp",
+ *     petRequired: true,
+ *     image: "https://example.com/image.jpg"
+ *   };
+ * 
+ *   const backendFormat = transformToBackendFormat(frontendService);
+ *   // Result: {
+ *   //   name: "Tắm và chải lông",
+ *   //   description: "Dịch vụ tắm cơ bản",
+ *   //   duration_minutes: 90,
+ *   //   base_price: 150000,
+ *   //   service_type: "Chăm sóc & Làm đẹp",
+ *   //   requires_area: true,
+ *   //   image_url: "https://example.com/image.jpg",
+ *   //   thumbnails: []
+ *   // }
+ * 
+ * transformFromBackendFormat(backendService)
+ * - Converts backend API response to frontend format
+ * - Maintains BOTH naming conventions for backward compatibility
+ * 
+ * ============================================
+ * SERVICE TYPES (must match backend enum)
+ * ============================================
+ * - Chăm sóc & Làm đẹp (Grooming & Beauty)
+ * - Huấn luyện (Training)
+ * - Giữ thú cưng (Daycare)
+ * - Dịch vụ Cafe (Cafe Service)
+ * 
+ * ============================================
+ * VALIDATION RULES
+ * ============================================
+ * 1. name: Required, non-empty string
+ * 2. duration_minutes: Required, must be > 0
+ * 3. base_price: Required, must be >= 0
+ * 4. service_type: Required, must be one of SERVICE_TYPES
+ * 
+ * ============================================
+ * USAGE EXAMPLES
+ * ============================================
+ * 
+ * // Creating a Service
+ * const createService = async (formData) => {
+ *   try {
+ *     // Frontend can use either naming convention
+ *     const serviceData = {
+ *       name: formData.name,
+ *       description: formData.description,
+ *       duration: formData.duration,        // or duration_minutes
+ *       price: formData.price,              // or base_price
+ *       category: formData.category,        // or service_type
+ *       petRequired: formData.petRequired,  // or requires_area
+ *       image: formData.image,              // or image_url
+ *       thumbnails: formData.thumbnails || []
+ *     };
+ * 
+ *     const response = await serviceApi.createService(serviceData);
+ *     // Response will have both naming conventions
+ *     console.log(response.data);
+ *   } catch (error) {
+ *     console.error('Error creating service:', error.message);
+ *   }
+ * };
+ * 
+ * // Updating a Service
+ * const updateService = async (serviceId, updates) => {
+ *   try {
+ *     // Can mix both naming conventions
+ *     const updateData = {
+ *       name: updates.name,
+ *       duration_minutes: updates.duration,  // Mixed convention
+ *       base_price: updates.price,           // Mixed convention
+ *       service_type: updates.category       // Mixed convention
+ *     };
+ * 
+ *     const response = await serviceApi.updateService(serviceId, updateData);
+ *     console.log(response.data);
+ *   } catch (error) {
+ *     console.error('Error updating service:', error.message);
+ *   }
+ * };
+ * 
+ * ============================================
+ * TROUBLESHOOTING
+ * ============================================
+ * 
+ * 1. "Giá dịch vụ không hợp lệ"
+ *    → Check that `price` or `base_price` is >= 0
+ * 
+ * 2. "Thời gian dịch vụ phải lớn hơn 0"
+ *    → Check that `duration` or `duration_minutes` is > 0
+ * 
+ * 3. "Loại dịch vụ là bắt buộc"
+ *    → Ensure `category` or `service_type` is provided and matches SERVICE_TYPES
+ * 
+ * 4. Field not updating
+ *    → Make sure you're using the correct field name (either frontend or backend convention)
+ *    → The transformer will handle the conversion automatically
+ * 
+ * @module serviceApi
+ * @lastUpdated 2025-10-10
+ */
+
 import axios from 'axios';
 
 // Base configuration
@@ -10,12 +180,52 @@ const generateId = (prefix = 'id') => {
     return `${prefix}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 };
 
+// Transform frontend service data to backend API format
+const transformToBackendFormat = (frontendService) => {
+    return {
+        name: frontendService.name,
+        description: frontendService.description || '',
+        duration_minutes: frontendService.duration || frontendService.duration_minutes || 0,
+        base_price: frontendService.price || frontendService.base_price || 0,
+        service_type: frontendService.category || frontendService.service_type || 'Chăm sóc & Làm đẹp',
+        requires_area: frontendService.petRequired !== undefined ? frontendService.petRequired :
+            (frontendService.requires_area !== undefined ? frontendService.requires_area : false),
+        image_url: frontendService.image || frontendService.image_url || '',
+        thumbnails: frontendService.thumbnails || []
+    };
+};
+
+// Transform backend API response to frontend format
+const transformFromBackendFormat = (backendService) => {
+    return {
+        id: backendService.id,
+        name: backendService.name,
+        description: backendService.description,
+        duration: backendService.duration_minutes,
+        duration_minutes: backendService.duration_minutes, // Keep both for compatibility
+        price: backendService.base_price,
+        base_price: backendService.base_price, // Keep both for compatibility
+        category: backendService.service_type,
+        service_type: backendService.service_type, // Keep both for compatibility
+        petRequired: backendService.requires_area,
+        requires_area: backendService.requires_area, // Keep both for compatibility
+        image: backendService.image_url,
+        image_url: backendService.image_url, // Keep both for compatibility
+        thumbnails: backendService.thumbnails || [],
+        status: backendService.status || 'active',
+        rating: backendService.rating || 0,
+        reviewCount: backendService.review_count || backendService.reviewCount || 0,
+        createdAt: backendService.created_at || backendService.createdAt,
+        updatedAt: backendService.updated_at || backendService.updatedAt
+    };
+};
+
 // Mock database for services
 const MOCK_SERVICES = [
     {
         id: 'service-001',
         name: 'Tắm và chải lông cơ bản',
-        category: 'grooming',
+        category: 'Chăm sóc & Làm đẹp',
         subCategory: 'bathing',
         price: 150000,
         duration: 90,
@@ -44,7 +254,7 @@ const MOCK_SERVICES = [
     {
         id: 'service-002',
         name: 'Cắt tỉa lông chuyên nghiệp',
-        category: 'grooming',
+        category: 'Chăm sóc & Làm đẹp',
         subCategory: 'trimming',
         price: 300000,
         duration: 120,
@@ -78,7 +288,7 @@ const MOCK_SERVICES = [
     {
         id: 'service-003',
         name: 'Daycare theo ngày',
-        category: 'daycare',
+        category: 'Giữ thú cưng',
         price: 200000,
         duration: 480,
         description: 'Chăm sóc thú cưng cả ngày với hoạt động vui chơi',
@@ -103,7 +313,7 @@ const MOCK_SERVICES = [
     {
         id: 'service-004',
         name: 'Trải nghiệm huấn luyện thú cưng',
-        category: 'training',
+        category: 'Huấn luyện',
         price: 500000,
         duration: 60,
         description: 'Trải nghiệm huấn luyện cùng thú cưng được đào tạo của quán, học cách giao tiếp và hiểu thú cưng',
@@ -133,32 +343,8 @@ const MOCK_SERVICES = [
     },
     {
         id: 'service-005',
-        name: 'Khám sức khỏe tổng quát',
-        category: 'healthcare',
-        price: 350000,
-        duration: 45,
-        description: 'Khám sức khỏe tổng quát và tư vấn chăm sóc',
-        petRequired: true,
-        status: 'active',
-        image: 'https://images.unsplash.com/photo-1576201836106-db1758fd1c97?q=80&w=800&auto=format&fit=crop',
-        location: 'Tầng 1 - Phòng khám',
-        rating: 4.9,
-        reviewCount: 94,
-        features: [
-            'Khám lâm sàng toàn diện',
-            'Kiểm tra các chỉ số sinh hiệu',
-            'Tư vấn dinh dưỡng và chăm sóc',
-            'Lập kế hoạch tiêm phòng',
-            'Báo cáo sức khỏe chi tiết'
-        ],
-        staffRequired: 1,
-        autoApprove: false,
-        requiresVet: true
-    },
-    {
-        id: 'service-006',
         name: 'Tắm và vệ sinh nhanh',
-        category: 'grooming',
+        category: 'Chăm sóc & Làm đẹp',
         price: 80000,
         duration: 30,
         description: 'Dịch vụ tắm và vệ sinh nhanh cho thú cưng',
@@ -178,33 +364,9 @@ const MOCK_SERVICES = [
         autoApprove: true
     },
     {
-        id: 'service-007',
-        name: 'Chăm sóc đặc biệt',
-        category: 'healthcare',
-        price: 450000,
-        duration: 90,
-        description: 'Chăm sóc đặc biệt cho thú cưng già hoặc có vấn đề sức khỏe',
-        petRequired: true,
-        status: 'active',
-        image: 'https://images.unsplash.com/photo-1601758003122-479da8c9f621?q=80&w=800&auto=format&fit=crop',
-        location: 'Tầng 1 - Phòng chăm sóc đặc biệt',
-        rating: 4.8,
-        reviewCount: 45,
-        features: [
-            'Chăm sóc chuyên biệt cho thú cưng già',
-            'Theo dõi sức khỏe liên tục',
-            'Môi trường yên tĩnh và thoải mái',
-            'Nhân viên có kinh nghiệm cao',
-            'Báo cáo chi tiết cho chủ'
-        ],
-        staffRequired: 2,
-        autoApprove: false,
-        requiresVet: true
-    },
-    {
         id: 'service-008',
         name: 'Tương tác với thú cưng cafe',
-        category: 'cafe_service',
+        category: 'Dịch vụ Cafe',
         price: 100000,
         duration: 30,
         description: 'Trải nghiệm tương tác và chơi đùa với các thú cưng đáng yêu của cafe',
@@ -238,7 +400,7 @@ const MOCK_SERVICES = [
     {
         id: 'service-009',
         name: 'Workshop chăm sóc thú cưng cơ bản',
-        category: 'cafe_service',
+        category: 'Dịch vụ Cafe',
         price: 200000,
         duration: 120,
         description: 'Học các kỹ thuật chăm sóc thú cưng cơ bản từ các chuyên gia',
@@ -274,32 +436,32 @@ const MOCK_SERVICES = [
 // Service categories
 const SERVICE_CATEGORIES = [
     {
-        id: 'grooming',
-        name: 'Grooming & Chăm sóc',
+        id: 'Chăm sóc & Làm đẹp',
+        name: 'Chăm sóc & Làm đẹp',
         description: 'Dịch vụ tắm gội, cắt tỉa lông và chăm sóc ngoại hình',
         icon: 'spa',
         color: '#4CAF50'
     },
     {
-        id: 'training',
+        id: 'Huấn luyện',
         name: 'Huấn luyện',
         description: 'Dịch vụ huấn luyện và giáo dục thú cưng',
         icon: 'school',
         color: '#2196F3'
     },
     {
-        id: 'healthcare',
-        name: 'Chăm sóc sức khỏe',
-        description: 'Dịch vụ khám sức khỏe và chăm sóc y tế',
-        icon: 'local_hospital',
-        color: '#F44336'
-    },
-    {
-        id: 'daycare',
+        id: 'Giữ thú cưng',
         name: 'Giữ thú cưng',
         description: 'Dịch vụ giữ và chăm sóc thú cưng theo giờ/ngày',
         icon: 'home',
         color: '#FF9800'
+    },
+    {
+        id: 'Dịch vụ Cafe',
+        name: 'Dịch vụ Cafe',
+        description: 'Trải nghiệm tương tác và hoạt động cùng thú cưng tại cafe',
+        icon: 'local_cafe',
+        color: '#795548'
     }
 ];
 
@@ -648,12 +810,49 @@ const serviceApi = {
             throw new Error('Không có quyền tạo dịch vụ');
         }
 
+        // Validate required fields
+        if (!serviceData.name || !serviceData.name.trim()) {
+            throw new Error('Tên dịch vụ là bắt buộc');
+        }
+
+        // Transform to backend format for validation
+        const backendFormat = transformToBackendFormat(serviceData);
+
+        if (!backendFormat.duration_minutes || backendFormat.duration_minutes <= 0) {
+            throw new Error('Thời gian dịch vụ phải lớn hơn 0');
+        }
+
+        if (!backendFormat.base_price || backendFormat.base_price < 0) {
+            throw new Error('Giá dịch vụ không hợp lệ');
+        }
+
+        if (!backendFormat.service_type) {
+            throw new Error('Loại dịch vụ là bắt buộc');
+        }
+
+        // Create new service in frontend format (for mock database compatibility)
         const newService = {
             id: generateId('service'),
-            ...serviceData,
+            name: serviceData.name,
+            description: serviceData.description || '',
+            duration: backendFormat.duration_minutes,
+            duration_minutes: backendFormat.duration_minutes, // Keep both formats
+            price: backendFormat.base_price,
+            base_price: backendFormat.base_price, // Keep both formats
+            category: backendFormat.service_type,
+            service_type: backendFormat.service_type, // Keep both formats
+            petRequired: backendFormat.requires_area,
+            requires_area: backendFormat.requires_area, // Keep both formats
+            image: backendFormat.image_url,
+            image_url: backendFormat.image_url, // Keep both formats
+            thumbnails: backendFormat.thumbnails || [],
             status: 'active',
             rating: 0,
             reviewCount: 0,
+            features: serviceData.features || [],
+            location: serviceData.location || '',
+            staffRequired: serviceData.staffRequired || 1,
+            autoApprove: serviceData.autoApprove !== undefined ? serviceData.autoApprove : true,
             createdAt: new Date().toISOString(),
             createdBy: currentUser.id
         };
@@ -681,9 +880,71 @@ const serviceApi = {
             throw new Error('Không tìm thấy dịch vụ');
         }
 
+        // Transform to backend format for validation
+        const backendFormat = transformToBackendFormat(updateData);
+
+        // Validate if fields are provided
+        if (updateData.name !== undefined && (!updateData.name || !updateData.name.trim())) {
+            throw new Error('Tên dịch vụ không được để trống');
+        }
+
+        if (updateData.duration !== undefined || updateData.duration_minutes !== undefined) {
+            if (backendFormat.duration_minutes <= 0) {
+                throw new Error('Thời gian dịch vụ phải lớn hơn 0');
+            }
+        }
+
+        if (updateData.price !== undefined || updateData.base_price !== undefined) {
+            if (backendFormat.base_price < 0) {
+                throw new Error('Giá dịch vụ không hợp lệ');
+            }
+        }
+
+        // Merge update data with existing service (support both formats)
+        const updatedFields = {};
+
+        if (updateData.name !== undefined) updatedFields.name = updateData.name;
+        if (updateData.description !== undefined) updatedFields.description = updateData.description;
+
+        if (updateData.duration !== undefined || updateData.duration_minutes !== undefined) {
+            updatedFields.duration = backendFormat.duration_minutes;
+            updatedFields.duration_minutes = backendFormat.duration_minutes;
+        }
+
+        if (updateData.price !== undefined || updateData.base_price !== undefined) {
+            updatedFields.price = backendFormat.base_price;
+            updatedFields.base_price = backendFormat.base_price;
+        }
+
+        if (updateData.category !== undefined || updateData.service_type !== undefined) {
+            updatedFields.category = backendFormat.service_type;
+            updatedFields.service_type = backendFormat.service_type;
+        }
+
+        if (updateData.petRequired !== undefined || updateData.requires_area !== undefined) {
+            updatedFields.petRequired = backendFormat.requires_area;
+            updatedFields.requires_area = backendFormat.requires_area;
+        }
+
+        if (updateData.image !== undefined || updateData.image_url !== undefined) {
+            updatedFields.image = backendFormat.image_url;
+            updatedFields.image_url = backendFormat.image_url;
+        }
+
+        if (updateData.thumbnails !== undefined) {
+            updatedFields.thumbnails = backendFormat.thumbnails;
+        }
+
+        // Apply other fields that don't need transformation
+        if (updateData.features !== undefined) updatedFields.features = updateData.features;
+        if (updateData.location !== undefined) updatedFields.location = updateData.location;
+        if (updateData.staffRequired !== undefined) updatedFields.staffRequired = updateData.staffRequired;
+        if (updateData.autoApprove !== undefined) updatedFields.autoApprove = updateData.autoApprove;
+        if (updateData.status !== undefined) updatedFields.status = updateData.status;
+
         MOCK_SERVICES[serviceIndex] = {
             ...MOCK_SERVICES[serviceIndex],
-            ...updateData,
+            ...updatedFields,
             updatedAt: new Date().toISOString(),
             updatedBy: currentUser.id
         };
@@ -724,8 +985,11 @@ const serviceApi = {
     }
 };
 
-// Service types for manager
-export const SERVICE_TYPES = ['Training', 'Spa', 'Grooming', 'Entertainment', 'Consultation', 'Photography', 'Healthcare', 'Daycare', 'Cafe_Service'];
+// Service types for manager (matches backend enum)
+export const SERVICE_TYPES = ['Chăm sóc & Làm đẹp', 'Huấn luyện', 'Giữ thú cưng', 'Dịch vụ Cafe'];
+
+// Export transformer functions for external use
+export { transformToBackendFormat, transformFromBackendFormat };
 
 // Export both named and default
 export { serviceApi };

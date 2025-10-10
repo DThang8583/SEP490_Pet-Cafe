@@ -447,85 +447,17 @@ export const InternalAssignment = ({ formData, setFormData, areas, staff, openSt
 
 // ==================== SERVICE ASSIGNMENT ====================
 export const ServiceAssignment = ({ formData, setFormData, areas, staff, selectedService, openStaffGroupDialog, openPetGroupDialog, editStaffGroup }) => {
-    if (!selectedService) {
-        return <Alert severity="warning">Vui lòng chọn dịch vụ trước</Alert>;
-    }
-
-    const serviceTimeSlots = selectedService.timeSlots || [];
-
-    // Auto-initialize all time slots on mount
-    React.useEffect(() => {
-        if (serviceTimeSlots.length > 0) {
-            const newAssignments = { ...formData.timeSlotAssignments };
-            let hasChanges = false;
-
-            serviceTimeSlots.forEach(ts => {
-                if (!newAssignments[ts]) {
-                    newAssignments[ts] = { areaIds: [], petGroups: [], staffGroups: [] };
-                    hasChanges = true;
-                }
-            });
-
-            if (hasChanges) {
-                setFormData(prev => ({
-                    ...prev,
-                    selectedTimeSlots: serviceTimeSlots,
-                    timeSlotAssignments: newAssignments
-                }));
-            }
-        }
-    }, [serviceTimeSlots.length]); // Only run when service changes
-
-    if (serviceTimeSlots.length === 0) {
-        return (
-            <Box sx={{ p: 3 }}>
-                <Alert severity="warning">
-                    Dịch vụ này chưa có ca làm việc được định nghĩa.
-                </Alert>
-            </Box>
-        );
-    }
-
+    // Service tasks now use shift-based assignment (same as internal tasks)
     return (
-        <Box sx={{ p: 3 }}>
-            <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>
-                Phân công cho dịch vụ: {selectedService.name || ''}
-            </Typography>
-            <Typography variant="body2" sx={{ mb: 3, color: COLORS.TEXT.SECONDARY }}>
-                Phân công nhân viên, khu vực và pet cho tất cả {serviceTimeSlots.length} ca làm việc của dịch vụ.
-            </Typography>
-
-            {/* Assignments for ALL timeSlots (auto-displayed, no need to select) */}
-            <Stack spacing={2}>
-                {serviceTimeSlots.map((timeSlot, idx) => (
-                    <Accordion key={timeSlot} defaultExpanded={idx === 0}>
-                        <AccordionSummary
-                            expandIcon={<ExpandMore />}
-                            sx={{
-                                backgroundColor: alpha(COLORS.PRIMARY[50], 0.5),
-                                '&:hover': { backgroundColor: alpha(COLORS.PRIMARY[100], 0.5) }
-                            }}
-                        >
-                            <Typography variant="body1" sx={{ fontWeight: 700, color: COLORS.PRIMARY[700] }}>
-                                🕐 Khung giờ: {timeSlot}
-                            </Typography>
-                        </AccordionSummary>
-                        <AccordionDetails sx={{ pt: 2 }}>
-                            <TimeSlotAssignment
-                                timeSlot={timeSlot}
-                                formData={formData}
-                                setFormData={setFormData}
-                                areas={areas}
-                                staff={staff}
-                                openStaffGroupDialog={openStaffGroupDialog}
-                                openPetGroupDialog={openPetGroupDialog}
-                                editStaffGroup={editStaffGroup}
-                            />
-                        </AccordionDetails>
-                    </Accordion>
-                ))}
-            </Stack>
-        </Box>
+        <InternalAssignment
+            formData={formData}
+            setFormData={setFormData}
+            areas={areas}
+            staff={staff}
+            openStaffGroupDialog={openStaffGroupDialog}
+            openPetGroupDialog={openPetGroupDialog}
+            editStaffGroup={editStaffGroup}
+        />
     );
 };
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Stack, Toolbar, TextField, Select, MenuItem, InputLabel, FormControl, IconButton, Button, Avatar } from '@mui/material';
+import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Stack, Toolbar, TextField, Select, MenuItem, InputLabel, FormControl, IconButton, Button, Avatar, Grid } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import { COLORS } from '../../constants/colors';
 import Loading from '../../components/loading/Loading';
@@ -7,7 +7,7 @@ import Pagination from '../../components/common/Pagination';
 import ConfirmModal from '../../components/modals/ConfirmModal';
 import AddStaffModal from '../../components/modals/AddStaffModal';
 import AlertModal from '../../components/modals/AlertModal';
-import { Edit, Delete } from '@mui/icons-material';
+import { Edit, Delete, People, PersonAdd, Person, EventBusy } from '@mui/icons-material';
 import { managerApi } from '../../api/userApi';
 
 const formatSalary = (salary) => {
@@ -16,7 +16,7 @@ const formatSalary = (salary) => {
 
 const roleLabel = (r) => {
     switch (r) {
-        case 'sale_staff': return 'Sale staff';
+        case 'sales_staff': return 'Sale staff';
         case 'working_staff': return 'Working staff';
         default: return r;
     }
@@ -24,7 +24,7 @@ const roleLabel = (r) => {
 
 const roleColor = (r) => {
     switch (r) {
-        case 'sale_staff': return { bg: alpha(COLORS.INFO[100], 0.8), color: COLORS.INFO[700] };
+        case 'sales_staff': return { bg: alpha(COLORS.INFO[100], 0.8), color: COLORS.INFO[700] };
         case 'working_staff': return { bg: alpha(COLORS.WARNING[100], 0.8), color: COLORS.WARNING[700] };
         default: return { bg: alpha(COLORS.GRAY[200], 0.6), color: COLORS.TEXT.SECONDARY };
     }
@@ -96,6 +96,17 @@ const StaffPage = () => {
             return text.includes(q.toLowerCase());
         });
     }, [staff, q, filterRole, filterStatus]);
+
+    // Statistics
+    const stats = useMemo(() => {
+        return {
+            total: staff.length,
+            saleStaff: staff.filter(s => s.role === 'sales_staff').length,
+            workingStaff: staff.filter(s => s.role === 'working_staff').length,
+            active: staff.filter(s => s.status === 'active').length,
+            onLeave: staff.filter(s => s.status === 'on_leave').length
+        };
+    }, [staff]);
 
     // Pagination calculations
     const totalPages = Math.ceil(filtered.length / itemsPerPage);
@@ -188,10 +199,210 @@ const StaffPage = () => {
     return (
         <Box sx={{ background: COLORS.BACKGROUND.NEUTRAL, minHeight: '100vh', width: '100%' }}>
             <Box sx={{ px: { xs: 2, md: 4 }, py: 3 }}>
-                <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 2 }}>
-                    <Typography variant="h5" sx={{ fontWeight: 900, color: COLORS.ERROR[600] }}>Quản lý nhân viên</Typography>
-                    <Chip label={`Tổng: ${staff.length}`} size="small" sx={{ background: alpha(COLORS.SECONDARY[100], 0.7), color: COLORS.SECONDARY[800], fontWeight: 700 }} />
-                </Stack>
+                <Typography variant="h5" sx={{ fontWeight: 900, color: COLORS.ERROR[600], mb: 3 }}>Quản lý nhân viên</Typography>
+
+                {/* Status Badges */}
+                <Grid container spacing={2} sx={{ mb: 3 }}>
+                    <Grid item xs={6} sm={6} md={2.4}>
+                        <Paper
+                            sx={{
+                                p: 2,
+                                background: `linear-gradient(135deg, ${alpha(COLORS.PRIMARY[50], 0.8)} 0%, ${alpha(COLORS.PRIMARY[100], 0.6)} 100%)`,
+                                border: `2px solid ${alpha(COLORS.PRIMARY[300], 0.3)}`,
+                                borderRadius: 3,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 1.5,
+                                transition: 'all 0.3s ease',
+                                '&:hover': {
+                                    transform: 'translateY(-4px)',
+                                    boxShadow: `0 8px 24px ${alpha(COLORS.PRIMARY[500], 0.2)}`
+                                }
+                            }}
+                        >
+                            <Box
+                                sx={{
+                                    background: `linear-gradient(135deg, ${COLORS.PRIMARY[400]} 0%, ${COLORS.PRIMARY[600]} 100%)`,
+                                    borderRadius: 2,
+                                    p: 1,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}
+                            >
+                                <People sx={{ color: 'white', fontSize: 28 }} />
+                            </Box>
+                            <Box>
+                                <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.PRIMARY[700] }}>
+                                    {stats.total}
+                                </Typography>
+                                <Typography variant="caption" sx={{ color: COLORS.PRIMARY[600], fontWeight: 600 }}>
+                                    Tổng nhân viên
+                                </Typography>
+                            </Box>
+                        </Paper>
+                    </Grid>
+
+                    <Grid item xs={6} sm={6} md={2.4}>
+                        <Paper
+                            sx={{
+                                p: 2,
+                                background: `linear-gradient(135deg, ${alpha(COLORS.INFO[50], 0.8)} 0%, ${alpha(COLORS.INFO[100], 0.6)} 100%)`,
+                                border: `2px solid ${alpha(COLORS.INFO[300], 0.3)}`,
+                                borderRadius: 3,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 1.5,
+                                transition: 'all 0.3s ease',
+                                '&:hover': {
+                                    transform: 'translateY(-4px)',
+                                    boxShadow: `0 8px 24px ${alpha(COLORS.INFO[500], 0.2)}`
+                                }
+                            }}
+                        >
+                            <Box
+                                sx={{
+                                    background: `linear-gradient(135deg, ${COLORS.INFO[400]} 0%, ${COLORS.INFO[600]} 100%)`,
+                                    borderRadius: 2,
+                                    p: 1,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}
+                            >
+                                <PersonAdd sx={{ color: 'white', fontSize: 28 }} />
+                            </Box>
+                            <Box>
+                                <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.INFO[700] }}>
+                                    {stats.saleStaff}
+                                </Typography>
+                                <Typography variant="caption" sx={{ color: COLORS.INFO[600], fontWeight: 600 }}>
+                                    Sale Staff
+                                </Typography>
+                            </Box>
+                        </Paper>
+                    </Grid>
+
+                    <Grid item xs={6} sm={6} md={2.4}>
+                        <Paper
+                            sx={{
+                                p: 2,
+                                background: `linear-gradient(135deg, ${alpha(COLORS.WARNING[50], 0.8)} 0%, ${alpha(COLORS.WARNING[100], 0.6)} 100%)`,
+                                border: `2px solid ${alpha(COLORS.WARNING[300], 0.3)}`,
+                                borderRadius: 3,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 1.5,
+                                transition: 'all 0.3s ease',
+                                '&:hover': {
+                                    transform: 'translateY(-4px)',
+                                    boxShadow: `0 8px 24px ${alpha(COLORS.WARNING[500], 0.2)}`
+                                }
+                            }}
+                        >
+                            <Box
+                                sx={{
+                                    background: `linear-gradient(135deg, ${COLORS.WARNING[400]} 0%, ${COLORS.WARNING[600]} 100%)`,
+                                    borderRadius: 2,
+                                    p: 1,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}
+                            >
+                                <Person sx={{ color: 'white', fontSize: 28 }} />
+                            </Box>
+                            <Box>
+                                <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.WARNING[700] }}>
+                                    {stats.workingStaff}
+                                </Typography>
+                                <Typography variant="caption" sx={{ color: COLORS.WARNING[600], fontWeight: 600 }}>
+                                    Working Staff
+                                </Typography>
+                            </Box>
+                        </Paper>
+                    </Grid>
+
+                    <Grid item xs={6} sm={6} md={2.4}>
+                        <Paper
+                            sx={{
+                                p: 2,
+                                background: `linear-gradient(135deg, ${alpha(COLORS.SUCCESS[50], 0.8)} 0%, ${alpha(COLORS.SUCCESS[100], 0.6)} 100%)`,
+                                border: `2px solid ${alpha(COLORS.SUCCESS[300], 0.3)}`,
+                                borderRadius: 3,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 1.5,
+                                transition: 'all 0.3s ease',
+                                '&:hover': {
+                                    transform: 'translateY(-4px)',
+                                    boxShadow: `0 8px 24px ${alpha(COLORS.SUCCESS[500], 0.2)}`
+                                }
+                            }}
+                        >
+                            <Box
+                                sx={{
+                                    background: `linear-gradient(135deg, ${COLORS.SUCCESS[400]} 0%, ${COLORS.SUCCESS[600]} 100%)`,
+                                    borderRadius: 2,
+                                    p: 1,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}
+                            >
+                                <People sx={{ color: 'white', fontSize: 28 }} />
+                            </Box>
+                            <Box>
+                                <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.SUCCESS[700] }}>
+                                    {stats.active}
+                                </Typography>
+                                <Typography variant="caption" sx={{ color: COLORS.SUCCESS[600], fontWeight: 600 }}>
+                                    Đang làm việc
+                                </Typography>
+                            </Box>
+                        </Paper>
+                    </Grid>
+
+                    <Grid item xs={6} sm={6} md={2.4}>
+                        <Paper
+                            sx={{
+                                p: 2,
+                                background: `linear-gradient(135deg, ${alpha(COLORS.ERROR[50], 0.8)} 0%, ${alpha(COLORS.ERROR[100], 0.6)} 100%)`,
+                                border: `2px solid ${alpha(COLORS.ERROR[300], 0.3)}`,
+                                borderRadius: 3,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 1.5,
+                                transition: 'all 0.3s ease',
+                                '&:hover': {
+                                    transform: 'translateY(-4px)',
+                                    boxShadow: `0 8px 24px ${alpha(COLORS.ERROR[500], 0.2)}`
+                                }
+                            }}
+                        >
+                            <Box
+                                sx={{
+                                    background: `linear-gradient(135deg, ${COLORS.ERROR[400]} 0%, ${COLORS.ERROR[600]} 100%)`,
+                                    borderRadius: 2,
+                                    p: 1,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}
+                            >
+                                <EventBusy sx={{ color: 'white', fontSize: 28 }} />
+                            </Box>
+                            <Box>
+                                <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.ERROR[700] }}>
+                                    {stats.onLeave}
+                                </Typography>
+                                <Typography variant="caption" sx={{ color: COLORS.ERROR[600], fontWeight: 600 }}>
+                                    Nghỉ phép
+                                </Typography>
+                            </Box>
+                        </Paper>
+                    </Grid>
+                </Grid>
 
                 <Toolbar disableGutters sx={{ gap: 2, flexWrap: 'wrap', mb: 2 }}>
                     <TextField
@@ -205,7 +416,7 @@ const StaffPage = () => {
                         <InputLabel>Vai trò</InputLabel>
                         <Select label="Vai trò" value={filterRole} onChange={(e) => setFilterRole(e.target.value)}>
                             <MenuItem value="all">Tất cả</MenuItem>
-                            <MenuItem value="sale_staff">Sale staff</MenuItem>
+                            <MenuItem value="sales_staff">Sale staff</MenuItem>
                             <MenuItem value="working_staff">Working staff</MenuItem>
                         </Select>
                     </FormControl>
@@ -240,7 +451,6 @@ const StaffPage = () => {
                                 <TableCell sx={{ fontWeight: 800, display: { xs: 'none', md: 'table-cell' } }}>Email</TableCell>
                                 <TableCell sx={{ fontWeight: 800, display: { xs: 'none', sm: 'table-cell' } }}>SĐT</TableCell>
                                 <TableCell sx={{ fontWeight: 800, display: { xs: 'none', lg: 'table-cell' } }}>Địa chỉ</TableCell>
-                                <TableCell sx={{ fontWeight: 800, display: { xs: 'none', md: 'table-cell' } }}>Lương</TableCell>
                                 <TableCell sx={{ fontWeight: 800 }}>Vai trò</TableCell>
                                 <TableCell sx={{ fontWeight: 800 }}>Trạng thái</TableCell>
                                 <TableCell sx={{ fontWeight: 800, textAlign: 'right' }}>Hành động</TableCell>
@@ -261,9 +471,6 @@ const StaffPage = () => {
                                         <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>{s.email}</TableCell>
                                         <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>{s.phone}</TableCell>
                                         <TableCell sx={{ display: { xs: 'none', lg: 'table-cell' } }}>{s.address || '—'}</TableCell>
-                                        <TableCell sx={{ display: { xs: 'none', md: 'table-cell' }, fontWeight: 600, color: COLORS.SUCCESS[700] }}>
-                                            {formatSalary(s.salary)}
-                                        </TableCell>
                                         <TableCell>
                                             <Chip size="small" label={roleLabel(s.role)} sx={{ background: rColor.bg, color: rColor.color, fontWeight: 700 }} />
                                         </TableCell>

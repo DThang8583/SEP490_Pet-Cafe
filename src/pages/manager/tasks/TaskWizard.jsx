@@ -89,33 +89,30 @@ const TaskWizard = ({ open, onClose, onCreateTask, onUpdateTask, editingTask, se
                 }
             }
         } else if (formData.type === 'service') {
-            // Validate service task assignments
-            const selectedService = services?.find(s => s.id === formData.serviceId);
-            const serviceTimeSlots = selectedService?.timeSlots || [];
-
-            if (serviceTimeSlots.length === 0) {
-                return 'Dịch vụ này chưa có ca làm việc';
+            // Validate service task assignments (now using shifts like internal tasks)
+            if (!formData.shifts || formData.shifts.length === 0) {
+                return 'Chưa chọn ca làm việc nào';
             }
 
-            for (const timeSlot of serviceTimeSlots) {
-                const assignment = formData.timeSlotAssignments?.[timeSlot];
+            for (const shift of formData.shifts) {
+                const assignment = formData.shiftAssignments?.[shift];
                 if (!assignment) {
-                    return `Chưa phân công cho khung giờ "${timeSlot}"`;
+                    return `Chưa phân công cho ca làm "${shift}"`;
                 }
 
                 // Check if at least one staff group is assigned
                 if (!assignment.staffGroups || assignment.staffGroups.length === 0) {
-                    return `Khung giờ "${timeSlot}": Chưa có nhóm nhân viên nào được phân công`;
+                    return `Ca làm "${shift}": Chưa có nhóm nhân viên nào được phân công`;
                 }
 
                 // Validate each staff group has a leader
                 for (let i = 0; i < assignment.staffGroups.length; i++) {
                     const group = assignment.staffGroups[i];
                     if (!group.leaderId) {
-                        return `Khung giờ "${timeSlot}", Nhóm "${group.name}": Chưa chọn Leader`;
+                        return `Ca làm "${shift}", Nhóm "${group.name}": Chưa chọn Leader`;
                     }
                     if (!group.staffIds || group.staffIds.length === 0) {
-                        return `Khung giờ "${timeSlot}", Nhóm "${group.name}": Chưa có thành viên nào`;
+                        return `Ca làm "${shift}", Nhóm "${group.name}": Chưa có thành viên nào`;
                     }
                 }
             }
@@ -193,26 +190,8 @@ const TaskWizard = ({ open, onClose, onCreateTask, onUpdateTask, editingTask, se
                     }
                 };
             });
-        } else if (staffGroupContext?.timeSlot) {
-            const timeSlot = staffGroupContext.timeSlot;
-            setFormData(prev => {
-                const currentGroups = prev.timeSlotAssignments[timeSlot]?.staffGroups || [];
-                const updatedGroups = isEditMode
-                    ? currentGroups.map((g, idx) => idx === editGroupIndex ? groupData : g)
-                    : [...currentGroups, groupData];
-
-                return {
-                    ...prev,
-                    timeSlotAssignments: {
-                        ...prev.timeSlotAssignments,
-                        [timeSlot]: {
-                            ...prev.timeSlotAssignments[timeSlot],
-                            staffGroups: updatedGroups
-                        }
-                    }
-                };
-            });
         }
+        // NOTE: timeSlot context removed - services now use shifts like internal tasks
 
         setStaffGroupDialogOpen(false);
         setIsEditMode(false);
@@ -258,37 +237,8 @@ const TaskWizard = ({ open, onClose, onCreateTask, onUpdateTask, editingTask, se
                     };
                 }
             });
-        } else if (petGroupContext?.timeSlot) {
-            const timeSlot = petGroupContext.timeSlot;
-            setFormData(prev => {
-                const assignment = prev.timeSlotAssignments[timeSlot] || { areaIds: [], petGroups: [], staffGroups: [] };
-                const existing = assignment.petGroups.find(pg => pg.groupName === groupName);
-
-                if (existing) {
-                    return {
-                        ...prev,
-                        timeSlotAssignments: {
-                            ...prev.timeSlotAssignments,
-                            [timeSlot]: {
-                                ...assignment,
-                                petGroups: assignment.petGroups.filter(pg => pg.groupName !== groupName)
-                            }
-                        }
-                    };
-                } else {
-                    return {
-                        ...prev,
-                        timeSlotAssignments: {
-                            ...prev.timeSlotAssignments,
-                            [timeSlot]: {
-                                ...assignment,
-                                petGroups: [...assignment.petGroups, { groupName, petIds, count }]
-                            }
-                        }
-                    };
-                }
-            });
         }
+        // NOTE: timeSlot context removed - services now use shifts like internal tasks
     };
 
     const renderStepContent = (step) => {

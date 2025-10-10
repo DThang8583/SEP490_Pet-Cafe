@@ -3,6 +3,7 @@
 import { AREAS_DATA } from './areasApi';
 import { petApi, MOCK_PET_GROUPS } from './petApi';
 import { managerApi } from './userApi';
+import serviceApi from './serviceApi';
 
 // ========== CONSTANTS ==========
 
@@ -24,43 +25,11 @@ export const SHIFTS = [
 
 export const WIZARD_STEPS = ['Loại nhiệm vụ', 'Chọn nhiệm vụ', 'Khung thời gian', 'Ca làm', 'Phân công', 'Xác nhận'];
 
-// ========== MOCK DATA ==========
-
-// Mock services data (should be replaced with real API call)
-const MOCK_SERVICES = [
-    {
-        id: 'service-1',
-        name: 'Huấn luyện cơ bản',
-        timeSlots: ['08:00 - 09:00', '14:00 - 15:00'],
-        startDate: '',
-        endDate: ''
-    },
-    {
-        id: 'service-2',
-        name: 'Spa thư giãn',
-        timeSlots: ['09:00 - 10:30', '13:00 - 14:30', '15:00 - 16:30'],
-        startDate: '',
-        endDate: ''
-    },
-    {
-        id: 'service-3',
-        name: 'Grooming chuyên nghiệp',
-        timeSlots: ['08:00 - 10:00', '13:00 - 15:00'],
-        startDate: '',
-        endDate: ''
-    },
-    {
-        id: 'service-4',
-        name: 'Khóa huấn luyện mùa hè',
-        timeSlots: ['07:00 - 08:30', '17:00 - 18:30'],
-        startDate: '2025-06-01',
-        endDate: '2025-08-31'
-    }
-];
-
 // ========== API FUNCTIONS ==========
 
-// NOTE: All data (pets, staff, pet groups) are now fetched from their respective APIs
+// NOTE: All data (services, pets, areas, staff, pet groups) are now fetched from their respective APIs
+// - Services: serviceApi.getAllServices()
+// - Areas: AREAS_DATA from areasApi
 // - Pets: petApi.getPets()
 // - Staff: managerApi.getStaff() from userApi
 // - Pet Groups: petApi.getPetGroups()
@@ -68,13 +37,39 @@ const MOCK_SERVICES = [
 
 /**
  * Get all services for task assignment
+ * Loads from serviceApi.js with proper field mapping
  * @returns {Promise<Array>} Array of service objects
  */
 export const getServicesForTasks = async () => {
-    // Simulate API call
-    return new Promise((resolve) => {
-        setTimeout(() => resolve(MOCK_SERVICES), 100);
-    });
+    try {
+        const response = await serviceApi.getAllServices();
+        const services = response?.data || [];
+
+        // Map services to task format
+        const mappedServices = services.map(service => ({
+            id: service.id,
+            name: service.name,
+            category: service.category || service.service_type,
+            duration: service.duration || service.duration_minutes,
+            price: service.price || service.base_price,
+            image: service.image || service.image_url,
+            description: service.description,
+            location: service.location,
+            staffRequired: service.staffRequired,
+            // Service period - extract from service if available (for events/workshops)
+            startDate: service.serviceStartDate || '',
+            endDate: service.serviceEndDate || '',
+            registrationStartDate: service.registrationStartDate || '',
+            registrationEndDate: service.registrationEndDate || ''
+            // NOTE: Services no longer use timeSlots - use SHIFTS instead for assignment
+        }));
+
+        console.log('[tasksApi] getServicesForTasks() - loaded from serviceApi:', mappedServices.length);
+        return mappedServices;
+    } catch (error) {
+        console.error('[tasksApi] getServicesForTasks() error:', error);
+        return [];
+    }
 };
 
 /**
@@ -215,10 +210,9 @@ export const createInitialFormData = () => ({
     month: new Date().toISOString().slice(0, 7),
     servicePeriodStart: '',
     servicePeriodEnd: '',
-    shifts: [], // Changed from single shift to array of shifts
-    // For internal tasks: shiftAssignments[shift] = { areaIds, petGroups, staffGroups }
-    shiftAssignments: {},
-    selectedTimeSlots: [],
-    timeSlotAssignments: {}
+    shifts: [], // Array of shifts for both internal and service tasks
+    // Both internal and service tasks use shiftAssignments now
+    // shiftAssignments[shift] = { areaIds, petGroups, staffGroups }
+    shiftAssignments: {}
 });
 
