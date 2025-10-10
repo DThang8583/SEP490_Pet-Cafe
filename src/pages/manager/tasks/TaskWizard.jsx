@@ -156,7 +156,8 @@ const TaskWizard = ({ open, onClose, onCreateTask, onUpdateTask, editingTask, se
         setStaffGroupDialogOpen(true);
     };
 
-    const editStaffGroup = (context, groupIndex, groupData) => {
+    const editStaffGroup = (context) => {
+        const { groupIndex, groupData } = context;
         setStaffGroupContext(context);
         setStaffGroupForm({
             name: groupData.name,
@@ -324,7 +325,7 @@ const TaskWizard = ({ open, onClose, onCreateTask, onUpdateTask, editingTask, se
             <StaffGroupDialog
                 open={staffGroupDialogOpen}
                 onClose={() => setStaffGroupDialogOpen(false)}
-                staff={staff}
+                staff={staffGroupContext?.availableStaff || staff}
                 staffGroupForm={staffGroupForm}
                 setStaffGroupForm={setStaffGroupForm}
                 onSave={saveStaffGroup}

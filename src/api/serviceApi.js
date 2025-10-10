@@ -2,19 +2,19 @@
  * SERVICE API - Data Mapping & Mock Implementation
  * 
  * ============================================
- * FIELD MAPPING: FRONTEND ↔ BACKEND
+ * OFFICIAL API FIELDS
  * ============================================
  * 
- * | Frontend Field | Backend Field      | Type     | Required | Description                    |
- * |----------------|-------------------|----------|----------|--------------------------------|
- * | name           | name              | string   | ✅ Yes   | Service name                   |
- * | description    | description       | string   | ⚠️ Opt   | Service description            |
- * | duration       | duration_minutes  | number   | ✅ Yes   | Service duration in minutes    |
- * | price          | base_price        | number   | ✅ Yes   | Base price in VND              |
- * | category       | service_type      | string   | ✅ Yes   | Service type/category          |
- * | petRequired    | requires_area     | boolean  | ⚠️ Opt   | Whether service requires area  |
- * | image          | image_url         | string   | ⚠️ Opt   | Main image URL                 |
- * | thumbnails     | thumbnails        | string[] | ⚠️ Opt   | Array of thumbnail URLs        |
+ * | Field Name       | Type     | Required | Description                    |
+ * |------------------|----------|----------|--------------------------------|
+ * | name             | string   | ✅ Yes   | Service name                   |
+ * | description      | string   | ⚠️ Opt   | Service description            |
+ * | duration_minutes | number   | ✅ Yes   | Service duration in minutes    |
+ * | base_price       | number   | ✅ Yes   | Base price in VND              |
+ * | service_type     | string   | ✅ Yes   | Service type/category          |
+ * | requires_area    | boolean  | ⚠️ Opt   | Whether service requires area  |
+ * | image_url        | string   | ⚠️ Opt   | Main image URL                 |
+ * | thumbnails       | string[] | ⚠️ Opt   | Array of thumbnail URLs        |
  * 
  * ============================================
  * BACKEND SCHEMA (from Swagger API)
@@ -31,60 +31,43 @@
  * }
  * 
  * ============================================
- * FRONTEND SCHEMA (Current)
+ * DATA SCHEMA (Matches Official API)
  * ============================================
  * {
- *   id: "string",
+ *   id: "string",                  // Auto-generated
  *   name: "string",
  *   description: "string",
- *   duration: 90,           // minutes
- *   price: 150000,          // VND
- *   category: "Chăm sóc & Làm đẹp",
- *   petRequired: true,
- *   image: "url",
- *   thumbnails: [],
- *   status: "active",
- *   rating: 4.5,
- *   reviewCount: 128,
- *   features: [],
- *   location: "string",
- *   staffRequired: 1,
- *   autoApprove: true
+ *   duration_minutes: 90,
+ *   base_price: 150000,
+ *   service_type: "Chăm sóc & Làm đẹp",
+ *   requires_area: true,
+ *   image_url: "url",
+ *   thumbnails: []
  * }
  * 
  * ============================================
  * TRANSFORMER FUNCTIONS
  * ============================================
  * 
- * transformToBackendFormat(frontendService)
- * - Converts frontend service object to backend API format
+ * transformToBackendFormat(serviceData)
+ * - Validates and normalizes service data to official API format
  * 
  * Example:
- *   const frontendService = {
+ *   const serviceData = {
  *     name: "Tắm và chải lông",
  *     description: "Dịch vụ tắm cơ bản",
- *     duration: 90,
- *     price: 150000,
- *     category: "Chăm sóc & Làm đẹp",
- *     petRequired: true,
- *     image: "https://example.com/image.jpg"
+ *     duration_minutes: 90,
+ *     base_price: 150000,
+ *     service_type: "Chăm sóc & Làm đẹp",
+ *     requires_area: true,
+ *     image_url: "https://example.com/image.jpg"
  *   };
  * 
- *   const backendFormat = transformToBackendFormat(frontendService);
- *   // Result: {
- *   //   name: "Tắm và chải lông",
- *   //   description: "Dịch vụ tắm cơ bản",
- *   //   duration_minutes: 90,
- *   //   base_price: 150000,
- *   //   service_type: "Chăm sóc & Làm đẹp",
- *   //   requires_area: true,
- *   //   image_url: "https://example.com/image.jpg",
- *   //   thumbnails: []
- *   // }
+ *   const apiFormat = transformToBackendFormat(serviceData);
+ *   // Result: Official API format (8 fields only)
  * 
  * transformFromBackendFormat(backendService)
- * - Converts backend API response to frontend format
- * - Maintains BOTH naming conventions for backward compatibility
+ * - Returns backend API response as-is (no transformation needed)
  * 
  * ============================================
  * SERVICE TYPES (must match backend enum)
@@ -95,12 +78,14 @@
  * - Dịch vụ Cafe (Cafe Service)
  * 
  * ============================================
- * VALIDATION RULES
+ * VALIDATION RULES (Backend API)
  * ============================================
  * 1. name: Required, non-empty string
  * 2. duration_minutes: Required, must be > 0
  * 3. base_price: Required, must be >= 0
  * 4. service_type: Required, must be one of SERVICE_TYPES
+ * 
+ * Note: start_date, end_date, max_capacity are FRONTEND-ONLY fields for UI display
  * 
  * ============================================
  * USAGE EXAMPLES
@@ -109,20 +94,18 @@
  * // Creating a Service
  * const createService = async (formData) => {
  *   try {
- *     // Frontend can use either naming convention
  *     const serviceData = {
  *       name: formData.name,
  *       description: formData.description,
- *       duration: formData.duration,        // or duration_minutes
- *       price: formData.price,              // or base_price
- *       category: formData.category,        // or service_type
- *       petRequired: formData.petRequired,  // or requires_area
- *       image: formData.image,              // or image_url
+ *       duration_minutes: formData.duration_minutes,
+ *       base_price: formData.base_price,
+ *       service_type: formData.service_type,
+ *       requires_area: formData.requires_area,
+ *       image_url: formData.image_url,
  *       thumbnails: formData.thumbnails || []
  *     };
  * 
  *     const response = await serviceApi.createService(serviceData);
- *     // Response will have both naming conventions
  *     console.log(response.data);
  *   } catch (error) {
  *     console.error('Error creating service:', error.message);
@@ -132,12 +115,11 @@
  * // Updating a Service
  * const updateService = async (serviceId, updates) => {
  *   try {
- *     // Can mix both naming conventions
  *     const updateData = {
  *       name: updates.name,
- *       duration_minutes: updates.duration,  // Mixed convention
- *       base_price: updates.price,           // Mixed convention
- *       service_type: updates.category       // Mixed convention
+ *       duration_minutes: updates.duration_minutes,
+ *       base_price: updates.base_price,
+ *       service_type: updates.service_type
  *     };
  * 
  *     const response = await serviceApi.updateService(serviceId, updateData);
@@ -185,251 +167,98 @@ const transformToBackendFormat = (frontendService) => {
     return {
         name: frontendService.name,
         description: frontendService.description || '',
-        duration_minutes: frontendService.duration || frontendService.duration_minutes || 0,
-        base_price: frontendService.price || frontendService.base_price || 0,
-        service_type: frontendService.category || frontendService.service_type || 'Chăm sóc & Làm đẹp',
-        requires_area: frontendService.petRequired !== undefined ? frontendService.petRequired :
-            (frontendService.requires_area !== undefined ? frontendService.requires_area : false),
-        image_url: frontendService.image || frontendService.image_url || '',
+        duration_minutes: frontendService.duration_minutes || 0,
+        base_price: frontendService.base_price || 0,
+        service_type: frontendService.service_type || 'Chăm sóc & Làm đẹp',
+        requires_area: frontendService.requires_area !== undefined ? frontendService.requires_area : false,
+        image_url: frontendService.image_url || '',
         thumbnails: frontendService.thumbnails || []
     };
 };
 
-// Transform backend API response to frontend format
+// Transform backend API response to frontend format (returns as-is since they match)
 const transformFromBackendFormat = (backendService) => {
-    return {
-        id: backendService.id,
-        name: backendService.name,
-        description: backendService.description,
-        duration: backendService.duration_minutes,
-        duration_minutes: backendService.duration_minutes, // Keep both for compatibility
-        price: backendService.base_price,
-        base_price: backendService.base_price, // Keep both for compatibility
-        category: backendService.service_type,
-        service_type: backendService.service_type, // Keep both for compatibility
-        petRequired: backendService.requires_area,
-        requires_area: backendService.requires_area, // Keep both for compatibility
-        image: backendService.image_url,
-        image_url: backendService.image_url, // Keep both for compatibility
-        thumbnails: backendService.thumbnails || [],
-        status: backendService.status || 'active',
-        rating: backendService.rating || 0,
-        reviewCount: backendService.review_count || backendService.reviewCount || 0,
-        createdAt: backendService.created_at || backendService.createdAt,
-        updatedAt: backendService.updated_at || backendService.updatedAt
-    };
+    return backendService;
 };
 
-// Mock database for services
+// Mock database for services (matching official API)
 const MOCK_SERVICES = [
     {
         id: 'service-001',
         name: 'Tắm và chải lông cơ bản',
-        category: 'Chăm sóc & Làm đẹp',
-        subCategory: 'bathing',
-        price: 150000,
-        duration: 90,
-        durationBySize: {
-            small: 60,    // Chó/mèo nhỏ: 1 giờ
-            medium: 90,   // Chó/mèo vừa: 1.5 giờ
-            large: 120    // Chó lớn: 2 giờ
-        },
         description: 'Tắm sạch và chải lông mượt mà cho thú cưng của bạn',
-        petRequired: true,
-        status: 'active',
-        image: 'https://images.unsplash.com/photo-1601758228041-f3b2795255f1?q=80&w=800&auto=format&fit=crop',
-        location: 'Tầng 1 - Khu Grooming',
-        rating: 4.5,
-        reviewCount: 128,
-        features: [
-            'Tắm gội với sữa tắm chuyên dụng',
-            'Cắt tỉa lông theo yêu cầu',
-            'Cắt móng chân an toàn',
-            'Vệ sinh tai và mắt',
-            'Sấy khô và chải lông'
-        ],
-        staffRequired: 1,
-        autoApprove: true
+        duration_minutes: 90,
+        base_price: 150000,
+        service_type: 'Chăm sóc & Làm đẹp',
+        requires_area: true,
+        image_url: 'https://images.unsplash.com/photo-1601758228041-f3b2795255f1?q=80&w=800&auto=format&fit=crop',
+        thumbnails: []
     },
     {
         id: 'service-002',
         name: 'Cắt tỉa lông chuyên nghiệp',
-        category: 'Chăm sóc & Làm đẹp',
-        subCategory: 'trimming',
-        price: 300000,
-        duration: 120,
-        durationByBreed: {
-            'Poodle': 180,
-            'Golden Retriever': 150,
-            'Husky': 120,
-            'Chihuahua': 60,
-            'Persian': 150,
-            'British Shorthair': 90,
-            default: 120
-        },
         description: 'Cắt tỉa lông chuyên nghiệp theo kiểu dáng và giống thú cưng',
-        petRequired: true,
-        status: 'active',
-        image: 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?q=80&w=800&auto=format&fit=crop',
-        location: 'Tầng 1 - Khu VIP',
-        rating: 4.8,
-        reviewCount: 89,
-        features: [
-            'Tắm gội cao cấp với tinh dầu thảo mộc',
-            'Cắt tỉa lông theo phong cách',
-            'Spa thư giãn và massage',
-            'Vệ sinh toàn diện',
-            'Sấy tạo kiểu chuyên nghiệp',
-            'Nước hoa thú cưng'
-        ],
-        staffRequired: 2,
-        autoApprove: false
+        duration_minutes: 120,
+        base_price: 300000,
+        service_type: 'Chăm sóc & Làm đẹp',
+        requires_area: true,
+        image_url: 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?q=80&w=800&auto=format&fit=crop',
+        thumbnails: []
     },
     {
         id: 'service-003',
         name: 'Daycare theo ngày',
-        category: 'Giữ thú cưng',
-        price: 200000,
-        duration: 480,
         description: 'Chăm sóc thú cưng cả ngày với hoạt động vui chơi',
-        petRequired: true,
-        status: 'active',
-        image: 'https://images.unsplash.com/photo-1583337130417-3346a1be7dee?q=80&w=800&auto=format&fit=crop',
-        location: 'Tầng 2 - Khu vui chơi',
-        rating: 4.6,
-        reviewCount: 156,
-        features: [
-            'Chăm sóc 8 tiếng liên tục',
-            'Hoạt động vui chơi theo nhóm',
-            'Bữa ăn và nước uống',
-            'Giám sát sức khỏe thường xuyên',
-            'Báo cáo hàng ngày cho chủ',
-            'Không gian an toàn và sạch sẽ'
-        ],
-        staffRequired: 2,
-        autoApprove: true,
-        maxCapacity: 15
+        duration_minutes: 480,
+        base_price: 200000,
+        service_type: 'Giữ thú cưng',
+        requires_area: true,
+        image_url: 'https://images.unsplash.com/photo-1583337130417-3346a1be7dee?q=80&w=800&auto=format&fit=crop',
+        thumbnails: []
     },
     {
         id: 'service-004',
         name: 'Trải nghiệm huấn luyện thú cưng',
-        category: 'Huấn luyện',
-        price: 500000,
-        duration: 60,
         description: 'Trải nghiệm huấn luyện cùng thú cưng được đào tạo của quán, học cách giao tiếp và hiểu thú cưng',
-        subCategory: 'experience',
-        petRequired: false, // Sử dụng pet của quán
-        includesPets: ['Chó Golden "Buddy"', 'Chó Labrador "Luna"', 'Mèo British "Milo"'],
-        maxParticipants: 4,
-        status: 'active',
-        image: 'https://images.unsplash.com/photo-1551717743-49959800b1f6?q=80&w=800&auto=format&fit=crop',
-        location: 'Tầng 3 - Sân tập',
-        rating: 4.7,
-        reviewCount: 73,
-        features: [
-            'Tương tác với thú cưng được huấn luyện của quán',
-            'Học các lệnh cơ bản (ngồi, nằm, đứng, lại đây)',
-            'Trải nghiệm cho ăn và chơi đùa cùng pet',
-            'Hiểu về tâm lý và hành vi thú cưng',
-            'Hướng dẫn cách chăm sóc thú cưng đúng cách',
-            'Chụp ảnh kỷ niệm với các bé'
-        ],
-        petRequired: false, // Sử dụng pet của quán
-        includesPets: ['Chó Golden "Buddy"', 'Chó Labrador "Luna"', 'Mèo British "Milo"'],
-        maxParticipants: 4,
-        staffRequired: 1,
-        autoApprove: false,
-        requiresConsultation: true
+        duration_minutes: 60,
+        base_price: 500000,
+        service_type: 'Huấn luyện',
+        requires_area: false,
+        image_url: 'https://images.unsplash.com/photo-1551717743-49959800b1f6?q=80&w=800&auto=format&fit=crop',
+        thumbnails: []
     },
     {
         id: 'service-005',
         name: 'Tắm và vệ sinh nhanh',
-        category: 'Chăm sóc & Làm đẹp',
-        price: 80000,
-        duration: 30,
         description: 'Dịch vụ tắm và vệ sinh nhanh cho thú cưng',
-        petRequired: true,
-        status: 'active',
-        image: 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?q=80&w=800&auto=format&fit=crop',
-        location: 'Tầng 1 - Khu tắm nhanh',
-        rating: 4.3,
-        reviewCount: 201,
-        features: [
-            'Tắm gội nhanh chóng',
-            'Vệ sinh tai, mắt cơ bản',
-            'Sấy khô',
-            'Phù hợp cho thú cưng nhỏ'
-        ],
-        staffRequired: 1,
-        autoApprove: true
+        duration_minutes: 30,
+        base_price: 80000,
+        service_type: 'Chăm sóc & Làm đẹp',
+        requires_area: true,
+        image_url: 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?q=80&w=800&auto=format&fit=crop',
+        thumbnails: []
     },
     {
-        id: 'service-008',
+        id: 'service-006',
         name: 'Tương tác với thú cưng cafe',
-        category: 'Dịch vụ Cafe',
-        price: 100000,
-        duration: 30,
         description: 'Trải nghiệm tương tác và chơi đùa với các thú cưng đáng yêu của cafe',
-        petRequired: false,
-        status: 'active',
-        image: 'https://images.unsplash.com/photo-1552053831-71594a27632d?q=80&w=800&auto=format&fit=crop',
-        location: 'Tầng 2 - Khu tương tác',
-        rating: 4.9,
-        reviewCount: 267,
-        features: [
-            'Tương tác với nhiều loài thú cưng',
-            'Chụp ảnh kỷ niệm',
-            'Học cách chăm sóc thú cưng',
-            'Môi trường thân thiện và an toàn',
-            'Hướng dẫn viên chuyên nghiệp'
-        ],
-        staffRequired: 1,
-        autoApprove: true,
-        maxParticipants: 6,
-        // Thời gian diễn ra: 09:00-16:00 từ 10/10/2025 đến 15/10/2025
-        // Thời gian đăng ký: 09:00-17:00 từ 01/10/2025 đến 07/10/2025
-        serviceStartDate: '2025-10-10',
-        serviceEndDate: '2025-10-15',
-        serviceStartTime: 9 * 60, // 09:00
-        serviceEndTime: 16 * 60,  // 16:00
-        registrationStartDate: '2025-10-01',
-        registrationEndDate: '2025-10-07',
-        registrationStartTime: 9 * 60,  // 09:00
-        registrationEndTime: 17 * 60   // 17:00
+        duration_minutes: 30,
+        base_price: 100000,
+        service_type: 'Dịch vụ Cafe',
+        requires_area: false,
+        image_url: 'https://images.unsplash.com/photo-1552053831-71594a27632d?q=80&w=800&auto=format&fit=crop',
+        thumbnails: []
     },
     {
-        id: 'service-009',
+        id: 'service-007',
         name: 'Workshop chăm sóc thú cưng cơ bản',
-        category: 'Dịch vụ Cafe',
-        price: 200000,
-        duration: 120,
         description: 'Học các kỹ thuật chăm sóc thú cưng cơ bản từ các chuyên gia',
-        petRequired: false,
-        status: 'active',
-        image: 'https://images.unsplash.com/photo-1583337130417-3346a1be7dee?q=80&w=800&auto=format&fit=crop',
-        location: 'Tầng 3 - Phòng workshop',
-        rating: 4.8,
-        reviewCount: 89,
-        features: [
-            'Học cách tắm và chải lông đúng cách',
-            'Kỹ thuật cắt móng an toàn',
-            'Nhận biết dấu hiệu sức khỏe',
-            'Chế độ dinh dưỡng hợp lý',
-            'Tài liệu hướng dẫn chi tiết'
-        ],
-        staffRequired: 2,
-        autoApprove: true,
-        maxParticipants: 12,
-        // Thời gian diễn ra: 10:00-17:00 từ 12/10/2025 đến 17/10/2025
-        // Thời gian đăng ký: 09:00-17:00 từ 05/10/2025 đến 10/10/2025
-        serviceStartDate: '2025-10-12',
-        serviceEndDate: '2025-10-17',
-        serviceStartTime: 10 * 60, // 10:00
-        serviceEndTime: 17 * 60,   // 17:00
-        registrationStartDate: '2025-10-05',
-        registrationEndDate: '2025-10-10',
-        registrationStartTime: 9 * 60,   // 09:00
-        registrationEndTime: 17 * 60     // 17:00
+        duration_minutes: 120,
+        base_price: 200000,
+        service_type: 'Dịch vụ Cafe',
+        requires_area: false,
+        image_url: 'https://images.unsplash.com/photo-1583337130417-3346a1be7dee?q=80&w=800&auto=format&fit=crop',
+        thumbnails: []
     }
 ];
 
@@ -492,31 +321,26 @@ const serviceApi = {
     async getAvailableServices(filters = {}) {
         await delay(300);
 
-        let services = MOCK_SERVICES.filter(service => service.status === 'active');
+        let services = [...MOCK_SERVICES];
 
         // Apply filters
         if (filters.category && filters.category !== 'all') {
-            services = services.filter(service => service.category === filters.category);
+            services = services.filter(service => service.service_type === filters.category);
         }
 
         if (filters.priceMin) {
-            services = services.filter(service => service.price >= filters.priceMin);
+            services = services.filter(service => service.base_price >= filters.priceMin);
         }
 
         if (filters.priceMax) {
-            services = services.filter(service => service.price <= filters.priceMax);
-        }
-
-        if (filters.minRating) {
-            services = services.filter(service => (service.rating || 0) >= filters.minRating);
+            services = services.filter(service => service.base_price <= filters.priceMax);
         }
 
         if (filters.search) {
             const searchTerm = filters.search.toLowerCase();
             services = services.filter(service =>
                 service.name.toLowerCase().includes(searchTerm) ||
-                service.description.toLowerCase().includes(searchTerm) ||
-                service.features.some(feature => feature.toLowerCase().includes(searchTerm))
+                service.description.toLowerCase().includes(searchTerm)
             );
         }
 
@@ -524,19 +348,13 @@ const serviceApi = {
         if (filters.sortBy) {
             switch (filters.sortBy) {
                 case 'price_asc':
-                    services.sort((a, b) => a.price - b.price);
+                    services.sort((a, b) => a.base_price - b.base_price);
                     break;
                 case 'price_desc':
-                    services.sort((a, b) => b.price - a.price);
-                    break;
-                case 'rating':
-                    services.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+                    services.sort((a, b) => b.base_price - a.base_price);
                     break;
                 case 'duration':
-                    services.sort((a, b) => a.duration - b.duration);
-                    break;
-                case 'popular':
-                    services.sort((a, b) => (b.reviewCount || 0) - (a.reviewCount || 0));
+                    services.sort((a, b) => a.duration_minutes - b.duration_minutes);
                     break;
                 default:
                     // Keep original order
@@ -562,10 +380,6 @@ const serviceApi = {
             throw new Error('Không tìm thấy dịch vụ');
         }
 
-        if (service.status !== 'active') {
-            throw new Error('Dịch vụ hiện không khả dụng');
-        }
-
         return { success: true, data: service };
     },
 
@@ -580,10 +394,7 @@ const serviceApi = {
     async getPopularServices(limit = 6) {
         await delay(250);
 
-        const popularServices = MOCK_SERVICES
-            .filter(service => service.status === 'active')
-            .sort((a, b) => (b.reviewCount || 0) - (a.reviewCount || 0))
-            .slice(0, limit);
+        const popularServices = MOCK_SERVICES.slice(0, limit);
 
         return { success: true, data: popularServices };
     },
@@ -593,7 +404,7 @@ const serviceApi = {
         await delay(200);
 
         const services = MOCK_SERVICES.filter(service =>
-            service.status === 'active' && service.category === category
+            service.service_type === category
         );
 
         const categoryInfo = SERVICE_CATEGORIES.find(cat => cat.id === category);
@@ -616,41 +427,32 @@ const serviceApi = {
         const term = searchTerm.toLowerCase().trim();
 
         let services = MOCK_SERVICES.filter(service => {
-            if (service.status !== 'active') return false;
-
             return (
                 service.name.toLowerCase().includes(term) ||
                 service.description.toLowerCase().includes(term) ||
-                service.features.some(feature => feature.toLowerCase().includes(term)) ||
-                service.category.toLowerCase().includes(term)
+                service.service_type.toLowerCase().includes(term)
             );
         });
 
         // Apply additional filters
         if (filters.category && filters.category !== 'all') {
-            services = services.filter(service => service.category === filters.category);
+            services = services.filter(service => service.service_type === filters.category);
         }
 
         if (filters.priceRange) {
             const [min, max] = filters.priceRange;
-            services = services.filter(service => service.price >= min && service.price <= max);
-        }
-
-        if (filters.minRating) {
-            services = services.filter(service => (service.rating || 0) >= filters.minRating);
+            services = services.filter(service => service.base_price >= min && service.base_price <= max);
         }
 
         // Sort by relevance (can be enhanced with better scoring algorithm)
         services.sort((a, b) => {
             const aScore = (
                 (a.name.toLowerCase().includes(term) ? 3 : 0) +
-                (a.description.toLowerCase().includes(term) ? 2 : 0) +
-                (a.features.some(f => f.toLowerCase().includes(term)) ? 1 : 0)
+                (a.description.toLowerCase().includes(term) ? 2 : 0)
             );
             const bScore = (
                 (b.name.toLowerCase().includes(term) ? 3 : 0) +
-                (b.description.toLowerCase().includes(term) ? 2 : 0) +
-                (b.features.some(f => f.toLowerCase().includes(term)) ? 1 : 0)
+                (b.description.toLowerCase().includes(term) ? 2 : 0)
             );
             return bScore - aScore;
         });
@@ -722,7 +524,7 @@ const serviceApi = {
             throw new Error('Không tìm thấy dịch vụ');
         }
 
-        let finalPrice = service.price;
+        let finalPrice = service.base_price;
         const date = new Date(dateTime);
         const dayOfWeek = date.getDay();
         const hour = date.getHours();
@@ -730,7 +532,7 @@ const serviceApi = {
         // Weekend surcharge (Saturday = 6, Sunday = 0)
         const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
         if (isWeekend) {
-            finalPrice += Math.floor(service.price * 0.1); // 10% weekend surcharge
+            finalPrice += Math.floor(service.base_price * 0.1); // 10% weekend surcharge
         }
 
         // Evening surcharge (after 5 PM)
@@ -742,7 +544,7 @@ const serviceApi = {
         // Holiday surcharge (can be enhanced with actual holiday data)
         const isHoliday = false; // Placeholder
         if (isHoliday) {
-            finalPrice += Math.floor(service.price * 0.15); // 15% holiday surcharge
+            finalPrice += Math.floor(service.base_price * 0.15); // 15% holiday surcharge
         }
 
         // Peak hours surcharge (10 AM - 2 PM on weekends)
@@ -752,36 +554,19 @@ const serviceApi = {
         }
 
         const pricing = {
-            basePrice: service.price,
+            basePrice: service.base_price,
             finalPrice,
             surcharges: [
-                ...(isWeekend ? [{ type: 'weekend', amount: Math.floor(service.price * 0.1), description: 'Phụ phí cuối tuần (10%)' }] : []),
+                ...(isWeekend ? [{ type: 'weekend', amount: Math.floor(service.base_price * 0.1), description: 'Phụ phí cuối tuần (10%)' }] : []),
                 ...(isEvening ? [{ type: 'evening', amount: 50000, description: 'Phụ phí buổi tối (sau 17h)' }] : []),
                 ...(isPeakHours ? [{ type: 'peak', amount: 30000, description: 'Phụ phí giờ cao điểm' }] : []),
-                ...(isHoliday ? [{ type: 'holiday', amount: Math.floor(service.price * 0.15), description: 'Phụ phí ngày lễ (15%)' }] : [])
+                ...(isHoliday ? [{ type: 'holiday', amount: Math.floor(service.base_price * 0.15), description: 'Phụ phí ngày lễ (15%)' }] : [])
             ],
             discount: 0, // Can be enhanced with promotional discounts
             dateTime
         };
 
         return { success: true, data: pricing };
-    },
-
-    // Update service rating (internal use)
-    updateServiceRating(serviceId, newRating) {
-        const serviceIndex = MOCK_SERVICES.findIndex(s => s.id === serviceId);
-        if (serviceIndex !== -1) {
-            const service = MOCK_SERVICES[serviceIndex];
-            const currentTotal = (service.rating || 0) * (service.reviewCount || 0);
-            const newReviewCount = (service.reviewCount || 0) + 1;
-            const updatedRating = (currentTotal + newRating) / newReviewCount;
-
-            MOCK_SERVICES[serviceIndex].rating = Math.round(updatedRating * 10) / 10;
-            MOCK_SERVICES[serviceIndex].reviewCount = newReviewCount;
-
-            return MOCK_SERVICES[serviceIndex];
-        }
-        return null;
     },
 
     // ============ MANAGER APIs ============
@@ -830,31 +615,17 @@ const serviceApi = {
             throw new Error('Loại dịch vụ là bắt buộc');
         }
 
-        // Create new service in frontend format (for mock database compatibility)
+        // Create new service (matching official API format)
         const newService = {
             id: generateId('service'),
-            name: serviceData.name,
-            description: serviceData.description || '',
-            duration: backendFormat.duration_minutes,
-            duration_minutes: backendFormat.duration_minutes, // Keep both formats
-            price: backendFormat.base_price,
-            base_price: backendFormat.base_price, // Keep both formats
-            category: backendFormat.service_type,
-            service_type: backendFormat.service_type, // Keep both formats
-            petRequired: backendFormat.requires_area,
-            requires_area: backendFormat.requires_area, // Keep both formats
-            image: backendFormat.image_url,
-            image_url: backendFormat.image_url, // Keep both formats
-            thumbnails: backendFormat.thumbnails || [],
-            status: 'active',
-            rating: 0,
-            reviewCount: 0,
-            features: serviceData.features || [],
-            location: serviceData.location || '',
-            staffRequired: serviceData.staffRequired || 1,
-            autoApprove: serviceData.autoApprove !== undefined ? serviceData.autoApprove : true,
-            createdAt: new Date().toISOString(),
-            createdBy: currentUser.id
+            name: backendFormat.name,
+            description: backendFormat.description,
+            duration_minutes: backendFormat.duration_minutes,
+            base_price: backendFormat.base_price,
+            service_type: backendFormat.service_type,
+            requires_area: backendFormat.requires_area,
+            image_url: backendFormat.image_url,
+            thumbnails: backendFormat.thumbnails
         };
 
         MOCK_SERVICES.push(newService);
@@ -888,65 +659,33 @@ const serviceApi = {
             throw new Error('Tên dịch vụ không được để trống');
         }
 
-        if (updateData.duration !== undefined || updateData.duration_minutes !== undefined) {
+        if (updateData.duration_minutes !== undefined) {
             if (backendFormat.duration_minutes <= 0) {
                 throw new Error('Thời gian dịch vụ phải lớn hơn 0');
             }
         }
 
-        if (updateData.price !== undefined || updateData.base_price !== undefined) {
+        if (updateData.base_price !== undefined) {
             if (backendFormat.base_price < 0) {
                 throw new Error('Giá dịch vụ không hợp lệ');
             }
         }
 
-        // Merge update data with existing service (support both formats)
+        // Merge update data with existing service (official API fields only)
         const updatedFields = {};
 
         if (updateData.name !== undefined) updatedFields.name = updateData.name;
         if (updateData.description !== undefined) updatedFields.description = updateData.description;
-
-        if (updateData.duration !== undefined || updateData.duration_minutes !== undefined) {
-            updatedFields.duration = backendFormat.duration_minutes;
-            updatedFields.duration_minutes = backendFormat.duration_minutes;
-        }
-
-        if (updateData.price !== undefined || updateData.base_price !== undefined) {
-            updatedFields.price = backendFormat.base_price;
-            updatedFields.base_price = backendFormat.base_price;
-        }
-
-        if (updateData.category !== undefined || updateData.service_type !== undefined) {
-            updatedFields.category = backendFormat.service_type;
-            updatedFields.service_type = backendFormat.service_type;
-        }
-
-        if (updateData.petRequired !== undefined || updateData.requires_area !== undefined) {
-            updatedFields.petRequired = backendFormat.requires_area;
-            updatedFields.requires_area = backendFormat.requires_area;
-        }
-
-        if (updateData.image !== undefined || updateData.image_url !== undefined) {
-            updatedFields.image = backendFormat.image_url;
-            updatedFields.image_url = backendFormat.image_url;
-        }
-
-        if (updateData.thumbnails !== undefined) {
-            updatedFields.thumbnails = backendFormat.thumbnails;
-        }
-
-        // Apply other fields that don't need transformation
-        if (updateData.features !== undefined) updatedFields.features = updateData.features;
-        if (updateData.location !== undefined) updatedFields.location = updateData.location;
-        if (updateData.staffRequired !== undefined) updatedFields.staffRequired = updateData.staffRequired;
-        if (updateData.autoApprove !== undefined) updatedFields.autoApprove = updateData.autoApprove;
-        if (updateData.status !== undefined) updatedFields.status = updateData.status;
+        if (updateData.duration_minutes !== undefined) updatedFields.duration_minutes = backendFormat.duration_minutes;
+        if (updateData.base_price !== undefined) updatedFields.base_price = backendFormat.base_price;
+        if (updateData.service_type !== undefined) updatedFields.service_type = backendFormat.service_type;
+        if (updateData.requires_area !== undefined) updatedFields.requires_area = backendFormat.requires_area;
+        if (updateData.image_url !== undefined) updatedFields.image_url = backendFormat.image_url;
+        if (updateData.thumbnails !== undefined) updatedFields.thumbnails = backendFormat.thumbnails;
 
         MOCK_SERVICES[serviceIndex] = {
             ...MOCK_SERVICES[serviceIndex],
-            ...updatedFields,
-            updatedAt: new Date().toISOString(),
-            updatedBy: currentUser.id
+            ...updatedFields
         };
 
         return {
@@ -956,7 +695,7 @@ const serviceApi = {
         };
     },
 
-    // Delete service
+    // Delete service (hard delete)
     async deleteService(serviceId) {
         await delay(500);
         const currentUser = getCurrentUser();
@@ -970,13 +709,8 @@ const serviceApi = {
             throw new Error('Không tìm thấy dịch vụ');
         }
 
-        // Soft delete - just mark as inactive
-        MOCK_SERVICES[serviceIndex].status = 'inactive';
-        MOCK_SERVICES[serviceIndex].deletedAt = new Date().toISOString();
-        MOCK_SERVICES[serviceIndex].deletedBy = currentUser.id;
-
-        // Or hard delete (uncomment if needed)
-        // MOCK_SERVICES.splice(serviceIndex, 1);
+        // Hard delete
+        MOCK_SERVICES.splice(serviceIndex, 1);
 
         return {
             success: true,

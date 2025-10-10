@@ -1,12 +1,15 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Box, Typography, Button, Stack, Dialog, DialogTitle, DialogContent, DialogActions, TextField, IconButton, Alert, Chip, FormControl, InputLabel, Select, MenuItem, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, alpha, Grid, Toolbar } from '@mui/material';
-import { Add, Edit, Delete, MiscellaneousServices, Search, Spa, FitnessCenter, Home, LocalCafe } from '@mui/icons-material';
+import { Box, Typography, Button, Stack, Dialog, DialogTitle, DialogContent, DialogActions, TextField, IconButton, Alert, Chip, FormControl, InputLabel, Select, MenuItem, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, alpha, Grid, Toolbar, Divider, Tooltip, Accordion, AccordionSummary, AccordionDetails, Collapse } from '@mui/material';
+import { Add, Edit, Delete, MiscellaneousServices, Search, Spa, FitnessCenter, Home, LocalCafe, Schedule, Close, EventAvailable, AccessTime, AttachMoney, ExpandMore, People, Pets, LocationOn, Group } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 import Loading from '../../components/loading/Loading';
 import Pagination from '../../components/common/Pagination';
 import AlertModal from '../../components/modals/AlertModal';
 import ConfirmModal from '../../components/modals/ConfirmModal';
 import serviceApi, { SERVICE_TYPES } from '../../api/serviceApi';
+import slotApi from '../../api/slotApi';
+import { getAllTasks } from '../../api/tasksApi';
+import { AREAS_DATA } from '../../api/areasApi';
 
 // Mapping service types to Vietnamese labels
 const SERVICE_TYPE_LABELS = {
@@ -30,6 +33,30 @@ const ServicesPage = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [alert, setAlert] = useState({ open: false, message: '', type: 'info', title: 'Thông báo' });
 
+    // Slot management states
+    const [openSlotDialog, setOpenSlotDialog] = useState(false);
+    const [selectedService, setSelectedService] = useState(null);
+    const [slots, setSlots] = useState([]);
+    const [loadingSlots, setLoadingSlots] = useState(false);
+    const [openSlotFormDialog, setOpenSlotFormDialog] = useState(false);
+    const [editingSlot, setEditingSlot] = useState(null);
+    const [slotFormData, setSlotFormData] = useState({
+        area_id: '',
+        team_id: '',
+        pet_group_id: '',
+        applicable_days: ['', ''],
+        start_time: '',
+        end_time: '',
+        max_capacity: '',
+        price: '',
+        special_notes: ''
+    });
+
+    // Task assignment states
+    const [slotTasks, setSlotTasks] = useState({});
+    const [loadingTasks, setLoadingTasks] = useState(false);
+    const [expandedSlots, setExpandedSlots] = useState({});
+
     // Filter states
     const [searchDate, setSearchDate] = useState('');
     const [startTime, setStartTime] = useState('');
@@ -50,17 +77,46 @@ const ServicesPage = () => {
         serviceType: '',
         requiresArea: false,
         image: '',
-        thumbnails: ''
+        thumbnails: '',
+        startDate: '',
+        endDate: ''
     });
 
-    // Load services from API
+    // Load services from API and their slots
     useEffect(() => {
-        const loadServices = async () => {
+        const loadServicesWithSlots = async () => {
             try {
                 setLoading(true);
                 const response = await serviceApi.getAllServices();
                 if (response.success) {
-                    setServices(response.data);
+                    // Load slots for each service to get time range and capacity
+                    const servicesWithSlotInfo = await Promise.all(
+                        response.data.map(async (service) => {
+                            try {
+                                const slotsResponse = await slotApi.getSlotsByService(service.id);
+                                if (slotsResponse.success && slotsResponse.data.length > 0) {
+                                    const slots = slotsResponse.data;
+
+                                    // Calculate date range from all slots' applicable_days
+                                    const allDates = slots.flatMap(slot => slot.applicable_days);
+                                    const startDate = allDates.reduce((min, date) => date < min ? date : min, allDates[0]);
+                                    const endDate = allDates.reduce((max, date) => date > max ? date : max, allDates[0]);
+
+                                    return {
+                                        ...service,
+                                        start_date: startDate,
+                                        end_date: endDate,
+                                        totalSlots: slots.length
+                                    };
+                                }
+                                return service;
+                            } catch (error) {
+                                console.error(`Error loading slots for service ${service.id}:`, error);
+                                return service;
+                            }
+                        })
+                    );
+                    setServices(servicesWithSlotInfo);
                 }
             } catch (error) {
                 console.error('Error loading services:', error);
@@ -74,7 +130,7 @@ const ServicesPage = () => {
                 setLoading(false);
             }
         };
-        loadServices();
+        loadServicesWithSlots();
     }, []);
 
     // Filtered services
@@ -128,6 +184,8 @@ const ServicesPage = () => {
             const requiresArea = service.requiresArea !== undefined ? service.requiresArea :
                 (service.requires_area !== undefined ? service.requires_area : false);
             const imageUrl = service.image || service.image_url || '';
+            const startDate = service.startDate || service.start_date || '';
+            const endDate = service.endDate || service.end_date || '';
 
             setFormData({
                 name: service.name,
@@ -137,7 +195,9 @@ const ServicesPage = () => {
                 serviceType: serviceType,
                 requiresArea: requiresArea,
                 image: imageUrl,
-                thumbnails: service.thumbnails ? service.thumbnails.join(', ') : ''
+                thumbnails: service.thumbnails ? service.thumbnails.join(', ') : '',
+                startDate: startDate,
+                endDate: endDate
             });
         } else {
             setEditingService(null);
@@ -149,7 +209,9 @@ const ServicesPage = () => {
                 serviceType: '',
                 requiresArea: false,
                 image: '',
-                thumbnails: ''
+                thumbnails: '',
+                startDate: '',
+                endDate: ''
             });
         }
         setOpenDialog(true);
@@ -162,11 +224,23 @@ const ServicesPage = () => {
 
     const handleSaveService = async () => {
         if (!formData.name || !formData.description || !formData.durationMinutes ||
-            !formData.basePrice || !formData.serviceType) {
+            !formData.basePrice || !formData.serviceType || !formData.startDate ||
+            !formData.endDate) {
             setAlert({
                 open: true,
                 title: 'Lỗi',
                 message: 'Vui lòng điền đầy đủ thông tin bắt buộc!',
+                type: 'error'
+            });
+            return;
+        }
+
+        // Validate start date < end date
+        if (new Date(formData.startDate) >= new Date(formData.endDate)) {
+            setAlert({
+                open: true,
+                title: 'Lỗi',
+                message: 'Ngày bắt đầu phải nhỏ hơn ngày kết thúc!',
                 type: 'error'
             });
             return;
@@ -192,7 +266,11 @@ const ServicesPage = () => {
                     requires_area: Boolean(formData.requiresArea),
                     image: formData.image,
                     image_url: formData.image,
-                    thumbnails: thumbnailsArray
+                    thumbnails: thumbnailsArray,
+                    start_date: formData.startDate,
+                    startDate: formData.startDate,
+                    end_date: formData.endDate,
+                    endDate: formData.endDate
                 };
 
                 const response = await serviceApi.updateService(editingService.id, updatedData);
@@ -224,7 +302,11 @@ const ServicesPage = () => {
                     requires_area: Boolean(formData.requiresArea),
                     image: formData.image || 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=800',
                     image_url: formData.image || 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=800',
-                    thumbnails: thumbnailsArray
+                    thumbnails: thumbnailsArray,
+                    start_date: formData.startDate,
+                    startDate: formData.startDate,
+                    end_date: formData.endDate,
+                    endDate: formData.endDate
                 };
 
                 const response = await serviceApi.createService(newServiceData);
@@ -287,6 +369,202 @@ const ServicesPage = () => {
 
     const formatPrice = (price) => {
         return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
+    };
+
+    // ============ SLOT MANAGEMENT FUNCTIONS ============
+
+    const handleOpenSlotDialog = async (service) => {
+        setSelectedService(service);
+        setOpenSlotDialog(true);
+        await loadSlots(service.id);
+    };
+
+    const handleCloseSlotDialog = () => {
+        setOpenSlotDialog(false);
+        setSelectedService(null);
+        setSlots([]);
+    };
+
+    const loadSlots = async (serviceId) => {
+        try {
+            setLoadingSlots(true);
+            const response = await slotApi.getSlotsByService(serviceId);
+            if (response.success) {
+                setSlots(response.data);
+                // Load task assignments for each slot
+                await loadTasksForSlots(response.data);
+            }
+        } catch (error) {
+            console.error('Error loading slots:', error);
+            setAlert({
+                open: true,
+                title: 'Lỗi',
+                message: error.message || 'Không thể tải danh sách slots',
+                type: 'error'
+            });
+        } finally {
+            setLoadingSlots(false);
+        }
+    };
+
+    const loadTasksForSlots = async (slotsData) => {
+        try {
+            setLoadingTasks(true);
+            const tasksResponse = await getAllTasks();
+
+            if (tasksResponse.success) {
+                const tasksBySlot = {};
+
+                slotsData.forEach(slot => {
+                    // Find tasks that are assigned to this slot
+                    const slotTasks = tasksResponse.data.filter(task =>
+                        task.type === 'service' &&
+                        task.shifts &&
+                        task.shifts.includes(slot.id)
+                    );
+
+                    tasksBySlot[slot.id] = slotTasks;
+                });
+
+                setSlotTasks(tasksBySlot);
+            }
+        } catch (error) {
+            console.error('Error loading tasks:', error);
+        } finally {
+            setLoadingTasks(false);
+        }
+    };
+
+    const toggleSlotExpanded = (slotId) => {
+        setExpandedSlots(prev => ({ ...prev, [slotId]: !prev[slotId] }));
+    };
+
+    const handleOpenSlotForm = (slot = null) => {
+        if (slot) {
+            setEditingSlot(slot);
+            setSlotFormData({
+                area_id: slot.area_id,
+                team_id: slot.team_id,
+                pet_group_id: slot.pet_group_id,
+                applicable_days: slot.applicable_days,
+                start_time: slot.start_time,
+                end_time: slot.end_time,
+                max_capacity: slot.max_capacity,
+                price: slot.price,
+                special_notes: slot.special_notes || ''
+            });
+        } else {
+            setEditingSlot(null);
+            setSlotFormData({
+                area_id: '',
+                team_id: '',
+                pet_group_id: '',
+                applicable_days: ['', ''],
+                start_time: '',
+                end_time: '',
+                max_capacity: '',
+                price: '',
+                special_notes: ''
+            });
+        }
+        setOpenSlotFormDialog(true);
+    };
+
+    const handleCloseSlotForm = () => {
+        setOpenSlotFormDialog(false);
+        setEditingSlot(null);
+    };
+
+    const handleSaveSlot = async () => {
+        try {
+            // Validate area_id first
+            const selectedArea = AREAS_DATA.find(a => a.id === slotFormData.area_id);
+            if (!selectedArea) {
+                setAlert({
+                    open: true,
+                    title: 'Lỗi',
+                    message: 'Vui lòng chọn khu vực',
+                    type: 'error'
+                });
+                return;
+            }
+
+            // Validate max_capacity against area capacity
+            const maxCapacity = parseInt(slotFormData.max_capacity);
+            if (maxCapacity > selectedArea.capacity) {
+                setAlert({
+                    open: true,
+                    title: 'Lỗi',
+                    message: `Sức chứa slot (${maxCapacity}) vượt quá sức chứa khu vực "${selectedArea.name}" (${selectedArea.capacity})`,
+                    type: 'error'
+                });
+                return;
+            }
+
+            const slotData = {
+                service_id: selectedService.id,
+                area_id: slotFormData.area_id,
+                team_id: slotFormData.team_id,
+                pet_group_id: slotFormData.pet_group_id,
+                applicable_days: slotFormData.applicable_days,
+                start_time: slotFormData.start_time,
+                end_time: slotFormData.end_time,
+                max_capacity: maxCapacity,
+                price: parseInt(slotFormData.price),
+                special_notes: slotFormData.special_notes
+            };
+
+            let response;
+            if (editingSlot) {
+                response = await slotApi.updateSlot(editingSlot.id, slotData);
+            } else {
+                response = await slotApi.createSlot(slotData);
+            }
+
+            if (response.success) {
+                setAlert({
+                    open: true,
+                    title: 'Thành công',
+                    message: editingSlot ? 'Cập nhật slot thành công!' : 'Tạo slot thành công!',
+                    type: 'success'
+                });
+                await loadSlots(selectedService.id);
+                handleCloseSlotForm();
+            }
+        } catch (error) {
+            console.error('Error saving slot:', error);
+            setAlert({
+                open: true,
+                title: 'Lỗi',
+                message: error.message || 'Không thể lưu slot',
+                type: 'error'
+            });
+        }
+    };
+
+    const handleDeleteSlot = async (slotId) => {
+        if (window.confirm('Bạn có chắc muốn xóa slot này?')) {
+            try {
+                const response = await slotApi.deleteSlot(slotId);
+                if (response.success) {
+                    setAlert({
+                        open: true,
+                        title: 'Thành công',
+                        message: 'Xóa slot thành công!',
+                        type: 'success'
+                    });
+                    await loadSlots(selectedService.id);
+                }
+            } catch (error) {
+                console.error('Error deleting slot:', error);
+                setAlert({
+                    open: true,
+                    title: 'Lỗi',
+                    message: error.message || 'Không thể xóa slot',
+                    type: 'error'
+                });
+            }
+        }
     };
 
 
@@ -491,6 +769,8 @@ const ServicesPage = () => {
                                 <TableCell sx={{ fontWeight: 800, display: { xs: 'none', md: 'table-cell' } }}>Mô tả</TableCell>
                                 <TableCell sx={{ fontWeight: 800 }}>Loại</TableCell>
                                 <TableCell sx={{ fontWeight: 800, display: { xs: 'none', sm: 'table-cell' } }}>Thời lượng</TableCell>
+                                <TableCell sx={{ fontWeight: 800, display: { xs: 'none', lg: 'table-cell' } }}>Thời gian diễn ra</TableCell>
+                                <TableCell sx={{ fontWeight: 800, display: { xs: 'none', lg: 'table-cell' } }}>Slots</TableCell>
                                 <TableCell sx={{ fontWeight: 800 }}>Giá</TableCell>
                                 <TableCell align="right" sx={{ fontWeight: 800 }}>Hành động</TableCell>
                             </TableRow>
@@ -543,10 +823,46 @@ const ServicesPage = () => {
                                     <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
                                         {service.durationMinutes || service.duration_minutes || service.duration || '—'} phút
                                     </TableCell>
+                                    <TableCell sx={{ display: { xs: 'none', lg: 'table-cell' } }}>
+                                        {(service.startDate || service.start_date) && (service.endDate || service.end_date) ? (
+                                            <Chip
+                                                size="small"
+                                                label={`${new Date(service.startDate || service.start_date).toLocaleDateString('vi-VN')} - ${new Date(service.endDate || service.end_date).toLocaleDateString('vi-VN')}`}
+                                                sx={{
+                                                    background: alpha(COLORS.PRIMARY[100], 0.7),
+                                                    color: COLORS.PRIMARY[800],
+                                                    fontWeight: 600
+                                                }}
+                                            />
+                                        ) : '—'}
+                                    </TableCell>
+                                    <TableCell sx={{ display: { xs: 'none', lg: 'table-cell' } }}>
+                                        {service.totalSlots ? (
+                                            <Chip
+                                                size="small"
+                                                icon={<Schedule fontSize="small" />}
+                                                label={`${service.totalSlots} slots`}
+                                                sx={{
+                                                    background: alpha(COLORS.SUCCESS[100], 0.7),
+                                                    color: COLORS.SUCCESS[800],
+                                                    fontWeight: 600
+                                                }}
+                                            />
+                                        ) : '—'}
+                                    </TableCell>
                                     <TableCell sx={{ fontWeight: 600, color: COLORS.SUCCESS[700] }}>
                                         {formatPrice(service.basePrice || service.base_price || service.price || 0)}
                                     </TableCell>
                                     <TableCell align="right">
+                                        <Tooltip title="Quản lý slots">
+                                            <IconButton
+                                                size="small"
+                                                sx={{ color: COLORS.WARNING[600] }}
+                                                onClick={() => handleOpenSlotDialog(service)}
+                                            >
+                                                <Schedule fontSize="small" />
+                                            </IconButton>
+                                        </Tooltip>
                                         <IconButton
                                             size="small"
                                             color="primary"
@@ -609,6 +925,7 @@ const ServicesPage = () => {
                         <TextField
                             label="Tên dịch vụ"
                             fullWidth
+                            required
                             value={formData.name}
                             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                             placeholder="VD: Huấn luyện cơ bản"
@@ -616,6 +933,7 @@ const ServicesPage = () => {
                         <TextField
                             label="Mô tả"
                             fullWidth
+                            required
                             multiline
                             rows={3}
                             value={formData.description}
@@ -626,22 +944,26 @@ const ServicesPage = () => {
                             <TextField
                                 label="Thời lượng (phút)"
                                 fullWidth
+                                required
                                 type="number"
                                 value={formData.durationMinutes}
                                 onChange={(e) => setFormData({ ...formData, durationMinutes: e.target.value })}
                                 placeholder="60"
+                                inputProps={{ min: 1 }}
                             />
                             <TextField
                                 label="Giá cơ bản (VNĐ)"
                                 fullWidth
+                                required
                                 type="number"
                                 value={formData.basePrice}
                                 onChange={(e) => setFormData({ ...formData, basePrice: e.target.value })}
                                 placeholder="300000"
+                                inputProps={{ min: 0 }}
                             />
                         </Stack>
                         <Stack direction="row" spacing={2}>
-                            <FormControl fullWidth>
+                            <FormControl fullWidth required>
                                 <InputLabel>Loại dịch vụ</InputLabel>
                                 <Select
                                     value={formData.serviceType}
@@ -672,6 +994,28 @@ const ServicesPage = () => {
                             onChange={(e) => setFormData({ ...formData, image: e.target.value })}
                             placeholder="https://example.com/image.jpg"
                         />
+                        <Stack direction="row" spacing={2}>
+                            <TextField
+                                label="Ngày bắt đầu"
+                                fullWidth
+                                required
+                                type="date"
+                                value={formData.startDate}
+                                onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                                InputLabelProps={{ shrink: true }}
+                                helperText="Ngày dịch vụ bắt đầu diễn ra (bắt buộc)"
+                            />
+                            <TextField
+                                label="Ngày kết thúc"
+                                fullWidth
+                                required
+                                type="date"
+                                value={formData.endDate}
+                                onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                                InputLabelProps={{ shrink: true }}
+                                helperText="Ngày dịch vụ kết thúc diễn ra (bắt buộc)"
+                            />
+                        </Stack>
                     </Stack>
                 </Box>
                 <Box sx={{ px: 3, pb: 3, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
@@ -706,6 +1050,450 @@ const ServicesPage = () => {
                 title="Xác nhận xóa"
                 message="Bạn có chắc chắn muốn xóa dịch vụ này không?"
             />
+
+            {/* Slot Management Dialog */}
+            <Dialog open={openSlotDialog} onClose={handleCloseSlotDialog} maxWidth="lg" fullWidth>
+                <DialogTitle sx={{ bgcolor: COLORS.WARNING[500], color: 'white', pb: 2 }}>
+                    <Stack direction="row" spacing={2} alignItems="center">
+                        <Schedule sx={{ fontSize: 32 }} />
+                        <Box sx={{ flex: 1 }}>
+                            <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                                Quản lý Slots - {selectedService?.name}
+                            </Typography>
+                            <Typography variant="body2" sx={{ opacity: 0.9, mt: 0.5 }}>
+                                Tạo và quản lý các ca dịch vụ (slots) cho dịch vụ này
+                            </Typography>
+                        </Box>
+                        <IconButton onClick={handleCloseSlotDialog} sx={{ color: 'white' }}>
+                            <Close />
+                        </IconButton>
+                    </Stack>
+                </DialogTitle>
+                <DialogContent sx={{ pt: 3 }}>
+                    {loadingSlots ? (
+                        <Box sx={{ textAlign: 'center', py: 4 }}>
+                            <Typography>Đang tải slots...</Typography>
+                        </Box>
+                    ) : (
+                        <>
+                            <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                                    Danh sách Slots ({slots.length})
+                                </Typography>
+                                <Button
+                                    variant="contained"
+                                    startIcon={<Add />}
+                                    onClick={() => handleOpenSlotForm()}
+                                    sx={{
+                                        bgcolor: COLORS.WARNING[500],
+                                        '&:hover': { bgcolor: COLORS.WARNING[600] }
+                                    }}
+                                >
+                                    Thêm Slot
+                                </Button>
+                            </Box>
+
+                            {slots.length === 0 ? (
+                                <Box sx={{ textAlign: 'center', py: 6 }}>
+                                    <EventAvailable sx={{ fontSize: 60, color: COLORS.TEXT.DISABLED, mb: 2 }} />
+                                    <Typography variant="body1" sx={{ color: COLORS.TEXT.SECONDARY }}>
+                                        Chưa có slot nào cho dịch vụ này
+                                    </Typography>
+                                    <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, mt: 1 }}>
+                                        Nhấn "Thêm Slot" để tạo ca dịch vụ mới
+                                    </Typography>
+                                </Box>
+                            ) : (
+                                <TableContainer component={Paper} sx={{ borderRadius: 2, border: `1px solid ${alpha(COLORS.PRIMARY[500], 0.1)}` }}>
+                                    <Table>
+                                        <TableHead>
+                                            <TableRow sx={{ bgcolor: alpha(COLORS.WARNING[500], 0.1) }}>
+                                                <TableCell sx={{ fontWeight: 800 }}>Thời gian áp dụng</TableCell>
+                                                <TableCell sx={{ fontWeight: 800 }}>Các ca dịch vụ</TableCell>
+                                                <TableCell sx={{ fontWeight: 800 }}>Giá slot</TableCell>
+                                                <TableCell sx={{ fontWeight: 800 }}>Ghi chú</TableCell>
+                                                <TableCell align="right" sx={{ fontWeight: 800 }}>Thao tác</TableCell>
+                                            </TableRow>
+                                        </TableHead>
+                                        <TableBody>
+                                            {slots.map((slot) => {
+                                                const tasks = slotTasks[slot.id] || [];
+                                                const isExpanded = expandedSlots[slot.id];
+
+                                                return (
+                                                    <React.Fragment key={slot.id}>
+                                                        <TableRow hover sx={{ bgcolor: isExpanded ? alpha(COLORS.WARNING[50], 0.3) : 'transparent' }}>
+                                                            <TableCell>
+                                                                <Stack direction="row" spacing={1} alignItems="center">
+                                                                    <EventAvailable fontSize="small" sx={{ color: COLORS.INFO[500] }} />
+                                                                    <Typography variant="body2">
+                                                                        {slot.applicable_days[0]} → {slot.applicable_days[1]}
+                                                                    </Typography>
+                                                                </Stack>
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <Stack direction="row" spacing={1} alignItems="center">
+                                                                    <AccessTime fontSize="small" sx={{ color: COLORS.WARNING[500] }} />
+                                                                    <Typography variant="body2">
+                                                                        {slot.start_time} - {slot.end_time}
+                                                                    </Typography>
+                                                                    {tasks.length > 0 && (
+                                                                        <Chip
+                                                                            size="small"
+                                                                            label={`${tasks.length} task`}
+                                                                            sx={{
+                                                                                bgcolor: alpha(COLORS.PRIMARY[500], 0.1),
+                                                                                color: COLORS.PRIMARY[700],
+                                                                                fontWeight: 600,
+                                                                                ml: 1,
+                                                                                cursor: 'pointer'
+                                                                            }}
+                                                                            onClick={() => toggleSlotExpanded(slot.id)}
+                                                                            icon={<ExpandMore sx={{
+                                                                                transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                                                                                transition: 'transform 0.3s'
+                                                                            }} />}
+                                                                        />
+                                                                    )}
+                                                                </Stack>
+                                                            </TableCell>
+                                                            <TableCell sx={{ fontWeight: 600, color: COLORS.SUCCESS[700] }}>
+                                                                {formatPrice(slot.price)}
+                                                            </TableCell>
+                                                            <TableCell>
+                                                                <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
+                                                                    {slot.special_notes || '—'}
+                                                                </Typography>
+                                                            </TableCell>
+                                                            <TableCell align="right">
+                                                                <IconButton
+                                                                    size="small"
+                                                                    color="primary"
+                                                                    onClick={() => handleOpenSlotForm(slot)}
+                                                                >
+                                                                    <Edit fontSize="small" />
+                                                                </IconButton>
+                                                                <IconButton
+                                                                    size="small"
+                                                                    color="error"
+                                                                    onClick={() => handleDeleteSlot(slot.id)}
+                                                                >
+                                                                    <Delete fontSize="small" />
+                                                                </IconButton>
+                                                            </TableCell>
+                                                        </TableRow>
+
+                                                        {/* Task Details Row */}
+                                                        {tasks.length > 0 && (
+                                                            <TableRow>
+                                                                <TableCell colSpan={5} sx={{ p: 0, border: 0 }}>
+                                                                    <Collapse in={isExpanded} timeout="auto">
+                                                                        <Box sx={{ p: 3, bgcolor: alpha(COLORS.WARNING[50], 0.2) }}>
+                                                                            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 2, color: COLORS.WARNING[800] }}>
+                                                                                📋 Phân công nhiệm vụ ({tasks.length})
+                                                                            </Typography>
+
+                                                                            <Stack spacing={2}>
+                                                                                {tasks.map((task) => (
+                                                                                    <Paper key={task.id} sx={{ p: 2, border: `1px solid ${alpha(COLORS.PRIMARY[200], 0.5)}` }}>
+                                                                                        <Stack spacing={2}>
+                                                                                            {/* Task Header */}
+                                                                                            <Stack direction="row" spacing={2} alignItems="center">
+                                                                                                <Schedule sx={{ color: COLORS.PRIMARY[500] }} />
+                                                                                                <Box sx={{ flex: 1 }}>
+                                                                                                    <Typography variant="subtitle2" sx={{ fontWeight: 700, color: COLORS.PRIMARY[700] }}>
+                                                                                                        {task.name}
+                                                                                                    </Typography>
+                                                                                                    <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY }}>
+                                                                                                        {task.description}
+                                                                                                    </Typography>
+                                                                                                </Box>
+                                                                                                <Chip
+                                                                                                    size="small"
+                                                                                                    label={task.status}
+                                                                                                    sx={{
+                                                                                                        bgcolor: task.status === 'completed' ? COLORS.SUCCESS[100] : COLORS.WARNING[100],
+                                                                                                        color: task.status === 'completed' ? COLORS.SUCCESS[700] : COLORS.WARNING[700]
+                                                                                                    }}
+                                                                                                />
+                                                                                            </Stack>
+
+                                                                                            {/* Task Assignments */}
+                                                                                            {task.shiftAssignments && task.shiftAssignments[slot.id] && (
+                                                                                                <Grid container spacing={2}>
+                                                                                                    {/* Areas */}
+                                                                                                    <Grid item xs={12} md={4}>
+                                                                                                        <Box sx={{ p: 1.5, bgcolor: alpha(COLORS.INFO[50], 0.5), borderRadius: 1 }}>
+                                                                                                            <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+                                                                                                                <LocationOn fontSize="small" sx={{ color: COLORS.INFO[600] }} />
+                                                                                                                <Typography variant="caption" sx={{ fontWeight: 700, color: COLORS.INFO[700] }}>
+                                                                                                                    Khu vực
+                                                                                                                </Typography>
+                                                                                                            </Stack>
+                                                                                                            {task.shiftAssignments[slot.id].areaIds?.map(areaId => {
+                                                                                                                const area = AREAS_DATA.find(a => a.id === areaId);
+                                                                                                                return area ? (
+                                                                                                                    <Chip
+                                                                                                                        key={areaId}
+                                                                                                                        size="small"
+                                                                                                                        label={`${area.name} (${area.capacity})`}
+                                                                                                                        sx={{ m: 0.5, bgcolor: 'white' }}
+                                                                                                                    />
+                                                                                                                ) : null;
+                                                                                                            })}
+                                                                                                        </Box>
+                                                                                                    </Grid>
+
+                                                                                                    {/* Pet Groups */}
+                                                                                                    <Grid item xs={12} md={4}>
+                                                                                                        <Box sx={{ p: 1.5, bgcolor: alpha(COLORS.WARNING[50], 0.5), borderRadius: 1 }}>
+                                                                                                            <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+                                                                                                                <Pets fontSize="small" sx={{ color: COLORS.WARNING[600] }} />
+                                                                                                                <Typography variant="caption" sx={{ fontWeight: 700, color: COLORS.WARNING[700] }}>
+                                                                                                                    Nhóm Pet
+                                                                                                                </Typography>
+                                                                                                            </Stack>
+                                                                                                            {task.shiftAssignments[slot.id].petGroups?.map((pg, idx) => (
+                                                                                                                <Chip
+                                                                                                                    key={idx}
+                                                                                                                    size="small"
+                                                                                                                    label={`${pg.groupName} (${pg.count})`}
+                                                                                                                    sx={{ m: 0.5, bgcolor: 'white' }}
+                                                                                                                />
+                                                                                                            ))}
+                                                                                                        </Box>
+                                                                                                    </Grid>
+
+                                                                                                    {/* Staff Groups */}
+                                                                                                    <Grid item xs={12} md={4}>
+                                                                                                        <Box sx={{ p: 1.5, bgcolor: alpha(COLORS.SUCCESS[50], 0.5), borderRadius: 1 }}>
+                                                                                                            <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+                                                                                                                <People fontSize="small" sx={{ color: COLORS.SUCCESS[600] }} />
+                                                                                                                <Typography variant="caption" sx={{ fontWeight: 700, color: COLORS.SUCCESS[700] }}>
+                                                                                                                    Nhóm nhân viên
+                                                                                                                </Typography>
+                                                                                                            </Stack>
+                                                                                                            {task.shiftAssignments[slot.id].staffGroups?.map((sg, idx) => (
+                                                                                                                <Chip
+                                                                                                                    key={idx}
+                                                                                                                    size="small"
+                                                                                                                    label={`${sg.name} (${sg.staffIds?.length || 0})`}
+                                                                                                                    sx={{ m: 0.5, bgcolor: 'white' }}
+                                                                                                                />
+                                                                                                            ))}
+                                                                                                        </Box>
+                                                                                                    </Grid>
+                                                                                                </Grid>
+                                                                                            )}
+                                                                                        </Stack>
+                                                                                    </Paper>
+                                                                                ))}
+                                                                            </Stack>
+                                                                        </Box>
+                                                                    </Collapse>
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        )}
+                                                    </React.Fragment>
+                                                );
+                                            })}
+                                        </TableBody>
+                                    </Table>
+                                </TableContainer>
+                            )}
+                        </>
+                    )}
+                </DialogContent>
+                <DialogActions sx={{ px: 3, py: 2, bgcolor: alpha(COLORS.WARNING[500], 0.02) }}>
+                    <Button onClick={handleCloseSlotDialog} variant="outlined">Đóng</Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Slot Form Dialog */}
+            <Dialog open={openSlotFormDialog} onClose={handleCloseSlotForm} maxWidth="md" fullWidth>
+                <DialogTitle sx={{ bgcolor: COLORS.WARNING[500], color: 'white' }}>
+                    <Stack direction="row" spacing={2} alignItems="center">
+                        <Schedule />
+                        <Typography variant="h6" sx={{ fontWeight: 700, flex: 1 }}>
+                            {editingSlot ? 'Sửa Slot' : 'Thêm Slot Mới'}
+                        </Typography>
+                        <IconButton onClick={handleCloseSlotForm} sx={{ color: 'white' }}>
+                            <Close />
+                        </IconButton>
+                    </Stack>
+                </DialogTitle>
+                <DialogContent sx={{ pt: 3 }}>
+                    <Stack spacing={3}>
+                        <Alert severity="info" sx={{ borderRadius: 2 }}>
+                            <Typography variant="body2" sx={{ mb: 1 }}>
+                                <strong>Lưu ý:</strong> Giá slot là giá THỰC TẾ khách hàng phải trả (có thể khác với base_price của service)
+                            </Typography>
+                            <Typography variant="body2">
+                                <strong>⚠️ Quan trọng:</strong> Sức chứa của slot phải ≤ sức chứa của khu vực đã chọn
+                            </Typography>
+                        </Alert>
+
+                        <Stack direction="row" spacing={2}>
+                            <FormControl fullWidth required>
+                                <InputLabel>Khu vực</InputLabel>
+                                <Select
+                                    value={slotFormData.area_id}
+                                    onChange={(e) => setSlotFormData({ ...slotFormData, area_id: e.target.value })}
+                                    label="Khu vực"
+                                >
+                                    {AREAS_DATA.map((area) => (
+                                        <MenuItem key={area.id} value={area.id}>
+                                            {area.name} (Sức chứa: {area.capacity})
+                                        </MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+                            <TextField
+                                label="Team ID"
+                                fullWidth
+                                required
+                                value={slotFormData.team_id}
+                                onChange={(e) => setSlotFormData({ ...slotFormData, team_id: e.target.value })}
+                                placeholder="team-001"
+                            />
+                            <TextField
+                                label="Pet Group ID"
+                                fullWidth
+                                required
+                                value={slotFormData.pet_group_id}
+                                onChange={(e) => setSlotFormData({ ...slotFormData, pet_group_id: e.target.value })}
+                                placeholder="group-001"
+                            />
+                        </Stack>
+
+                        <Divider>
+                            <Chip label="Thời gian áp dụng" size="small" />
+                        </Divider>
+
+                        <Stack direction="row" spacing={2}>
+                            <TextField
+                                label="Ngày bắt đầu"
+                                fullWidth
+                                required
+                                type="date"
+                                value={slotFormData.applicable_days[0]}
+                                onChange={(e) => setSlotFormData({
+                                    ...slotFormData,
+                                    applicable_days: [e.target.value, slotFormData.applicable_days[1]]
+                                })}
+                                InputLabelProps={{ shrink: true }}
+                            />
+                            <TextField
+                                label="Ngày kết thúc"
+                                fullWidth
+                                required
+                                type="date"
+                                value={slotFormData.applicable_days[1]}
+                                onChange={(e) => setSlotFormData({
+                                    ...slotFormData,
+                                    applicable_days: [slotFormData.applicable_days[0], e.target.value]
+                                })}
+                                InputLabelProps={{ shrink: true }}
+                            />
+                        </Stack>
+
+                        <Divider>
+                            <Chip label="Ca làm việc" size="small" />
+                        </Divider>
+
+                        <Stack direction="row" spacing={2}>
+                            <TextField
+                                label="Giờ bắt đầu"
+                                fullWidth
+                                required
+                                type="time"
+                                value={slotFormData.start_time}
+                                onChange={(e) => setSlotFormData({ ...slotFormData, start_time: e.target.value })}
+                                InputLabelProps={{ shrink: true }}
+                                helperText="Giờ bắt đầu ca dịch vụ"
+                            />
+                            <TextField
+                                label="Giờ kết thúc"
+                                fullWidth
+                                required
+                                type="time"
+                                value={slotFormData.end_time}
+                                onChange={(e) => setSlotFormData({ ...slotFormData, end_time: e.target.value })}
+                                InputLabelProps={{ shrink: true }}
+                                helperText="Giờ kết thúc ca dịch vụ"
+                            />
+                        </Stack>
+
+                        <Stack direction="row" spacing={2}>
+                            <TextField
+                                label="Sức chứa tối đa"
+                                fullWidth
+                                required
+                                type="number"
+                                value={slotFormData.max_capacity}
+                                onChange={(e) => setSlotFormData({ ...slotFormData, max_capacity: e.target.value })}
+                                placeholder="10"
+                                inputProps={{
+                                    min: 1,
+                                    max: slotFormData.area_id
+                                        ? AREAS_DATA.find(a => a.id === slotFormData.area_id)?.capacity || 999
+                                        : 999
+                                }}
+                                error={
+                                    slotFormData.area_id &&
+                                    slotFormData.max_capacity &&
+                                    parseInt(slotFormData.max_capacity) > (AREAS_DATA.find(a => a.id === slotFormData.area_id)?.capacity || 999)
+                                }
+                                helperText={
+                                    slotFormData.area_id
+                                        ? `Tối đa: ${AREAS_DATA.find(a => a.id === slotFormData.area_id)?.capacity || '?'} người (theo khu vực)`
+                                        : 'Chọn khu vực trước'
+                                }
+                            />
+                            <TextField
+                                label="Giá slot (VNĐ)"
+                                fullWidth
+                                required
+                                type="number"
+                                value={slotFormData.price}
+                                onChange={(e) => setSlotFormData({ ...slotFormData, price: e.target.value })}
+                                placeholder="200000"
+                                inputProps={{ min: 0 }}
+                                helperText="Giá thực tế khách phải trả"
+                            />
+                        </Stack>
+
+                        <TextField
+                            label="Ghi chú đặc biệt"
+                            fullWidth
+                            multiline
+                            rows={2}
+                            value={slotFormData.special_notes}
+                            onChange={(e) => setSlotFormData({ ...slotFormData, special_notes: e.target.value })}
+                            placeholder="VD: Giờ cao điểm, Cần đặt trước..."
+                        />
+                    </Stack>
+                </DialogContent>
+                <DialogActions sx={{ px: 3, py: 2, bgcolor: alpha(COLORS.WARNING[500], 0.02) }}>
+                    <Button onClick={handleCloseSlotForm} variant="outlined">Hủy</Button>
+                    <Button
+                        onClick={handleSaveSlot}
+                        variant="contained"
+                        disabled={
+                            !slotFormData.area_id ||
+                            !slotFormData.max_capacity ||
+                            (slotFormData.area_id && slotFormData.max_capacity &&
+                                parseInt(slotFormData.max_capacity) > (AREAS_DATA.find(a => a.id === slotFormData.area_id)?.capacity || 999))
+                        }
+                        sx={{
+                            bgcolor: COLORS.WARNING[500],
+                            '&:hover': { bgcolor: COLORS.WARNING[600] }
+                        }}
+                    >
+                        {editingSlot ? 'Cập nhật' : 'Tạo Slot'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
 
             {/* Alert Modal */}
             <AlertModal

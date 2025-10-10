@@ -1,9 +1,11 @@
 import React from 'react';
 import { Box, Typography, RadioGroup, FormControlLabel, Radio, Stack, FormControl, InputLabel, Select, MenuItem, TextField, Alert, Divider, Autocomplete, Chip } from '@mui/material';
 import { alpha } from '@mui/material/styles';
-import { INTERNAL_TEMPLATES, SHIFTS } from '../../../api/tasksApi';
+import { INTERNAL_TEMPLATES } from '../../../api/tasksApi';
 import { COLORS } from '../../../constants/colors';
 import { InternalAssignment, ServiceAssignment } from './Assignments';
+import slotApi from '../../../api/slotApi';
+import workshiftApi from '../../../api/workshiftApi';
 
 // ==================== STEP 1: Task Type ====================
 export const StepTaskType = ({ formData, setFormData }) => {
@@ -77,19 +79,53 @@ export const StepSelectTask = ({ formData, setFormData, services, isEditMode }) 
 
 // ==================== STEP 3: Timeframe ====================
 export const StepTimeframe = ({ formData, setFormData, selectedService }) => {
-    // Auto-fill service period start/end dates when selecting service_period
-    React.useEffect(() => {
-        if (formData.type === 'service' && formData.timeframeType === 'service_period' && selectedService) {
-            // Support both formats: serviceStartDate (from serviceApi) and startDate (from tasksApi)
-            const serviceStart = selectedService.serviceStartDate || selectedService.startDate;
-            const serviceEnd = selectedService.serviceEndDate || selectedService.endDate;
+    const [slotDates, setSlotDates] = React.useState({ start: null, end: null });
 
-            if (serviceStart && !formData.servicePeriodStart) {
-                setFormData(prev => ({ ...prev, servicePeriodStart: serviceStart }));
-            }
-            if (serviceEnd && !formData.servicePeriodEnd) {
-                setFormData(prev => ({ ...prev, servicePeriodEnd: serviceEnd }));
-            }
+    // Fetch slot dates from applicable_days
+    React.useEffect(() => {
+        if (formData.type === 'service' && selectedService) {
+            const fetchSlotDates = async () => {
+                try {
+                    const response = await slotApi.getSlotsByService(selectedService.id);
+                    if (response.success && response.data.length > 0) {
+                        // Get min and max dates from all slots' applicable_days
+                        let minDate = null;
+                        let maxDate = null;
+
+                        response.data.forEach(slot => {
+                            if (slot.applicable_days && slot.applicable_days.length > 0) {
+                                const slotDates = slot.applicable_days.map(d => new Date(d));
+                                const slotMin = new Date(Math.min(...slotDates));
+                                const slotMax = new Date(Math.max(...slotDates));
+
+                                if (!minDate || slotMin < minDate) minDate = slotMin;
+                                if (!maxDate || slotMax > maxDate) maxDate = slotMax;
+                            }
+                        });
+
+                        if (minDate && maxDate) {
+                            const formatDate = (date) => date.toISOString().split('T')[0];
+                            const serviceStart = formatDate(minDate);
+                            const serviceEnd = formatDate(maxDate);
+                            setSlotDates({ start: serviceStart, end: serviceEnd });
+
+                            // Auto-fill when selecting service_period
+                            if (formData.timeframeType === 'service_period') {
+                                if (serviceStart && !formData.servicePeriodStart) {
+                                    setFormData(prev => ({ ...prev, servicePeriodStart: serviceStart }));
+                                }
+                                if (serviceEnd && !formData.servicePeriodEnd) {
+                                    setFormData(prev => ({ ...prev, servicePeriodEnd: serviceEnd }));
+                                }
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error fetching slot dates:', error);
+                }
+            };
+
+            fetchSlotDates();
         }
     }, [formData.type, formData.timeframeType, selectedService, formData.servicePeriodStart, formData.servicePeriodEnd, setFormData]);
 
@@ -149,79 +185,68 @@ export const StepTimeframe = ({ formData, setFormData, selectedService }) => {
                         <FormControlLabel value="service_period" control={<Radio />} label="Theo khoảng thời gian dịch vụ" />
                     </RadioGroup>
 
-                    {selectedService && (() => {
-                        const serviceStart = selectedService.serviceStartDate || selectedService.startDate;
-                        const serviceEnd = selectedService.serviceEndDate || selectedService.endDate;
-                        return serviceStart && serviceEnd && (
-                            <Alert severity="info" sx={{ mb: 1 }}>
-                                Dịch vụ <strong>{selectedService.name}</strong> diễn ra từ <strong>{serviceStart}</strong> đến <strong>{serviceEnd}</strong>
-                            </Alert>
-                        );
-                    })()}
+                    {selectedService && slotDates.start && slotDates.end && (
+                        <Alert severity="info" sx={{ mb: 1 }}>
+                            Dịch vụ <strong>{selectedService.name}</strong> diễn ra từ <strong>{slotDates.start}</strong> đến <strong>{slotDates.end}</strong>
+                            {' '}(từ slot applicable_days)
+                        </Alert>
+                    )}
 
-                    {formData.timeframeType === 'day' && (() => {
-                        const serviceStart = selectedService?.serviceStartDate || selectedService?.startDate;
-                        const serviceEnd = selectedService?.serviceEndDate || selectedService?.endDate;
-                        return (
+                    {formData.timeframeType === 'day' && (
+                        <TextField
+                            type="date"
+                            label="Chọn ngày"
+                            value={formData.date}
+                            onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                            InputLabelProps={{ shrink: true }}
+                            inputProps={{
+                                min: slotDates.start || undefined,
+                                max: slotDates.end || undefined
+                            }}
+                            helperText={slotDates.start && slotDates.end
+                                ? `Chỉ được chọn ngày trong khoảng ${slotDates.start} - ${slotDates.end}`
+                                : ''
+                            }
+                            fullWidth
+                        />
+                    )}
+
+                    {formData.timeframeType === 'service_period' && (
+                        <Stack spacing={2}>
                             <TextField
                                 type="date"
-                                label="Chọn ngày"
-                                value={formData.date}
-                                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                                label="Ngày bắt đầu"
+                                value={formData.servicePeriodStart || slotDates.start || ''}
+                                onChange={(e) => setFormData({ ...formData, servicePeriodStart: e.target.value })}
                                 InputLabelProps={{ shrink: true }}
                                 inputProps={{
-                                    min: serviceStart || undefined,
-                                    max: serviceEnd || undefined
+                                    min: slotDates.start || undefined,
+                                    max: slotDates.end || undefined
                                 }}
-                                helperText={serviceStart && serviceEnd
-                                    ? `Chỉ được chọn ngày trong khoảng ${serviceStart} - ${serviceEnd}`
+                                helperText={slotDates.start && slotDates.end
+                                    ? `Phải trong khoảng ${slotDates.start} - ${slotDates.end}`
                                     : ''
                                 }
                                 fullWidth
                             />
-                        );
-                    })()}
-
-                    {formData.timeframeType === 'service_period' && (() => {
-                        const serviceStart = selectedService?.serviceStartDate || selectedService?.startDate;
-                        const serviceEnd = selectedService?.serviceEndDate || selectedService?.endDate;
-                        return (
-                            <Stack spacing={2}>
-                                <TextField
-                                    type="date"
-                                    label="Ngày bắt đầu"
-                                    value={formData.servicePeriodStart || serviceStart || ''}
-                                    onChange={(e) => setFormData({ ...formData, servicePeriodStart: e.target.value })}
-                                    InputLabelProps={{ shrink: true }}
-                                    inputProps={{
-                                        min: serviceStart || undefined,
-                                        max: serviceEnd || undefined
-                                    }}
-                                    helperText={serviceStart && serviceEnd
-                                        ? `Phải trong khoảng ${serviceStart} - ${serviceEnd}`
-                                        : ''
-                                    }
-                                    fullWidth
-                                />
-                                <TextField
-                                    type="date"
-                                    label="Ngày kết thúc"
-                                    value={formData.servicePeriodEnd || serviceEnd || ''}
-                                    onChange={(e) => setFormData({ ...formData, servicePeriodEnd: e.target.value })}
-                                    InputLabelProps={{ shrink: true }}
-                                    inputProps={{
-                                        min: formData.servicePeriodStart || serviceStart || undefined,
-                                        max: serviceEnd || undefined
-                                    }}
-                                    helperText={serviceStart && serviceEnd
-                                        ? `Phải trong khoảng ${serviceStart} - ${serviceEnd}`
-                                        : ''
-                                    }
-                                    fullWidth
-                                />
-                            </Stack>
-                        );
-                    })()}
+                            <TextField
+                                type="date"
+                                label="Ngày kết thúc"
+                                value={formData.servicePeriodEnd || slotDates.end || ''}
+                                onChange={(e) => setFormData({ ...formData, servicePeriodEnd: e.target.value })}
+                                InputLabelProps={{ shrink: true }}
+                                inputProps={{
+                                    min: formData.servicePeriodStart || slotDates.start || undefined,
+                                    max: slotDates.end || undefined
+                                }}
+                                helperText={slotDates.start && slotDates.end
+                                    ? `Phải trong khoảng ${slotDates.start} - ${slotDates.end}`
+                                    : ''
+                                }
+                                fullWidth
+                            />
+                        </Stack>
+                    )}
                 </Stack>
             )}
         </Box>
@@ -230,7 +255,48 @@ export const StepTimeframe = ({ formData, setFormData, selectedService }) => {
 
 // ==================== STEP 4: Shift ====================
 export const StepShift = ({ formData, setFormData, selectedService }) => {
-    // NOTE: Services no longer have timeSlots - all tasks use manual shift selection now
+    const [serviceSlots, setServiceSlots] = React.useState([]);
+    const [loadingSlots, setLoadingSlots] = React.useState(false);
+    const [workShifts, setWorkShifts] = React.useState([]);
+    const [loadingShifts, setLoadingShifts] = React.useState(false);
+
+    // Fetch work shifts for internal tasks
+    React.useEffect(() => {
+        if (formData.type === 'internal') {
+            setLoadingShifts(true);
+            workshiftApi.getAllShifts()
+                .then(response => {
+                    if (response.success) {
+                        setWorkShifts(response.data);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching work shifts:', error);
+                })
+                .finally(() => {
+                    setLoadingShifts(false);
+                });
+        }
+    }, [formData.type]);
+
+    // Fetch service slots when service task is selected
+    React.useEffect(() => {
+        if (formData.type === 'service' && selectedService) {
+            setLoadingSlots(true);
+            slotApi.getSlotsByService(selectedService.id)
+                .then(response => {
+                    if (response.success) {
+                        setServiceSlots(response.data);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching slots:', error);
+                })
+                .finally(() => {
+                    setLoadingSlots(false);
+                });
+        }
+    }, [formData.type, selectedService]);
 
     const handleShiftChange = (event) => {
         const selectedShifts = event.target.value;
@@ -263,42 +329,134 @@ export const StepShift = ({ formData, setFormData, selectedService }) => {
         });
     };
 
-    // Both internal and service tasks use manual shift selection now
+    // Render for Internal tasks
+    if (formData.type === 'internal') {
+        return (
+            <Box sx={{ p: 3 }}>
+                <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>Chọn ca làm</Typography>
+                <Typography variant="body2" sx={{ mb: 2, color: COLORS.TEXT.SECONDARY }}>
+                    {loadingShifts ? 'Đang tải ca làm việc...' : 'Bạn có thể chọn một hoặc nhiều ca làm việc cho nhiệm vụ này'}
+                </Typography>
+
+                {workShifts.length === 0 && !loadingShifts ? (
+                    <Alert severity="warning">
+                        Chưa có ca làm việc nào. Vui lòng tạo ca làm việc ở trang Quản lý nhân viên.
+                    </Alert>
+                ) : (
+                    <>
+                        <FormControl fullWidth>
+                            <InputLabel>Ca làm</InputLabel>
+                            <Select
+                                multiple
+                                value={formData.shifts || []}
+                                onChange={handleShiftChange}
+                                label="Ca làm"
+                                disabled={loadingShifts}
+                                renderValue={(selected) => (
+                                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                        {selected.map((shiftId) => {
+                                            const shift = workShifts.find(s => s.id === shiftId);
+                                            return shift ? (
+                                                <Chip
+                                                    key={shiftId}
+                                                    label={shift.name}
+                                                    size="small"
+                                                />
+                                            ) : null;
+                                        })}
+                                    </Box>
+                                )}
+                            >
+                                {workShifts.map(shift => (
+                                    <MenuItem key={shift.id} value={shift.id}>
+                                        <Box sx={{ width: '100%' }}>
+                                            <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                                                {shift.name}
+                                            </Typography>
+                                            <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY }}>
+                                                {shift.start_time} - {shift.end_time} | {shift.duration_hours}h
+                                            </Typography>
+                                        </Box>
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+
+                        {(formData.shifts || []).length > 0 && (
+                            <Alert severity="info" sx={{ mt: 2 }}>
+                                <Typography variant="body2">
+                                    Đã chọn <strong>{formData.shifts.length}</strong> ca làm việc.
+                                    Bạn sẽ phân công nhiệm vụ cho từng ca ở bước tiếp theo.
+                                </Typography>
+                            </Alert>
+                        )}
+                    </>
+                )}
+            </Box>
+        );
+    }
+
+    // Render for Service tasks - Show service slots
     return (
         <Box sx={{ p: 3 }}>
-            <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>Chọn ca làm</Typography>
+            <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>Chọn ca dịch vụ</Typography>
             <Typography variant="body2" sx={{ mb: 2, color: COLORS.TEXT.SECONDARY }}>
-                Bạn có thể chọn một hoặc nhiều ca làm việc cho nhiệm vụ này
+                {loadingSlots ? 'Đang tải ca dịch vụ...' : 'Chọn một hoặc nhiều ca dịch vụ cho nhiệm vụ này'}
             </Typography>
-            <FormControl fullWidth>
-                <InputLabel>Ca làm</InputLabel>
-                <Select
-                    multiple
-                    value={formData.shifts || []}
-                    onChange={handleShiftChange}
-                    label="Ca làm"
-                    placeholder="Chọn một hoặc nhiều ca làm việc"
-                    renderValue={(selected) => (
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                            {selected.map((value) => (
-                                <Chip key={value} label={value} size="small" />
-                            ))}
-                        </Box>
-                    )}
-                >
-                    {(SHIFTS || []).map(s => (
-                        <MenuItem key={s} value={s}>{s}</MenuItem>
-                    ))}
-                </Select>
-            </FormControl>
 
-            {(formData.shifts || []).length > 0 && (
-                <Alert severity="info" sx={{ mt: 2 }}>
-                    <Typography variant="body2">
-                        Đã chọn <strong>{formData.shifts.length}</strong> ca làm việc.
-                        Bạn sẽ phân công nhiệm vụ cho từng ca ở bước tiếp theo.
-                    </Typography>
+            {serviceSlots.length === 0 && !loadingSlots ? (
+                <Alert severity="warning">
+                    Dịch vụ này chưa có ca dịch vụ nào. Vui lòng tạo slot cho dịch vụ trước.
                 </Alert>
+            ) : (
+                <>
+                    <FormControl fullWidth>
+                        <InputLabel>Ca dịch vụ</InputLabel>
+                        <Select
+                            multiple
+                            value={formData.shifts || []}
+                            onChange={handleShiftChange}
+                            label="Ca dịch vụ"
+                            disabled={loadingSlots}
+                            renderValue={(selected) => (
+                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                    {selected.map((slotId) => {
+                                        const slot = serviceSlots.find(s => s.id === slotId);
+                                        return slot ? (
+                                            <Chip
+                                                key={slotId}
+                                                label={`${slot.start_time} - ${slot.end_time}`}
+                                                size="small"
+                                            />
+                                        ) : null;
+                                    })}
+                                </Box>
+                            )}
+                        >
+                            {serviceSlots.map(slot => (
+                                <MenuItem key={slot.id} value={slot.id}>
+                                    <Box sx={{ width: '100%' }}>
+                                        <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                                            {slot.start_time} - {slot.end_time}
+                                        </Typography>
+                                        <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY }}>
+                                            Khu vực: {slot.area_id} | Sức chứa: {slot.max_capacity} | Giá: {slot.price?.toLocaleString('vi-VN')}đ
+                                        </Typography>
+                                    </Box>
+                                </MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
+
+                    {(formData.shifts || []).length > 0 && (
+                        <Alert severity="info" sx={{ mt: 2 }}>
+                            <Typography variant="body2">
+                                Đã chọn <strong>{formData.shifts.length}</strong> ca dịch vụ.
+                                Bạn sẽ phân công nhiệm vụ cho từng ca ở bước tiếp theo.
+                            </Typography>
+                        </Alert>
+                    )}
+                </>
             )}
         </Box>
     );

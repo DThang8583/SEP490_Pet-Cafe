@@ -27,6 +27,40 @@ export const WIZARD_STEPS = ['Loại nhiệm vụ', 'Chọn nhiệm vụ', 'Khun
 
 // ========== API FUNCTIONS ==========
 
+/**
+ * Get all tasks from localStorage (same as TasksPage.jsx)
+ * @returns {Promise<Object>} { success: boolean, data: Array }
+ */
+export const getAllTasks = async () => {
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    try {
+        // Read from localStorage - same key as TasksPage.jsx
+        const saved = localStorage.getItem('mgr_tasks_v2');
+        if (saved) {
+            const tasks = JSON.parse(saved);
+            return {
+                success: true,
+                data: tasks
+            };
+        }
+
+        // Return empty array if no tasks found
+        return {
+            success: true,
+            data: []
+        };
+    } catch (error) {
+        console.error('Error loading tasks from localStorage:', error);
+        return {
+            success: false,
+            data: [],
+            error: error.message
+        };
+    }
+};
+
 // NOTE: All data (services, pets, areas, staff, pet groups) are now fetched from their respective APIs
 // - Services: serviceApi.getAllServices()
 // - Areas: AREAS_DATA from areasApi
