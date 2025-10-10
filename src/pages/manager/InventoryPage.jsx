@@ -561,13 +561,13 @@ const InventoryPage = () => {
                                 }
                             }}
                         >
-                            <Box
-                                sx={{
+        <Box
+            sx={{
                                     background: `linear-gradient(135deg, ${COLORS.SECONDARY[400]} 0%, ${COLORS.SECONDARY[600]} 100%)`,
                                     borderRadius: 2,
                                     p: 1,
-                                    display: 'flex',
-                                    alignItems: 'center',
+                display: 'flex',
+                alignItems: 'center',
                                     justifyContent: 'center'
                                 }}
                             >
@@ -781,7 +781,7 @@ const InventoryPage = () => {
                 <Box sx={{ px: 3, pt: 3 }}>
                     <Typography variant="h6" sx={{ fontWeight: 800, color: COLORS.ERROR[600] }}>
                         Cập nhật nguyên liệu
-                    </Typography>
+            </Typography>
                 </Box>
                 <Box sx={{ px: 3, pt: 1, pb: 2 }}>
                     <Stack spacing={2}>
