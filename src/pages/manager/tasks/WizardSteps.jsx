@@ -65,7 +65,7 @@ export const StepSelectTask = ({ formData, setFormData, services, isEditMode }) 
                     >
                         {(services || []).map(s => (
                             <MenuItem key={s.id} value={s.id}>
-                                {s.name} ({s.timeSlots?.length || 0} khung giờ)
+                                {s.name}
                             </MenuItem>
                         ))}
                     </Select>
@@ -230,30 +230,7 @@ export const StepTimeframe = ({ formData, setFormData, selectedService }) => {
 
 // ==================== STEP 4: Shift ====================
 export const StepShift = ({ formData, setFormData, selectedService }) => {
-    // For service tasks, auto-fill shifts from service's timeSlots
-    React.useEffect(() => {
-        if (formData.type === 'service' && selectedService && selectedService.timeSlots) {
-            const serviceTimeSlots = selectedService.timeSlots || [];
-
-            // Auto-fill shifts if not already set
-            if (!formData.shifts || formData.shifts.length === 0) {
-                const newShiftAssignments = {};
-                serviceTimeSlots.forEach(slot => {
-                    newShiftAssignments[slot] = {
-                        areaIds: [],
-                        petGroups: [],
-                        staffGroups: []
-                    };
-                });
-
-                setFormData(prev => ({
-                    ...prev,
-                    shifts: serviceTimeSlots,
-                    shiftAssignments: newShiftAssignments
-                }));
-            }
-        }
-    }, [formData.type, selectedService, formData.shifts, setFormData]);
+    // NOTE: Services no longer have timeSlots - all tasks use manual shift selection now
 
     const handleShiftChange = (event) => {
         const selectedShifts = event.target.value;
@@ -286,58 +263,7 @@ export const StepShift = ({ formData, setFormData, selectedService }) => {
         });
     };
 
-    // For service tasks, display read-only info about time slots
-    if (formData.type === 'service') {
-        const serviceTimeSlots = selectedService?.timeSlots || [];
-
-        return (
-            <Box sx={{ p: 3 }}>
-                <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>Ca làm của dịch vụ</Typography>
-                <Typography variant="body2" sx={{ mb: 2, color: COLORS.TEXT.SECONDARY }}>
-                    Dịch vụ này có các ca làm việc sau (tự động lấy từ dịch vụ):
-                </Typography>
-
-                {serviceTimeSlots.length > 0 ? (
-                    <Box sx={{
-                        p: 2,
-                        borderRadius: 2,
-                        backgroundColor: alpha(COLORS.PRIMARY[50], 0.3),
-                        border: `1px solid ${alpha(COLORS.PRIMARY[200], 0.5)}`
-                    }}>
-                        <Stack direction="row" spacing={1} flexWrap="wrap">
-                            {serviceTimeSlots.map(slot => (
-                                <Chip
-                                    key={slot}
-                                    label={slot}
-                                    sx={{
-                                        background: alpha(COLORS.PRIMARY[100], 0.8),
-                                        color: COLORS.PRIMARY[700],
-                                        fontWeight: 700,
-                                        mb: 1
-                                    }}
-                                />
-                            ))}
-                        </Stack>
-                    </Box>
-                ) : (
-                    <Alert severity="warning">
-                        Dịch vụ này chưa có ca làm việc được định nghĩa.
-                    </Alert>
-                )}
-
-                {serviceTimeSlots.length > 0 && (
-                    <Alert severity="info" sx={{ mt: 2 }}>
-                        <Typography variant="body2">
-                            Dịch vụ có <strong>{serviceTimeSlots.length}</strong> ca làm việc.
-                            Bạn sẽ phân công nhiệm vụ cho từng ca ở bước tiếp theo.
-                        </Typography>
-                    </Alert>
-                )}
-            </Box>
-        );
-    }
-
-    // For internal tasks, allow manual selection
+    // Both internal and service tasks use manual shift selection now
     return (
         <Box sx={{ p: 3 }}>
             <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>Chọn ca làm</Typography>
@@ -593,53 +519,29 @@ export const StepConfirmation = ({ formData, selectedService, areas, staff, petG
                         📋 Chi tiết phân công
                     </Typography>
 
-                    {formData.type === 'internal' ? (
-                        <Stack spacing={2}>
-                            {(formData.shifts || []).map(shift => (
-                                <Box
-                                    key={shift}
-                                    sx={{
-                                        p: 2,
-                                        borderRadius: 2,
-                                        backgroundColor: alpha(COLORS.BACKGROUND.NEUTRAL, 0.3),
-                                        border: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.2)}`
-                                    }}
-                                >
-                                    <Typography variant="subtitle1" sx={{ fontWeight: 700, color: COLORS.PRIMARY[700], mb: 1 }}>
-                                        🕐 Ca làm: {shift}
-                                    </Typography>
-                                    {renderAssignmentDetails(formData.shiftAssignments?.[shift])}
-                                </Box>
-                            ))}
-                            {(formData.shifts || []).length === 0 && (
-                                <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, fontStyle: 'italic' }}>
-                                    Chưa chọn ca làm việc nào
-                                </Typography>
-                            )}
-                        </Stack>
-                    ) : (
-                        <Box>
-                            {(formData.selectedTimeSlots || []).map(ts => (
-                                <Box key={ts} sx={{
-                                    mb: 3,
+                    <Stack spacing={2}>
+                        {(formData.shifts || []).map(shift => (
+                            <Box
+                                key={shift}
+                                sx={{
                                     p: 2,
                                     borderRadius: 2,
                                     backgroundColor: alpha(COLORS.BACKGROUND.NEUTRAL, 0.3),
                                     border: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.2)}`
-                                }}>
-                                    <Typography variant="subtitle1" sx={{ fontWeight: 700, color: COLORS.PRIMARY[700], mb: 1 }}>
-                                        ⏰ {String(ts)}
-                                    </Typography>
-                                    {renderAssignmentDetails(formData.timeSlotAssignments?.[ts], 'timeSlot')}
-                                </Box>
-                            ))}
-                            {(formData.selectedTimeSlots || []).length === 0 && (
-                                <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, fontStyle: 'italic' }}>
-                                    Chưa chọn khung giờ nào
+                                }}
+                            >
+                                <Typography variant="subtitle1" sx={{ fontWeight: 700, color: COLORS.PRIMARY[700], mb: 1 }}>
+                                    🕐 Ca làm: {shift}
                                 </Typography>
-                            )}
-                        </Box>
-                    )}
+                                {renderAssignmentDetails(formData.shiftAssignments?.[shift])}
+                            </Box>
+                        ))}
+                        {(formData.shifts || []).length === 0 && (
+                            <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, fontStyle: 'italic' }}>
+                                Chưa chọn ca làm việc nào
+                            </Typography>
+                        )}
+                    </Stack>
                 </Box>
             </Stack>
         </Box>

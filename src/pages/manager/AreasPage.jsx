@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Box, Typography, Button, Stack, Dialog, DialogTitle, DialogContent, DialogActions, TextField, IconButton, Alert, Chip, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, alpha } from '@mui/material';
-import { Add, Edit, Delete, LocationOn, Search } from '@mui/icons-material';
+import { Box, Typography, Button, Stack, Dialog, TextField, IconButton, Chip, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, alpha, Toolbar, Grid } from '@mui/material';
+import { Add, Edit, Delete, LocationOn, Home, MeetingRoom, Groups } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 import Loading from '../../components/loading/Loading';
 import Pagination from '../../components/common/Pagination';
@@ -69,11 +69,18 @@ const AreasPage = () => {
         return filteredAreas.slice(startIndex, startIndex + itemsPerPage);
     }, [page, itemsPerPage, filteredAreas]);
 
-    // Statistics - chỉ tổng số và tổng sức chứa
+    // Statistics
     const stats = useMemo(() => {
         const total = areas.length;
         const totalCapacity = areas.reduce((sum, a) => sum + a.capacity, 0);
-        return { total, totalCapacity };
+        const averageCapacity = total > 0 ? Math.round(totalCapacity / total) : 0;
+
+        // Categorize by capacity size
+        const small = areas.filter(a => a.capacity <= 10).length;
+        const medium = areas.filter(a => a.capacity > 10 && a.capacity <= 20).length;
+        const large = areas.filter(a => a.capacity > 20).length;
+
+        return { total, totalCapacity, averageCapacity, small, medium, large };
     }, [areas]);
 
     const handleOpenDialog = (area = null) => {
@@ -200,40 +207,183 @@ const AreasPage = () => {
             width: '100%'
         }}>
             <Box sx={{ px: { xs: 2, md: 4 }, py: 3 }}>
-                {/* Header - Style giống StaffPage */}
-                <Stack
-                    direction="row"
-                    alignItems="center"
-                    spacing={2}
-                    sx={{ mb: 2 }}
-                >
-                    <Typography
-                        variant="h5"
-                        sx={{
-                            fontWeight: 900,
-                            color: COLORS.ERROR[600]
-                        }}
-                    >
-                        Quản lý Khu vực
-                    </Typography>
-                    <Chip
-                        label={`Tổng: ${stats.total}`}
-                        size="small"
-                        sx={{
-                            background: alpha(COLORS.SECONDARY[100], 0.7),
-                            color: COLORS.SECONDARY[800],
-                            fontWeight: 700
-                        }}
-                    />
-                </Stack>
+                {/* Header */}
+                <Typography variant="h5" sx={{ fontWeight: 900, color: COLORS.ERROR[600], mb: 3 }}>
+                    Quản lý Khu vực
+                </Typography>
 
-                {/* Toolbar - giống StaffPage */}
-                <Stack
-                    direction="row"
-                    alignItems="center"
-                    spacing={2}
-                    sx={{ mb: 2, flexWrap: 'wrap' }}
-                >
+                {/* Status Badges */}
+                <Grid container spacing={2} sx={{ mb: 3 }}>
+                    <Grid item xs={6} sm={6} md={3}>
+                        <Paper
+                            sx={{
+                                p: 2,
+                                background: `linear-gradient(135deg, ${alpha(COLORS.PRIMARY[50], 0.8)} 0%, ${alpha(COLORS.PRIMARY[100], 0.6)} 100%)`,
+                                border: `2px solid ${alpha(COLORS.PRIMARY[300], 0.3)}`,
+                                borderRadius: 3,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 1.5,
+                                transition: 'all 0.3s ease',
+                                '&:hover': {
+                                    transform: 'translateY(-4px)',
+                                    boxShadow: `0 8px 24px ${alpha(COLORS.PRIMARY[500], 0.2)}`
+                                }
+                            }}
+                        >
+                            <Box
+                                sx={{
+                                    background: `linear-gradient(135deg, ${COLORS.PRIMARY[400]} 0%, ${COLORS.PRIMARY[600]} 100%)`,
+                                    borderRadius: 2,
+                                    p: 1,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}
+                            >
+                                <Home sx={{ color: 'white', fontSize: 28 }} />
+                            </Box>
+                            <Box>
+                                <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.PRIMARY[700] }}>
+                                    {stats.total}
+                                </Typography>
+                                <Typography variant="caption" sx={{ color: COLORS.PRIMARY[600], fontWeight: 600 }}>
+                                    Tổng khu vực
+                                </Typography>
+                            </Box>
+                        </Paper>
+                    </Grid>
+
+                    <Grid item xs={6} sm={6} md={3}>
+                        <Paper
+                            sx={{
+                                p: 2,
+                                background: `linear-gradient(135deg, ${alpha(COLORS.SUCCESS[50], 0.8)} 0%, ${alpha(COLORS.SUCCESS[100], 0.6)} 100%)`,
+                                border: `2px solid ${alpha(COLORS.SUCCESS[300], 0.3)}`,
+                                borderRadius: 3,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 1.5,
+                                transition: 'all 0.3s ease',
+                                '&:hover': {
+                                    transform: 'translateY(-4px)',
+                                    boxShadow: `0 8px 24px ${alpha(COLORS.SUCCESS[500], 0.2)}`
+                                }
+                            }}
+                        >
+                            <Box
+                                sx={{
+                                    background: `linear-gradient(135deg, ${COLORS.SUCCESS[400]} 0%, ${COLORS.SUCCESS[600]} 100%)`,
+                                    borderRadius: 2,
+                                    p: 1,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}
+                            >
+                                <Groups sx={{ color: 'white', fontSize: 28 }} />
+                            </Box>
+                            <Box>
+                                <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.SUCCESS[700] }}>
+                                    {stats.totalCapacity}
+                                </Typography>
+                                <Typography variant="caption" sx={{ color: COLORS.SUCCESS[600], fontWeight: 600 }}>
+                                    Tổng sức chứa
+                                </Typography>
+                            </Box>
+                        </Paper>
+                    </Grid>
+
+                    <Grid item xs={6} sm={6} md={3}>
+                        <Paper
+                            sx={{
+                                p: 2,
+                                background: `linear-gradient(135deg, ${alpha(COLORS.INFO[50], 0.8)} 0%, ${alpha(COLORS.INFO[100], 0.6)} 100%)`,
+                                border: `2px solid ${alpha(COLORS.INFO[300], 0.3)}`,
+                                borderRadius: 3,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 1.5,
+                                transition: 'all 0.3s ease',
+                                '&:hover': {
+                                    transform: 'translateY(-4px)',
+                                    boxShadow: `0 8px 24px ${alpha(COLORS.INFO[500], 0.2)}`
+                                }
+                            }}
+                        >
+                            <Box
+                                sx={{
+                                    background: `linear-gradient(135deg, ${COLORS.INFO[400]} 0%, ${COLORS.INFO[600]} 100%)`,
+                                    borderRadius: 2,
+                                    p: 1,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}
+                            >
+                                <MeetingRoom sx={{ color: 'white', fontSize: 28 }} />
+                            </Box>
+                            <Box>
+                                <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.INFO[700] }}>
+                                    {stats.averageCapacity}
+                                </Typography>
+                                <Typography variant="caption" sx={{ color: COLORS.INFO[600], fontWeight: 600 }}>
+                                    SC trung bình
+                                </Typography>
+                            </Box>
+                        </Paper>
+                    </Grid>
+
+                    <Grid item xs={6} sm={6} md={3}>
+                        <Paper
+                            sx={{
+                                p: 2,
+                                background: `linear-gradient(135deg, ${alpha(COLORS.WARNING[50], 0.8)} 0%, ${alpha(COLORS.WARNING[100], 0.6)} 100%)`,
+                                border: `2px solid ${alpha(COLORS.WARNING[300], 0.3)}`,
+                                borderRadius: 3,
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 1.5,
+                                transition: 'all 0.3s ease',
+                                '&:hover': {
+                                    transform: 'translateY(-4px)',
+                                    boxShadow: `0 8px 24px ${alpha(COLORS.WARNING[500], 0.2)}`
+                                }
+                            }}
+                        >
+                            <Box
+                                sx={{
+                                    background: `linear-gradient(135deg, ${COLORS.WARNING[400]} 0%, ${COLORS.WARNING[600]} 100%)`,
+                                    borderRadius: 2,
+                                    p: 1,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}
+                            >
+                                <LocationOn sx={{ color: 'white', fontSize: 28 }} />
+                            </Box>
+                            <Box>
+                                <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.WARNING[700] }}>
+                                    {stats.large}
+                                </Typography>
+                                <Typography variant="caption" sx={{ color: COLORS.WARNING[600], fontWeight: 600 }}>
+                                    {'Khu lớn (>20)'}
+                                </Typography>
+                            </Box>
+                        </Paper>
+                    </Grid>
+                </Grid>
+
+                {/* Search and Actions Toolbar */}
+                <Toolbar disableGutters sx={{ gap: 2, flexWrap: 'wrap', mb: 2 }}>
+                    <TextField
+                        size="small"
+                        placeholder="Tìm theo tên, mô tả, vị trí..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        sx={{ minWidth: { xs: '100%', sm: 280 } }}
+                    />
                     <Box sx={{ flexGrow: 1 }} />
                     <Button
                         variant="contained"
@@ -246,20 +396,7 @@ const AreasPage = () => {
                     >
                         Thêm khu vực
                     </Button>
-                </Stack>
-
-                {/* Search Bar */}
-                <TextField
-                    placeholder="Tìm kiếm theo tên, mô tả, vị trí..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    size="small"
-                    fullWidth
-                    sx={{ mb: 2 }}
-                    InputProps={{
-                        startAdornment: <Search sx={{ mr: 1, color: COLORS.TEXT.SECONDARY }} />
-                    }}
-                />
+                </Toolbar>
 
                 {/* Table View - Style giống StaffPage */}
                 <TableContainer
