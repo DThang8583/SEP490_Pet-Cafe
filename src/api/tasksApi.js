@@ -4,6 +4,7 @@ import { AREAS_DATA } from './areasApi';
 import { petApi, MOCK_PET_GROUPS } from './petApi';
 import { managerApi } from './userApi';
 import serviceApi from './serviceApi';
+import workTypeApi from './workTypeApi';
 
 // ========== CONSTANTS ==========
 
@@ -169,6 +170,23 @@ export const getPetGroupsForTasks = async () => {
 };
 
 /**
+ * Get work types for internal task assignment
+ * Uses workTypeApi to fetch from official API
+ * @returns {Promise<Array>} Array of work type objects
+ */
+export const getWorkTypesForTasks = async () => {
+    try {
+        const response = await workTypeApi.getAllWorkTypes({ is_active: true });
+        const workTypes = response?.data || [];
+        console.log('[tasksApi] getWorkTypesForTasks() - loaded from workTypeApi:', workTypes.length);
+        return workTypes;
+    } catch (error) {
+        console.error('[tasksApi] getWorkTypesForTasks() error:', error);
+        return [];
+    }
+};
+
+/**
  * Get pet groups map from groups and pets arrays
  * Maps each group to its associated pets based on species_id and breed_id
  * @param {Array} groups - Array of pet group objects from petApi
@@ -237,6 +255,7 @@ export const getAllTasksData = async () => {
 export const createInitialFormData = () => ({
     type: 'internal',
     internalName: '',
+    internalWorkTypeId: '', // Work type ID for internal tasks
     serviceId: '',
     timeframeType: 'day',
     date: new Date().toISOString().slice(0, 10),

@@ -8,8 +8,8 @@ import ConfirmModal from '../../../components/modals/ConfirmModal';
 
 // Task components
 import TaskList from './TaskList';
-import TaskWizard from './TaskWizard';
-import TaskDetailsDialog from './TaskDetailsDialog';
+import TaskFormModal from './TaskFormModal';
+import TaskDetailsModal from './TaskDetailsModal';
 
 // API
 import { getAllTasksData } from '../../../api/tasksApi';
@@ -456,7 +456,7 @@ const TasksPage = () => {
             </Box>
 
             {/* Task Creation/Edit Wizard */}
-            <TaskWizard
+            <TaskFormModal
                 open={wizardOpen}
                 onClose={handleCloseWizard}
                 onCreateTask={handleCreateTask}
@@ -470,7 +470,7 @@ const TasksPage = () => {
             />
 
             {/* Task Details */}
-            <TaskDetailsDialog
+            <TaskDetailsModal
                 open={detailsOpen}
                 onClose={() => setDetailsOpen(false)}
                 task={detailsTask}
