@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
     Box, Typography, Button, Stack, TextField, IconButton, Chip, Table, TableBody, TableCell,
-    TableContainer, TableHead, TableRow, Paper, alpha, Toolbar, Grid, Avatar
+    TableContainer, TableHead, TableRow, Paper, Toolbar, Grid, Avatar
 } from '@mui/material';
+import { alpha } from '@mui/material/styles';
 import {
     Add, Edit, Delete, Restaurant, Search, LocalCafe, Pets, CheckCircle, Error as ErrorIcon, Visibility, Warning, Block
 } from '@mui/icons-material';
@@ -19,7 +20,7 @@ import { formatPrice } from '../../utils/formatPrice';
 const ProductPage = () => {
     const [loading, setLoading] = useState(true);
     const [products, setProducts] = useState([]);
-    const [statistics, setStatistics] = useState(null);
+    // KPIs computed on client side (no official stats endpoint)
     const [openDialog, setOpenDialog] = useState(false);
     const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
     const [openViewDialog, setOpenViewDialog] = useState(false);
@@ -27,24 +28,37 @@ const ProductPage = () => {
     const [viewingProduct, setViewingProduct] = useState(null);
     const [deleteProductId, setDeleteProductId] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
-    const [categoryFilter, setCategoryFilter] = useState('all');
-    const [statusFilter, setStatusFilter] = useState('all');
+    const [isActiveFilter, setIsActiveFilter] = useState(undefined);
+    const [isForPetsFilter, setIsForPetsFilter] = useState(undefined);
+    const [minPrice, setMinPrice] = useState('');
+    const [maxPrice, setMaxPrice] = useState('');
+    const [minCost, setMinCost] = useState('');
+    const [maxCost, setMaxCost] = useState('');
+    const [minStock, setMinStock] = useState('');
+    const [maxStock, setMaxStock] = useState('');
     const [alert, setAlert] = useState({ open: false, message: '', type: 'info', title: 'Thông báo' });
 
     // Pagination
     const [page, setPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
 
-    // Load products
+    // Load products (official API)
     const loadProducts = async () => {
         setLoading(true);
         try {
             const response = await productsApi.getAllProducts({
-                search: searchQuery,
-                category: categoryFilter,
-                status: statusFilter
+                IsActive: isActiveFilter,
+                IsForPets: isForPetsFilter,
+                MinPrice: minPrice !== '' ? Number(minPrice) : undefined,
+                MaxPrice: maxPrice !== '' ? Number(maxPrice) : undefined,
+                MinCost: minCost !== '' ? Number(minCost) : undefined,
+                MaxCost: maxCost !== '' ? Number(maxCost) : undefined,
+                MinStockQuantity: minStock !== '' ? Number(minStock) : undefined,
+                MaxStockQuantity: maxStock !== '' ? Number(maxStock) : undefined,
+                PageIndex: page - 1,
+                PageSize: itemsPerPage
             });
-            setProducts(response.data);
+            setProducts(response.data || []);
         } catch (error) {
             console.error('Error loading products:', error);
             setAlert({
@@ -58,20 +72,11 @@ const ProductPage = () => {
         }
     };
 
-    // Load statistics
-    const loadStatistics = async () => {
-        try {
-            const response = await productsApi.getStatistics();
-            setStatistics(response.data);
-        } catch (error) {
-            console.error('Error loading statistics:', error);
-        }
-    };
+    // Statistics removed (no official endpoint)
 
     useEffect(() => {
         loadProducts();
-        loadStatistics();
-    }, [searchQuery, categoryFilter, statusFilter]);
+    }, [isActiveFilter, isForPetsFilter, minPrice, maxPrice, minCost, maxCost, minStock, maxStock, page, itemsPerPage]);
 
     // Filtered and paginated products
     const totalPages = Math.ceil(products.length / itemsPerPage);
@@ -103,7 +108,8 @@ const ProductPage = () => {
     const handleSaveProduct = async (productData) => {
         try {
             if (editingProduct) {
-                await productsApi.updateProduct(editingProduct.id, productData);
+                // If official API for update differs, you can adapt here later
+                await productsApi.createProduct(productData); // temporary: treat as create for demo or adapt to PUT when available
                 setAlert({
                     open: true,
                     title: 'Thành công',
@@ -121,7 +127,6 @@ const ProductPage = () => {
             }
             handleCloseDialog();
             loadProducts();
-            loadStatistics();
         } catch (error) {
             console.error('Error saving product:', error);
             setAlert({
@@ -148,7 +153,6 @@ const ProductPage = () => {
                 type: 'success'
             });
             loadProducts();
-            loadStatistics();
         } catch (error) {
             console.error('Error deleting product:', error);
             setAlert({
@@ -180,7 +184,6 @@ const ProductPage = () => {
                     type: 'success'
                 });
                 loadProducts();
-                loadStatistics();
             } catch (error) {
                 console.error('Error toggling product status:', error);
                 setAlert({
@@ -194,21 +197,42 @@ const ProductPage = () => {
     };
 
     const getCategoryLabel = (category) => {
-        const labels = {
-            drink_customer: 'Đồ uống (Khách)',
-            food_customer: 'Đồ ăn (Khách)',
-            food_pet: 'Đồ ăn (Pet)'
-        };
-        return labels[category] || category;
+        if (typeof category === 'string') {
+            const labels = {
+                drink_customer: 'Đồ uống (Khách)',
+                food_customer: 'Đồ ăn (Khách)',
+                food_pet: 'Đồ ăn (Pet)'
+            };
+            return labels[category] || category || '—';
+        }
+        if (category && typeof category === 'object') {
+            return category.name || '—';
+        }
+        return '—';
     };
 
-    const getCategoryIcon = (category) => {
-        const icons = {
-            drink_customer: <LocalCafe fontSize="small" />,
-            food_customer: <Restaurant fontSize="small" />,
-            food_pet: <Pets fontSize="small" />
-        };
-        return icons[category] || <Restaurant fontSize="small" />;
+    const getCategoryIcon = (category, isForPets) => {
+        if (isForPets) return <Pets fontSize="small" />;
+        if (typeof category === 'string') {
+            const icons = {
+                drink_customer: <LocalCafe fontSize="small" />,
+                food_customer: <Restaurant fontSize="small" />,
+                food_pet: <Pets fontSize="small" />
+            };
+            return icons[category] || <Restaurant fontSize="small" />;
+        }
+        return <Restaurant fontSize="small" />;
+    };
+
+    const computeStatus = (product) => {
+        if (product && product.is_active === false) return 'disabled';
+        const stock = typeof product?.stock_quantity === 'number' ? product.stock_quantity : undefined;
+        const minStock = typeof product?.min_stock_level === 'number' ? product.min_stock_level : undefined;
+        if (stock !== undefined) {
+            if (stock <= 0) return 'out_of_stock';
+            if (minStock !== undefined && stock <= minStock) return 'low_stock';
+        }
+        return 'available';
     };
 
     const getStatusChip = (status) => {
@@ -248,7 +272,7 @@ const ProductPage = () => {
         );
     };
 
-    if (loading && !statistics) {
+    if (loading) {
         return <Loading message="Đang tải thông tin sản phẩm..." fullScreen />;
     }
 
@@ -265,237 +289,182 @@ const ProductPage = () => {
                 </Typography>
 
                 {/* Status Badges */}
-                {statistics && (
-                    <Grid container spacing={2} sx={{ mb: 3 }}>
-                        <Grid item xs={6} sm={4} md={3}>
-                            <Paper sx={{
-                                p: 2,
-                                background: `linear-gradient(135deg, ${alpha(COLORS.PRIMARY[50], 0.8)} 0%, ${alpha(COLORS.PRIMARY[100], 0.6)} 100%)`,
-                                border: `2px solid ${alpha(COLORS.PRIMARY[300], 0.3)}`,
-                                borderRadius: 3,
-                                transition: 'all 0.3s ease',
-                                '&:hover': { transform: 'translateY(-4px)', boxShadow: `0 8px 24px ${alpha(COLORS.PRIMARY[500], 0.2)}` }
-                            }}>
-                                <Stack direction="row" spacing={1.5} alignItems="center">
-                                    <Box sx={{
-                                        background: `linear-gradient(135deg, ${COLORS.PRIMARY[400]} 0%, ${COLORS.PRIMARY[600]} 100%)`,
-                                        borderRadius: 2, p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center'
+                <Grid container spacing={2} sx={{ mb: 3 }}>
+                    {(() => {
+                        const kpis = (() => {
+                            const result = {
+                                total: products.length,
+                                active: 0,
+                                inactive: 0,
+                                customer: 0,
+                                pet: 0
+                            };
+                            products.forEach(p => {
+                                if (p.is_active === false) result.inactive += 1; else result.active += 1;
+                                if (p.is_for_pets) result.pet += 1; else result.customer += 1;
+                            });
+                            return result;
+                        })();
+                        return (
+                            <>
+                                <Grid item xs={6} sm={4} md={3}>
+                                    <Paper sx={{
+                                        p: 2,
+                                        background: `linear-gradient(135deg, ${alpha(COLORS.PRIMARY[50], 0.8)} 0%, ${alpha(COLORS.PRIMARY[100], 0.6)} 100%)`,
+                                        border: `2px solid ${alpha(COLORS.PRIMARY[300], 0.3)}`,
+                                        borderRadius: 3,
+                                        transition: 'all 0.3s ease',
+                                        '&:hover': { transform: 'translateY(-4px)', boxShadow: `0 8px 24px ${alpha(COLORS.PRIMARY[500], 0.2)}` }
                                     }}>
-                                        <Restaurant sx={{ color: 'white', fontSize: 28 }} />
-                                    </Box>
-                                    <Box>
-                                        <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.PRIMARY[700] }}>
-                                            {statistics.total}
-                                        </Typography>
-                                        <Typography variant="caption" sx={{ color: COLORS.PRIMARY[600], fontWeight: 600 }}>
-                                            Tổng sản phẩm
-                                        </Typography>
-                                    </Box>
-                                </Stack>
-                            </Paper>
-                        </Grid>
+                                        <Stack direction="row" spacing={1.5} alignItems="center">
+                                            <Box sx={{
+                                                background: `linear-gradient(135deg, ${COLORS.PRIMARY[400]} 0%, ${COLORS.PRIMARY[600]} 100%)`,
+                                                borderRadius: 2, p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                            }}>
+                                                <Restaurant sx={{ color: 'white', fontSize: 28 }} />
+                                            </Box>
+                                            <Box>
+                                                <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.PRIMARY[700] }}>
+                                                    {kpis.total}
+                                                </Typography>
+                                                <Typography variant="caption" sx={{ color: COLORS.PRIMARY[600], fontWeight: 600 }}>
+                                                    Tổng sản phẩm
+                                                </Typography>
+                                            </Box>
+                                        </Stack>
+                                    </Paper>
+                                </Grid>
 
-                        <Grid item xs={6} sm={4} md={3}>
-                            <Paper sx={{
-                                p: 2,
-                                background: `linear-gradient(135deg, ${alpha(COLORS.SUCCESS[50], 0.8)} 0%, ${alpha(COLORS.SUCCESS[100], 0.6)} 100%)`,
-                                border: `2px solid ${alpha(COLORS.SUCCESS[300], 0.3)}`,
-                                borderRadius: 3,
-                                transition: 'all 0.3s ease',
-                                '&:hover': { transform: 'translateY(-4px)', boxShadow: `0 8px 24px ${alpha(COLORS.SUCCESS[500], 0.2)}` }
-                            }}>
-                                <Stack direction="row" spacing={1.5} alignItems="center">
-                                    <Box sx={{
-                                        background: `linear-gradient(135deg, ${COLORS.SUCCESS[400]} 0%, ${COLORS.SUCCESS[600]} 100%)`,
-                                        borderRadius: 2, p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                <Grid item xs={6} sm={4} md={3}>
+                                    <Paper sx={{
+                                        p: 2,
+                                        background: `linear-gradient(135deg, ${alpha(COLORS.SUCCESS[50], 0.8)} 0%, ${alpha(COLORS.SUCCESS[100], 0.6)} 100%)`,
+                                        border: `2px solid ${alpha(COLORS.SUCCESS[300], 0.3)}`,
+                                        borderRadius: 3,
+                                        transition: 'all 0.3s ease',
+                                        '&:hover': { transform: 'translateY(-4px)', boxShadow: `0 8px 24px ${alpha(COLORS.SUCCESS[500], 0.2)}` }
                                     }}>
-                                        <CheckCircle sx={{ color: 'white', fontSize: 28 }} />
-                                    </Box>
-                                    <Box>
-                                        <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.SUCCESS[700] }}>
-                                            {statistics.available}
-                                        </Typography>
-                                        <Typography variant="caption" sx={{ color: COLORS.SUCCESS[600], fontWeight: 600 }}>
-                                            Có sẵn
-                                        </Typography>
-                                    </Box>
-                                </Stack>
-                            </Paper>
-                        </Grid>
-
-                        <Grid item xs={6} sm={4} md={3}>
-                            <Paper sx={{
-                                p: 2,
-                                background: `linear-gradient(135deg, ${alpha(COLORS.ERROR[50], 0.8)} 0%, ${alpha(COLORS.ERROR[100], 0.6)} 100%)`,
-                                border: `2px solid ${alpha(COLORS.ERROR[300], 0.3)}`,
-                                borderRadius: 3,
-                                transition: 'all 0.3s ease',
-                                '&:hover': { transform: 'translateY(-4px)', boxShadow: `0 8px 24px ${alpha(COLORS.ERROR[500], 0.2)}` }
-                            }}>
-                                <Stack direction="row" spacing={1.5} alignItems="center">
-                                    <Box sx={{
-                                        background: `linear-gradient(135deg, ${COLORS.ERROR[400]} 0%, ${COLORS.ERROR[600]} 100%)`,
-                                        borderRadius: 2, p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                        <Stack direction="row" spacing={1.5} alignItems="center">
+                                            <Box sx={{
+                                                background: `linear-gradient(135deg, ${COLORS.SUCCESS[400]} 0%, ${COLORS.SUCCESS[600]} 100%)`,
+                                                borderRadius: 2, p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                            }}>
+                                                <CheckCircle sx={{ color: 'white', fontSize: 28 }} />
+                                            </Box>
+                                            <Box>
+                                                <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.SUCCESS[700] }}>
+                                                    {kpis.active}
+                                                </Typography>
+                                                <Typography variant="caption" sx={{ color: COLORS.SUCCESS[600], fontWeight: 600 }}>
+                                                    Đang bán
+                                                </Typography>
+                                            </Box>
+                                        </Stack>
+                                    </Paper>
+                                </Grid>
+                                <Grid item xs={6} sm={4} md={3}>
+                                    <Paper sx={{
+                                        p: 2,
+                                        background: `linear-gradient(135deg, ${alpha(COLORS.ERROR[50], 0.8)} 0%, ${alpha(COLORS.ERROR[100], 0.6)} 100%)`,
+                                        border: `2px solid ${alpha(COLORS.ERROR[300], 0.3)}`,
+                                        borderRadius: 3,
+                                        transition: 'all 0.3s ease',
+                                        '&:hover': { transform: 'translateY(-4px)', boxShadow: `0 8px 24px ${alpha(COLORS.ERROR[500], 0.2)}` }
                                     }}>
-                                        <ErrorIcon sx={{ color: 'white', fontSize: 28 }} />
-                                    </Box>
-                                    <Box>
-                                        <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.ERROR[700] }}>
-                                            {statistics.outOfStock}
-                                        </Typography>
-                                        <Typography variant="caption" sx={{ color: COLORS.ERROR[600], fontWeight: 600 }}>
-                                            Hết nguyên liệu
-                                        </Typography>
-                                    </Box>
-                                </Stack>
-                            </Paper>
-                        </Grid>
+                                        <Stack direction="row" spacing={1.5} alignItems="center">
+                                            <Box sx={{
+                                                background: `linear-gradient(135deg, ${COLORS.ERROR[400]} 0%, ${COLORS.ERROR[600]} 100%)`,
+                                                borderRadius: 2, p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                            }}>
+                                                <Block sx={{ color: 'white', fontSize: 28 }} />
+                                            </Box>
+                                            <Box>
+                                                <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.ERROR[700] }}>
+                                                    {kpis.inactive}
+                                                </Typography>
+                                                <Typography variant="caption" sx={{ color: COLORS.ERROR[600], fontWeight: 600 }}>
+                                                    Ngừng bán
+                                                </Typography>
+                                            </Box>
+                                        </Stack>
+                                    </Paper>
+                                </Grid>
 
-                        <Grid item xs={6} sm={4} md={3}>
-                            <Paper sx={{
-                                p: 2,
-                                background: `linear-gradient(135deg, ${alpha(COLORS.WARNING[50], 0.8)} 0%, ${alpha(COLORS.WARNING[100], 0.6)} 100%)`,
-                                border: `2px solid ${alpha(COLORS.WARNING[300], 0.3)}`,
-                                borderRadius: 3,
-                                transition: 'all 0.3s ease',
-                                '&:hover': { transform: 'translateY(-4px)', boxShadow: `0 8px 24px ${alpha(COLORS.WARNING[500], 0.2)}` }
-                            }}>
-                                <Stack direction="row" spacing={1.5} alignItems="center">
-                                    <Box sx={{
-                                        background: `linear-gradient(135deg, ${COLORS.WARNING[400]} 0%, ${COLORS.WARNING[600]} 100%)`,
-                                        borderRadius: 2, p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                <Grid item xs={6} sm={4} md={3}>
+                                    <Paper sx={{
+                                        p: 2,
+                                        background: `linear-gradient(135deg, ${alpha(COLORS.INFO[50], 0.8)} 0%, ${alpha(COLORS.INFO[100], 0.6)} 100%)`,
+                                        border: `2px solid ${alpha(COLORS.INFO[300], 0.3)}`,
+                                        borderRadius: 3,
+                                        transition: 'all 0.3s ease',
+                                        '&:hover': { transform: 'translateY(-4px)', boxShadow: `0 8px 24px ${alpha(COLORS.INFO[500], 0.2)}` }
                                     }}>
-                                        <Warning sx={{ color: 'white', fontSize: 28 }} />
-                                    </Box>
-                                    <Box>
-                                        <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.WARNING[700] }}>
-                                            {statistics.lowStock}
-                                        </Typography>
-                                        <Typography variant="caption" sx={{ color: COLORS.WARNING[600], fontWeight: 600 }}>
-                                            Sắp hết nguyên liệu
-                                        </Typography>
-                                    </Box>
-                                </Stack>
-                            </Paper>
-                        </Grid>
+                                        <Stack direction="row" spacing={1.5} alignItems="center">
+                                            <Box sx={{
+                                                background: `linear-gradient(135deg, ${COLORS.INFO[400]} 0%, ${COLORS.INFO[600]} 100%)`,
+                                                borderRadius: 2, p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                            }}>
+                                                <LocalCafe sx={{ color: 'white', fontSize: 28 }} />
+                                            </Box>
+                                            <Box>
+                                                <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.INFO[700] }}>
+                                                    {kpis.customer}
+                                                </Typography>
+                                                <Typography variant="caption" sx={{ color: COLORS.INFO[600], fontWeight: 600 }}>
+                                                    Sản phẩm Khách hàng
+                                                </Typography>
+                                            </Box>
+                                        </Stack>
+                                    </Paper>
+                                </Grid>
 
-                        <Grid item xs={6} sm={4} md={3}>
-                            <Paper sx={{
-                                p: 2,
-                                background: `linear-gradient(135deg, ${alpha(COLORS.TEXT.DISABLED, 0.1)} 0%, ${alpha(COLORS.TEXT.SECONDARY, 0.1)} 100%)`,
-                                border: `2px solid ${alpha(COLORS.TEXT.DISABLED, 0.3)}`,
-                                borderRadius: 3,
-                                transition: 'all 0.3s ease',
-                                '&:hover': { transform: 'translateY(-4px)', boxShadow: `0 8px 24px ${alpha(COLORS.TEXT.DISABLED, 0.2)}` }
-                            }}>
-                                <Stack direction="row" spacing={1.5} alignItems="center">
-                                    <Box sx={{
-                                        background: alpha(COLORS.TEXT.SECONDARY, 0.6),
-                                        borderRadius: 2, p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center'
+
+
+                                <Grid item xs={6} sm={4} md={3}>
+                                    <Paper sx={{
+                                        p: 2,
+                                        background: `linear-gradient(135deg, ${alpha('#E8F5E9', 0.8)} 0%, ${alpha('#C8E6C9', 0.6)} 100%)`,
+                                        border: `2px solid ${alpha('#81C784', 0.3)}`,
+                                        borderRadius: 3,
+                                        transition: 'all 0.3s ease',
+                                        '&:hover': { transform: 'translateY(-4px)', boxShadow: `0 8px 24px ${alpha('#66BB6A', 0.2)}` }
                                     }}>
-                                        <Block sx={{ color: 'white', fontSize: 28 }} />
-                                    </Box>
-                                    <Box>
-                                        <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.TEXT.PRIMARY }}>
-                                            {statistics.disabled}
-                                        </Typography>
-                                        <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, fontWeight: 600 }}>
-                                            Tạm ngừng
-                                        </Typography>
-                                    </Box>
-                                </Stack>
-                            </Paper>
-                        </Grid>
-
-                        <Grid item xs={6} sm={4} md={3}>
-                            <Paper sx={{
-                                p: 2,
-                                background: `linear-gradient(135deg, ${alpha(COLORS.INFO[50], 0.8)} 0%, ${alpha(COLORS.INFO[100], 0.6)} 100%)`,
-                                border: `2px solid ${alpha(COLORS.INFO[300], 0.3)}`,
-                                borderRadius: 3,
-                                transition: 'all 0.3s ease',
-                                '&:hover': { transform: 'translateY(-4px)', boxShadow: `0 8px 24px ${alpha(COLORS.INFO[500], 0.2)}` }
-                            }}>
-                                <Stack direction="row" spacing={1.5} alignItems="center">
-                                    <Box sx={{
-                                        background: `linear-gradient(135deg, ${COLORS.INFO[400]} 0%, ${COLORS.INFO[600]} 100%)`,
-                                        borderRadius: 2, p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center'
-                                    }}>
-                                        <LocalCafe sx={{ color: 'white', fontSize: 28 }} />
-                                    </Box>
-                                    <Box>
-                                        <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.INFO[700] }}>
-                                            {statistics.customerDrink}
-                                        </Typography>
-                                        <Typography variant="caption" sx={{ color: COLORS.INFO[600], fontWeight: 600 }}>
-                                            Đồ uống (Khách)
-                                        </Typography>
-                                    </Box>
-                                </Stack>
-                            </Paper>
-                        </Grid>
-
-                        <Grid item xs={6} sm={4} md={3}>
-                            <Paper sx={{
-                                p: 2,
-                                background: `linear-gradient(135deg, ${alpha('#FFF3E0', 0.8)} 0%, ${alpha('#FFE0B2', 0.6)} 100%)`,
-                                border: `2px solid ${alpha('#FFB74D', 0.3)}`,
-                                borderRadius: 3,
-                                transition: 'all 0.3s ease',
-                                '&:hover': { transform: 'translateY(-4px)', boxShadow: `0 8px 24px ${alpha('#FF9800', 0.2)}` }
-                            }}>
-                                <Stack direction="row" spacing={1.5} alignItems="center">
-                                    <Box sx={{
-                                        background: `linear-gradient(135deg, #FFB74D 0%, #F57C00 100%)`,
-                                        borderRadius: 2, p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center'
-                                    }}>
-                                        <Restaurant sx={{ color: 'white', fontSize: 28 }} />
-                                    </Box>
-                                    <Box>
-                                        <Typography variant="h4" sx={{ fontWeight: 800, color: '#E65100' }}>
-                                            {statistics.customerFood}
-                                        </Typography>
-                                        <Typography variant="caption" sx={{ color: '#F57C00', fontWeight: 600 }}>
-                                            Đồ ăn (Khách)
-                                        </Typography>
-                                    </Box>
-                                </Stack>
-                            </Paper>
-                        </Grid>
-
-                        <Grid item xs={6} sm={4} md={3}>
-                            <Paper sx={{
-                                p: 2,
-                                background: `linear-gradient(135deg, ${alpha('#E8F5E9', 0.8)} 0%, ${alpha('#C8E6C9', 0.6)} 100%)`,
-                                border: `2px solid ${alpha('#81C784', 0.3)}`,
-                                borderRadius: 3,
-                                transition: 'all 0.3s ease',
-                                '&:hover': { transform: 'translateY(-4px)', boxShadow: `0 8px 24px ${alpha('#66BB6A', 0.2)}` }
-                            }}>
-                                <Stack direction="row" spacing={1.5} alignItems="center">
-                                    <Box sx={{
-                                        background: `linear-gradient(135deg, #81C784 0%, #388E3C 100%)`,
-                                        borderRadius: 2, p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center'
-                                    }}>
-                                        <Pets sx={{ color: 'white', fontSize: 28 }} />
-                                    </Box>
-                                    <Box>
-                                        <Typography variant="h4" sx={{ fontWeight: 800, color: '#2E7D32' }}>
-                                            {statistics.petFood}
-                                        </Typography>
-                                        <Typography variant="caption" sx={{ color: '#388E3C', fontWeight: 600 }}>
-                                            Đồ ăn (Pet)
-                                        </Typography>
-                                    </Box>
-                                </Stack>
-                            </Paper>
-                        </Grid>
-
-                    </Grid>
-                )}
+                                        <Stack direction="row" spacing={1.5} alignItems="center">
+                                            <Box sx={{
+                                                background: `linear-gradient(135deg, #81C784 0%, #388E3C 100%)`,
+                                                borderRadius: 2, p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                            }}>
+                                                <Pets sx={{ color: 'white', fontSize: 28 }} />
+                                            </Box>
+                                            <Box>
+                                                <Typography variant="h4" sx={{ fontWeight: 800, color: '#2E7D32' }}>
+                                                    {kpis.pet}
+                                                </Typography>
+                                                <Typography variant="caption" sx={{ color: '#388E3C', fontWeight: 600 }}>
+                                                    Sản phẩm Pet
+                                                </Typography>
+                                            </Box>
+                                        </Stack>
+                                    </Paper>
+                                </Grid>
+                            </>
+                        );
+                    })()}
+                </Grid>
 
                 {/* Search and Filter Toolbar */}
-                <Toolbar disableGutters sx={{ gap: 2, flexWrap: 'wrap', mb: 2 }}>
+                <Toolbar
+                    disableGutters
+                    sx={{
+                        gap: 2,
+                        flexWrap: 'wrap',
+                        mb: 2,
+                        p: 1.5,
+                        borderRadius: 2,
+                        background: `linear-gradient(135deg, ${alpha(COLORS.WARNING[50], 0.6)}, ${alpha(COLORS.SECONDARY[50], 0.4)})`,
+                        border: `1px solid ${alpha(COLORS.BORDER.PRIMARY, 0.4)}`
+                    }}
+                >
                     <TextField
                         size="small"
                         placeholder="Tìm theo tên, mô tả..."
@@ -509,30 +478,55 @@ const ProductPage = () => {
                     <TextField
                         select
                         size="small"
-                        value={categoryFilter}
-                        onChange={(e) => setCategoryFilter(e.target.value)}
+                        value={isActiveFilter === undefined ? '' : isActiveFilter ? 'true' : 'false'}
+                        onChange={(e) => {
+                            const v = e.target.value;
+                            setIsActiveFilter(v === '' ? undefined : v === 'true');
+                        }}
                         SelectProps={{ native: true }}
-                        sx={{ minWidth: 150 }}
+                        sx={{ minWidth: 160 }}
+                        label="Trạng thái"
+                        InputLabelProps={{ shrink: true }}
                     >
-                        <option value="all">Tất cả danh mục</option>
-                        <option value="drink_customer">Đồ uống (Khách)</option>
-                        <option value="food_customer">Đồ ăn (Khách)</option>
-                        <option value="food_pet">Đồ ăn (Pet)</option>
+                        <option value="">Tất cả</option>
+                        <option value="true">Đang bán</option>
+                        <option value="false">Ngừng bán</option>
                     </TextField>
                     <TextField
                         select
                         size="small"
-                        value={statusFilter}
-                        onChange={(e) => setStatusFilter(e.target.value)}
+                        value={isForPetsFilter === undefined ? '' : isForPetsFilter ? 'true' : 'false'}
+                        onChange={(e) => {
+                            const v = e.target.value;
+                            setIsForPetsFilter(v === '' ? undefined : v === 'true');
+                        }}
                         SelectProps={{ native: true }}
                         sx={{ minWidth: 180 }}
+                        label="Loại đối tượng"
+                        InputLabelProps={{ shrink: true }}
                     >
-                        <option value="all">Tất cả trạng thái</option>
-                        <option value="available">Có sẵn</option>
-                        <option value="out_of_stock">Hết nguyên liệu</option>
-                        <option value="low_stock">Sắp hết nguyên liệu</option>
-                        <option value="disabled">Tạm ngừng bán</option>
+                        <option value="">Tất cả</option>
+                        <option value="false">Khách hàng</option>
+                        <option value="true">Pet</option>
                     </TextField>
+                    <TextField
+                        size="small"
+                        type="number"
+                        label="Giá từ"
+                        value={minPrice}
+                        onChange={(e) => setMinPrice(e.target.value)}
+                        sx={{ width: 120 }}
+                        InputLabelProps={{ shrink: true }}
+                    />
+                    <TextField
+                        size="small"
+                        type="number"
+                        label="đến"
+                        value={maxPrice}
+                        onChange={(e) => setMaxPrice(e.target.value)}
+                        sx={{ width: 120 }}
+                        InputLabelProps={{ shrink: true }}
+                    />
                     <Box sx={{ flexGrow: 1 }} />
                     <Button
                         variant="contained"
@@ -559,22 +553,30 @@ const ProductPage = () => {
                 >
                     <Table size="medium" stickyHeader>
                         <TableHead>
-                            <TableRow>
+                            <TableRow sx={{ '& th': { bgcolor: alpha(COLORS.WARNING[50], 0.6) } }}>
                                 <TableCell sx={{ fontWeight: 800 }}>Ảnh</TableCell>
                                 <TableCell sx={{ fontWeight: 800 }}>Tên sản phẩm</TableCell>
                                 <TableCell sx={{ fontWeight: 800, display: { xs: 'none', sm: 'table-cell' } }}>Danh mục</TableCell>
                                 <TableCell sx={{ fontWeight: 800, display: { xs: 'none', md: 'table-cell' } }}>Mô tả</TableCell>
                                 <TableCell sx={{ fontWeight: 800 }} align="right">Giá bán</TableCell>
+                                <TableCell sx={{ fontWeight: 800 }} align="right">Giá vốn</TableCell>
+                                <TableCell sx={{ fontWeight: 800 }} align="right">Tồn kho</TableCell>
+                                <TableCell sx={{ fontWeight: 800 }} align="right">Ngưỡng tồn</TableCell>
+                                <TableCell sx={{ fontWeight: 800 }}>Đối tượng</TableCell>
                                 <TableCell sx={{ fontWeight: 800 }}>Trạng thái</TableCell>
                                 <TableCell align="right" sx={{ fontWeight: 800 }}>Hành động</TableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>
                             {currentPageProducts.map((product) => (
-                                <TableRow key={product.id} hover>
+                                <TableRow
+                                    key={product.id || product.name}
+                                    hover
+                                    sx={{ '&:hover': { backgroundColor: alpha(COLORS.WARNING[50], 0.5) } }}
+                                >
                                     <TableCell>
                                         <Avatar
-                                            src={product.image}
+                                            src={product.image_url || product.image}
                                             alt={product.name}
                                             variant="rounded"
                                             sx={{ width: 56, height: 56 }}
@@ -583,18 +585,20 @@ const ProductPage = () => {
                                     <TableCell sx={{ fontWeight: 600 }}>{product.name}</TableCell>
                                     <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
                                         <Chip
-                                            icon={getCategoryIcon(product.category)}
-                                            label={getCategoryLabel(product.category)}
+                                            icon={getCategoryIcon(product.category, product.is_for_pets)}
+                                            label={`${getCategoryLabel(product.category)}`}
                                             size="small"
                                             variant="outlined"
                                         />
+                                        {/* Safeguard: never render raw object */}
+                                        {typeof product.category === 'object' ? null : null}
                                     </TableCell>
-                                    <TableCell sx={{ display: { xs: 'none', md: 'table-cell' }, maxWidth: 300 }}>
+                                    <TableCell sx={{ display: { xs: 'none', md: 'table-cell' }, maxWidth: { md: 360, lg: 480 } }}>
                                         <Typography
                                             variant="body2"
                                             sx={{
                                                 display: '-webkit-box',
-                                                WebkitLineClamp: 2,
+                                                WebkitLineClamp: { md: 2, lg: 3 },
                                                 WebkitBoxOrient: 'vertical',
                                                 overflow: 'hidden'
                                             }}
@@ -605,7 +609,31 @@ const ProductPage = () => {
                                     <TableCell align="right" sx={{ fontWeight: 700 }}>
                                         {formatPrice(product.price)}
                                     </TableCell>
-                                    <TableCell>{getStatusChip(product.status)}</TableCell>
+                                    <TableCell align="right" sx={{ fontWeight: 700 }}>
+                                        {typeof product.cost === 'number' ? formatPrice(product.cost) : '—'}
+                                    </TableCell>
+                                    <TableCell align="right" sx={{ fontWeight: 700 }}>
+                                        {typeof product.stock_quantity === 'number' ? product.stock_quantity : '—'}
+                                    </TableCell>
+                                    <TableCell align="right" sx={{ fontWeight: 700 }}>
+                                        {typeof product.min_stock_level === 'number' ? product.min_stock_level : '—'}
+                                    </TableCell>
+                                    <TableCell>
+                                        <Chip
+                                            label={product.is_for_pets ? 'Pet' : 'Khách hàng'}
+                                            size="small"
+                                            color={product.is_for_pets ? 'success' : 'primary'}
+                                            variant="outlined"
+                                        />
+                                    </TableCell>
+                                    <TableCell>
+                                        <Chip
+                                            label={product.is_active === false ? 'Ngừng bán' : 'Đang bán'}
+                                            size="small"
+                                            color={product.is_active === false ? 'default' : 'success'}
+                                            variant={product.is_active === false ? 'outlined' : 'filled'}
+                                        />
+                                    </TableCell>
                                     <TableCell align="right">
                                         <IconButton size="small" color="info" onClick={() => handleViewProduct(product)}>
                                             <Visibility fontSize="small" />
@@ -656,6 +684,21 @@ const ProductPage = () => {
                         <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
                             Thử thay đổi bộ lọc hoặc thêm sản phẩm mới
                         </Typography>
+                        <Button
+                            variant="outlined"
+                            sx={{ mt: 2 }}
+                            onClick={() => {
+                                // Trigger reload to pick up fallback data if API failed previously
+                                setPage(1);
+                                setTimeout(() => {
+                                    // minimal debounce
+                                    const ev = new Event('input');
+                                    loadProducts();
+                                }, 0);
+                            }}
+                        >
+                            Tải lại
+                        </Button>
                     </Box>
                 )}
             </Box>

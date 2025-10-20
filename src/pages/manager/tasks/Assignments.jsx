@@ -584,6 +584,8 @@ const ServiceSlotAssignment = ({ slotId, slot, formData, setFormData, areas, sta
     const [expandedGroups, setExpandedGroups] = React.useState({});
     const [staffShifts, setStaffShifts] = React.useState({});
     const [loadingStaff, setLoadingStaff] = React.useState(true);
+    const [workShifts, setWorkShifts] = React.useState([]);
+    const [loadingWorkShifts, setLoadingWorkShifts] = React.useState(true);
 
     // Fetch all staff shifts on mount
     React.useEffect(() => {
@@ -609,6 +611,22 @@ const ServiceSlotAssignment = ({ slotId, slot, formData, setFormData, areas, sta
         fetchStaffShifts();
     }, [staff]);
 
+    // Fetch all work shifts (to derive teams from WorkShift)
+    React.useEffect(() => {
+        const fetchWorkShifts = async () => {
+            try {
+                setLoadingWorkShifts(true);
+                const response = await workshiftApi.getAllShifts();
+                if (response.success) setWorkShifts(response.data);
+            } catch (e) {
+                console.error('Error fetching work shifts:', e);
+            } finally {
+                setLoadingWorkShifts(false);
+            }
+        };
+        fetchWorkShifts();
+    }, []);
+
     // Filter staff who have shifts that overlap with this slot
     const availableStaff = React.useMemo(() => {
         if (!slot || loadingStaff) return [];
@@ -620,6 +638,55 @@ const ServiceSlotAssignment = ({ slotId, slot, formData, setFormData, areas, sta
             );
         });
     }, [staff, slot, staffShifts, loadingStaff]);
+
+    // Helpers to compute target day-of-week from formData/slot
+    const getTargetDayName = () => {
+        const dayNames = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+        const dateStr = formData?.timeframeType === 'day' ? formData?.date : (Array.isArray(slot?.applicable_days) && slot.applicable_days.length > 0 ? slot.applicable_days[0] : null);
+        if (!dateStr) return null;
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return null;
+        return dayNames[d.getDay()];
+    };
+
+    // Derive available teams from WorkShift by day and time overlap
+    const availableTeams = React.useMemo(() => {
+        if (!slot || loadingWorkShifts) return [];
+        const targetDay = getTargetDayName();
+        const matchedShifts = workShifts.filter(ws => {
+            const dayOk = targetDay ? Array.isArray(ws.applicable_days) && ws.applicable_days.includes(targetDay) : true;
+            const timeOk = checkTimeOverlap(slot.start_time, slot.end_time, ws.start_time, ws.end_time);
+            return dayOk && timeOk;
+        });
+        const teams = [];
+        matchedShifts.forEach(ws => {
+            if (Array.isArray(ws.team_work_shifts)) {
+                ws.team_work_shifts.forEach(t => teams.push({ ...t, shift_id: ws.id }));
+            }
+        });
+        return teams;
+    }, [slot, workShifts, loadingWorkShifts, formData]);
+
+    const addTeamAsStaffGroup = (team) => {
+        const teamMemberIds = (team.members || []).map(m => m.id).filter(Boolean);
+        const leaderId = team?.leader?.id || '';
+        const uniqueIds = Array.from(new Set([leaderId, ...teamMemberIds].filter(Boolean)));
+        const newGroup = {
+            name: team.name || 'Team',
+            staffIds: uniqueIds,
+            leaderId
+        };
+        setFormData(prev => ({
+            ...prev,
+            shiftAssignments: {
+                ...prev.shiftAssignments,
+                [slotId]: {
+                    ...assignment,
+                    staffGroups: [...(assignment.staffGroups || []), newGroup]
+                }
+            }
+        }));
+    };
 
     const toggleGroup = (idx) => {
         setExpandedGroups(prev => ({ ...prev, [idx]: !prev[idx] }));
@@ -699,11 +766,36 @@ const ServiceSlotAssignment = ({ slotId, slot, formData, setFormData, areas, sta
                         variant="contained"
                         startIcon={<Add />}
                         onClick={() => openStaffGroupDialog({ shift: slotId, availableStaff })}
-                        sx={{ backgroundColor: COLORS.ERROR[500], '&:hover': { backgroundColor: COLORS.ERROR[600] } }}
+                        sx={{ backgroundColor: COLORS.SECONDARY[500], '&:hover': { backgroundColor: COLORS.SECONDARY[600] } }}
                     >
-                        Thêm nhóm NV
+                        Tạo nhóm tuỳ chỉnh
                     </Button>
                 </Stack>
+
+                {/* Suggested teams from WorkShift matching day/time */}
+                {!loadingWorkShifts && (
+                    <Box sx={{ mb: 2 }}>
+                        <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, display: 'block', mb: 0.5 }}>
+                            Gợi ý từ WorkShift (khớp ngày/giờ):
+                        </Typography>
+                        {availableTeams.length === 0 ? (
+                            <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY }}>
+                                Không có team phù hợp
+                            </Typography>
+                        ) : (
+                            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                                {availableTeams.map(team => (
+                                    <Chip
+                                        key={team.id}
+                                        label={`${team.name} • Leader: ${team?.leader?.full_name || '—'}`}
+                                        onClick={() => addTeamAsStaffGroup(team)}
+                                        sx={{ bgcolor: alpha(COLORS.INFO[50], 0.8) }}
+                                    />
+                                ))}
+                            </Stack>
+                        )}
+                    </Box>
+                )}
 
                 {loadingStaff && (
                     <Alert severity="info" sx={{ mb: 2 }}>
