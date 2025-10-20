@@ -1,9 +1,9 @@
 import React from 'react';
 import { Box, Typography, RadioGroup, FormControlLabel, Radio, Stack, FormControl, InputLabel, Select, MenuItem, TextField, Alert, Divider, Autocomplete, Chip } from '@mui/material';
 import { alpha } from '@mui/material/styles';
-import { INTERNAL_TEMPLATES } from '../../../api/tasksApi';
+import { getWorkTypesForTasks } from '../../../api/tasksApi';
 import { COLORS } from '../../../constants/colors';
-import { InternalAssignment, ServiceAssignment } from './Assignments';
+import { InternalAssignment, ServiceAssignment } from './TaskAssignments';
 import slotApi from '../../../api/slotApi';
 import workshiftApi from '../../../api/workshiftApi';
 
@@ -22,6 +22,26 @@ export const StepTaskType = ({ formData, setFormData }) => {
 
 // ==================== STEP 2: Select Task ====================
 export const StepSelectTask = ({ formData, setFormData, services, isEditMode }) => {
+    const [workTypes, setWorkTypes] = React.useState([]);
+    const [loadingWorkTypes, setLoadingWorkTypes] = React.useState(false);
+
+    // Fetch work types for internal tasks
+    React.useEffect(() => {
+        if (formData.type === 'internal') {
+            setLoadingWorkTypes(true);
+            getWorkTypesForTasks()
+                .then(types => {
+                    setWorkTypes(types);
+                })
+                .catch(error => {
+                    console.error('Error loading work types:', error);
+                })
+                .finally(() => {
+                    setLoadingWorkTypes(false);
+                });
+        }
+    }, [formData.type]);
+
     return (
         <Box sx={{ p: 3 }}>
             <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>
@@ -38,25 +58,37 @@ export const StepSelectTask = ({ formData, setFormData, services, isEditMode }) 
             )}
 
             {formData.type === 'internal' ? (
-                <Autocomplete
-                    freeSolo
-                    options={(INTERNAL_TEMPLATES || []).map(t => t.name)}
-                    value={formData.internalName || ''}
-                    onChange={(event, newValue) => {
-                        setFormData({ ...formData, internalName: newValue || '' });
-                    }}
-                    onInputChange={(event, newInputValue) => {
-                        setFormData({ ...formData, internalName: newInputValue || '' });
-                    }}
-                    renderInput={(params) => (
-                        <TextField
-                            {...params}
-                            label="Chọn từ mẫu hoặc nhập tên tùy chỉnh"
-                            placeholder="Nhập để tìm kiếm hoặc tạo mới..."
-                            fullWidth
-                        />
+                <Stack spacing={2}>
+                    {loadingWorkTypes ? (
+                        <Alert severity="info">Đang tải danh sách nhiệm vụ...</Alert>
+                    ) : (
+                        <FormControl fullWidth>
+                            <InputLabel>Chọn loại nhiệm vụ</InputLabel>
+                            <Select
+                                value={formData.internalWorkTypeId || ''}
+                                onChange={(e) => setFormData({
+                                    ...formData,
+                                    internalWorkTypeId: e.target.value,
+                                    internalName: workTypes.find(wt => wt.id === e.target.value)?.name || ''
+                                })}
+                                label="Chọn loại nhiệm vụ"
+                            >
+                                {workTypes.map(wt => (
+                                    <MenuItem key={wt.id} value={wt.id}>
+                                        <Box>
+                                            <Typography variant="body2">{wt.name}</Typography>
+                                            {wt.description && (
+                                                <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY }}>
+                                                    {wt.description}
+                                                </Typography>
+                                            )}
+                                        </Box>
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
                     )}
-                />
+                </Stack>
             ) : (
                 <FormControl fullWidth>
                     <InputLabel>Chọn dịch vụ</InputLabel>
@@ -396,6 +428,38 @@ export const StepShift = ({ formData, setFormData, selectedService }) => {
         );
     }
 
+    // Handler for service slot selection
+    const handleSlotChange = (event) => {
+        const selectedSlots = event.target.value;
+        setFormData(prev => {
+            const newTimeSlotAssignments = { ...prev.timeSlotAssignments };
+
+            // Add new slots with empty assignments
+            selectedSlots.forEach(slotId => {
+                if (!newTimeSlotAssignments[slotId]) {
+                    newTimeSlotAssignments[slotId] = {
+                        areaIds: [],
+                        petGroups: [],
+                        staffGroups: []
+                    };
+                }
+            });
+
+            // Remove unselected slots
+            Object.keys(newTimeSlotAssignments).forEach(slotId => {
+                if (!selectedSlots.includes(slotId)) {
+                    delete newTimeSlotAssignments[slotId];
+                }
+            });
+
+            return {
+                ...prev,
+                selectedTimeSlots: selectedSlots,
+                timeSlotAssignments: newTimeSlotAssignments
+            };
+        });
+    };
+
     // Render for Service tasks - Show service slots
     return (
         <Box sx={{ p: 3 }}>
@@ -414,8 +478,8 @@ export const StepShift = ({ formData, setFormData, selectedService }) => {
                         <InputLabel>Ca dịch vụ</InputLabel>
                         <Select
                             multiple
-                            value={formData.shifts || []}
-                            onChange={handleShiftChange}
+                            value={formData.selectedTimeSlots || []}
+                            onChange={handleSlotChange}
                             label="Ca dịch vụ"
                             disabled={loadingSlots}
                             renderValue={(selected) => (
@@ -448,10 +512,10 @@ export const StepShift = ({ formData, setFormData, selectedService }) => {
                         </Select>
                     </FormControl>
 
-                    {(formData.shifts || []).length > 0 && (
+                    {(formData.selectedTimeSlots || []).length > 0 && (
                         <Alert severity="info" sx={{ mt: 2 }}>
                             <Typography variant="body2">
-                                Đã chọn <strong>{formData.shifts.length}</strong> ca dịch vụ.
+                                Đã chọn <strong>{formData.selectedTimeSlots.length}</strong> ca dịch vụ.
                                 Bạn sẽ phân công nhiệm vụ cho từng ca ở bước tiếp theo.
                             </Typography>
                         </Alert>
@@ -503,6 +567,49 @@ export const StepAssignment = ({
 
 // ==================== STEP 6: Confirmation ====================
 export const StepConfirmation = ({ formData, selectedService, areas, staff, petGroupsMap }) => {
+    const [allShifts, setAllShifts] = React.useState([]);
+    const [allSlots, setAllSlots] = React.useState([]);
+
+    // Load all shifts to get full shift details
+    React.useEffect(() => {
+        const loadShifts = async () => {
+            try {
+                const response = await workshiftApi.getAllShifts();
+                setAllShifts(response?.data || []);
+            } catch (err) {
+                console.error('Error loading shifts:', err);
+                setAllShifts([]);
+            }
+        };
+        loadShifts();
+    }, []);
+
+    // Load all slots for service tasks
+    React.useEffect(() => {
+        const loadSlots = async () => {
+            if (formData.type === 'service' && selectedService?.id) {
+                try {
+                    const response = await slotApi.getSlotsByService(selectedService.id);
+                    setAllSlots(response?.data || []);
+                } catch (err) {
+                    console.error('Error loading slots:', err);
+                    setAllSlots([]);
+                }
+            }
+        };
+        loadSlots();
+    }, [formData.type, selectedService?.id]);
+
+    // Get shift details by ID
+    const getShiftDetails = (shiftId) => {
+        return (allShifts || []).find(s => s.id === shiftId);
+    };
+
+    // Get slot details by ID
+    const getSlotDetails = (slotId) => {
+        return (allSlots || []).find(s => s.id === slotId);
+    };
+
     const renderAssignmentDetails = (assignment, prefix = '') => {
         return (
             <Box sx={{ ml: prefix ? 2 : 0, mt: 2 }}>
@@ -558,54 +665,78 @@ export const StepConfirmation = ({ formData, selectedService, areas, staff, petG
                     </Typography>
                     {(assignment?.staffGroups || []).length > 0 ? (
                         <Stack spacing={1.5} sx={{ ml: 2 }}>
-                            {(assignment.staffGroups || []).map((sg, idx) => {
-                                const leader = (staff || []).find(s => s.id === sg.leaderId);
-                                return (
-                                    <Box key={idx} sx={{
-                                        p: 1.5,
-                                        borderRadius: 1,
-                                        backgroundColor: alpha(COLORS.BACKGROUND.NEUTRAL, 0.5),
-                                        border: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.3)}`
-                                    }}>
-                                        <Typography variant="body2" sx={{ fontWeight: 700, mb: 0.5 }}>
-                                            {sg.name}
-                                        </Typography>
-                                        <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, display: 'block', mb: 0.5 }}>
-                                            Leader: {leader?.full_name || '—'}
-                                        </Typography>
-                                        <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, display: 'block' }}>
-                                            Thành viên ({sg.staffIds?.length || 0}):
-                                        </Typography>
-                                        <Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ mt: 0.5 }}>
-                                            {[...(sg.staffIds || [])].sort((a, b) => {
-                                                // Sắp xếp: Leader lên đầu
-                                                if (a === sg.leaderId) return -1;
-                                                if (b === sg.leaderId) return 1;
-                                                return 0;
-                                            }).map(staffId => {
-                                                const member = (staff || []).find(s => s.id === staffId);
-                                                return member ? (
+                            {[...(assignment.staffGroups || [])]
+                                .sort((a, b) => {
+                                    // Sort by date
+                                    if (a.assignedDate && b.assignedDate) {
+                                        return new Date(a.assignedDate) - new Date(b.assignedDate);
+                                    }
+                                    return 0;
+                                })
+                                .map((sg, idx) => {
+                                    const leader = (staff || []).find(s => s.id === sg.leaderId);
+                                    return (
+                                        <Box key={idx} sx={{
+                                            p: 1.5,
+                                            borderRadius: 1,
+                                            backgroundColor: alpha(COLORS.BACKGROUND.NEUTRAL, 0.5),
+                                            border: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.3)}`
+                                        }}>
+                                            <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap" sx={{ mb: 0.5 }}>
+                                                <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                                                    {sg.name}
+                                                </Typography>
+                                                {sg.assignedDayName && sg.assignedDate && (
                                                     <Chip
-                                                        key={staffId}
-                                                        label={member.full_name}
+                                                        label={`${sg.assignedDayName}, ${sg.assignedDate}`}
                                                         size="small"
                                                         sx={{
-                                                            height: 20,
-                                                            fontSize: '0.7rem',
-                                                            backgroundColor: staffId === sg.leaderId
-                                                                ? alpha(COLORS.ERROR[100], 0.7)
-                                                                : alpha(COLORS.SECONDARY[100], 0.7),
-                                                            color: staffId === sg.leaderId
-                                                                ? COLORS.ERROR[700]
-                                                                : COLORS.SECONDARY[700]
+                                                            height: 18,
+                                                            fontSize: '0.65rem',
+                                                            backgroundColor: alpha(COLORS.PRIMARY[500], 0.1),
+                                                            color: COLORS.PRIMARY[700],
+                                                            fontWeight: 600
                                                         }}
                                                     />
-                                                ) : null;
-                                            })}
-                                        </Stack>
-                                    </Box>
-                                );
-                            })}
+                                                )}
+                                            </Stack>
+                                            <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, display: 'block', mb: 0.5 }}>
+                                                Leader: {leader?.full_name || '—'}
+                                            </Typography>
+                                            <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, display: 'block' }}>
+                                                Thành viên ({sg.staffIds?.length || 0}):
+                                            </Typography>
+                                            <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap sx={{ mt: 0.5 }}>
+                                                {[...(sg.staffIds || [])].sort((a, b) => {
+                                                    // Sắp xếp: Leader lên đầu
+                                                    if (a === sg.leaderId) return -1;
+                                                    if (b === sg.leaderId) return 1;
+                                                    return 0;
+                                                }).map(staffId => {
+                                                    const member = (staff || []).find(s => s.id === staffId);
+                                                    return member ? (
+                                                        <Chip
+                                                            key={staffId}
+                                                            label={member.full_name}
+                                                            size="small"
+                                                            sx={{
+                                                                height: 20,
+                                                                fontSize: '0.7rem',
+                                                                backgroundColor: staffId === sg.leaderId
+                                                                    ? alpha(COLORS.ERROR[100], 0.7)
+                                                                    : alpha(COLORS.SECONDARY[100], 0.7),
+                                                                color: staffId === sg.leaderId
+                                                                    ? COLORS.ERROR[700]
+                                                                    : COLORS.SECONDARY[700]
+                                                            }}
+                                                        />
+                                                    ) : null;
+                                                })}
+                                            </Stack>
+                                        </Box>
+                                    );
+                                })
+                            }
                         </Stack>
                     ) : (
                         <Typography variant="body2" sx={{ ml: 2, color: COLORS.TEXT.SECONDARY, fontStyle: 'italic' }}>
@@ -638,8 +769,26 @@ export const StepConfirmation = ({ formData, selectedService, areas, staff, petG
                     <Typography variant="subtitle2" sx={{ fontWeight: 600, color: COLORS.TEXT.SECONDARY }}>Khung thời gian:</Typography>
                     <Typography>
                         {formData.timeframeType === 'day' && `Ngày: ${formData.date}`}
-                        {formData.timeframeType === 'week' && `Tuần: ${formData.week}`}
-                        {formData.timeframeType === 'month' && `Tháng: ${formData.month}`}
+                        {formData.timeframeType === 'week' && (() => {
+                            if (!formData.week) return 'Tuần: —';
+                            const [year, weekNum] = formData.week.split('-W').map(Number);
+                            const firstDay = new Date(year, 0, 1 + (weekNum - 1) * 7);
+                            const dayOfWeek = firstDay.getDay();
+                            const monday = new Date(firstDay);
+                            monday.setDate(firstDay.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1));
+                            const sunday = new Date(monday);
+                            sunday.setDate(monday.getDate() + 6);
+                            const formatDate = (d) => d.toISOString().split('T')[0];
+                            return `Tuần ${weekNum}/${year}: ${formatDate(monday)} → ${formatDate(sunday)}`;
+                        })()}
+                        {formData.timeframeType === 'month' && (() => {
+                            if (!formData.month) return 'Tháng: —';
+                            const [year, monthNum] = formData.month.split('-').map(Number);
+                            const firstDay = new Date(year, monthNum - 1, 1);
+                            const lastDay = new Date(year, monthNum, 0);
+                            const formatDate = (d) => d.toISOString().split('T')[0];
+                            return `Tháng ${monthNum}/${year}: ${formatDate(firstDay)} → ${formatDate(lastDay)}`;
+                        })()}
                         {formData.timeframeType === 'service_period' && selectedService?.startDate
                             ? `Khoảng: ${selectedService.startDate} → ${selectedService.endDate}`
                             : formData.timeframeType === 'service_period'
@@ -649,23 +798,68 @@ export const StepConfirmation = ({ formData, selectedService, areas, staff, petG
                 </Box>
 
                 <Box>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 600, color: COLORS.TEXT.SECONDARY }}>Ca làm:</Typography>
-                    <Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ mt: 0.5 }}>
-                        {(formData.shifts || []).length > 0 ? (
-                            (formData.shifts || []).map(shift => (
-                                <Chip
-                                    key={shift}
-                                    label={shift}
-                                    size="small"
-                                    sx={{
-                                        background: alpha(COLORS.PRIMARY[100], 0.8),
-                                        color: COLORS.PRIMARY[700],
-                                        fontWeight: 700
-                                    }}
-                                />
-                            ))
+                    <Typography variant="subtitle2" sx={{ fontWeight: 600, color: COLORS.TEXT.SECONDARY }}>
+                        Ca làm ({formData.type === 'internal' ? (formData.shifts || []).length : (formData.selectedTimeSlots || []).length}):
+                    </Typography>
+                    <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mt: 1 }}>
+                        {formData.type === 'internal' ? (
+                            // Internal tasks: show shifts
+                            (formData.shifts || []).length > 0 ? (
+                                (formData.shifts || []).map(shiftId => {
+                                    const shiftDetails = getShiftDetails(shiftId);
+                                    return (
+                                        <Chip
+                                            key={shiftId}
+                                            label={shiftDetails
+                                                ? `${shiftDetails.name} (${shiftDetails.start_time?.substring(0, 5)} - ${shiftDetails.end_time?.substring(0, 5)})`
+                                                : shiftId}
+                                            size="small"
+                                            sx={{
+                                                background: alpha(COLORS.PRIMARY[100], 0.8),
+                                                color: COLORS.PRIMARY[700],
+                                                fontWeight: 600,
+                                                height: 'auto',
+                                                py: 0.5,
+                                                '& .MuiChip-label': {
+                                                    whiteSpace: 'normal',
+                                                    wordBreak: 'break-word'
+                                                }
+                                            }}
+                                        />
+                                    );
+                                })
+                            ) : (
+                                <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>—</Typography>
+                            )
                         ) : (
-                            <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>—</Typography>
+                            // Service tasks: show slots
+                            (formData.selectedTimeSlots || []).length > 0 ? (
+                                (formData.selectedTimeSlots || []).map(slotId => {
+                                    const slotDetails = getSlotDetails(slotId);
+                                    return (
+                                        <Chip
+                                            key={slotId}
+                                            label={slotDetails
+                                                ? `${slotDetails.start_time?.substring(0, 5)} - ${slotDetails.end_time?.substring(0, 5)}`
+                                                : slotId}
+                                            size="small"
+                                            sx={{
+                                                background: alpha(COLORS.PRIMARY[100], 0.8),
+                                                color: COLORS.PRIMARY[700],
+                                                fontWeight: 600,
+                                                height: 'auto',
+                                                py: 0.5,
+                                                '& .MuiChip-label': {
+                                                    whiteSpace: 'normal',
+                                                    wordBreak: 'break-word'
+                                                }
+                                            }}
+                                        />
+                                    );
+                                })
+                            ) : (
+                                <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>—</Typography>
+                            )
                         )}
                     </Stack>
                 </Box>
@@ -678,26 +872,66 @@ export const StepConfirmation = ({ formData, selectedService, areas, staff, petG
                     </Typography>
 
                     <Stack spacing={2}>
-                        {(formData.shifts || []).map(shift => (
-                            <Box
-                                key={shift}
-                                sx={{
-                                    p: 2,
-                                    borderRadius: 2,
-                                    backgroundColor: alpha(COLORS.BACKGROUND.NEUTRAL, 0.3),
-                                    border: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.2)}`
-                                }}
-                            >
-                                <Typography variant="subtitle1" sx={{ fontWeight: 700, color: COLORS.PRIMARY[700], mb: 1 }}>
-                                    🕐 Ca làm: {shift}
-                                </Typography>
-                                {renderAssignmentDetails(formData.shiftAssignments?.[shift])}
-                            </Box>
-                        ))}
-                        {(formData.shifts || []).length === 0 && (
-                            <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, fontStyle: 'italic' }}>
-                                Chưa chọn ca làm việc nào
-                            </Typography>
+                        {formData.type === 'internal' ? (
+                            // Internal tasks: show shift assignments
+                            <>
+                                {(formData.shifts || []).map(shiftId => {
+                                    const shiftDetails = getShiftDetails(shiftId);
+                                    return (
+                                        <Box
+                                            key={shiftId}
+                                            sx={{
+                                                p: 2,
+                                                borderRadius: 2,
+                                                backgroundColor: alpha(COLORS.BACKGROUND.NEUTRAL, 0.3),
+                                                border: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.2)}`
+                                            }}
+                                        >
+                                            <Typography variant="subtitle1" sx={{ fontWeight: 700, color: COLORS.PRIMARY[700], mb: 1 }}>
+                                                🕐 Ca làm: {shiftDetails
+                                                    ? `${shiftDetails.name} (${shiftDetails.start_time?.substring(0, 5)} - ${shiftDetails.end_time?.substring(0, 5)})`
+                                                    : shiftId}
+                                            </Typography>
+                                            {renderAssignmentDetails(formData.shiftAssignments?.[shiftId])}
+                                        </Box>
+                                    );
+                                })}
+                                {(formData.shifts || []).length === 0 && (
+                                    <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, fontStyle: 'italic' }}>
+                                        Chưa chọn ca làm việc nào
+                                    </Typography>
+                                )}
+                            </>
+                        ) : (
+                            // Service tasks: show slot assignments
+                            <>
+                                {(formData.selectedTimeSlots || []).map(slotId => {
+                                    const slotDetails = getSlotDetails(slotId);
+                                    return (
+                                        <Box
+                                            key={slotId}
+                                            sx={{
+                                                p: 2,
+                                                borderRadius: 2,
+                                                backgroundColor: alpha(COLORS.BACKGROUND.NEUTRAL, 0.3),
+                                                border: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.2)}`
+                                            }}
+                                        >
+                                            <Typography variant="subtitle1" sx={{ fontWeight: 700, color: COLORS.PRIMARY[700], mb: 1 }}>
+                                                ⏰ Khung giờ: {slotDetails
+                                                    ? `${slotDetails.start_time?.substring(0, 5)} - ${slotDetails.end_time?.substring(0, 5)}`
+                                                    : slotId}
+                                            </Typography>
+                                            {renderAssignmentDetails(formData.timeSlotAssignments?.[slotId])}
+                                        </Box>
+                                    );
+                                })}
+                                {(formData.selectedTimeSlots || []).length === 0 && (
+                                    <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, fontStyle: 'italic' }}>
+                                        Chưa chọn khung giờ nào
+                                    </Typography>
+                                )}
+                            </>
                         )}
                     </Stack>
                 </Box>

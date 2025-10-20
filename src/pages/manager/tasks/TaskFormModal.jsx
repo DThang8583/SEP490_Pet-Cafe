@@ -5,10 +5,10 @@ import { Close } from '@mui/icons-material';
 import { COLORS } from '../../../constants/colors';
 import { WIZARD_STEPS, createInitialFormData } from '../../../api/tasksApi';
 import { StaffGroupDialog, PetGroupDialog } from './TaskDialogs';
-import { StepTaskType, StepSelectTask, StepTimeframe, StepShift, StepAssignment, StepConfirmation } from './WizardSteps';
+import { StepTaskType, StepSelectTask, StepTimeframe, StepShift, StepAssignment, StepConfirmation } from './TaskFormSteps';
 import AlertModal from '../../../components/modals/AlertModal';
 
-const TaskWizard = ({ open, onClose, onCreateTask, onUpdateTask, editingTask, services, areas, staff, petGroupNames, petGroupsMap }) => {
+const TaskFormModal = ({ open, onClose, onCreateTask, onUpdateTask, editingTask, services, areas, staff, petGroupNames, petGroupsMap }) => {
     const [activeStep, setActiveStep] = useState(0);
     const [formData, setFormData] = useState(createInitialFormData());
     const [alert, setAlert] = useState({ open: false, message: '', type: 'error', title: 'Lỗi' });
@@ -89,30 +89,30 @@ const TaskWizard = ({ open, onClose, onCreateTask, onUpdateTask, editingTask, se
                 }
             }
         } else if (formData.type === 'service') {
-            // Validate service task assignments (now using shifts like internal tasks)
-            if (!formData.shifts || formData.shifts.length === 0) {
-                return 'Chưa chọn ca làm việc nào';
+            // Validate service task assignments (using selectedTimeSlots)
+            if (!formData.selectedTimeSlots || formData.selectedTimeSlots.length === 0) {
+                return 'Chưa chọn ca dịch vụ nào';
             }
 
-            for (const shift of formData.shifts) {
-                const assignment = formData.shiftAssignments?.[shift];
+            for (const slotId of formData.selectedTimeSlots) {
+                const assignment = formData.timeSlotAssignments?.[slotId];
                 if (!assignment) {
-                    return `Chưa phân công cho ca làm "${shift}"`;
+                    return `Chưa phân công cho ca dịch vụ "${slotId}"`;
                 }
 
                 // Check if at least one staff group is assigned
                 if (!assignment.staffGroups || assignment.staffGroups.length === 0) {
-                    return `Ca làm "${shift}": Chưa có nhóm nhân viên nào được phân công`;
+                    return `Ca dịch vụ "${slotId}": Chưa có nhóm nhân viên nào được phân công`;
                 }
 
                 // Validate each staff group has a leader
                 for (let i = 0; i < assignment.staffGroups.length; i++) {
                     const group = assignment.staffGroups[i];
                     if (!group.leaderId) {
-                        return `Ca làm "${shift}", Nhóm "${group.name}": Chưa chọn Leader`;
+                        return `Ca dịch vụ "${slotId}", Nhóm "${group.name}": Chưa chọn Leader`;
                     }
                     if (!group.staffIds || group.staffIds.length === 0) {
-                        return `Ca làm "${shift}", Nhóm "${group.name}": Chưa có thành viên nào`;
+                        return `Ca dịch vụ "${slotId}", Nhóm "${group.name}": Chưa có thành viên nào`;
                     }
                 }
             }
@@ -358,5 +358,5 @@ const TaskWizard = ({ open, onClose, onCreateTask, onUpdateTask, editingTask, se
     );
 };
 
-export default TaskWizard;
+export default TaskFormModal;
 

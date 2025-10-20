@@ -3,9 +3,30 @@ import { Paper, Typography, TableContainer, Table, TableHead, TableRow, TableCel
 import { alpha } from '@mui/material/styles';
 import { Delete, Edit, Visibility } from '@mui/icons-material';
 import { COLORS } from '../../../constants/colors';
+import workshiftApi from '../../../api/workshiftApi';
 
 const TaskList = ({ tasks, services, onDeleteTask, onEditTask, onViewTask }) => {
+    const [allShifts, setAllShifts] = React.useState([]);
     const now = new Date();
+
+    // Load all shifts to get full shift details
+    React.useEffect(() => {
+        const loadShifts = async () => {
+            try {
+                const response = await workshiftApi.getAllShifts();
+                setAllShifts(response?.data || []);
+            } catch (err) {
+                console.error('Error loading shifts:', err);
+                setAllShifts([]);
+            }
+        };
+        loadShifts();
+    }, []);
+
+    // Get shift details by ID
+    const getShiftDetails = (shiftId) => {
+        return (allShifts || []).find(s => s.id === shiftId);
+    };
 
     const parseShift = (shiftStr) => {
         if (!shiftStr) return [null, null];
@@ -111,18 +132,28 @@ const TaskList = ({ tasks, services, onDeleteTask, onEditTask, onViewTask }) => 
                             <TableCell>
                                 <Stack direction="row" spacing={0.5} flexWrap="wrap">
                                     {(task.shifts || []).length > 0 ? (
-                                        (task.shifts || []).map(shift => (
-                                            <Chip
-                                                key={shift}
-                                                label={shift}
-                                                size="small"
-                                                sx={{
-                                                    height: 20,
-                                                    fontSize: '0.65rem',
-                                                    mb: 0.5
-                                                }}
-                                            />
-                                        ))
+                                        (task.shifts || []).map(shiftId => {
+                                            const shiftDetails = getShiftDetails(shiftId);
+                                            return (
+                                                <Chip
+                                                    key={shiftId}
+                                                    label={shiftDetails
+                                                        ? `${shiftDetails.name} (${shiftDetails.start_time?.substring(0, 5)} - ${shiftDetails.end_time?.substring(0, 5)})`
+                                                        : shiftId}
+                                                    size="small"
+                                                    sx={{
+                                                        height: 'auto',
+                                                        fontSize: '0.65rem',
+                                                        mb: 0.5,
+                                                        py: 0.5,
+                                                        '& .MuiChip-label': {
+                                                            whiteSpace: 'normal',
+                                                            wordBreak: 'break-word'
+                                                        }
+                                                    }}
+                                                />
+                                            );
+                                        })
                                     ) : (
                                         <Typography variant="caption">—</Typography>
                                     )}

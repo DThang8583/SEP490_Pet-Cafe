@@ -3,6 +3,8 @@ import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Stack, Typog
 import { alpha } from '@mui/material/styles';
 import { ExpandMore } from '@mui/icons-material';
 import { COLORS } from '../../../constants/colors';
+import workshiftApi from '../../../api/workshiftApi';
+import slotApi from '../../../api/slotApi';
 
 const formatDate = (d) => new Date(d).toISOString().slice(0, 10);
 
@@ -71,18 +73,63 @@ const generateDailyRange = (task, selectedService) => {
     return [formatDate(Date.now())];
 };
 
-const TaskDetailsDialog = ({ open, onClose, task, services, areas, staff, petGroupsMap }) => {
-    if (!task) return null;
+const TaskDetailsModal = ({ open, onClose, task, services, areas, staff, petGroupsMap }) => {
+    const [allShifts, setAllShifts] = React.useState([]);
+    const [allSlots, setAllSlots] = React.useState([]);
 
-    const selectedService = services?.find(s => s.id === task.serviceId);
+    // Load all shifts to get full shift details
+    React.useEffect(() => {
+        const loadShifts = async () => {
+            try {
+                const response = await workshiftApi.getAllShifts();
+                setAllShifts(response?.data || []);
+            } catch (err) {
+                console.error('Error loading shifts:', err);
+                setAllShifts([]);
+            }
+        };
+        if (open && task) {
+            loadShifts();
+        }
+    }, [open, task]);
 
-    const dates = React.useMemo(() => generateDailyRange(task, selectedService), [task, selectedService]);
+    // Load all slots for service tasks
+    React.useEffect(() => {
+        const loadSlots = async () => {
+            if (open && task?.type === 'service' && task?.serviceId) {
+                try {
+                    const response = await slotApi.getSlotsByService(task.serviceId);
+                    setAllSlots(response?.data || []);
+                } catch (err) {
+                    console.error('Error loading slots:', err);
+                    setAllSlots([]);
+                }
+            }
+        };
+        loadSlots();
+    }, [open, task?.type, task?.serviceId]);
+
+    // Get shift details by ID
+    const getShiftDetails = (shiftId) => {
+        return (allShifts || []).find(s => s.id === shiftId);
+    };
+
+    // Get slot details by ID
+    const getSlotDetails = (slotId) => {
+        return (allSlots || []).find(s => s.id === slotId);
+    };
+
+    const selectedService = services?.find(s => s.id === task?.serviceId);
+
+    const dates = React.useMemo(() => task ? generateDailyRange(task, selectedService) : [], [task, selectedService]);
     const statusesMap = React.useMemo(() => {
         const map = {};
-        (task.dailyStatuses || []).forEach(d => { map[d.date] = d.status; });
+        (task?.dailyStatuses || []).forEach(d => { map[d.date] = d.status; });
         dates.forEach(d => { if (!map[d]) map[d] = 'pending'; });
         return map;
     }, [task, dates]);
+
+    if (!task) return null;
 
     return (
         <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
@@ -177,25 +224,69 @@ const TaskDetailsDialog = ({ open, onClose, task, services, areas, staff, petGro
                             </Stack>
                             <Stack direction="row" spacing={1}>
                                 <Typography variant="body2" sx={{ fontWeight: 700, minWidth: 120, color: COLORS.TEXT.SECONDARY }}>
-                                    Ca làm:
+                                    {task.type === 'internal' ? 'Ca làm:' : 'Khung giờ:'}
                                 </Typography>
                                 <Stack direction="row" spacing={0.5} flexWrap="wrap">
-                                    {(task.shifts || []).length > 0 ? (
-                                        (task.shifts || []).map(shift => (
-                                            <Chip
-                                                key={shift}
-                                                label={shift}
-                                                size="small"
-                                                sx={{
-                                                    background: alpha(COLORS.PRIMARY[100], 0.7),
-                                                    color: COLORS.PRIMARY[700],
-                                                    fontWeight: 600,
-                                                    mb: 0.5
-                                                }}
-                                            />
-                                        ))
+                                    {task.type === 'internal' ? (
+                                        // Internal tasks: show shifts
+                                        (task.shifts || []).length > 0 ? (
+                                            (task.shifts || []).map(shiftId => {
+                                                const shiftDetails = getShiftDetails(shiftId);
+                                                return (
+                                                    <Chip
+                                                        key={shiftId}
+                                                        label={shiftDetails
+                                                            ? `${shiftDetails.name} (${shiftDetails.start_time?.substring(0, 5)} - ${shiftDetails.end_time?.substring(0, 5)})`
+                                                            : shiftId}
+                                                        size="small"
+                                                        sx={{
+                                                            background: alpha(COLORS.PRIMARY[100], 0.7),
+                                                            color: COLORS.PRIMARY[700],
+                                                            fontWeight: 600,
+                                                            mb: 0.5,
+                                                            height: 'auto',
+                                                            py: 0.5,
+                                                            '& .MuiChip-label': {
+                                                                whiteSpace: 'normal',
+                                                                wordBreak: 'break-word'
+                                                            }
+                                                        }}
+                                                    />
+                                                );
+                                            })
+                                        ) : (
+                                            <Typography variant="body2">—</Typography>
+                                        )
                                     ) : (
-                                        <Typography variant="body2">—</Typography>
+                                        // Service tasks: show slots
+                                        (task.selectedTimeSlots || []).length > 0 ? (
+                                            (task.selectedTimeSlots || []).map(slotId => {
+                                                const slotDetails = getSlotDetails(slotId);
+                                                return (
+                                                    <Chip
+                                                        key={slotId}
+                                                        label={slotDetails
+                                                            ? `${slotDetails.start_time?.substring(0, 5)} - ${slotDetails.end_time?.substring(0, 5)}`
+                                                            : slotId}
+                                                        size="small"
+                                                        sx={{
+                                                            background: alpha(COLORS.PRIMARY[100], 0.7),
+                                                            color: COLORS.PRIMARY[700],
+                                                            fontWeight: 600,
+                                                            mb: 0.5,
+                                                            height: 'auto',
+                                                            py: 0.5,
+                                                            '& .MuiChip-label': {
+                                                                whiteSpace: 'normal',
+                                                                wordBreak: 'break-word'
+                                                            }
+                                                        }}
+                                                    />
+                                                );
+                                            })
+                                        ) : (
+                                            <Typography variant="body2">—</Typography>
+                                        )
                                     )}
                                 </Stack>
                             </Stack>
@@ -210,10 +301,11 @@ const TaskDetailsDialog = ({ open, onClose, task, services, areas, staff, petGro
                         {task.type === 'internal' ? (
                             (task.shifts || []).length > 1 ? (
                                 <Stack spacing={2}>
-                                    {(task.shifts || []).map(shift => {
-                                        const assignment = task.shiftAssignments?.[shift];
+                                    {(task.shifts || []).map(shiftId => {
+                                        const assignment = task.shiftAssignments?.[shiftId];
+                                        const shiftDetails = getShiftDetails(shiftId);
                                         return (
-                                            <Accordion key={shift} defaultExpanded={false}>
+                                            <Accordion key={shiftId} defaultExpanded={false}>
                                                 <AccordionSummary
                                                     expandIcon={<ExpandMore />}
                                                     sx={{
@@ -222,7 +314,9 @@ const TaskDetailsDialog = ({ open, onClose, task, services, areas, staff, petGro
                                                     }}
                                                 >
                                                     <Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.PRIMARY[700] }}>
-                                                        🕐 Ca làm: {shift}
+                                                        🕐 Ca làm: {shiftDetails
+                                                            ? `${shiftDetails.name} (${shiftDetails.start_time?.substring(0, 5)} - ${shiftDetails.end_time?.substring(0, 5)})`
+                                                            : shiftId}
                                                     </Typography>
                                                 </AccordionSummary>
                                                 <AccordionDetails sx={{ pt: 2 }}>
@@ -452,6 +546,7 @@ const TaskDetailsDialog = ({ open, onClose, task, services, areas, staff, petGro
                             <Stack spacing={2}>
                                 {(task.selectedTimeSlots || []).map((ts, tsIdx) => {
                                     const assignment = task.timeSlotAssignments?.[ts];
+                                    const slotDetails = getSlotDetails(ts);
                                     return (
                                         <Accordion key={tsIdx} defaultExpanded={tsIdx === 0}>
                                             <AccordionSummary expandIcon={<ExpandMore />} sx={{
@@ -459,7 +554,9 @@ const TaskDetailsDialog = ({ open, onClose, task, services, areas, staff, petGro
                                                 '&:hover': { backgroundColor: alpha(COLORS.PRIMARY[100], 0.5) }
                                             }}>
                                                 <Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.PRIMARY[700] }}>
-                                                    ⏰ Khung giờ: {String(ts)}
+                                                    ⏰ Khung giờ: {slotDetails
+                                                        ? `${slotDetails.start_time?.substring(0, 5)} - ${slotDetails.end_time?.substring(0, 5)}`
+                                                        : String(ts)}
                                                 </Typography>
                                             </AccordionSummary>
                                             <AccordionDetails sx={{ pt: 2 }}>
@@ -648,8 +745,8 @@ const TaskDetailsDialog = ({ open, onClose, task, services, areas, staff, petGro
                         )}
                     </Paper>
 
-                    {/* Trạng thái theo ngày - Only for single shift internal tasks or service tasks */}
-                    {((task.type === 'internal' && (task.shifts || []).length === 1) || task.type === 'service') && (
+                    {/* Trạng thái theo ngày - Only for single shift internal tasks */}
+                    {(task.type === 'internal' && (task.shifts || []).length === 1) && (
                         <Paper sx={{ p: 2, backgroundColor: alpha(COLORS.WARNING[50], 0.3) }}>
                             <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2, color: COLORS.ERROR[600] }}>
                                 📅 Trạng thái theo ngày ({dates.length} ngày)
@@ -718,6 +815,6 @@ const TaskDetailsDialog = ({ open, onClose, task, services, areas, staff, petGro
     );
 };
 
-export default TaskDetailsDialog;
+export default TaskDetailsModal;
 
 
