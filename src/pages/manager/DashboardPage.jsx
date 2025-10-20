@@ -109,7 +109,7 @@ const DashboardPage = () => {
             description: 'Theo dõi tồn kho và nhập hàng',
             icon: <Inventory sx={{ fontSize: 30 }} />,
             color: COLORS.INFO[500],
-            path: '/manager/inventory'
+            path: '/manager/products'
         }
     ];
 

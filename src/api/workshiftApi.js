@@ -63,69 +63,165 @@ const checkPermission = (user, permission) => {
 // Mock database for work shifts
 let MOCK_SHIFTS = [
     {
-        id: 'shift-001',
-        name: 'Ca sáng',
-        start_time: '06:00',
-        end_time: '12:00',
-        startTime: '06:00',
-        endTime: '12:00',
-        description: 'Ca làm việc buổi sáng từ 6h đến 12h',
-        duration_hours: 6,
-        status: 'active',
-        createdAt: '2025-01-01T00:00:00Z',
-        createdBy: 'user-001'
+        "name": "Ca Sáng",
+        "start_time": "08:00:00",
+        "end_time": "12:00:00",
+        "description": "Ca làm việc buổi sáng dành cho nhân viên dịch vụ chăm sóc thú cưng. Bao gồm các công việc: đón tiếp khách hàng, tư vấn dịch vụ, thực hiện tắm gội, cắt tỉa lông, chăm sóc móng và tai cho thú cưng.",
+        "is_active": true,
+        "applicable_days": ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"],
+        "schedules": [],
+        "tasks": [
+            { "id": "task-001", "name": "Chuẩn bị dụng cụ", "description": "Kiểm tra và chuẩn bị đồ tắm, khăn, máy sấy.", "status": "PENDING" },
+            { "id": "task-002", "name": "Tắm rửa thú cưng", "description": "Tắm với dầu gội chuyên dụng, sấy khô, chải lông.", "status": "PENDING" }
+        ],
+        "team_work_shifts": [
+            {
+                "id": "1b77d4cb-fb6b-4c8e-be18-af8b079e6556",
+                "name": "Nhóm chăm sóc cho chó",
+                "description": "Nhóm chăm sóc cho chó",
+                "is_active": true,
+                "leader": {
+                    "id": "93185191-488d-45ae-b6c5-68a6f8e22bee",
+                    "full_name": "Lê Văn C",
+                    "avatar_url": "https://firebasestorage.googleapis.com/v0/b/digital-dynamo-cb555.appspot.com/o/assets%2Fimages%2F9c80b9cb-22f6-4013-94d3-8b164f1bad07.jpg?alt=media&token=10f52795-d2db-41c9-b0f7-5b336d528f03"
+                },
+                "work_type": {
+                    "name": "Tắm rửa thú cưng",
+                    "description": "Dịch vụ tắm rửa bằng dầu gội chuyên dụng, sấy khô và chải lông cho chó mèo.",
+                    "services": [
+                        { "id": "svc-001", "name": "Tắm cơ bản", "description": "Tắm, sấy, chải lông cơ bản" },
+                        { "id": "svc-002", "name": "Tắm dưỡng", "description": "Dầu gội dưỡng lông, xả mượt" }
+                    ]
+                },
+                "members": [
+                    { "id": "user-017", "full_name": "Hoàng Thị Chăm Sóc" },
+                    { "id": "user-018", "full_name": "Vũ Văn Thú Y" }
+                ],
+                "tasks": [
+                    { "id": "tt-001", "name": "Đón pet", "description": "Tiếp nhận pet, kiểm tra yêu cầu", "status": "PENDING" },
+                    { "id": "tt-002", "name": "Tắm & sấy", "description": "Thực hiện tắm và sấy khô", "status": "PENDING" }
+                ]
+            },
+            {
+                "id": "09595226-5185-4712-a3d8-d174be9b99ae",
+                "name": "Nhóm bán tại Quầy",
+                "description": "Nhân viên tại quầy",
+                "is_active": true,
+                "leader": {
+                    "id": "000cb6f2-7f21-469d-9dc1-7d483b1c5306",
+                    "full_name": "Trần Vân AA",
+                    "avatar_url": "https://firebasestorage.googleapis.com/v0/b/digital-dynamo-cb555.appspot.com/o/assets%2Fimages%2Ff1902bdd-9190-49cb-adc4-02aef350febb.jpg?alt=media&token=3b6f9b39-2dbf-4080-98b8-7ec0637a5744"
+                },
+                "work_type": {
+                    "name": "Nhân viên tại quầy",
+                    "description": "Tiếp đón khách, tư vấn, thanh toán",
+                    "services": [
+                        { "id": "svc-101", "name": "Pha chế đồ uống", "description": "Chuẩn bị đồ uống theo order" },
+                        { "id": "svc-102", "name": "Tư vấn dịch vụ", "description": "Giới thiệu gói chăm sóc" }
+                    ]
+                },
+                "members": [
+                    { "id": "user-003", "full_name": "Lê Thị Bán Hàng" },
+                    { "id": "user-004", "full_name": "Phạm Văn Kinh Doanh" }
+                ],
+                "tasks": [
+                    { "id": "qt-001", "name": "Chuẩn bị quầy", "description": "Vệ sinh, sắp xếp dụng cụ", "status": "PENDING" }
+                ]
+            }
+        ],
+        "id": "14343ed6-12de-4190-a957-ca5bfdf896d2",
+        "created_at": "2025-10-18T19:19:03.194412+00:00",
+        "created_by": "00000000-0000-0000-0000-000000000000",
+        "updated_at": "2025-10-18T19:19:03.194412+00:00",
+        "updated_by": null,
+        "is_deleted": false
     },
     {
-        id: 'shift-002',
-        name: 'Ca chiều',
-        start_time: '12:00',
-        end_time: '18:00',
-        startTime: '12:00',
-        endTime: '18:00',
-        description: 'Ca làm việc buổi chiều từ 12h đến 18h',
-        duration_hours: 6,
-        status: 'active',
-        createdAt: '2025-01-01T00:00:00Z',
-        createdBy: 'user-001'
+        "name": "Ca Trưa",
+        "start_time": "12:50:00",
+        "end_time": "16:00:00",
+        "description": "Ca trưa cho nhân viên phục vụ và chăm sóc khách tại quán cà phê mèo: phục vụ đồ uống, hướng dẫn khách chơi với mèo, dọn dẹp khu vực.",
+        "is_active": true,
+        "applicable_days": ["TUESDAY", "THURSDAY", "SUNDAY"],
+        "schedules": [],
+        "tasks": [
+            { "id": "task-101", "name": "Chuẩn bị quầy", "description": "Vệ sinh khu vực, kiểm tra nguyên liệu", "status": "PENDING" }
+        ],
+        "team_work_shifts": [
+            {
+                "id": "33ad42fd-f0c0-452e-81c5-77f14a54b09d",
+                "name": "ok",
+                "description": "ok",
+                "is_active": true,
+                "leader": {
+                    "id": "000cb6f2-7f21-469d-9dc1-7d483b1c5306",
+                    "full_name": "Trần Vân AA",
+                    "avatar_url": "https://firebasestorage.googleapis.com/v0/b/digital-dynamo-cb555.appspot.com/o/assets%2Fimages%2Ff1902bdd-9190-49cb-adc4-02aef350febb.jpg?alt=media&token=3b6f9b39-2dbf-4080-98b8-7ec0637a5744"
+                },
+                "work_type": {
+                    "name": "Nhân viên tại quầy",
+                    "description": "Tiếp đón khách, tư vấn, thanh toán",
+                    "services": [
+                        { "id": "svc-201", "name": "Bán hàng tại quầy", "description": "Order, thu tiền" }
+                    ]
+                },
+                "members": [],
+                "tasks": [
+                    { "id": "qt-101", "name": "Setup ca trưa", "description": "Chuẩn bị ca trưa", "status": "PENDING" }
+                ]
+            }
+        ],
+        "id": "7ddf3ce1-fd80-4182-8fbf-0af1ffcdbdbc",
+        "created_at": "2025-10-19T07:28:02.574179+00:00",
+        "created_by": "00000000-0000-0000-0000-000000000000",
+        "updated_at": "2025-10-19T07:28:02.57418+00:00",
+        "updated_by": null,
+        "is_deleted": false
     },
     {
-        id: 'shift-003',
-        name: 'Ca tối',
-        start_time: '18:00',
-        end_time: '22:00',
-        startTime: '18:00',
-        endTime: '22:00',
-        description: 'Ca làm việc buổi tối từ 18h đến 22h',
-        duration_hours: 4,
-        status: 'active',
-        createdAt: '2025-01-01T00:00:00Z',
-        createdBy: 'user-001'
-    },
-    {
-        id: 'shift-004',
-        name: 'Ca full-time',
-        start_time: '08:00',
-        end_time: '17:00',
-        startTime: '08:00',
-        endTime: '17:00',
-        description: 'Ca làm việc toàn thời gian từ 8h đến 17h (nghỉ trưa 1 tiếng)',
-        duration_hours: 8,
-        status: 'active',
-        createdAt: '2025-01-01T00:00:00Z',
-        createdBy: 'user-001'
-    },
-    {
-        id: 'shift-005',
-        name: 'Ca đêm',
-        start_time: '22:00',
-        end_time: '06:00',
-        startTime: '22:00',
-        endTime: '06:00',
-        description: 'Ca làm việc qua đêm từ 22h đến 6h sáng hôm sau',
-        duration_hours: 8,
-        status: 'active',
-        createdAt: '2025-01-01T00:00:00Z',
-        createdBy: 'user-001'
+        "name": "Ca Chiều",
+        "start_time": "16:00:00",
+        "end_time": "20:00:00",
+        "description": "Ca làm việc buổi chiều tập trung vào việc dọn dẹp khu vực chơi, chăm sóc mèo, phục vụ khách và hỗ trợ hoạt động check-out của khách hàng.",
+        "is_active": true,
+        "applicable_days": ["TUESDAY", "THURSDAY", "SATURDAY"],
+        "schedules": [],
+        "tasks": [
+            { "id": "task-201", "name": "Dọn dẹp cuối ngày", "description": "Vệ sinh khu vực chơi", "status": "PENDING" }
+        ],
+        "team_work_shifts": [
+            {
+                "id": "1b77d4cb-fb6b-4c8e-be18-af8b079e6556",
+                "name": "Nhóm chăm sóc cho chó",
+                "description": "Nhóm chăm sóc cho chó",
+                "is_active": true,
+                "leader": {
+                    "id": "93185191-488d-45ae-b6c5-68a6f8e22bee",
+                    "full_name": "Lê Văn C",
+                    "avatar_url": "https://firebasestorage.googleapis.com/v0/b/digital-dynamo-cb555.appspot.com/o/assets%2Fimages%2F9c80b9cb-22f6-4013-94d3-8b164f1bad07.jpg?alt=media&token=10f52795-d2db-41c9-b0f7-5b336d528f03"
+                },
+                "work_type": {
+                    "name": "Tắm rửa thú cưng",
+                    "description": "Dịch vụ tắm rửa",
+                    "services": [
+                        { "id": "svc-301", "name": "Chải lông", "description": "Chải và gỡ rối" }
+                    ]
+                },
+                "members": [
+                    { "id": "user-020", "full_name": "Phạm Thị Mai" },
+                    { "id": "user-021", "full_name": "Lê Hoàng Đạt" }
+                ],
+                "tasks": [
+                    { "id": "tt-201", "name": "Chăm sóc sau tắm", "description": "Kiểm tra tai, móng", "status": "PENDING" }
+                ]
+            }
+        ],
+        "id": "12fc7623-a0b5-4cb9-bb77-32bf25558ef2",
+        "created_at": "2025-10-19T07:28:43.048729+00:00",
+        "created_by": "00000000-0000-0000-0000-000000000000",
+        "updated_at": "2025-10-19T07:28:43.04873+00:00",
+        "updated_by": null,
+        "is_deleted": false
     }
 ];
 
@@ -219,8 +315,11 @@ const workshiftApi = {
         let shifts = [...MOCK_SHIFTS];
 
         // Apply filters
-        if (filters.status && filters.status !== 'all') {
-            shifts = shifts.filter(shift => shift.status === filters.status);
+        if (filters.is_active !== undefined) {
+            shifts = shifts.filter(shift => {
+                const active = typeof shift.is_active === 'boolean' ? shift.is_active : (shift.status !== 'inactive');
+                return active === !!filters.is_active;
+            });
         }
 
         if (filters.search) {
@@ -364,7 +463,9 @@ const workshiftApi = {
             endTime: endTime, // Keep both formats
             description: shiftData.description?.trim() || '',
             duration_hours: duration,
-            status: 'active',
+            status: shiftData.is_active === false ? 'inactive' : 'active',
+            is_active: shiftData.is_active !== undefined ? !!shiftData.is_active : true,
+            applicable_days: Array.isArray(shiftData.applicable_days) ? shiftData.applicable_days : [],
             createdAt: new Date().toISOString(),
             createdBy: currentUser.id
         };
@@ -457,9 +558,12 @@ const workshiftApi = {
         if (updateData.description !== undefined) {
             updatedFields.description = updateData.description?.trim() || '';
         }
-
-        if (updateData.status !== undefined) {
-            updatedFields.status = updateData.status;
+        if (updateData.is_active !== undefined) {
+            updatedFields.is_active = !!updateData.is_active;
+            updatedFields.status = updateData.is_active ? 'active' : 'inactive';
+        }
+        if (updateData.applicable_days !== undefined) {
+            updatedFields.applicable_days = Array.isArray(updateData.applicable_days) ? updateData.applicable_days : [];
         }
 
         MOCK_SHIFTS[shiftIndex] = {

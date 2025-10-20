@@ -15,41 +15,32 @@ import {
     Close, Add, Delete, LocalCafe, Restaurant, Pets, Warning
 } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
-import inventoryApi from '../../api/inventoryApi';
+// Inventory removed
 
-const CATEGORIES = [
-    { value: 'drink_customer', label: 'Đồ uống (Khách)', icon: <LocalCafe /> },
-    { value: 'food_customer', label: 'Đồ ăn (Khách)', icon: <Restaurant /> },
-    { value: 'food_pet', label: 'Đồ ăn (Pet)', icon: <Pets /> }
-];
+const CATEGORIES = [];
 
 const AddProductModal = ({ open, onClose, onSave, editingProduct = null }) => {
     const [formData, setFormData] = useState({
         name: '',
-        category: '',
+        category_id: '',
         description: '',
         image: '',
         price: '',
-        recipe: [] // [{ materialId, materialName, quantity, unit }]
+        cost: '',
+        stock_quantity: '',
+        min_stock_level: '',
+        is_for_pets: false,
+        thumbnails: []
     });
 
-    const [inventory, setInventory] = useState([]);
+    const [categories, setCategories] = useState([]);
     const [errors, setErrors] = useState({});
     const [touched, setTouched] = useState({});
 
-    // Load inventory
+    // Load categories (optional)
     useEffect(() => {
-        const loadInventory = async () => {
-            try {
-                const response = await inventoryApi.getAllItems();
-                setInventory(response.data || []);
-            } catch (error) {
-                console.error('Error loading inventory:', error);
-            }
-        };
-        if (open) {
-            loadInventory();
-        }
+        // If you later wire categoriesApi, set categories here
+        setCategories([]);
     }, [open]);
 
     // Populate form when editing
@@ -57,20 +48,28 @@ const AddProductModal = ({ open, onClose, onSave, editingProduct = null }) => {
         if (editingProduct) {
             setFormData({
                 name: editingProduct.name,
-                category: editingProduct.category,
+                category_id: editingProduct.category_id || '',
                 description: editingProduct.description || '',
-                image: editingProduct.image || '',
+                image: editingProduct.image_url || editingProduct.image || '',
                 price: editingProduct.price.toString(),
-                recipe: editingProduct.recipe || []
+                cost: editingProduct.cost?.toString() || '',
+                stock_quantity: editingProduct.stock_quantity?.toString() || '',
+                min_stock_level: editingProduct.min_stock_level?.toString() || '',
+                is_for_pets: !!editingProduct.is_for_pets,
+                thumbnails: editingProduct.thumbnails || []
             });
         } else {
             setFormData({
                 name: '',
-                category: '',
+                category_id: '',
                 description: '',
                 image: '',
                 price: '',
-                recipe: []
+                cost: '',
+                stock_quantity: '',
+                min_stock_level: '',
+                is_for_pets: false,
+                thumbnails: []
             });
         }
         setErrors({});
@@ -84,12 +83,21 @@ const AddProductModal = ({ open, onClose, onSave, editingProduct = null }) => {
                 if (!value || !value.trim()) return 'Tên sản phẩm là bắt buộc';
                 if (value.trim().length < 3) return 'Tên phải có ít nhất 3 ký tự';
                 break;
-            case 'category':
+            case 'category_id':
                 if (!value) return 'Danh mục là bắt buộc';
                 break;
             case 'price':
                 if (!value) return 'Giá bán là bắt buộc';
                 if (isNaN(value) || parseFloat(value) <= 0) return 'Giá bán phải lớn hơn 0';
+                break;
+            case 'cost':
+                if (value !== '' && (isNaN(value) || parseFloat(value) < 0)) return 'Giá vốn không hợp lệ';
+                break;
+            case 'stock_quantity':
+                if (value !== '' && (isNaN(value) || parseInt(value) < 0)) return 'Tồn kho không hợp lệ';
+                break;
+            case 'min_stock_level':
+                if (value !== '' && (isNaN(value) || parseInt(value) < 0)) return 'Ngưỡng tồn không hợp lệ';
                 break;
             case 'recipe':
                 if (!value || value.length === 0) return 'Công thức chế biến là bắt buộc';
@@ -153,26 +161,15 @@ const AddProductModal = ({ open, onClose, onSave, editingProduct = null }) => {
     };
 
     const handleSubmit = () => {
-        // Validate all fields
+        // Validate essential fields only (official schema)
         const newErrors = {
             name: validateField('name', formData.name),
-            category: validateField('category', formData.category),
+            category_id: validateField('category_id', formData.category_id),
             price: validateField('price', formData.price),
-            recipe: validateField('recipe', formData.recipe)
+            cost: validateField('cost', formData.cost),
+            stock_quantity: validateField('stock_quantity', formData.stock_quantity),
+            min_stock_level: validateField('min_stock_level', formData.min_stock_level)
         };
-
-        // Validate each ingredient
-        let hasIngredientError = false;
-        formData.recipe.forEach((ingredient, index) => {
-            if (!ingredient.materialId) {
-                newErrors[`ingredient_${index}_material`] = 'Chọn nguyên liệu';
-                hasIngredientError = true;
-            }
-            if (!ingredient.quantity || parseFloat(ingredient.quantity) <= 0) {
-                newErrors[`ingredient_${index}_quantity`] = 'Số lượng phải > 0';
-                hasIngredientError = true;
-            }
-        });
 
         setErrors(newErrors);
         setTouched({
@@ -183,17 +180,20 @@ const AddProductModal = ({ open, onClose, onSave, editingProduct = null }) => {
         });
 
         // Check if there are any errors
-        const hasError = Object.values(newErrors).some(error => error !== '' && error !== undefined) || hasIngredientError;
+        const hasError = Object.values(newErrors).some(error => error !== '' && error !== undefined);
 
         if (!hasError) {
             onSave({
-                ...formData,
+                name: formData.name.trim(),
+                category_id: formData.category_id,
+                description: formData.description,
                 price: parseFloat(formData.price),
-                recipe: formData.recipe.map(ingredient => ({
-                    materialId: ingredient.materialId,
-                    materialName: ingredient.materialName,
-                    quantity: parseFloat(ingredient.quantity)
-                }))
+                cost: formData.cost === '' ? 0 : parseFloat(formData.cost),
+                stock_quantity: formData.stock_quantity === '' ? 0 : parseInt(formData.stock_quantity),
+                min_stock_level: formData.min_stock_level === '' ? 0 : parseInt(formData.min_stock_level),
+                image_url: formData.image,
+                is_for_pets: !!formData.is_for_pets,
+                thumbnails: formData.thumbnails || []
             });
         }
     };
@@ -245,7 +245,14 @@ const AddProductModal = ({ open, onClose, onSave, editingProduct = null }) => {
                 <Stack spacing={3}>
                     {/* Basic Info */}
                     <Box>
-                        <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 2 }}>
+                        <Typography
+                            variant="subtitle2"
+                            sx={{
+                                fontWeight: 800,
+                                mb: 2,
+                                color: COLORS.WARNING[700]
+                            }}
+                        >
                             Thông tin cơ bản
                         </Typography>
                         <Stack spacing={2}>
@@ -261,33 +268,17 @@ const AddProductModal = ({ open, onClose, onSave, editingProduct = null }) => {
                                 placeholder="VD: Cà phê Latte"
                             />
 
-                            <FormControl
+                            <TextField
                                 fullWidth
                                 size="small"
-                                error={touched.category && Boolean(errors.category)}
-                            >
-                                <InputLabel>Danh mục *</InputLabel>
-                                <Select
-                                    value={formData.category}
-                                    label="Danh mục *"
-                                    onChange={(e) => handleChange('category', e.target.value)}
-                                    onBlur={() => handleBlur('category')}
-                                >
-                                    {CATEGORIES.map(cat => (
-                                        <MenuItem key={cat.value} value={cat.value}>
-                                            <Stack direction="row" spacing={1} alignItems="center">
-                                                {cat.icon}
-                                                <Typography>{cat.label}</Typography>
-                                            </Stack>
-                                        </MenuItem>
-                                    ))}
-                                </Select>
-                                {touched.category && errors.category && (
-                                    <Typography color="error" variant="caption" sx={{ mt: 0.5 }}>
-                                        {errors.category}
-                                    </Typography>
-                                )}
-                            </FormControl>
+                                label="Category ID *"
+                                value={formData.category_id}
+                                onChange={(e) => handleChange('category_id', e.target.value)}
+                                onBlur={() => handleBlur('category_id')}
+                                error={touched.category_id && Boolean(errors.category_id)}
+                                helperText={touched.category_id && errors.category_id}
+                                placeholder="dạng UUID từ API danh mục"
+                            />
 
                             {formData.category && (
                                 <Box
@@ -343,134 +334,60 @@ const AddProductModal = ({ open, onClose, onSave, editingProduct = null }) => {
                                 }}
                                 placeholder="50000"
                             />
-                        </Stack>
-                    </Box>
-
-                    {/* Recipe */}
-                    <Box>
-                        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-                            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                                Công thức chế biến *
-                            </Typography>
-                            <Button
+                            <TextField
+                                fullWidth
                                 size="small"
-                                startIcon={<Add />}
-                                onClick={handleAddIngredient}
-                                variant="outlined"
-                                sx={{ borderColor: COLORS.WARNING[500], color: COLORS.WARNING[700] }}
-                            >
-                                Thêm nguyên liệu
-                            </Button>
+                                label="Giá vốn"
+                                type="number"
+                                value={formData.cost}
+                                onChange={(e) => handleChange('cost', e.target.value)}
+                                onBlur={() => handleBlur('cost')}
+                                error={touched.cost && Boolean(errors.cost)}
+                                helperText={touched.cost && errors.cost}
+                                InputProps={{ endAdornment: <InputAdornment position="end">₫</InputAdornment> }}
+                                placeholder="25000"
+                            />
+                            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                                <TextField
+                                    fullWidth
+                                    size="small"
+                                    label="Tồn kho ban đầu"
+                                    type="number"
+                                    value={formData.stock_quantity}
+                                    onChange={(e) => handleChange('stock_quantity', e.target.value)}
+                                    onBlur={() => handleBlur('stock_quantity')}
+                                    error={touched.stock_quantity && Boolean(errors.stock_quantity)}
+                                    helperText={touched.stock_quantity && errors.stock_quantity}
+                                    placeholder="0"
+                                />
+                                <TextField
+                                    fullWidth
+                                    size="small"
+                                    label="Ngưỡng tồn kho"
+                                    type="number"
+                                    value={formData.min_stock_level}
+                                    onChange={(e) => handleChange('min_stock_level', e.target.value)}
+                                    onBlur={() => handleBlur('min_stock_level')}
+                                    error={touched.min_stock_level && Boolean(errors.min_stock_level)}
+                                    helperText={touched.min_stock_level && errors.min_stock_level}
+                                    placeholder="0"
+                                />
+                            </Stack>
+                            <FormControl size="small" sx={{ width: { xs: '100%', sm: 200 } }}>
+                                <InputLabel shrink>Đối tượng</InputLabel>
+                                <Select
+                                    native
+                                    value={formData.is_for_pets ? 'true' : 'false'}
+                                    onChange={(e) => handleChange('is_for_pets', e.target.value === 'true')}
+                                >
+                                    <option value="false">Khách hàng</option>
+                                    <option value="true">Pet</option>
+                                </Select>
+                            </FormControl>
                         </Stack>
-
-                        {touched.recipe && errors.recipe && formData.recipe.length === 0 && (
-                            <Typography color="error" variant="caption" sx={{ mb: 1, display: 'block' }}>
-                                {errors.recipe}
-                            </Typography>
-                        )}
-
-                        {formData.recipe.length > 0 && (
-                            <TableContainer
-                                component={Paper}
-                                sx={{
-                                    borderRadius: 2,
-                                    border: '1px solid',
-                                    borderColor: 'divider'
-                                }}
-                            >
-                                <Table size="small">
-                                    <TableHead>
-                                        <TableRow>
-                                            <TableCell sx={{ fontWeight: 700 }}>Nguyên liệu</TableCell>
-                                            <TableCell sx={{ fontWeight: 700 }} align="right">Số lượng</TableCell>
-                                            <TableCell sx={{ fontWeight: 700 }} align="center">Đơn vị</TableCell>
-                                            <TableCell align="right"></TableCell>
-                                        </TableRow>
-                                    </TableHead>
-                                    <TableBody>
-                                        {formData.recipe.map((ingredient, index) => (
-                                            <TableRow key={index}>
-                                                <TableCell>
-                                                    <FormControl
-                                                        fullWidth
-                                                        size="small"
-                                                        error={Boolean(errors[`ingredient_${index}_material`])}
-                                                    >
-                                                        <Select
-                                                            value={ingredient.materialId}
-                                                            onChange={(e) => handleIngredientChange(index, 'materialId', e.target.value)}
-                                                            displayEmpty
-                                                        >
-                                                            <MenuItem value="">
-                                                                <em>Chọn nguyên liệu</em>
-                                                            </MenuItem>
-                                                            {inventory.map(mat => (
-                                                                <MenuItem key={mat.id} value={mat.id}>
-                                                                    <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between" sx={{ width: '100%' }}>
-                                                                        <Typography>{mat.name}</Typography>
-                                                                        <Chip
-                                                                            label={`${mat.quantity} ${mat.unit}`}
-                                                                            size="small"
-                                                                            color={mat.status === 'in_stock' ? 'success' : mat.status === 'low_stock' ? 'warning' : 'error'}
-                                                                        />
-                                                                    </Stack>
-                                                                </MenuItem>
-                                                            ))}
-                                                        </Select>
-                                                    </FormControl>
-                                                </TableCell>
-                                                <TableCell align="right">
-                                                    <TextField
-                                                        size="small"
-                                                        type="number"
-                                                        value={ingredient.quantity}
-                                                        onChange={(e) => handleIngredientChange(index, 'quantity', e.target.value)}
-                                                        error={Boolean(errors[`ingredient_${index}_quantity`])}
-                                                        sx={{ width: 100 }}
-                                                        inputProps={{ min: 0, step: 0.01 }}
-                                                    />
-                                                </TableCell>
-                                                <TableCell align="center">
-                                                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                                                        {ingredient.unit || '—'}
-                                                    </Typography>
-                                                </TableCell>
-                                                <TableCell align="right">
-                                                    <IconButton
-                                                        size="small"
-                                                        color="error"
-                                                        onClick={() => handleRemoveIngredient(index)}
-                                                    >
-                                                        <Delete fontSize="small" />
-                                                    </IconButton>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            </TableContainer>
-                        )}
-
-                        {formData.recipe.length === 0 && (
-                            <Box
-                                sx={{
-                                    p: 3,
-                                    textAlign: 'center',
-                                    border: '2px dashed',
-                                    borderColor: 'divider',
-                                    borderRadius: 2
-                                }}
-                            >
-                                <Warning sx={{ fontSize: 48, color: COLORS.TEXT.DISABLED, mb: 1 }} />
-                                <Typography variant="body2" color="text.secondary">
-                                    Chưa có nguyên liệu nào trong công thức
-                                </Typography>
-                                <Typography variant="caption" color="text.secondary">
-                                    Nhấn "Thêm nguyên liệu" để bắt đầu
-                                </Typography>
-                            </Box>
-                        )}
                     </Box>
+
+                    {/* Recipe removed for official product schema */}
                 </Stack>
             </DialogContent>
 

@@ -16,28 +16,15 @@ import {
 } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 import { formatPrice } from '../../utils/formatPrice';
-import inventoryApi from '../../api/inventoryApi';
+// Inventory removed: modal now only shows product fields
 
 const ViewProductDetailsModal = ({ open, onClose, product }) => {
-    const [inventory, setInventory] = useState([]);
     const [loading, setLoading] = useState(false);
 
-    // Load inventory to check material status
     useEffect(() => {
-        const loadInventory = async () => {
-            if (open && product) {
-                setLoading(true);
-                try {
-                    const response = await inventoryApi.getAllItems();
-                    setInventory(response.data || []);
-                } catch (error) {
-                    console.error('Error loading inventory:', error);
-                } finally {
-                    setLoading(false);
-                }
-            }
-        };
-        loadInventory();
+        if (open && product) {
+            setLoading(false);
+        }
     }, [open, product]);
 
     if (!product) return null;
@@ -97,58 +84,8 @@ const ViewProductDetailsModal = ({ open, onClose, product }) => {
         );
     };
 
-    const getMaterialStatus = (materialId, requiredQuantity) => {
-        const material = inventory.find(m => m.id === materialId);
-
-        if (!material) {
-            return {
-                status: 'not_found',
-                label: 'Không tìm thấy',
-                color: 'error',
-                icon: <ErrorIcon fontSize="small" />,
-                available: 0,
-                isEnough: false
-            };
-        }
-
-        const isEnough = material.quantity >= requiredQuantity;
-
-        if (material.status === 'out_of_stock' || !isEnough) {
-            return {
-                status: 'out_of_stock',
-                label: 'Hết hàng',
-                color: 'error',
-                icon: <ErrorIcon fontSize="small" />,
-                available: material.quantity,
-                isEnough: false
-            };
-        }
-
-        if (material.status === 'low_stock') {
-            return {
-                status: 'low_stock',
-                label: 'Sắp hết',
-                color: 'warning',
-                icon: <Warning fontSize="small" />,
-                available: material.quantity,
-                isEnough: true
-            };
-        }
-
-        return {
-            status: 'in_stock',
-            label: 'Còn hàng',
-            color: 'success',
-            icon: <CheckCircle fontSize="small" />,
-            available: material.quantity,
-            isEnough: true
-        };
-    };
-
-    const getMaterialUnit = (materialId) => {
-        const material = inventory.find(m => m.id === materialId);
-        return material?.unit || '';
-    };
+    const getMaterialStatus = () => null;
+    const getMaterialUnit = () => '';
 
     return (
         <Dialog
@@ -258,7 +195,7 @@ const ViewProductDetailsModal = ({ open, onClose, product }) => {
 
                     <Divider />
 
-                    {/* Recipe Section */}
+                    {/* Recipe Section (legacy, hidden when no recipe) */}
                     <Box>
                         <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
                             <Typography variant="h6" sx={{ fontWeight: 700 }}>
@@ -301,11 +238,7 @@ const ViewProductDetailsModal = ({ open, onClose, product }) => {
                                             </TableRow>
                                         ) : (
                                             product.recipe.map((ingredient, index) => {
-                                                const materialStatus = getMaterialStatus(
-                                                    ingredient.materialId,
-                                                    ingredient.quantity
-                                                );
-                                                const unit = getMaterialUnit(ingredient.materialId);
+                                                const unit = '';
 
                                                 return (
                                                     <TableRow
@@ -323,22 +256,12 @@ const ViewProductDetailsModal = ({ open, onClose, product }) => {
                                                             </Typography>
                                                         </TableCell>
                                                         <TableCell align="right">
-                                                            <Chip
-                                                                label={`${materialStatus.available} ${unit}`}
-                                                                size="small"
-                                                                color={materialStatus.isEnough ? 'success' : 'error'}
-                                                                variant={materialStatus.isEnough ? 'outlined' : 'filled'}
-                                                                sx={{ fontWeight: 700 }}
-                                                            />
+                                                            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                                                {unit}
+                                                            </Typography>
                                                         </TableCell>
                                                         <TableCell align="center">
-                                                            <Chip
-                                                                icon={materialStatus.icon}
-                                                                label={materialStatus.label}
-                                                                size="small"
-                                                                color={materialStatus.color}
-                                                                sx={{ fontWeight: 600 }}
-                                                            />
+                                                            —
                                                         </TableCell>
                                                     </TableRow>
                                                 );

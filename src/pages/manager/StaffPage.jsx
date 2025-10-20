@@ -76,7 +76,9 @@ const StaffPage = () => {
         name: '',
         start_time: '',
         end_time: '',
-        description: ''
+        description: '',
+        is_active: true,
+        applicable_days: []
     });
 
     // Staff assignment states
@@ -207,7 +209,9 @@ const StaffPage = () => {
                 name: shift.name,
                 start_time: shift.start_time,
                 end_time: shift.end_time,
-                description: shift.description || ''
+                description: shift.description || '',
+                is_active: typeof shift.is_active === 'boolean' ? shift.is_active : (shift.status !== 'inactive'),
+                applicable_days: Array.isArray(shift.applicable_days) ? shift.applicable_days : []
             });
         } else {
             setEditingShift(null);
@@ -215,7 +219,9 @@ const StaffPage = () => {
                 name: '',
                 start_time: '',
                 end_time: '',
-                description: ''
+                description: '',
+                is_active: true,
+                applicable_days: []
             });
         }
         setOpenShiftDialog(true);
@@ -942,53 +948,42 @@ const StaffPage = () => {
                                 </Typography>
                             </Box>
                         ) : (
-                            <TableContainer component={Paper} sx={{ borderRadius: 3, border: `2px solid ${alpha(COLORS.PRIMARY[200], 0.4)}` }}>
-                                <Table>
-                                    <TableHead>
-                                        <TableRow sx={{ bgcolor: alpha(COLORS.PRIMARY[500], 0.1) }}>
-                                            <TableCell sx={{ fontWeight: 800 }}>Tên ca</TableCell>
-                                            <TableCell sx={{ fontWeight: 800 }}>Thời gian</TableCell>
-                                            <TableCell sx={{ fontWeight: 800 }}>Thời lượng</TableCell>
-                                            <TableCell sx={{ fontWeight: 800 }}>Nhân viên</TableCell>
-                                            <TableCell sx={{ fontWeight: 800 }}>Mô tả</TableCell>
-                                            <TableCell align="right" sx={{ fontWeight: 800 }}>Hành động</TableCell>
-                                        </TableRow>
-                                    </TableHead>
-                                    <TableBody>
-                                        {shifts.map((shift) => {
-                                            const duration = shift.duration_hours
-                                                ? `${shift.duration_hours} giờ`
-                                                : (shift.duration ? `${shift.duration} phút` : '—');
-                                            return (
+                            <>
+                                {(() => {
+                                    const daysOrder = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
+                                    const dayLabel = (d) => ({
+                                        MONDAY: 'Thứ 2',
+                                        TUESDAY: 'Thứ 3',
+                                        WEDNESDAY: 'Thứ 4',
+                                        THURSDAY: 'Thứ 5',
+                                        FRIDAY: 'Thứ 6',
+                                        SATURDAY: 'Thứ 7',
+                                        SUNDAY: 'Chủ nhật'
+                                    }[d] || d);
+                                    const toHHmm = (t) => (typeof t === 'string' ? t.slice(0, 5) : t);
+                                    const renderShiftRow = (shift) => {
+                                        const active = typeof shift.is_active === 'boolean' ? shift.is_active : (shift.status !== 'inactive');
+                                        const teams = Array.isArray(shift.team_work_shifts) ? shift.team_work_shifts : [];
+                                        return (
+                                            <>
                                                 <TableRow key={shift.id} hover>
                                                     <TableCell sx={{ fontWeight: 600 }}>{shift.name}</TableCell>
                                                     <TableCell>
                                                         <Stack direction="row" spacing={1} alignItems="center">
                                                             <AccessTime fontSize="small" sx={{ color: COLORS.PRIMARY[500] }} />
-                                                            <Typography variant="body2">
-                                                                {shift.start_time} - {shift.end_time}
+                                                            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                                                {toHHmm(shift.start_time)} - {toHHmm(shift.end_time)}
                                                             </Typography>
                                                         </Stack>
                                                     </TableCell>
-                                                    <TableCell>{duration}</TableCell>
                                                     <TableCell>
-                                                        <Chip
-                                                            icon={<People fontSize="small" />}
-                                                            label={`${shift.staffCount || 0} nhân viên`}
-                                                            size="small"
-                                                            onClick={() => handleOpenStaffDialog(shift)}
-                                                            sx={{
-                                                                bgcolor: alpha(COLORS.INFO[100], 0.7),
-                                                                color: COLORS.INFO[800],
-                                                                fontWeight: 600,
-                                                                cursor: 'pointer',
-                                                                '&:hover': {
-                                                                    bgcolor: alpha(COLORS.INFO[200], 0.8)
-                                                                }
-                                                            }}
-                                                        />
+                                                        <Chip size="small" label={active ? 'Đang hoạt động' : 'Ngừng'} sx={{
+                                                            bgcolor: active ? alpha(COLORS.SUCCESS[100], 0.8) : alpha(COLORS.ERROR[100], 0.8),
+                                                            color: active ? COLORS.SUCCESS[700] : COLORS.ERROR[700],
+                                                            fontWeight: 700
+                                                        }} />
                                                     </TableCell>
-                                                    <TableCell>
+                                                    <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
                                                         <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
                                                             {shift.description || '—'}
                                                         </Typography>
@@ -1010,11 +1005,134 @@ const StaffPage = () => {
                                                         </IconButton>
                                                     </TableCell>
                                                 </TableRow>
-                                            );
-                                        })}
-                                    </TableBody>
-                                </Table>
-                            </TableContainer>
+                                                <TableRow>
+                                                    <TableCell colSpan={5} sx={{ py: 1.5, bgcolor: alpha(COLORS.PRIMARY[50], 0.25) }}>
+                                                        {teams.length === 0 ? (
+                                                            <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
+                                                                Chưa có team cho ca này
+                                                            </Typography>
+                                                        ) : (
+                                                            <Stack spacing={1.5}>
+                                                                {teams.map((team) => {
+                                                                    const leaderName = team?.leader?.full_name || team?.leader?.name || 'Leader';
+                                                                    const members = Array.isArray(team?.members) ? team.members : [];
+                                                                    return (
+                                                                        <Paper key={team?.id || leaderName} sx={{ p: 1.5, borderRadius: 2, border: `1px solid ${alpha(COLORS.INFO[200], 0.6)}` }}>
+                                                                            <Stack spacing={1.25}>
+                                                                                <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                                                                                    <Chip label={team?.name || 'Team'} size="small" sx={{ fontWeight: 700, bgcolor: alpha(COLORS.INFO[100], 0.8), color: COLORS.INFO[800] }} />
+                                                                                    <Chip label={`Leader: ${leaderName}`} size="small" sx={{ bgcolor: alpha(COLORS.PRIMARY[100], 0.8), color: COLORS.PRIMARY[800], fontWeight: 700 }} />
+                                                                                    {members.length > 0 ? (
+                                                                                        members.map((m) => (
+                                                                                            <Chip key={m?.id || m?.full_name || Math.random()} label={m?.full_name || m?.name || '—'} size="small" sx={{ bgcolor: alpha(COLORS.GRAY[100], 0.8) }} />
+                                                                                        ))
+                                                                                    ) : (
+                                                                                        <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY }}>
+                                                                                            (Chưa có thành viên)
+                                                                                        </Typography>
+                                                                                    )}
+                                                                                </Stack>
+                                                                                {/* Services */}
+                                                                                {Array.isArray(team?.work_type?.services) && team.work_type.services.length > 0 && (
+                                                                                    <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                                                                                        <Typography variant="caption" sx={{ fontWeight: 700, color: COLORS.INFO[800] }}>Dịch vụ:</Typography>
+                                                                                        {team.work_type.services.map(svc => (
+                                                                                            <Chip key={svc.id} size="small" label={svc.name} sx={{ bgcolor: alpha(COLORS.INFO[50], 0.8) }} />
+                                                                                        ))}
+                                                                                    </Stack>
+                                                                                )}
+                                                                                {/* Tasks */}
+                                                                                {Array.isArray(team?.tasks) && team.tasks.length > 0 && (
+                                                                                    <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                                                                                        <Typography variant="caption" sx={{ fontWeight: 700, color: COLORS.PRIMARY[800] }}>Nhiệm vụ:</Typography>
+                                                                                        {team.tasks.map(tsk => (
+                                                                                            <Chip key={tsk.id} size="small" label={tsk.name} sx={{ bgcolor: alpha(COLORS.PRIMARY[50], 0.8) }} />
+                                                                                        ))}
+                                                                                    </Stack>
+                                                                                )}
+                                                                            </Stack>
+                                                                        </Paper>
+                                                                    );
+                                                                })}
+                                                            </Stack>
+                                                        )}
+                                                    </TableCell>
+                                                </TableRow>
+                                            </>
+                                        );
+                                    };
+
+                                    const sections = [];
+                                    daysOrder.forEach((day) => {
+                                        const dayShifts = shifts
+                                            .filter(s => Array.isArray(s.applicable_days) && s.applicable_days.includes(day))
+                                            .sort((a, b) => (a.start_time || '').localeCompare(b.start_time || ''));
+
+                                        sections.push(
+                                            <Paper key={`card-${day}`} sx={{ mb: 2.5, borderRadius: 2, border: `1px solid ${alpha(COLORS.PRIMARY[200], 0.4)}` }}>
+                                                <Box sx={{ px: 2, py: 1.5, bgcolor: alpha(COLORS.PRIMARY[50], 0.8), borderTopLeftRadius: 8, borderTopRightRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                    <Typography variant="subtitle1" sx={{ fontWeight: 800, color: COLORS.PRIMARY[800] }}>{dayLabel(day)}</Typography>
+                                                    <Chip size="small" label={`${dayShifts.length} ca`} />
+                                                </Box>
+                                                {dayShifts.length === 0 ? (
+                                                    <Box sx={{ px: 2, py: 2 }}>
+                                                        <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>Không có ca</Typography>
+                                                    </Box>
+                                                ) : (
+                                                    <TableContainer>
+                                                        <Table>
+                                                            <TableHead>
+                                                                <TableRow>
+                                                                    <TableCell sx={{ fontWeight: 800 }}>Tên ca</TableCell>
+                                                                    <TableCell sx={{ fontWeight: 800 }}>Thời gian</TableCell>
+                                                                    <TableCell sx={{ fontWeight: 800 }}>Trạng thái</TableCell>
+                                                                    <TableCell sx={{ fontWeight: 800, display: { xs: 'none', md: 'table-cell' } }}>Mô tả</TableCell>
+                                                                    <TableCell align="right" sx={{ fontWeight: 800 }}>Hành động</TableCell>
+                                                                </TableRow>
+                                                            </TableHead>
+                                                            <TableBody>
+                                                                {dayShifts.map((s) => renderShiftRow(s))}
+                                                            </TableBody>
+                                                        </Table>
+                                                    </TableContainer>
+                                                )}
+                                            </Paper>
+                                        );
+                                    });
+
+                                    // Shifts without applicable_days
+                                    const otherShifts = shifts.filter(s => !Array.isArray(s.applicable_days) || s.applicable_days.length === 0)
+                                        .sort((a, b) => (a.start_time || '').localeCompare(b.start_time || ''));
+                                    if (otherShifts.length > 0) {
+                                        sections.push(
+                                            <Paper key={`card-OTHER`} sx={{ mb: 2.5, borderRadius: 2, border: `1px solid ${alpha(COLORS.PRIMARY[200], 0.4)}` }}>
+                                                <Box sx={{ px: 2, py: 1.5, bgcolor: alpha(COLORS.PRIMARY[50], 0.8), borderTopLeftRadius: 8, borderTopRightRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                    <Typography variant="subtitle1" sx={{ fontWeight: 800, color: COLORS.PRIMARY[800] }}>KHÁC</Typography>
+                                                    <Chip size="small" label={`${otherShifts.length} ca`} />
+                                                </Box>
+                                                <TableContainer>
+                                                    <Table>
+                                                        <TableHead>
+                                                            <TableRow>
+                                                                <TableCell sx={{ fontWeight: 800 }}>Tên ca</TableCell>
+                                                                <TableCell sx={{ fontWeight: 800 }}>Thời gian</TableCell>
+                                                                <TableCell sx={{ fontWeight: 800 }}>Trạng thái</TableCell>
+                                                                <TableCell sx={{ fontWeight: 800, display: { xs: 'none', md: 'table-cell' } }}>Mô tả</TableCell>
+                                                                <TableCell align="right" sx={{ fontWeight: 800 }}>Hành động</TableCell>
+                                                            </TableRow>
+                                                        </TableHead>
+                                                        <TableBody>
+                                                            {otherShifts.map((s) => renderShiftRow(s))}
+                                                        </TableBody>
+                                                    </Table>
+                                                </TableContainer>
+                                            </Paper>
+                                        );
+                                    }
+
+                                    return sections;
+                                })()}
+                            </>
                         )}
                     </>
                 )}
@@ -1132,6 +1250,33 @@ const StaffPage = () => {
                                 onChange={(e) => setShiftFormData({ ...shiftFormData, description: e.target.value })}
                                 placeholder="Mô tả về ca làm việc..."
                             />
+                            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                                <FormControl size="small" sx={{ minWidth: 220 }}>
+                                    <InputLabel>Ngày áp dụng</InputLabel>
+                                    <Select
+                                        multiple
+                                        label="Ngày áp dụng"
+                                        value={shiftFormData.applicable_days}
+                                        onChange={(e) => setShiftFormData({ ...shiftFormData, applicable_days: e.target.value })}
+                                        renderValue={(selected) => (selected || []).join(', ')}
+                                    >
+                                        {['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'].map(d => (
+                                            <MenuItem key={d} value={d}>{d}</MenuItem>
+                                        ))}
+                                    </Select>
+                                </FormControl>
+                                <FormControl size="small" sx={{ minWidth: 160 }}>
+                                    <InputLabel>Trạng thái</InputLabel>
+                                    <Select
+                                        label="Trạng thái"
+                                        value={shiftFormData.is_active ? 'true' : 'false'}
+                                        onChange={(e) => setShiftFormData({ ...shiftFormData, is_active: e.target.value === 'true' })}
+                                    >
+                                        <MenuItem value="true">Đang hoạt động</MenuItem>
+                                        <MenuItem value="false">Ngừng</MenuItem>
+                                    </Select>
+                                </FormControl>
+                            </Stack>
                         </Stack>
                     </DialogContent>
                     <DialogActions sx={{ px: 3, py: 2 }}>

@@ -65,7 +65,6 @@ const Navbar = () => {
         { label: 'Dịch vụ', icon: <DesignServices />, path: '/manager/services' },
         { label: 'Nhân viên', icon: <People />, path: '/manager/staff' },
         { label: 'Nhiệm vụ', icon: <Assignment />, path: '/manager/tasks' },
-        { label: 'Kho', icon: <Inventory2 />, path: '/manager/inventory' },
         { label: 'Sản phẩm', icon: <ShoppingCart />, path: '/manager/products' },
         { label: 'Tài khoản', icon: <AccountCircle />, path: '/profile' }
     ]), []);
