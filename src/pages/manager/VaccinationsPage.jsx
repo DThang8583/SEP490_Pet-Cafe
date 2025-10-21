@@ -1,10 +1,11 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { Box, Typography, Paper, Stack, Avatar, Chip, Grid, alpha, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Dialog, DialogTitle, DialogContent, DialogActions, Button, Divider, IconButton, Tabs, Tab } from '@mui/material';
-import { Vaccines, CheckCircle, Schedule, Visibility, Close, Pets, CalendarToday, Person, LocalHospital, MedicalServices } from '@mui/icons-material';
+import { Vaccines, CheckCircle, Schedule, Visibility, Close, Pets, CalendarToday, Person, LocalHospital, MedicalServices, Event } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 import Loading from '../../components/loading/Loading';
 import AlertModal from '../../components/modals/AlertModal';
 import Pagination from '../../components/common/Pagination';
+import VaccinationCalendar from '../../components/vaccination/VaccinationCalendar';
 import { vaccinationApi } from '../../api/vaccinationApi';
 import { petApi, MOCK_PET_SPECIES, MOCK_PET_BREEDS } from '../../api/petApi';
 
@@ -235,8 +236,62 @@ const VaccinationsPage = () => {
 
                 {/* Status Badges */}
                 <Grid container spacing={2} sx={{ mb: 3 }}>
+                    {/* Lịch tháng này */}
+                    <Grid item xs={12} sm={6} md={2}>
+                        <Paper
+                            elevation={0}
+                            onClick={() => setCurrentTab(0)}
+                            sx={{
+                                p: 2.5,
+                                borderRadius: 3,
+                                background: `linear-gradient(135deg, ${alpha(COLORS.INFO[50], 0.9)} 0%, ${alpha(COLORS.INFO[100], 0.6)} 100%)`,
+                                border: `2px solid ${COLORS.INFO[200]}`,
+                                boxShadow: `0 4px 12px ${alpha(COLORS.INFO[200], 0.3)}`,
+                                transition: 'all 0.3s ease',
+                                cursor: 'pointer',
+                                '&:hover': {
+                                    transform: 'translateY(-4px)',
+                                    boxShadow: `0 8px 20px ${alpha(COLORS.INFO[300], 0.4)}`,
+                                    border: `2px solid ${COLORS.INFO[300]}`
+                                }
+                            }}
+                        >
+                            <Stack direction="row" alignItems="center" justifyContent="space-between">
+                                <Box>
+                                    <Typography variant="body2" sx={{ color: COLORS.INFO[600], fontWeight: 600, mb: 0.5, fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                        Lịch tháng này
+                                    </Typography>
+                                    <Typography variant="h3" sx={{ color: COLORS.INFO[700], fontWeight: 900, lineHeight: 1 }}>
+                                        {(() => {
+                                            const today = new Date();
+                                            const currentMonth = today.getMonth();
+                                            const currentYear = today.getFullYear();
+                                            return upcomingVaccinations.filter(v => {
+                                                const date = new Date(v.scheduled_date);
+                                                return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
+                                            }).length;
+                                        })()}
+                                    </Typography>
+                                </Box>
+                                <Box
+                                    sx={{
+                                        width: 56,
+                                        height: 56,
+                                        borderRadius: '50%',
+                                        background: alpha(COLORS.INFO[200], 0.4),
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center'
+                                    }}
+                                >
+                                    <Event sx={{ fontSize: 32, color: COLORS.INFO[600] }} />
+                                </Box>
+                            </Stack>
+                        </Paper>
+                    </Grid>
+
                     {/* Tổng loại vaccine */}
-                    <Grid item xs={12} sm={6} md={2.4}>
+                    <Grid item xs={12} sm={6} md={2}>
                         <Paper
                             elevation={0}
                             sx={{
@@ -281,7 +336,7 @@ const VaccinationsPage = () => {
                     </Grid>
 
                     {/* Tổng hồ sơ */}
-                    <Grid item xs={12} sm={6} md={2.4}>
+                    <Grid item xs={12} sm={6} md={2}>
                         <Paper
                             elevation={0}
                             sx={{
@@ -326,10 +381,10 @@ const VaccinationsPage = () => {
                     </Grid>
 
                     {/* Đã tiêm */}
-                    <Grid item xs={12} sm={6} md={2.4}>
+                    <Grid item xs={12} sm={6} md={2}>
                         <Paper
                             elevation={0}
-                            onClick={() => setCurrentTab(1)}
+                            onClick={() => setCurrentTab(2)}
                             sx={{
                                 p: 2.5,
                                 borderRadius: 3,
@@ -372,10 +427,10 @@ const VaccinationsPage = () => {
                     </Grid>
 
                     {/* Đã lên lịch */}
-                    <Grid item xs={12} sm={6} md={2.4}>
+                    <Grid item xs={12} sm={6} md={2}>
                         <Paper
                             elevation={0}
-                            onClick={() => setCurrentTab(0)}
+                            onClick={() => setCurrentTab(1)}
                             sx={{
                                 p: 2.5,
                                 borderRadius: 3,
@@ -418,7 +473,7 @@ const VaccinationsPage = () => {
                     </Grid>
 
                     {/* Quá hạn */}
-                    <Grid item xs={12} sm={6} md={2.4}>
+                    <Grid item xs={12} sm={6} md={2}>
                         <Paper
                             elevation={0}
                             sx={{
@@ -496,6 +551,11 @@ const VaccinationsPage = () => {
                         }}
                     >
                         <Tab
+                            icon={<Event />}
+                            iconPosition="start"
+                            label="Lịch theo tháng"
+                        />
+                        <Tab
                             icon={<Schedule />}
                             iconPosition="start"
                             label={`Lịch tiêm sắp tới (${upcomingVaccinations.length})`}
@@ -508,8 +568,13 @@ const VaccinationsPage = () => {
                     </Tabs>
                 </Paper>
 
-                {/* Tab Content: Upcoming Vaccinations */}
+                {/* Tab Content: Calendar View */}
                 {currentTab === 0 && (
+                    <VaccinationCalendar upcomingVaccinations={upcomingVaccinations} />
+                )}
+
+                {/* Tab Content: Upcoming Vaccinations */}
+                {currentTab === 1 && (
                     <Paper
                         sx={{
                             p: 3,
@@ -612,7 +677,7 @@ const VaccinationsPage = () => {
                 )}
 
                 {/* Tab Content: Vaccination Records */}
-                {currentTab === 1 && (
+                {currentTab === 2 && (
                     <Paper
                         sx={{
                             p: 3,

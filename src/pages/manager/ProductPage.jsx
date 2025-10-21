@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
     Box, Typography, Button, Stack, TextField, IconButton, Chip, Table, TableBody, TableCell,
-    TableContainer, TableHead, TableRow, Paper, Toolbar, Grid, Avatar
+    TableContainer, TableHead, TableRow, Paper, Toolbar, Grid, Avatar, Tabs, Tab
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import {
-    Add, Edit, Delete, Restaurant, Search, LocalCafe, Pets, CheckCircle, Error as ErrorIcon, Visibility, Warning, Block
+    Add, Edit, Delete, Restaurant, Search, LocalCafe, Pets, CheckCircle, Error as ErrorIcon, Visibility, Warning, Block, Check, Close, Category
 } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 import Loading from '../../components/loading/Loading';
@@ -14,13 +14,18 @@ import AlertModal from '../../components/modals/AlertModal';
 import ConfirmModal from '../../components/modals/ConfirmModal';
 import AddProductModal from '../../components/modals/AddProductModal';
 import ViewProductDetailsModal from '../../components/modals/ViewProductDetailsModal';
+import AddCategoryModal from '../../components/modals/AddCategoryModal';
 import productsApi from '../../api/productsApi';
+import categoriesApi from '../../api/categoriesApi';
 import { formatPrice } from '../../utils/formatPrice';
 
 const ProductPage = () => {
+    // Tab state
+    const [currentTab, setCurrentTab] = useState(0);
+
+    // Products state
     const [loading, setLoading] = useState(true);
     const [products, setProducts] = useState([]);
-    // KPIs computed on client side (no official stats endpoint)
     const [openDialog, setOpenDialog] = useState(false);
     const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
     const [openViewDialog, setOpenViewDialog] = useState(false);
@@ -32,15 +37,22 @@ const ProductPage = () => {
     const [isForPetsFilter, setIsForPetsFilter] = useState(undefined);
     const [minPrice, setMinPrice] = useState('');
     const [maxPrice, setMaxPrice] = useState('');
-    const [minCost, setMinCost] = useState('');
-    const [maxCost, setMaxCost] = useState('');
-    const [minStock, setMinStock] = useState('');
-    const [maxStock, setMaxStock] = useState('');
-    const [alert, setAlert] = useState({ open: false, message: '', type: 'info', title: 'Thông báo' });
-
-    // Pagination
+    const [editingQuantityId, setEditingQuantityId] = useState(null);
+    const [editingQuantityValue, setEditingQuantityValue] = useState('');
     const [page, setPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
+
+    // Categories state
+    const [categories, setCategories] = useState([]);
+    const [openCategoryDialog, setOpenCategoryDialog] = useState(false);
+    const [openDeleteCategoryDialog, setOpenDeleteCategoryDialog] = useState(false);
+    const [editingCategory, setEditingCategory] = useState(null);
+    const [deleteCategoryId, setDeleteCategoryId] = useState(null);
+    const [categorySearchQuery, setCategorySearchQuery] = useState('');
+    const [categoryActiveFilter, setCategoryActiveFilter] = useState(undefined);
+
+    // Shared
+    const [alert, setAlert] = useState({ open: false, message: '', type: 'info', title: 'Thông báo' });
 
     // Load products (official API)
     const loadProducts = async () => {
@@ -51,10 +63,6 @@ const ProductPage = () => {
                 IsForPets: isForPetsFilter,
                 MinPrice: minPrice !== '' ? Number(minPrice) : undefined,
                 MaxPrice: maxPrice !== '' ? Number(maxPrice) : undefined,
-                MinCost: minCost !== '' ? Number(minCost) : undefined,
-                MaxCost: maxCost !== '' ? Number(maxCost) : undefined,
-                MinStockQuantity: minStock !== '' ? Number(minStock) : undefined,
-                MaxStockQuantity: maxStock !== '' ? Number(maxStock) : undefined,
                 PageIndex: page - 1,
                 PageSize: itemsPerPage
             });
@@ -74,9 +82,31 @@ const ProductPage = () => {
 
     // Statistics removed (no official endpoint)
 
+    // Load categories
+    const loadCategories = async () => {
+        try {
+            const response = await categoriesApi.getAllCategories({
+                IsActive: categoryActiveFilter
+            });
+            setCategories(response.data || []);
+        } catch (error) {
+            console.error('Error loading categories:', error);
+            setAlert({
+                open: true,
+                title: 'Lỗi',
+                message: error.message || 'Lỗi tải dữ liệu danh mục!',
+                type: 'error'
+            });
+        }
+    };
+
     useEffect(() => {
         loadProducts();
-    }, [isActiveFilter, isForPetsFilter, minPrice, maxPrice, minCost, maxCost, minStock, maxStock, page, itemsPerPage]);
+    }, [isActiveFilter, isForPetsFilter, minPrice, maxPrice, page, itemsPerPage]);
+
+    useEffect(() => {
+        loadCategories();
+    }, [categoryActiveFilter]);
 
     // Filtered and paginated products
     const totalPages = Math.ceil(products.length / itemsPerPage);
@@ -172,7 +202,7 @@ const ProductPage = () => {
         const title = willDisable ? 'Tạm ngừng bán sản phẩm' : 'Mở lại bán sản phẩm';
         const message = willDisable
             ? `Sản phẩm "${product.name}" sẽ được đánh dấu là "Tạm ngừng bán". Khách hàng sẽ không thể đặt sản phẩm này.`
-            : `Sản phẩm "${product.name}" sẽ được mở lại bán. Trạng thái sẽ phụ thuộc vào tình trạng nguyên liệu trong kho.`;
+            : `Sản phẩm "${product.name}" sẽ được mở lại bán.`;
 
         if (window.confirm(`${title}\n\n${message}\n\nBạn có chắc chắn muốn tiếp tục?`)) {
             try {
@@ -195,6 +225,160 @@ const ProductPage = () => {
             }
         }
     };
+
+    const handleStartEditQuantity = (product) => {
+        setEditingQuantityId(product.id);
+        setEditingQuantityValue(product.daily_quantity || '');
+    };
+
+    const handleCancelEditQuantity = () => {
+        setEditingQuantityId(null);
+        setEditingQuantityValue('');
+    };
+
+    const handleSaveQuantity = async (productId) => {
+        const newQuantity = parseInt(editingQuantityValue, 10);
+
+        if (isNaN(newQuantity) || newQuantity < 0) {
+            setAlert({
+                open: true,
+                title: 'Lỗi',
+                message: 'Số lượng phải là số nguyên dương',
+                type: 'error'
+            });
+            return;
+        }
+
+        try {
+            const response = await productsApi.updateDailyQuantity(productId, newQuantity);
+            setAlert({
+                open: true,
+                title: 'Thành công',
+                message: response.message || 'Cập nhật số lượng thành công! Số lượng mới sẽ áp dụng cho các ngày tiếp theo.',
+                type: 'success'
+            });
+            setEditingQuantityId(null);
+            setEditingQuantityValue('');
+            loadProducts();
+        } catch (error) {
+            console.error('Error updating quantity:', error);
+            setAlert({
+                open: true,
+                title: 'Lỗi',
+                message: error.message || 'Không thể cập nhật số lượng',
+                type: 'error'
+            });
+        }
+    };
+
+    // Category handlers
+    const handleOpenCategoryDialog = (category = null) => {
+        setEditingCategory(category);
+        setOpenCategoryDialog(true);
+    };
+
+    const handleCloseCategoryDialog = () => {
+        setOpenCategoryDialog(false);
+        setEditingCategory(null);
+    };
+
+    const handleSaveCategory = async (categoryData) => {
+        try {
+            if (editingCategory) {
+                await categoriesApi.updateCategory(editingCategory.id, categoryData);
+                setAlert({
+                    open: true,
+                    title: 'Thành công',
+                    message: 'Cập nhật danh mục thành công!',
+                    type: 'success'
+                });
+            } else {
+                await categoriesApi.createCategory(categoryData);
+                setAlert({
+                    open: true,
+                    title: 'Thành công',
+                    message: 'Thêm danh mục mới thành công!',
+                    type: 'success'
+                });
+            }
+            handleCloseCategoryDialog();
+            loadCategories();
+        } catch (error) {
+            console.error('Error saving category:', error);
+            setAlert({
+                open: true,
+                title: 'Lỗi',
+                message: error.message || 'Lỗi khi lưu danh mục!',
+                type: 'error'
+            });
+        }
+    };
+
+    const handleDeleteCategory = (categoryId) => {
+        setDeleteCategoryId(categoryId);
+        setOpenDeleteCategoryDialog(true);
+    };
+
+    const confirmDeleteCategory = async () => {
+        try {
+            await categoriesApi.deleteCategory(deleteCategoryId);
+            setAlert({
+                open: true,
+                title: 'Thành công',
+                message: 'Xóa danh mục thành công!',
+                type: 'success'
+            });
+            loadCategories();
+        } catch (error) {
+            console.error('Error deleting category:', error);
+            setAlert({
+                open: true,
+                title: 'Lỗi',
+                message: error.message || 'Lỗi khi xóa danh mục!',
+                type: 'error'
+            });
+        } finally {
+            setOpenDeleteCategoryDialog(false);
+            setDeleteCategoryId(null);
+        }
+    };
+
+    const handleToggleCategoryStatus = async (category) => {
+        const willDisable = category.is_active;
+        const title = willDisable ? 'Vô hiệu hóa danh mục' : 'Kích hoạt danh mục';
+        const message = willDisable
+            ? `Danh mục "${category.name}" sẽ bị vô hiệu hóa. Sản phẩm thuộc danh mục này sẽ không thể tạo mới.`
+            : `Danh mục "${category.name}" sẽ được kích hoạt lại.`;
+
+        if (window.confirm(`${title}\n\n${message}\n\nBạn có chắc chắn muốn tiếp tục?`)) {
+            try {
+                const response = await categoriesApi.toggleCategoryStatus(category.id, willDisable);
+                setAlert({
+                    open: true,
+                    title: 'Thành công',
+                    message: response.message || 'Đã cập nhật trạng thái danh mục!',
+                    type: 'success'
+                });
+                loadCategories();
+            } catch (error) {
+                console.error('Error toggling category status:', error);
+                setAlert({
+                    open: true,
+                    title: 'Lỗi',
+                    message: error.message || 'Không thể cập nhật trạng thái',
+                    type: 'error'
+                });
+            }
+        }
+    };
+
+    // Filtered categories
+    const filteredCategories = categories.filter(cat => {
+        const matchSearch = !categorySearchQuery ||
+            cat.name.toLowerCase().includes(categorySearchQuery.toLowerCase()) ||
+            (cat.description && cat.description.toLowerCase().includes(categorySearchQuery.toLowerCase()));
+        return matchSearch;
+    });
 
     const getCategoryLabel = (category) => {
         if (typeof category === 'string') {
@@ -226,11 +410,10 @@ const ProductPage = () => {
 
     const computeStatus = (product) => {
         if (product && product.is_active === false) return 'disabled';
-        const stock = typeof product?.stock_quantity === 'number' ? product.stock_quantity : undefined;
-        const minStock = typeof product?.min_stock_level === 'number' ? product.min_stock_level : undefined;
-        if (stock !== undefined) {
-            if (stock <= 0) return 'out_of_stock';
-            if (minStock !== undefined && stock <= minStock) return 'low_stock';
+        const remaining = typeof product?.remaining_quantity === 'number' ? product.remaining_quantity : undefined;
+        if (remaining !== undefined) {
+            if (remaining <= 0) return 'sold_out';
+            if (remaining <= 5) return 'low_quantity';
         }
         return 'available';
     };
@@ -239,17 +422,17 @@ const ProductPage = () => {
         const statusConfig = {
             available: {
                 icon: <CheckCircle fontSize="small" />,
-                label: 'Có sẵn',
+                label: 'Còn hàng',
                 color: 'success'
             },
-            out_of_stock: {
+            sold_out: {
                 icon: <ErrorIcon fontSize="small" />,
-                label: 'Hết nguyên liệu',
+                label: 'Hết hàng trong ngày',
                 color: 'error'
             },
-            low_stock: {
+            low_quantity: {
                 icon: <Warning fontSize="small" />,
-                label: 'Sắp hết nguyên liệu',
+                label: 'Sắp hết',
                 color: 'warning'
             },
             disabled: {
@@ -259,7 +442,7 @@ const ProductPage = () => {
             }
         };
 
-        const config = statusConfig[status] || statusConfig.out_of_stock;
+        const config = statusConfig[status] || statusConfig.available;
 
         return (
             <Chip
@@ -284,426 +467,719 @@ const ProductPage = () => {
         }}>
             <Box sx={{ px: { xs: 2, md: 4 }, py: 3 }}>
                 {/* Header */}
-                <Typography variant="h5" sx={{ fontWeight: 900, color: COLORS.WARNING[600], mb: 3 }}>
+                <Typography variant="h5" sx={{ fontWeight: 900, color: COLORS.WARNING[600], mb: 2 }}>
                     Quản lý Sản phẩm Menu
                 </Typography>
 
-                {/* Status Badges */}
-                <Grid container spacing={2} sx={{ mb: 3 }}>
-                    {(() => {
-                        const kpis = (() => {
-                            const result = {
-                                total: products.length,
-                                active: 0,
-                                inactive: 0,
-                                customer: 0,
-                                pet: 0
-                            };
-                            products.forEach(p => {
-                                if (p.is_active === false) result.inactive += 1; else result.active += 1;
-                                if (p.is_for_pets) result.pet += 1; else result.customer += 1;
-                            });
-                            return result;
-                        })();
-                        return (
-                            <>
-                                <Grid item xs={6} sm={4} md={3}>
-                                    <Paper sx={{
-                                        p: 2,
-                                        background: `linear-gradient(135deg, ${alpha(COLORS.PRIMARY[50], 0.8)} 0%, ${alpha(COLORS.PRIMARY[100], 0.6)} 100%)`,
-                                        border: `2px solid ${alpha(COLORS.PRIMARY[300], 0.3)}`,
-                                        borderRadius: 3,
-                                        transition: 'all 0.3s ease',
-                                        '&:hover': { transform: 'translateY(-4px)', boxShadow: `0 8px 24px ${alpha(COLORS.PRIMARY[500], 0.2)}` }
-                                    }}>
-                                        <Stack direction="row" spacing={1.5} alignItems="center">
-                                            <Box sx={{
-                                                background: `linear-gradient(135deg, ${COLORS.PRIMARY[400]} 0%, ${COLORS.PRIMARY[600]} 100%)`,
-                                                borderRadius: 2, p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center'
-                                            }}>
-                                                <Restaurant sx={{ color: 'white', fontSize: 28 }} />
-                                            </Box>
-                                            <Box>
-                                                <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.PRIMARY[700] }}>
-                                                    {kpis.total}
-                                                </Typography>
-                                                <Typography variant="caption" sx={{ color: COLORS.PRIMARY[600], fontWeight: 600 }}>
-                                                    Tổng sản phẩm
-                                                </Typography>
-                                            </Box>
-                                        </Stack>
-                                    </Paper>
-                                </Grid>
-
-                                <Grid item xs={6} sm={4} md={3}>
-                                    <Paper sx={{
-                                        p: 2,
-                                        background: `linear-gradient(135deg, ${alpha(COLORS.SUCCESS[50], 0.8)} 0%, ${alpha(COLORS.SUCCESS[100], 0.6)} 100%)`,
-                                        border: `2px solid ${alpha(COLORS.SUCCESS[300], 0.3)}`,
-                                        borderRadius: 3,
-                                        transition: 'all 0.3s ease',
-                                        '&:hover': { transform: 'translateY(-4px)', boxShadow: `0 8px 24px ${alpha(COLORS.SUCCESS[500], 0.2)}` }
-                                    }}>
-                                        <Stack direction="row" spacing={1.5} alignItems="center">
-                                            <Box sx={{
-                                                background: `linear-gradient(135deg, ${COLORS.SUCCESS[400]} 0%, ${COLORS.SUCCESS[600]} 100%)`,
-                                                borderRadius: 2, p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center'
-                                            }}>
-                                                <CheckCircle sx={{ color: 'white', fontSize: 28 }} />
-                                            </Box>
-                                            <Box>
-                                                <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.SUCCESS[700] }}>
-                                                    {kpis.active}
-                                                </Typography>
-                                                <Typography variant="caption" sx={{ color: COLORS.SUCCESS[600], fontWeight: 600 }}>
-                                                    Đang bán
-                                                </Typography>
-                                            </Box>
-                                        </Stack>
-                                    </Paper>
-                                </Grid>
-                                <Grid item xs={6} sm={4} md={3}>
-                                    <Paper sx={{
-                                        p: 2,
-                                        background: `linear-gradient(135deg, ${alpha(COLORS.ERROR[50], 0.8)} 0%, ${alpha(COLORS.ERROR[100], 0.6)} 100%)`,
-                                        border: `2px solid ${alpha(COLORS.ERROR[300], 0.3)}`,
-                                        borderRadius: 3,
-                                        transition: 'all 0.3s ease',
-                                        '&:hover': { transform: 'translateY(-4px)', boxShadow: `0 8px 24px ${alpha(COLORS.ERROR[500], 0.2)}` }
-                                    }}>
-                                        <Stack direction="row" spacing={1.5} alignItems="center">
-                                            <Box sx={{
-                                                background: `linear-gradient(135deg, ${COLORS.ERROR[400]} 0%, ${COLORS.ERROR[600]} 100%)`,
-                                                borderRadius: 2, p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center'
-                                            }}>
-                                                <Block sx={{ color: 'white', fontSize: 28 }} />
-                                            </Box>
-                                            <Box>
-                                                <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.ERROR[700] }}>
-                                                    {kpis.inactive}
-                                                </Typography>
-                                                <Typography variant="caption" sx={{ color: COLORS.ERROR[600], fontWeight: 600 }}>
-                                                    Ngừng bán
-                                                </Typography>
-                                            </Box>
-                                        </Stack>
-                                    </Paper>
-                                </Grid>
-
-                                <Grid item xs={6} sm={4} md={3}>
-                                    <Paper sx={{
-                                        p: 2,
-                                        background: `linear-gradient(135deg, ${alpha(COLORS.INFO[50], 0.8)} 0%, ${alpha(COLORS.INFO[100], 0.6)} 100%)`,
-                                        border: `2px solid ${alpha(COLORS.INFO[300], 0.3)}`,
-                                        borderRadius: 3,
-                                        transition: 'all 0.3s ease',
-                                        '&:hover': { transform: 'translateY(-4px)', boxShadow: `0 8px 24px ${alpha(COLORS.INFO[500], 0.2)}` }
-                                    }}>
-                                        <Stack direction="row" spacing={1.5} alignItems="center">
-                                            <Box sx={{
-                                                background: `linear-gradient(135deg, ${COLORS.INFO[400]} 0%, ${COLORS.INFO[600]} 100%)`,
-                                                borderRadius: 2, p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center'
-                                            }}>
-                                                <LocalCafe sx={{ color: 'white', fontSize: 28 }} />
-                                            </Box>
-                                            <Box>
-                                                <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.INFO[700] }}>
-                                                    {kpis.customer}
-                                                </Typography>
-                                                <Typography variant="caption" sx={{ color: COLORS.INFO[600], fontWeight: 600 }}>
-                                                    Sản phẩm Khách hàng
-                                                </Typography>
-                                            </Box>
-                                        </Stack>
-                                    </Paper>
-                                </Grid>
-
-
-
-                                <Grid item xs={6} sm={4} md={3}>
-                                    <Paper sx={{
-                                        p: 2,
-                                        background: `linear-gradient(135deg, ${alpha('#E8F5E9', 0.8)} 0%, ${alpha('#C8E6C9', 0.6)} 100%)`,
-                                        border: `2px solid ${alpha('#81C784', 0.3)}`,
-                                        borderRadius: 3,
-                                        transition: 'all 0.3s ease',
-                                        '&:hover': { transform: 'translateY(-4px)', boxShadow: `0 8px 24px ${alpha('#66BB6A', 0.2)}` }
-                                    }}>
-                                        <Stack direction="row" spacing={1.5} alignItems="center">
-                                            <Box sx={{
-                                                background: `linear-gradient(135deg, #81C784 0%, #388E3C 100%)`,
-                                                borderRadius: 2, p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center'
-                                            }}>
-                                                <Pets sx={{ color: 'white', fontSize: 28 }} />
-                                            </Box>
-                                            <Box>
-                                                <Typography variant="h4" sx={{ fontWeight: 800, color: '#2E7D32' }}>
-                                                    {kpis.pet}
-                                                </Typography>
-                                                <Typography variant="caption" sx={{ color: '#388E3C', fontWeight: 600 }}>
-                                                    Sản phẩm Pet
-                                                </Typography>
-                                            </Box>
-                                        </Stack>
-                                    </Paper>
-                                </Grid>
-                            </>
-                        );
-                    })()}
-                </Grid>
-
-                {/* Search and Filter Toolbar */}
-                <Toolbar
-                    disableGutters
-                    sx={{
-                        gap: 2,
-                        flexWrap: 'wrap',
-                        mb: 2,
-                        p: 1.5,
-                        borderRadius: 2,
-                        background: `linear-gradient(135deg, ${alpha(COLORS.WARNING[50], 0.6)}, ${alpha(COLORS.SECONDARY[50], 0.4)})`,
-                        border: `1px solid ${alpha(COLORS.BORDER.PRIMARY, 0.4)}`
-                    }}
-                >
-                    <TextField
-                        size="small"
-                        placeholder="Tìm theo tên, mô tả..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        InputProps={{
-                            startAdornment: <Search sx={{ color: 'action.active', mr: 1 }} />
-                        }}
-                        sx={{ minWidth: { xs: '100%', sm: 250 } }}
-                    />
-                    <TextField
-                        select
-                        size="small"
-                        value={isActiveFilter === undefined ? '' : isActiveFilter ? 'true' : 'false'}
-                        onChange={(e) => {
-                            const v = e.target.value;
-                            setIsActiveFilter(v === '' ? undefined : v === 'true');
-                        }}
-                        SelectProps={{ native: true }}
-                        sx={{ minWidth: 160 }}
-                        label="Trạng thái"
-                        InputLabelProps={{ shrink: true }}
-                    >
-                        <option value="">Tất cả</option>
-                        <option value="true">Đang bán</option>
-                        <option value="false">Ngừng bán</option>
-                    </TextField>
-                    <TextField
-                        select
-                        size="small"
-                        value={isForPetsFilter === undefined ? '' : isForPetsFilter ? 'true' : 'false'}
-                        onChange={(e) => {
-                            const v = e.target.value;
-                            setIsForPetsFilter(v === '' ? undefined : v === 'true');
-                        }}
-                        SelectProps={{ native: true }}
-                        sx={{ minWidth: 180 }}
-                        label="Loại đối tượng"
-                        InputLabelProps={{ shrink: true }}
-                    >
-                        <option value="">Tất cả</option>
-                        <option value="false">Khách hàng</option>
-                        <option value="true">Pet</option>
-                    </TextField>
-                    <TextField
-                        size="small"
-                        type="number"
-                        label="Giá từ"
-                        value={minPrice}
-                        onChange={(e) => setMinPrice(e.target.value)}
-                        sx={{ width: 120 }}
-                        InputLabelProps={{ shrink: true }}
-                    />
-                    <TextField
-                        size="small"
-                        type="number"
-                        label="đến"
-                        value={maxPrice}
-                        onChange={(e) => setMaxPrice(e.target.value)}
-                        sx={{ width: 120 }}
-                        InputLabelProps={{ shrink: true }}
-                    />
-                    <Box sx={{ flexGrow: 1 }} />
-                    <Button
-                        variant="contained"
-                        startIcon={<Add />}
-                        onClick={() => handleOpenDialog()}
+                {/* Tabs */}
+                <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+                    <Tabs
+                        value={currentTab}
+                        onChange={(e, newValue) => setCurrentTab(newValue)}
                         sx={{
-                            bgcolor: COLORS.WARNING[500],
-                            '&:hover': { bgcolor: COLORS.WARNING[600] }
+                            '& .MuiTab-root': {
+                                fontWeight: 700,
+                                fontSize: '0.95rem'
+                            }
                         }}
                     >
-                        Thêm sản phẩm
-                    </Button>
-                </Toolbar>
+                        <Tab
+                            label="Sản phẩm"
+                            icon={<Restaurant />}
+                            iconPosition="start"
+                            sx={{ minHeight: 48 }}
+                        />
+                        <Tab
+                            label="Danh mục"
+                            icon={<Category />}
+                            iconPosition="start"
+                            sx={{ minHeight: 48 }}
+                        />
+                    </Tabs>
+                </Box>
 
-                {/* Table */}
-                <TableContainer
-                    component={Paper}
-                    sx={{
-                        borderRadius: 3,
-                        border: `2px solid ${alpha(COLORS.WARNING[200], 0.4)}`,
-                        boxShadow: `0 10px 24px ${alpha(COLORS.WARNING[200], 0.15)}`,
-                        overflowX: 'auto'
-                    }}
-                >
-                    <Table size="medium" stickyHeader>
-                        <TableHead>
-                            <TableRow sx={{ '& th': { bgcolor: alpha(COLORS.WARNING[50], 0.6) } }}>
-                                <TableCell sx={{ fontWeight: 800 }}>Ảnh</TableCell>
-                                <TableCell sx={{ fontWeight: 800 }}>Tên sản phẩm</TableCell>
-                                <TableCell sx={{ fontWeight: 800, display: { xs: 'none', sm: 'table-cell' } }}>Danh mục</TableCell>
-                                <TableCell sx={{ fontWeight: 800, display: { xs: 'none', md: 'table-cell' } }}>Mô tả</TableCell>
-                                <TableCell sx={{ fontWeight: 800 }} align="right">Giá bán</TableCell>
-                                <TableCell sx={{ fontWeight: 800 }} align="right">Giá vốn</TableCell>
-                                <TableCell sx={{ fontWeight: 800 }} align="right">Tồn kho</TableCell>
-                                <TableCell sx={{ fontWeight: 800 }} align="right">Ngưỡng tồn</TableCell>
-                                <TableCell sx={{ fontWeight: 800 }}>Đối tượng</TableCell>
-                                <TableCell sx={{ fontWeight: 800 }}>Trạng thái</TableCell>
-                                <TableCell align="right" sx={{ fontWeight: 800 }}>Hành động</TableCell>
-                            </TableRow>
-                        </TableHead>
-                        <TableBody>
-                            {currentPageProducts.map((product) => (
-                                <TableRow
-                                    key={product.id || product.name}
-                                    hover
-                                    sx={{ '&:hover': { backgroundColor: alpha(COLORS.WARNING[50], 0.5) } }}
-                                >
-                                    <TableCell>
-                                        <Avatar
-                                            src={product.image_url || product.image}
-                                            alt={product.name}
-                                            variant="rounded"
-                                            sx={{ width: 56, height: 56 }}
-                                        />
-                                    </TableCell>
-                                    <TableCell sx={{ fontWeight: 600 }}>{product.name}</TableCell>
-                                    <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
-                                        <Chip
-                                            icon={getCategoryIcon(product.category, product.is_for_pets)}
-                                            label={`${getCategoryLabel(product.category)}`}
-                                            size="small"
-                                            variant="outlined"
-                                        />
-                                        {/* Safeguard: never render raw object */}
-                                        {typeof product.category === 'object' ? null : null}
-                                    </TableCell>
-                                    <TableCell sx={{ display: { xs: 'none', md: 'table-cell' }, maxWidth: { md: 360, lg: 480 } }}>
-                                        <Typography
-                                            variant="body2"
-                                            sx={{
-                                                display: '-webkit-box',
-                                                WebkitLineClamp: { md: 2, lg: 3 },
-                                                WebkitBoxOrient: 'vertical',
-                                                overflow: 'hidden'
-                                            }}
-                                        >
-                                            {product.description}
-                                        </Typography>
-                                    </TableCell>
-                                    <TableCell align="right" sx={{ fontWeight: 700 }}>
-                                        {formatPrice(product.price)}
-                                    </TableCell>
-                                    <TableCell align="right" sx={{ fontWeight: 700 }}>
-                                        {typeof product.cost === 'number' ? formatPrice(product.cost) : '—'}
-                                    </TableCell>
-                                    <TableCell align="right" sx={{ fontWeight: 700 }}>
-                                        {typeof product.stock_quantity === 'number' ? product.stock_quantity : '—'}
-                                    </TableCell>
-                                    <TableCell align="right" sx={{ fontWeight: 700 }}>
-                                        {typeof product.min_stock_level === 'number' ? product.min_stock_level : '—'}
-                                    </TableCell>
-                                    <TableCell>
-                                        <Chip
-                                            label={product.is_for_pets ? 'Pet' : 'Khách hàng'}
-                                            size="small"
-                                            color={product.is_for_pets ? 'success' : 'primary'}
-                                            variant="outlined"
-                                        />
-                                    </TableCell>
-                                    <TableCell>
-                                        <Chip
-                                            label={product.is_active === false ? 'Ngừng bán' : 'Đang bán'}
-                                            size="small"
-                                            color={product.is_active === false ? 'default' : 'success'}
-                                            variant={product.is_active === false ? 'outlined' : 'filled'}
-                                        />
-                                    </TableCell>
-                                    <TableCell align="right">
-                                        <IconButton size="small" color="info" onClick={() => handleViewProduct(product)}>
-                                            <Visibility fontSize="small" />
-                                        </IconButton>
-                                        <IconButton
-                                            size="small"
-                                            color={product.manuallyDisabled ? 'success' : 'default'}
-                                            onClick={() => handleToggleProductStatus(product)}
-                                            title={product.manuallyDisabled ? 'Mở lại bán' : 'Tạm ngừng bán'}
-                                        >
-                                            <Block fontSize="small" />
-                                        </IconButton>
-                                        <IconButton size="small" color="primary" onClick={() => handleOpenDialog(product)}>
-                                            <Edit fontSize="small" />
-                                        </IconButton>
-                                        <IconButton size="small" color="error" onClick={() => handleDeleteProduct(product.id)}>
-                                            <Delete fontSize="small" />
-                                        </IconButton>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                </TableContainer>
+                {/* Tab Content: Products */}
+                {currentTab === 0 && (
+                    <>
+                        {/* Status Badges */}
+                        <Grid container spacing={2} sx={{ mb: 3 }}>
+                            {(() => {
+                                const kpis = (() => {
+                                    const result = {
+                                        total: products.length,
+                                        active: 0,
+                                        inactive: 0,
+                                        customer: 0,
+                                        pet: 0
+                                    };
+                                    products.forEach(p => {
+                                        if (p.is_active === false) result.inactive += 1; else result.active += 1;
+                                        if (p.is_for_pets) result.pet += 1; else result.customer += 1;
+                                    });
+                                    return result;
+                                })();
+                                return (
+                                    <>
+                                        <Grid item xs={6} sm={4} md={3}>
+                                            <Paper sx={{
+                                                p: 2,
+                                                background: `linear-gradient(135deg, ${alpha(COLORS.PRIMARY[50], 0.8)} 0%, ${alpha(COLORS.PRIMARY[100], 0.6)} 100%)`,
+                                                border: `2px solid ${alpha(COLORS.PRIMARY[300], 0.3)}`,
+                                                borderRadius: 3,
+                                                transition: 'all 0.3s ease',
+                                                '&:hover': { transform: 'translateY(-4px)', boxShadow: `0 8px 24px ${alpha(COLORS.PRIMARY[500], 0.2)}` }
+                                            }}>
+                                                <Stack direction="row" spacing={1.5} alignItems="center">
+                                                    <Box sx={{
+                                                        background: `linear-gradient(135deg, ${COLORS.PRIMARY[400]} 0%, ${COLORS.PRIMARY[600]} 100%)`,
+                                                        borderRadius: 2, p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                                    }}>
+                                                        <Restaurant sx={{ color: 'white', fontSize: 28 }} />
+                                                    </Box>
+                                                    <Box>
+                                                        <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.PRIMARY[700] }}>
+                                                            {kpis.total}
+                                                        </Typography>
+                                                        <Typography variant="caption" sx={{ color: COLORS.PRIMARY[600], fontWeight: 600 }}>
+                                                            Tổng sản phẩm
+                                                        </Typography>
+                                                    </Box>
+                                                </Stack>
+                                            </Paper>
+                                        </Grid>
 
-                {/* Pagination */}
-                {products.length > 0 && (
-                    <Pagination
-                        page={page}
-                        totalPages={totalPages}
-                        onPageChange={setPage}
-                        itemsPerPage={itemsPerPage}
-                        onItemsPerPageChange={(newValue) => {
-                            setItemsPerPage(newValue);
-                            setPage(1);
-                        }}
-                        totalItems={products.length}
-                    />
-                )}
+                                        <Grid item xs={6} sm={4} md={3}>
+                                            <Paper sx={{
+                                                p: 2,
+                                                background: `linear-gradient(135deg, ${alpha(COLORS.SUCCESS[50], 0.8)} 0%, ${alpha(COLORS.SUCCESS[100], 0.6)} 100%)`,
+                                                border: `2px solid ${alpha(COLORS.SUCCESS[300], 0.3)}`,
+                                                borderRadius: 3,
+                                                transition: 'all 0.3s ease',
+                                                '&:hover': { transform: 'translateY(-4px)', boxShadow: `0 8px 24px ${alpha(COLORS.SUCCESS[500], 0.2)}` }
+                                            }}>
+                                                <Stack direction="row" spacing={1.5} alignItems="center">
+                                                    <Box sx={{
+                                                        background: `linear-gradient(135deg, ${COLORS.SUCCESS[400]} 0%, ${COLORS.SUCCESS[600]} 100%)`,
+                                                        borderRadius: 2, p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                                    }}>
+                                                        <CheckCircle sx={{ color: 'white', fontSize: 28 }} />
+                                                    </Box>
+                                                    <Box>
+                                                        <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.SUCCESS[700] }}>
+                                                            {kpis.active}
+                                                        </Typography>
+                                                        <Typography variant="caption" sx={{ color: COLORS.SUCCESS[600], fontWeight: 600 }}>
+                                                            Đang bán
+                                                        </Typography>
+                                                    </Box>
+                                                </Stack>
+                                            </Paper>
+                                        </Grid>
+                                        <Grid item xs={6} sm={4} md={3}>
+                                            <Paper sx={{
+                                                p: 2,
+                                                background: `linear-gradient(135deg, ${alpha(COLORS.ERROR[50], 0.8)} 0%, ${alpha(COLORS.ERROR[100], 0.6)} 100%)`,
+                                                border: `2px solid ${alpha(COLORS.ERROR[300], 0.3)}`,
+                                                borderRadius: 3,
+                                                transition: 'all 0.3s ease',
+                                                '&:hover': { transform: 'translateY(-4px)', boxShadow: `0 8px 24px ${alpha(COLORS.ERROR[500], 0.2)}` }
+                                            }}>
+                                                <Stack direction="row" spacing={1.5} alignItems="center">
+                                                    <Box sx={{
+                                                        background: `linear-gradient(135deg, ${COLORS.ERROR[400]} 0%, ${COLORS.ERROR[600]} 100%)`,
+                                                        borderRadius: 2, p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                                    }}>
+                                                        <Block sx={{ color: 'white', fontSize: 28 }} />
+                                                    </Box>
+                                                    <Box>
+                                                        <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.ERROR[700] }}>
+                                                            {kpis.inactive}
+                                                        </Typography>
+                                                        <Typography variant="caption" sx={{ color: COLORS.ERROR[600], fontWeight: 600 }}>
+                                                            Ngừng bán
+                                                        </Typography>
+                                                    </Box>
+                                                </Stack>
+                                            </Paper>
+                                        </Grid>
 
-                {/* Empty State */}
-                {products.length === 0 && (
-                    <Box sx={{ textAlign: 'center', py: 8 }}>
-                        <Restaurant sx={{ fontSize: 80, color: COLORS.TEXT.DISABLED, mb: 2 }} />
-                        <Typography variant="h6" sx={{ color: COLORS.TEXT.SECONDARY, mb: 1 }}>
-                            Không tìm thấy sản phẩm nào
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
-                            Thử thay đổi bộ lọc hoặc thêm sản phẩm mới
-                        </Typography>
-                        <Button
-                            variant="outlined"
-                            sx={{ mt: 2 }}
-                            onClick={() => {
-                                // Trigger reload to pick up fallback data if API failed previously
-                                setPage(1);
-                                setTimeout(() => {
-                                    // minimal debounce
-                                    const ev = new Event('input');
-                                    loadProducts();
-                                }, 0);
+                                        <Grid item xs={6} sm={4} md={3}>
+                                            <Paper sx={{
+                                                p: 2,
+                                                background: `linear-gradient(135deg, ${alpha(COLORS.INFO[50], 0.8)} 0%, ${alpha(COLORS.INFO[100], 0.6)} 100%)`,
+                                                border: `2px solid ${alpha(COLORS.INFO[300], 0.3)}`,
+                                                borderRadius: 3,
+                                                transition: 'all 0.3s ease',
+                                                '&:hover': { transform: 'translateY(-4px)', boxShadow: `0 8px 24px ${alpha(COLORS.INFO[500], 0.2)}` }
+                                            }}>
+                                                <Stack direction="row" spacing={1.5} alignItems="center">
+                                                    <Box sx={{
+                                                        background: `linear-gradient(135deg, ${COLORS.INFO[400]} 0%, ${COLORS.INFO[600]} 100%)`,
+                                                        borderRadius: 2, p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                                    }}>
+                                                        <LocalCafe sx={{ color: 'white', fontSize: 28 }} />
+                                                    </Box>
+                                                    <Box>
+                                                        <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.INFO[700] }}>
+                                                            {kpis.customer}
+                                                        </Typography>
+                                                        <Typography variant="caption" sx={{ color: COLORS.INFO[600], fontWeight: 600 }}>
+                                                            Sản phẩm Khách hàng
+                                                        </Typography>
+                                                    </Box>
+                                                </Stack>
+                                            </Paper>
+                                        </Grid>
+
+
+
+                                        <Grid item xs={6} sm={4} md={3}>
+                                            <Paper sx={{
+                                                p: 2,
+                                                background: `linear-gradient(135deg, ${alpha('#E8F5E9', 0.8)} 0%, ${alpha('#C8E6C9', 0.6)} 100%)`,
+                                                border: `2px solid ${alpha('#81C784', 0.3)}`,
+                                                borderRadius: 3,
+                                                transition: 'all 0.3s ease',
+                                                '&:hover': { transform: 'translateY(-4px)', boxShadow: `0 8px 24px ${alpha('#66BB6A', 0.2)}` }
+                                            }}>
+                                                <Stack direction="row" spacing={1.5} alignItems="center">
+                                                    <Box sx={{
+                                                        background: `linear-gradient(135deg, #81C784 0%, #388E3C 100%)`,
+                                                        borderRadius: 2, p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                                    }}>
+                                                        <Pets sx={{ color: 'white', fontSize: 28 }} />
+                                                    </Box>
+                                                    <Box>
+                                                        <Typography variant="h4" sx={{ fontWeight: 800, color: '#2E7D32' }}>
+                                                            {kpis.pet}
+                                                        </Typography>
+                                                        <Typography variant="caption" sx={{ color: '#388E3C', fontWeight: 600 }}>
+                                                            Sản phẩm Pet
+                                                        </Typography>
+                                                    </Box>
+                                                </Stack>
+                                            </Paper>
+                                        </Grid>
+                                    </>
+                                );
+                            })()}
+                        </Grid>
+
+                        {/* Search and Filter Toolbar */}
+                        <Toolbar
+                            disableGutters
+                            sx={{
+                                gap: 2,
+                                flexWrap: 'wrap',
+                                mb: 2,
+                                p: 1.5,
+                                borderRadius: 2,
+                                background: `linear-gradient(135deg, ${alpha(COLORS.WARNING[50], 0.6)}, ${alpha(COLORS.SECONDARY[50], 0.4)})`,
+                                border: `1px solid ${alpha(COLORS.BORDER.PRIMARY, 0.4)}`
                             }}
                         >
-                            Tải lại
-                        </Button>
-                    </Box>
+                            <TextField
+                                size="small"
+                                placeholder="Tìm theo tên, mô tả..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                InputProps={{
+                                    startAdornment: <Search sx={{ color: 'action.active', mr: 1 }} />
+                                }}
+                                sx={{ minWidth: { xs: '100%', sm: 250 } }}
+                            />
+                            <TextField
+                                select
+                                size="small"
+                                value={isActiveFilter === undefined ? '' : isActiveFilter ? 'true' : 'false'}
+                                onChange={(e) => {
+                                    const v = e.target.value;
+                                    setIsActiveFilter(v === '' ? undefined : v === 'true');
+                                }}
+                                SelectProps={{ native: true }}
+                                sx={{ minWidth: 160 }}
+                                label="Trạng thái"
+                                InputLabelProps={{ shrink: true }}
+                            >
+                                <option value="">Tất cả</option>
+                                <option value="true">Đang bán</option>
+                                <option value="false">Ngừng bán</option>
+                            </TextField>
+                            <TextField
+                                select
+                                size="small"
+                                value={isForPetsFilter === undefined ? '' : isForPetsFilter ? 'true' : 'false'}
+                                onChange={(e) => {
+                                    const v = e.target.value;
+                                    setIsForPetsFilter(v === '' ? undefined : v === 'true');
+                                }}
+                                SelectProps={{ native: true }}
+                                sx={{ minWidth: 180 }}
+                                label="Loại đối tượng"
+                                InputLabelProps={{ shrink: true }}
+                            >
+                                <option value="">Tất cả</option>
+                                <option value="false">Khách hàng</option>
+                                <option value="true">Pet</option>
+                            </TextField>
+                            <TextField
+                                size="small"
+                                type="number"
+                                label="Giá từ"
+                                value={minPrice}
+                                onChange={(e) => setMinPrice(e.target.value)}
+                                sx={{ width: 100 }}
+                                InputLabelProps={{ shrink: true }}
+                            />
+                            <TextField
+                                size="small"
+                                type="number"
+                                label="đến"
+                                value={maxPrice}
+                                onChange={(e) => setMaxPrice(e.target.value)}
+                                sx={{ width: 100 }}
+                                InputLabelProps={{ shrink: true }}
+                            />
+                            <Box sx={{ flexGrow: 1 }} />
+                            <Button
+                                variant="contained"
+                                startIcon={<Add />}
+                                onClick={() => handleOpenDialog()}
+                                sx={{
+                                    bgcolor: COLORS.WARNING[500],
+                                    '&:hover': { bgcolor: COLORS.WARNING[600] }
+                                }}
+                            >
+                                Thêm sản phẩm
+                            </Button>
+                        </Toolbar>
+
+                        {/* Table */}
+                        <TableContainer
+                            component={Paper}
+                            sx={{
+                                borderRadius: 3,
+                                border: `2px solid ${alpha(COLORS.WARNING[200], 0.4)}`,
+                                boxShadow: `0 10px 24px ${alpha(COLORS.WARNING[200], 0.15)}`,
+                                overflowX: 'auto'
+                            }}
+                        >
+                            <Table size="medium" stickyHeader>
+                                <TableHead>
+                                    <TableRow sx={{ '& th': { bgcolor: alpha(COLORS.WARNING[50], 0.6) } }}>
+                                        <TableCell sx={{ fontWeight: 800 }}>Ảnh</TableCell>
+                                        <TableCell sx={{ fontWeight: 800 }}>Tên sản phẩm</TableCell>
+                                        <TableCell sx={{ fontWeight: 800, display: { xs: 'none', sm: 'table-cell' } }}>Danh mục</TableCell>
+                                        <TableCell sx={{ fontWeight: 800, display: { xs: 'none', md: 'table-cell' } }}>Mô tả</TableCell>
+                                        <TableCell sx={{ fontWeight: 800 }} align="right">Giá bán</TableCell>
+                                        <TableCell sx={{ fontWeight: 800 }} align="right">Số lượng</TableCell>
+                                        <TableCell sx={{ fontWeight: 800 }} align="right">Còn lại</TableCell>
+                                        <TableCell sx={{ fontWeight: 800 }}>Trạng thái</TableCell>
+                                        <TableCell align="right" sx={{ fontWeight: 800 }}>Hành động</TableCell>
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {currentPageProducts.map((product) => (
+                                        <TableRow
+                                            key={product.id || product.name}
+                                            hover
+                                            sx={{ '&:hover': { backgroundColor: alpha(COLORS.WARNING[50], 0.5) } }}
+                                        >
+                                            <TableCell>
+                                                <Avatar
+                                                    src={product.image_url || product.image}
+                                                    alt={product.name}
+                                                    variant="rounded"
+                                                    sx={{ width: 56, height: 56 }}
+                                                />
+                                            </TableCell>
+                                            <TableCell sx={{ fontWeight: 600 }}>{product.name}</TableCell>
+                                            <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
+                                                <Chip
+                                                    icon={getCategoryIcon(product.category, product.is_for_pets)}
+                                                    label={`${getCategoryLabel(product.category)}`}
+                                                    size="small"
+                                                    variant="outlined"
+                                                />
+                                                {/* Safeguard: never render raw object */}
+                                                {typeof product.category === 'object' ? null : null}
+                                            </TableCell>
+                                            <TableCell sx={{ display: { xs: 'none', md: 'table-cell' }, maxWidth: { md: 360, lg: 480 } }}>
+                                                <Typography
+                                                    variant="body2"
+                                                    sx={{
+                                                        display: '-webkit-box',
+                                                        WebkitLineClamp: { md: 2, lg: 3 },
+                                                        WebkitBoxOrient: 'vertical',
+                                                        overflow: 'hidden'
+                                                    }}
+                                                >
+                                                    {product.description}
+                                                </Typography>
+                                            </TableCell>
+                                            <TableCell align="right" sx={{ fontWeight: 700 }}>
+                                                {formatPrice(product.price)}
+                                            </TableCell>
+                                            <TableCell align="right" sx={{ fontWeight: 700 }}>
+                                                {editingQuantityId === product.id ? (
+                                                    <Stack direction="row" spacing={0.5} alignItems="center" justifyContent="flex-end">
+                                                        <TextField
+                                                            size="small"
+                                                            type="number"
+                                                            value={editingQuantityValue}
+                                                            onChange={(e) => setEditingQuantityValue(e.target.value)}
+                                                            sx={{ width: 70 }}
+                                                            autoFocus
+                                                            onKeyPress={(e) => {
+                                                                if (e.key === 'Enter') {
+                                                                    handleSaveQuantity(product.id);
+                                                                }
+                                                            }}
+                                                        />
+                                                        <IconButton size="small" color="success" onClick={() => handleSaveQuantity(product.id)}>
+                                                            <Check fontSize="small" />
+                                                        </IconButton>
+                                                        <IconButton size="small" color="error" onClick={handleCancelEditQuantity}>
+                                                            <Close fontSize="small" />
+                                                        </IconButton>
+                                                    </Stack>
+                                                ) : (
+                                                    <Stack direction="row" spacing={0.5} alignItems="center" justifyContent="flex-end">
+                                                        <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                                                            {typeof product.daily_quantity === 'number' ? product.daily_quantity : '—'}
+                                                        </Typography>
+                                                        <IconButton size="small" onClick={() => handleStartEditQuantity(product)}>
+                                                            <Edit sx={{ fontSize: 16 }} />
+                                                        </IconButton>
+                                                    </Stack>
+                                                )}
+                                            </TableCell>
+                                            <TableCell align="right" sx={{ fontWeight: 700 }}>
+                                                {typeof product.remaining_quantity === 'number' ? (
+                                                    <Chip
+                                                        label={product.remaining_quantity}
+                                                        size="small"
+                                                        color={
+                                                            product.remaining_quantity === 0 ? 'error' :
+                                                                product.remaining_quantity <= 5 ? 'warning' : 'success'
+                                                        }
+                                                        sx={{ fontWeight: 700, minWidth: 50 }}
+                                                    />
+                                                ) : '—'}
+                                            </TableCell>
+                                            <TableCell>
+                                                <Chip
+                                                    label={product.is_active === false ? 'Ngừng bán' : 'Đang bán'}
+                                                    size="small"
+                                                    color={product.is_active === false ? 'default' : 'success'}
+                                                    variant={product.is_active === false ? 'outlined' : 'filled'}
+                                                />
+                                            </TableCell>
+                                            <TableCell align="right">
+                                                <IconButton size="small" color="info" onClick={() => handleViewProduct(product)}>
+                                                    <Visibility fontSize="small" />
+                                                </IconButton>
+                                                <IconButton
+                                                    size="small"
+                                                    color={product.manuallyDisabled ? 'success' : 'default'}
+                                                    onClick={() => handleToggleProductStatus(product)}
+                                                    title={product.manuallyDisabled ? 'Mở lại bán' : 'Tạm ngừng bán'}
+                                                >
+                                                    <Block fontSize="small" />
+                                                </IconButton>
+                                                <IconButton size="small" color="primary" onClick={() => handleOpenDialog(product)}>
+                                                    <Edit fontSize="small" />
+                                                </IconButton>
+                                                <IconButton size="small" color="error" onClick={() => handleDeleteProduct(product.id)}>
+                                                    <Delete fontSize="small" />
+                                                </IconButton>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </TableContainer>
+
+                        {/* Pagination */}
+                        {products.length > 0 && (
+                            <Pagination
+                                page={page}
+                                totalPages={totalPages}
+                                onPageChange={setPage}
+                                itemsPerPage={itemsPerPage}
+                                onItemsPerPageChange={(newValue) => {
+                                    setItemsPerPage(newValue);
+                                    setPage(1);
+                                }}
+                                totalItems={products.length}
+                            />
+                        )}
+
+                        {/* Empty State */}
+                        {products.length === 0 && (
+                            <Box sx={{ textAlign: 'center', py: 8 }}>
+                                <Restaurant sx={{ fontSize: 80, color: COLORS.TEXT.DISABLED, mb: 2 }} />
+                                <Typography variant="h6" sx={{ color: COLORS.TEXT.SECONDARY, mb: 1 }}>
+                                    Không tìm thấy sản phẩm nào
+                                </Typography>
+                                <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
+                                    Thử thay đổi bộ lọc hoặc thêm sản phẩm mới
+                                </Typography>
+                                <Button
+                                    variant="outlined"
+                                    sx={{ mt: 2 }}
+                                    onClick={() => {
+                                        // Trigger reload to pick up fallback data if API failed previously
+                                        setPage(1);
+                                        setTimeout(() => {
+                                            // minimal debounce
+                                            const ev = new Event('input');
+                                            loadProducts();
+                                        }, 0);
+                                    }}
+                                >
+                                    Tải lại
+                                </Button>
+                            </Box>
+                        )}
+                    </>
+                )}
+
+                {/* Tab Content: Categories */}
+                {currentTab === 1 && (
+                    <>
+                        {/* Statistics */}
+                        <Grid container spacing={2} sx={{ mb: 3 }}>
+                            {(() => {
+                                const stats = {
+                                    total: categories.length,
+                                    active: categories.filter(c => c.is_active).length,
+                                    inactive: categories.filter(c => !c.is_active).length
+                                };
+                                return (
+                                    <>
+                                        <Grid item xs={12} sm={4}>
+                                            <Paper sx={{
+                                                p: 2,
+                                                background: `linear-gradient(135deg, ${alpha(COLORS.PRIMARY[50], 0.8)} 0%, ${alpha(COLORS.PRIMARY[100], 0.6)} 100%)`,
+                                                border: `2px solid ${alpha(COLORS.PRIMARY[300], 0.3)}`,
+                                                borderRadius: 3
+                                            }}>
+                                                <Stack direction="row" spacing={1.5} alignItems="center">
+                                                    <Box sx={{
+                                                        background: `linear-gradient(135deg, ${COLORS.PRIMARY[400]} 0%, ${COLORS.PRIMARY[600]} 100%)`,
+                                                        borderRadius: 2, p: 1
+                                                    }}>
+                                                        <Category sx={{ color: 'white', fontSize: 28 }} />
+                                                    </Box>
+                                                    <Box>
+                                                        <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.PRIMARY[700] }}>
+                                                            {stats.total}
+                                                        </Typography>
+                                                        <Typography variant="caption" sx={{ color: COLORS.PRIMARY[600], fontWeight: 600 }}>
+                                                            Tổng danh mục
+                                                        </Typography>
+                                                    </Box>
+                                                </Stack>
+                                            </Paper>
+                                        </Grid>
+
+                                        <Grid item xs={12} sm={4}>
+                                            <Paper sx={{
+                                                p: 2,
+                                                background: `linear-gradient(135deg, ${alpha(COLORS.SUCCESS[50], 0.8)} 0%, ${alpha(COLORS.SUCCESS[100], 0.6)} 100%)`,
+                                                border: `2px solid ${alpha(COLORS.SUCCESS[300], 0.3)}`,
+                                                borderRadius: 3
+                                            }}>
+                                                <Stack direction="row" spacing={1.5} alignItems="center">
+                                                    <Box sx={{
+                                                        background: `linear-gradient(135deg, ${COLORS.SUCCESS[400]} 0%, ${COLORS.SUCCESS[600]} 100%)`,
+                                                        borderRadius: 2, p: 1
+                                                    }}>
+                                                        <CheckCircle sx={{ color: 'white', fontSize: 28 }} />
+                                                    </Box>
+                                                    <Box>
+                                                        <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.SUCCESS[700] }}>
+                                                            {stats.active}
+                                                        </Typography>
+                                                        <Typography variant="caption" sx={{ color: COLORS.SUCCESS[600], fontWeight: 600 }}>
+                                                            Đang hoạt động
+                                                        </Typography>
+                                                    </Box>
+                                                </Stack>
+                                            </Paper>
+                                        </Grid>
+
+                                        <Grid item xs={12} sm={4}>
+                                            <Paper sx={{
+                                                p: 2,
+                                                background: `linear-gradient(135deg, ${alpha(COLORS.ERROR[50], 0.8)} 0%, ${alpha(COLORS.ERROR[100], 0.6)} 100%)`,
+                                                border: `2px solid ${alpha(COLORS.ERROR[300], 0.3)}`,
+                                                borderRadius: 3
+                                            }}>
+                                                <Stack direction="row" spacing={1.5} alignItems="center">
+                                                    <Box sx={{
+                                                        background: `linear-gradient(135deg, ${COLORS.ERROR[400]} 0%, ${COLORS.ERROR[600]} 100%)`,
+                                                        borderRadius: 2, p: 1
+                                                    }}>
+                                                        <Block sx={{ color: 'white', fontSize: 28 }} />
+                                                    </Box>
+                                                    <Box>
+                                                        <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.ERROR[700] }}>
+                                                            {stats.inactive}
+                                                        </Typography>
+                                                        <Typography variant="caption" sx={{ color: COLORS.ERROR[600], fontWeight: 600 }}>
+                                                            Vô hiệu hóa
+                                                        </Typography>
+                                                    </Box>
+                                                </Stack>
+                                            </Paper>
+                                        </Grid>
+                                    </>
+                                );
+                            })()}
+                        </Grid>
+
+                        {/* Toolbar */}
+                        <Toolbar
+                            disableGutters
+                            sx={{
+                                gap: 2,
+                                flexWrap: 'wrap',
+                                mb: 2,
+                                p: 1.5,
+                                borderRadius: 2,
+                                background: `linear-gradient(135deg, ${alpha(COLORS.PRIMARY[50], 0.6)}, ${alpha(COLORS.SECONDARY[50], 0.4)})`,
+                                border: `1px solid ${alpha(COLORS.BORDER.PRIMARY, 0.4)}`
+                            }}
+                        >
+                            <TextField
+                                size="small"
+                                placeholder="Tìm theo tên, mô tả..."
+                                value={categorySearchQuery}
+                                onChange={(e) => setCategorySearchQuery(e.target.value)}
+                                InputProps={{
+                                    startAdornment: <Search sx={{ color: 'action.active', mr: 1 }} />
+                                }}
+                                sx={{ minWidth: { xs: '100%', sm: 250 } }}
+                            />
+                            <TextField
+                                select
+                                size="small"
+                                value={categoryActiveFilter === undefined ? '' : categoryActiveFilter ? 'true' : 'false'}
+                                onChange={(e) => {
+                                    const v = e.target.value;
+                                    setCategoryActiveFilter(v === '' ? undefined : v === 'true');
+                                }}
+                                SelectProps={{ native: true }}
+                                sx={{ minWidth: 160 }}
+                                label="Trạng thái"
+                                InputLabelProps={{ shrink: true }}
+                            >
+                                <option value="">Tất cả</option>
+                                <option value="true">Hoạt động</option>
+                                <option value="false">Vô hiệu hóa</option>
+                            </TextField>
+                            <Box sx={{ flexGrow: 1 }} />
+                            <Button
+                                variant="contained"
+                                startIcon={<Add />}
+                                onClick={() => handleOpenCategoryDialog()}
+                                sx={{
+                                    bgcolor: COLORS.PRIMARY[500],
+                                    '&:hover': { bgcolor: COLORS.PRIMARY[600] }
+                                }}
+                            >
+                                Thêm danh mục
+                            </Button>
+                        </Toolbar>
+
+                        {/* Table */}
+                        <TableContainer
+                            component={Paper}
+                            sx={{
+                                borderRadius: 3,
+                                border: `2px solid ${alpha(COLORS.PRIMARY[200], 0.4)}`,
+                                boxShadow: `0 10px 24px ${alpha(COLORS.PRIMARY[200], 0.15)}`
+                            }}
+                        >
+                            <Table size="medium" stickyHeader>
+                                <TableHead>
+                                    <TableRow sx={{ '& th': { bgcolor: alpha(COLORS.PRIMARY[50], 0.6) } }}>
+                                        <TableCell sx={{ fontWeight: 800 }}>Tên danh mục</TableCell>
+                                        <TableCell sx={{ fontWeight: 800, display: { xs: 'none', md: 'table-cell' } }}>Mô tả</TableCell>
+                                        <TableCell sx={{ fontWeight: 800 }}>Trạng thái</TableCell>
+                                        <TableCell align="right" sx={{ fontWeight: 800 }}>Hành động</TableCell>
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {filteredCategories.map((category) => (
+                                        <TableRow
+                                            key={category.id}
+                                            hover
+                                            sx={{ '&:hover': { backgroundColor: alpha(COLORS.PRIMARY[50], 0.5) } }}
+                                        >
+                                            <TableCell sx={{ fontWeight: 600 }}>{category.name}</TableCell>
+                                            <TableCell sx={{ display: { xs: 'none', md: 'table-cell' }, maxWidth: 480 }}>
+                                                <Typography
+                                                    variant="body2"
+                                                    sx={{
+                                                        display: '-webkit-box',
+                                                        WebkitLineClamp: 2,
+                                                        WebkitBoxOrient: 'vertical',
+                                                        overflow: 'hidden'
+                                                    }}
+                                                >
+                                                    {category.description || '—'}
+                                                </Typography>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Chip
+                                                    label={category.is_active ? 'Hoạt động' : 'Vô hiệu hóa'}
+                                                    size="small"
+                                                    color={category.is_active ? 'success' : 'default'}
+                                                    variant={category.is_active ? 'filled' : 'outlined'}
+                                                />
+                                            </TableCell>
+                                            <TableCell align="right">
+                                                <IconButton
+                                                    size="small"
+                                                    color={category.is_active ? 'default' : 'success'}
+                                                    onClick={() => handleToggleCategoryStatus(category)}
+                                                    title={category.is_active ? 'Vô hiệu hóa' : 'Kích hoạt'}
+                                                >
+                                                    <Block fontSize="small" />
+                                                </IconButton>
+                                                <IconButton size="small" color="primary" onClick={() => handleOpenCategoryDialog(category)}>
+                                                    <Edit fontSize="small" />
+                                                </IconButton>
+                                                <IconButton size="small" color="error" onClick={() => handleDeleteCategory(category.id)}>
+                                                    <Delete fontSize="small" />
+                                                </IconButton>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </TableContainer>
+
+                        {/* Empty State */}
+                        {filteredCategories.length === 0 && (
+                            <Box sx={{ textAlign: 'center', py: 8 }}>
+                                <Category sx={{ fontSize: 80, color: COLORS.TEXT.DISABLED, mb: 2 }} />
+                                <Typography variant="h6" sx={{ color: COLORS.TEXT.SECONDARY, mb: 1 }}>
+                                    Không tìm thấy danh mục nào
+                                </Typography>
+                                <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
+                                    Thử thay đổi bộ lọc hoặc thêm danh mục mới
+                                </Typography>
+                            </Box>
+                        )}
+                    </>
                 )}
             </Box>
 
-            {/* Add/Edit Dialog */}
+            {/* Add/Edit Product Dialog */}
             <AddProductModal
                 open={openDialog}
                 onClose={handleCloseDialog}
@@ -718,13 +1194,33 @@ const ProductPage = () => {
                 product={viewingProduct}
             />
 
-            {/* Confirm Delete Modal */}
+            {/* Confirm Delete Product Modal */}
             <ConfirmModal
                 isOpen={openDeleteDialog}
                 onClose={() => setOpenDeleteDialog(false)}
                 onConfirm={confirmDelete}
                 title="Xóa sản phẩm"
                 message="Bạn có chắc chắn muốn xóa sản phẩm này khỏi menu? Hành động này không thể hoàn tác."
+                confirmText="Xóa"
+                cancelText="Hủy"
+                type="error"
+            />
+
+            {/* Add/Edit Category Dialog */}
+            <AddCategoryModal
+                open={openCategoryDialog}
+                onClose={handleCloseCategoryDialog}
+                onSave={handleSaveCategory}
+                editingCategory={editingCategory}
+            />
+
+            {/* Confirm Delete Category Modal */}
+            <ConfirmModal
+                isOpen={openDeleteCategoryDialog}
+                onClose={() => setOpenDeleteCategoryDialog(false)}
+                onConfirm={confirmDeleteCategory}
+                title="Xóa danh mục"
+                message="Bạn có chắc chắn muốn xóa danh mục này? Hành động này không thể hoàn tác."
                 confirmText="Xóa"
                 cancelText="Hủy"
                 type="error"

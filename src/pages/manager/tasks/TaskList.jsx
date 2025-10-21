@@ -1,7 +1,7 @@
 import React from 'react';
-import { Paper, Typography, TableContainer, Table, TableHead, TableRow, TableCell, TableBody, Chip, IconButton, Stack, Tooltip } from '@mui/material';
+import { Paper, Typography, TableContainer, Table, TableHead, TableRow, TableCell, TableBody, Chip, IconButton, Stack, Tooltip, Box } from '@mui/material';
 import { alpha } from '@mui/material/styles';
-import { Delete, Edit, Visibility } from '@mui/icons-material';
+import { Delete, Edit, Visibility, Assignment } from '@mui/icons-material';
 import { COLORS } from '../../../constants/colors';
 import workshiftApi from '../../../api/workshiftApi';
 
@@ -80,48 +80,107 @@ const TaskList = ({ tasks, services, onDeleteTask, onEditTask, onViewTask }) => 
     };
     if (tasks.length === 0) {
         return (
-            <Paper sx={{ p: 4, textAlign: 'center' }}>
-                <Typography variant="h6" sx={{ color: COLORS.TEXT.SECONDARY }}>
-                    Chưa có nhiệm vụ nào. Nhấn "Tạo nhiệm vụ mới" để bắt đầu.
-                </Typography>
+            <Paper
+                elevation={0}
+                sx={{
+                    p: 8,
+                    textAlign: 'center',
+                    borderRadius: 3,
+                    border: `2px dashed ${alpha(COLORS.ERROR[300], 0.3)}`,
+                    bgcolor: alpha(COLORS.ERROR[50], 0.3)
+                }}
+            >
+                <Stack spacing={2} alignItems="center">
+                    <Box
+                        sx={{
+                            width: 80,
+                            height: 80,
+                            borderRadius: '50%',
+                            bgcolor: alpha(COLORS.ERROR[100], 0.5),
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }}
+                    >
+                        <Assignment sx={{ fontSize: 40, color: COLORS.ERROR[400] }} />
+                    </Box>
+                    <Typography variant="h6" sx={{ fontWeight: 700, color: COLORS.TEXT.PRIMARY }}>
+                        Chưa có nhiệm vụ nào
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, maxWidth: 400 }}>
+                        Nhấn nút "Tạo nhiệm vụ mới" ở trên để bắt đầu phân công nhiệm vụ cho nhân viên
+                    </Typography>
+                </Stack>
             </Paper>
         );
     }
 
     return (
-        <TableContainer component={Paper} sx={{ borderRadius: 3, border: `2px solid ${alpha(COLORS.ERROR[200], 0.4)}` }}>
+        <TableContainer
+            component={Paper}
+            elevation={0}
+            sx={{
+                borderRadius: 3,
+                border: `2px solid ${alpha(COLORS.ERROR[200], 0.4)}`,
+                overflow: 'hidden'
+            }}
+        >
             <Table>
                 <TableHead>
-                    <TableRow>
-                        <TableCell sx={{ fontWeight: 800 }}>Loại</TableCell>
-                        <TableCell sx={{ fontWeight: 800 }}>Nhiệm vụ</TableCell>
-                        <TableCell sx={{ fontWeight: 800 }}>Thời gian</TableCell>
-                        <TableCell sx={{ fontWeight: 800 }}>Ca</TableCell>
-                        <TableCell sx={{ fontWeight: 800 }}>Phân công</TableCell>
-                        <TableCell sx={{ fontWeight: 800 }}>Trạng thái</TableCell>
-                        <TableCell sx={{ fontWeight: 800, textAlign: 'right' }}>Hành động</TableCell>
+                    <TableRow
+                        sx={{
+                            bgcolor: `linear-gradient(135deg, ${alpha(COLORS.ERROR[50], 0.8)} 0%, ${alpha(COLORS.ERROR[100], 0.5)} 100%)`,
+                            '& th': {
+                                borderBottom: `2px solid ${alpha(COLORS.ERROR[300], 0.5)}`
+                            }
+                        }}
+                    >
+                        <TableCell sx={{ fontWeight: 800, fontSize: '0.875rem', color: COLORS.ERROR[800], py: 2.5 }}>LOẠI</TableCell>
+                        <TableCell sx={{ fontWeight: 800, fontSize: '0.875rem', color: COLORS.ERROR[800], py: 2.5 }}>NHIỆM VỤ</TableCell>
+                        <TableCell sx={{ fontWeight: 800, fontSize: '0.875rem', color: COLORS.ERROR[800], py: 2.5 }}>THỜI GIAN</TableCell>
+                        <TableCell sx={{ fontWeight: 800, fontSize: '0.875rem', color: COLORS.ERROR[800], py: 2.5 }}>CA LÀM VIỆC</TableCell>
+                        <TableCell sx={{ fontWeight: 800, fontSize: '0.875rem', color: COLORS.ERROR[800], py: 2.5 }}>PHÂN CÔNG</TableCell>
+                        <TableCell sx={{ fontWeight: 800, fontSize: '0.875rem', color: COLORS.ERROR[800], py: 2.5 }}>TRẠNG THÁI</TableCell>
+                        <TableCell sx={{ fontWeight: 800, fontSize: '0.875rem', color: COLORS.ERROR[800], py: 2.5, textAlign: 'right' }}>HÀNH ĐỘNG</TableCell>
                     </TableRow>
                 </TableHead>
                 <TableBody>
-                    {tasks.map(task => (
-                        <TableRow key={task.id} hover>
+                    {tasks.map((task, index) => (
+                        <TableRow
+                            key={task.id}
+                            hover
+                            sx={{
+                                '&:hover': {
+                                    bgcolor: alpha(COLORS.ERROR[50], 0.3)
+                                },
+                                borderLeft: `4px solid ${task.type === 'internal' ? COLORS.PRIMARY[500] : COLORS.SECONDARY[500]}`,
+                                '& td': {
+                                    py: 2.5,
+                                    borderBottom: index === tasks.length - 1 ? 'none' : `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.1)}`
+                                }
+                            }}
+                        >
                             <TableCell>
                                 <Chip
                                     label={task.type === 'internal' ? 'Nội bộ' : 'Dịch vụ'}
                                     size="small"
                                     sx={{
                                         background: task.type === 'internal'
-                                            ? alpha(COLORS.INFO[100], 0.8)
-                                            : alpha(COLORS.SUCCESS[100], 0.8),
-                                        color: task.type === 'internal' ? COLORS.INFO[700] : COLORS.SUCCESS[700],
-                                        fontWeight: 700
+                                            ? `linear-gradient(135deg, ${COLORS.PRIMARY[400]} 0%, ${COLORS.PRIMARY[600]} 100%)`
+                                            : `linear-gradient(135deg, ${COLORS.SECONDARY[400]} 0%, ${COLORS.SECONDARY[600]} 100%)`,
+                                        color: 'white',
+                                        fontWeight: 700,
+                                        px: 1.5,
+                                        boxShadow: `0 2px 4px ${alpha(task.type === 'internal' ? COLORS.PRIMARY[500] : COLORS.SECONDARY[500], 0.3)}`
                                     }}
                                 />
                             </TableCell>
-                            <TableCell sx={{ fontWeight: 600 }}>
-                                {task.type === 'internal'
-                                    ? (task.internalName || '—')
-                                    : (services.find(s => s.id === task.serviceId)?.name || '—')}
+                            <TableCell>
+                                <Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.TEXT.PRIMARY }}>
+                                    {task.type === 'internal'
+                                        ? (task.internalName || '—')
+                                        : (services.find(s => s.id === task.serviceId)?.name || '—')}
+                                </Typography>
                             </TableCell>
                             <TableCell>
                                 {task.timeframeType === 'day' && (task.date || '—')}
@@ -179,30 +238,54 @@ const TaskList = ({ tasks, services, onDeleteTask, onEditTask, onViewTask }) => 
                                 })()}
                             </TableCell>
                             <TableCell align="right">
-                                <Stack direction="row" spacing={1} justifyContent="flex-end">
-                                    <Tooltip title="Xem chi tiết">
+                                <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                                    <Tooltip title="Xem chi tiết" arrow>
                                         <IconButton
                                             size="small"
-                                            color="info"
                                             onClick={() => onViewTask(task)}
+                                            sx={{
+                                                color: COLORS.INFO[600],
+                                                bgcolor: alpha(COLORS.INFO[100], 0.5),
+                                                '&:hover': {
+                                                    bgcolor: alpha(COLORS.INFO[200], 0.8),
+                                                    transform: 'scale(1.1)'
+                                                },
+                                                transition: 'all 0.2s ease'
+                                            }}
                                         >
                                             <Visibility fontSize="small" />
                                         </IconButton>
                                     </Tooltip>
-                                    <Tooltip title="Chỉnh sửa">
+                                    <Tooltip title="Chỉnh sửa" arrow>
                                         <IconButton
                                             size="small"
-                                            color="primary"
                                             onClick={() => onEditTask(task)}
+                                            sx={{
+                                                color: COLORS.PRIMARY[600],
+                                                bgcolor: alpha(COLORS.PRIMARY[100], 0.5),
+                                                '&:hover': {
+                                                    bgcolor: alpha(COLORS.PRIMARY[200], 0.8),
+                                                    transform: 'scale(1.1)'
+                                                },
+                                                transition: 'all 0.2s ease'
+                                            }}
                                         >
                                             <Edit fontSize="small" />
                                         </IconButton>
                                     </Tooltip>
-                                    <Tooltip title="Xóa">
+                                    <Tooltip title="Xóa" arrow>
                                         <IconButton
                                             size="small"
-                                            color="error"
                                             onClick={() => onDeleteTask(task.id)}
+                                            sx={{
+                                                color: COLORS.ERROR[600],
+                                                bgcolor: alpha(COLORS.ERROR[100], 0.5),
+                                                '&:hover': {
+                                                    bgcolor: alpha(COLORS.ERROR[200], 0.8),
+                                                    transform: 'scale(1.1)'
+                                                },
+                                                transition: 'all 0.2s ease'
+                                            }}
                                         >
                                             <Delete fontSize="small" />
                                         </IconButton>

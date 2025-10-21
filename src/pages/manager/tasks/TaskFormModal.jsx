@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Dialog, DialogContent, DialogActions, Box, Stack, Typography, IconButton, Button, Stepper, Step, StepLabel } from '@mui/material';
 import { alpha } from '@mui/material/styles';
-import { Close } from '@mui/icons-material';
+import { Close, Assignment } from '@mui/icons-material';
 import { COLORS } from '../../../constants/colors';
 import { WIZARD_STEPS, createInitialFormData } from '../../../api/tasksApi';
 import { StaffGroupDialog, PetGroupDialog } from './TaskDialogs';
@@ -260,6 +260,7 @@ const TaskFormModal = ({ open, onClose, onCreateTask, onUpdateTask, editingTask,
                         areas={areas}
                         staff={staff}
                         selectedService={selectedService}
+                        petGroupsMap={petGroupsMap}
                         openStaffGroupDialog={openStaffGroupDialog}
                         openPetGroupDialog={openPetGroupDialog}
                         editStaffGroup={editStaffGroup}
@@ -274,50 +275,172 @@ const TaskFormModal = ({ open, onClose, onCreateTask, onUpdateTask, editingTask,
 
     return (
         <>
-            <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+            <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth>
                 <DialogContent sx={{ p: 0 }}>
-                    <Box sx={{ p: 3, borderBottom: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.2)}` }}>
-                        <Stack direction="row" alignItems="center" justifyContent="space-between">
-                            <Typography variant="h6" sx={{ fontWeight: 800, color: COLORS.ERROR[600] }}>
-                                {editingTask ? 'Chỉnh sửa nhiệm vụ' : 'Tạo nhiệm vụ mới'}
-                            </Typography>
-                            <IconButton onClick={onClose}>
+                    {/* Header */}
+                    <Box
+                        sx={{
+                            p: 3,
+                            background: `linear-gradient(135deg, ${alpha(COLORS.ERROR[50], 0.8)} 0%, ${alpha(COLORS.ERROR[100], 0.5)} 100%)`,
+                            borderBottom: `3px solid ${COLORS.ERROR[500]}`
+                        }}
+                    >
+                        <Stack direction="row" alignItems="center" spacing={2}>
+                            <Box
+                                sx={{
+                                    width: 48,
+                                    height: 48,
+                                    borderRadius: 2,
+                                    background: `linear-gradient(135deg, ${COLORS.ERROR[500]} 0%, ${COLORS.ERROR[700]} 100%)`,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    boxShadow: `0 4px 12px ${alpha(COLORS.ERROR[500], 0.3)}`
+                                }}
+                            >
+                                <Assignment sx={{ fontSize: 28, color: 'white' }} />
+                            </Box>
+                            <Box sx={{ flex: 1 }}>
+                                <Typography variant="h5" sx={{ fontWeight: 900, color: COLORS.ERROR[700], lineHeight: 1.2 }}>
+                                    {editingTask ? 'Chỉnh sửa nhiệm vụ' : 'Tạo nhiệm vụ mới'}
+                                </Typography>
+                                <Typography variant="body2" sx={{ color: COLORS.ERROR[600], fontWeight: 500 }}>
+                                    {editingTask ? 'Cập nhật thông tin nhiệm vụ' : 'Phân công nhiệm vụ cho nhân viên'}
+                                </Typography>
+                            </Box>
+                            <IconButton
+                                onClick={onClose}
+                                sx={{
+                                    bgcolor: alpha(COLORS.ERROR[100], 0.5),
+                                    '&:hover': { bgcolor: alpha(COLORS.ERROR[200], 0.8) }
+                                }}
+                            >
                                 <Close />
                             </IconButton>
                         </Stack>
                     </Box>
 
-                    <Stepper activeStep={activeStep} sx={{ p: 3 }}>
-                        {WIZARD_STEPS.map((label) => (
-                            <Step key={label}>
-                                <StepLabel>{label}</StepLabel>
-                            </Step>
-                        ))}
-                    </Stepper>
+                    {/* Stepper */}
+                    <Box sx={{ px: 3, pt: 3, pb: 2, bgcolor: alpha(COLORS.BACKGROUND.NEUTRAL, 0.3) }}>
+                        <Stepper
+                            activeStep={activeStep}
+                            sx={{
+                                '& .MuiStepLabel-root .Mui-completed': {
+                                    color: COLORS.SUCCESS[600]
+                                },
+                                '& .MuiStepLabel-root .Mui-active': {
+                                    color: COLORS.ERROR[600]
+                                },
+                                '& .MuiStepLabel-label.Mui-active': {
+                                    fontWeight: 700
+                                },
+                                '& .MuiStepLabel-label.Mui-completed': {
+                                    fontWeight: 600
+                                }
+                            }}
+                        >
+                            {WIZARD_STEPS.map((label, index) => (
+                                <Step key={label}>
+                                    <StepLabel>
+                                        <Typography variant="body2" sx={{ fontWeight: activeStep === index ? 700 : 500 }}>
+                                            {label}
+                                        </Typography>
+                                    </StepLabel>
+                                </Step>
+                            ))}
+                        </Stepper>
+                    </Box>
 
-                    <Box sx={{ minHeight: 400, maxHeight: 500, overflowY: 'auto' }}>
+                    {/* Content */}
+                    <Box
+                        sx={{
+                            minHeight: 450,
+                            maxHeight: 550,
+                            overflowY: 'auto',
+                            bgcolor: COLORS.BACKGROUND.DEFAULT
+                        }}
+                    >
                         {renderStepContent(activeStep)}
                     </Box>
                 </DialogContent>
 
-                <DialogActions sx={{ p: 3, borderTop: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.2)}` }}>
-                    <Button onClick={onClose}>Hủy</Button>
-                    <Box sx={{ flexGrow: 1 }} />
+                {/* Actions */}
+                <DialogActions
+                    sx={{
+                        p: 2.5,
+                        borderTop: `2px solid ${alpha(COLORS.BORDER.DEFAULT, 0.2)}`,
+                        bgcolor: alpha(COLORS.BACKGROUND.NEUTRAL, 0.3)
+                    }}
+                >
                     <Button
-                        disabled={editingTask ? activeStep === 1 : activeStep === 0}
-                        onClick={handleBack}
+                        onClick={onClose}
+                        variant="outlined"
+                        sx={{
+                            borderColor: COLORS.TEXT.SECONDARY,
+                            color: COLORS.TEXT.SECONDARY,
+                            fontWeight: 600,
+                            '&:hover': {
+                                borderColor: COLORS.TEXT.PRIMARY,
+                                bgcolor: alpha(COLORS.TEXT.SECONDARY, 0.05)
+                            }
+                        }}
                     >
-                        Quay lại
+                        Hủy
                     </Button>
-                    {activeStep === WIZARD_STEPS.length - 1 ? (
-                        <Button variant="contained" onClick={handleSaveTask}>
-                            {editingTask ? 'Cập nhật' : 'Tạo nhiệm vụ'}
+                    <Box sx={{ flexGrow: 1 }} />
+                    <Stack direction="row" spacing={1.5}>
+                        <Button
+                            disabled={editingTask ? activeStep === 1 : activeStep === 0}
+                            onClick={handleBack}
+                            variant="outlined"
+                            sx={{
+                                borderColor: COLORS.ERROR[300],
+                                color: COLORS.ERROR[600],
+                                fontWeight: 600,
+                                '&:hover': {
+                                    borderColor: COLORS.ERROR[500],
+                                    bgcolor: alpha(COLORS.ERROR[50], 0.5)
+                                }
+                            }}
+                        >
+                            ← Quay lại
                         </Button>
-                    ) : (
-                        <Button variant="contained" onClick={handleNext}>
-                            Tiếp theo
-                        </Button>
-                    )}
+                        {activeStep === WIZARD_STEPS.length - 1 ? (
+                            <Button
+                                variant="contained"
+                                onClick={handleSaveTask}
+                                sx={{
+                                    backgroundColor: COLORS.SUCCESS[600],
+                                    fontWeight: 700,
+                                    px: 3,
+                                    boxShadow: `0 4px 12px ${alpha(COLORS.SUCCESS[500], 0.3)}`,
+                                    '&:hover': {
+                                        backgroundColor: COLORS.SUCCESS[700],
+                                        boxShadow: `0 6px 16px ${alpha(COLORS.SUCCESS[600], 0.4)}`
+                                    }
+                                }}
+                            >
+                                {editingTask ? '✓ Cập nhật nhiệm vụ' : '✓ Tạo nhiệm vụ'}
+                            </Button>
+                        ) : (
+                            <Button
+                                variant="contained"
+                                onClick={handleNext}
+                                sx={{
+                                    backgroundColor: COLORS.ERROR[500],
+                                    fontWeight: 700,
+                                    px: 3,
+                                    boxShadow: `0 4px 12px ${alpha(COLORS.ERROR[500], 0.3)}`,
+                                    '&:hover': {
+                                        backgroundColor: COLORS.ERROR[600],
+                                        boxShadow: `0 6px 16px ${alpha(COLORS.ERROR[600], 0.4)}`
+                                    }
+                                }}
+                            >
+                                Tiếp theo →
+                            </Button>
+                        )}
+                    </Stack>
                 </DialogActions>
             </Dialog>
 

@@ -87,20 +87,14 @@ let MOCK_SHIFTS = [
                 },
                 "work_type": {
                     "name": "Tắm rửa thú cưng",
-                    "description": "Dịch vụ tắm rửa bằng dầu gội chuyên dụng, sấy khô và chải lông cho chó mèo.",
-                    "services": [
-                        { "id": "svc-001", "name": "Tắm cơ bản", "description": "Tắm, sấy, chải lông cơ bản" },
-                        { "id": "svc-002", "name": "Tắm dưỡng", "description": "Dầu gội dưỡng lông, xả mượt" }
-                    ]
+                    "description": "Dịch vụ tắm rửa bằng dầu gội chuyên dụng, sấy khô và chải lông cho chó mèo."
                 },
                 "members": [
                     { "id": "user-017", "full_name": "Hoàng Thị Chăm Sóc" },
-                    { "id": "user-018", "full_name": "Vũ Văn Thú Y" }
+                    { "id": "user-018", "full_name": "Vũ Văn Thú Y" },
+                    { "id": "user-019", "full_name": "Nguyễn Quốc Hùng" }
                 ],
-                "tasks": [
-                    { "id": "tt-001", "name": "Đón pet", "description": "Tiếp nhận pet, kiểm tra yêu cầu", "status": "PENDING" },
-                    { "id": "tt-002", "name": "Tắm & sấy", "description": "Thực hiện tắm và sấy khô", "status": "PENDING" }
-                ]
+                "tasks": []
             },
             {
                 "id": "09595226-5185-4712-a3d8-d174be9b99ae",
@@ -114,19 +108,73 @@ let MOCK_SHIFTS = [
                 },
                 "work_type": {
                     "name": "Nhân viên tại quầy",
-                    "description": "Tiếp đón khách, tư vấn, thanh toán",
-                    "services": [
-                        { "id": "svc-101", "name": "Pha chế đồ uống", "description": "Chuẩn bị đồ uống theo order" },
-                        { "id": "svc-102", "name": "Tư vấn dịch vụ", "description": "Giới thiệu gói chăm sóc" }
-                    ]
+                    "description": "Tiếp đón khách, tư vấn, thanh toán"
                 },
                 "members": [
                     { "id": "user-003", "full_name": "Lê Thị Bán Hàng" },
-                    { "id": "user-004", "full_name": "Phạm Văn Kinh Doanh" }
+                    { "id": "user-007", "full_name": "Nguyễn Văn Minh" }
                 ],
-                "tasks": [
-                    { "id": "qt-001", "name": "Chuẩn bị quầy", "description": "Vệ sinh, sắp xếp dụng cụ", "status": "PENDING" }
-                ]
+                "tasks": []
+            },
+            {
+                "id": "team-sang-spa-001",
+                "name": "Nhóm Tắm Spa",
+                "description": "Chuyên về dịch vụ spa cao cấp cho thú cưng",
+                "is_active": true,
+                "leader": {
+                    "id": "user-020",
+                    "full_name": "Phạm Thị Mai",
+                    "avatar_url": ""
+                },
+                "work_type": {
+                    "name": "Spa thú cưng",
+                    "description": "Dịch vụ spa cao cấp, massage, chăm sóc da lông"
+                },
+                "members": [
+                    { "id": "user-028", "full_name": "Phạm Anh Khoa" },
+                    { "id": "user-021", "full_name": "Lê Hoàng Đạt" },
+                    { "id": "user-023", "full_name": "Võ Thị Thúy" }
+                ],
+                "tasks": []
+            },
+            {
+                "id": "team-sang-tiepdon-001",
+                "name": "Nhóm Tiếp đón khách",
+                "description": "Đón tiếp và hỗ trợ khách hàng",
+                "is_active": true,
+                "leader": {
+                    "id": "user-008",
+                    "full_name": "Trần Thị Thu",
+                    "avatar_url": ""
+                },
+                "work_type": {
+                    "name": "Lễ tân & Tư vấn",
+                    "description": "Tiếp đón khách, booking, tư vấn dịch vụ"
+                },
+                "members": [
+                    { "id": "user-009", "full_name": "Lê Minh Khánh" },
+                    { "id": "user-015", "full_name": "Ngô Anh Tuấn" }
+                ],
+                "tasks": []
+            },
+            {
+                "id": "team-sang-vesinh-001",
+                "name": "Nhóm Vệ sinh",
+                "description": "Vệ sinh và dọn dẹp khu vực",
+                "is_active": true,
+                "leader": {
+                    "id": "user-031",
+                    "full_name": "Hoàng Thị Yến",
+                    "avatar_url": ""
+                },
+                "work_type": {
+                    "name": "Vệ sinh & Dọn dẹp",
+                    "description": "Dọn dẹp, khử trùng khu vực"
+                },
+                "members": [
+                    { "id": "user-022", "full_name": "Trần Minh Tâm" }
+                ],
+                "tasks": []
             }
         ],
         "id": "14343ed6-12de-4190-a957-ca5bfdf896d2",
@@ -150,25 +198,83 @@ let MOCK_SHIFTS = [
         "team_work_shifts": [
             {
                 "id": "33ad42fd-f0c0-452e-81c5-77f14a54b09d",
-                "name": "ok",
-                "description": "ok",
+                "name": "Nhóm Pha chế",
+                "description": "Chuyên pha chế đồ uống và thức ăn nhẹ",
                 "is_active": true,
                 "leader": {
-                    "id": "000cb6f2-7f21-469d-9dc1-7d483b1c5306",
-                    "full_name": "Trần Vân AA",
-                    "avatar_url": "https://firebasestorage.googleapis.com/v0/b/digital-dynamo-cb555.appspot.com/o/assets%2Fimages%2Ff1902bdd-9190-49cb-adc4-02aef350febb.jpg?alt=media&token=3b6f9b39-2dbf-4080-98b8-7ec0637a5744"
+                    "id": "user-010",
+                    "full_name": "Phạm Thị Hoa",
+                    "avatar_url": ""
                 },
                 "work_type": {
-                    "name": "Nhân viên tại quầy",
-                    "description": "Tiếp đón khách, tư vấn, thanh toán",
-                    "services": [
-                        { "id": "svc-201", "name": "Bán hàng tại quầy", "description": "Order, thu tiền" }
-                    ]
+                    "name": "Pha chế & F&B",
+                    "description": "Pha chế đồ uống, chuẩn bị món ăn nhẹ"
                 },
-                "members": [],
-                "tasks": [
-                    { "id": "qt-101", "name": "Setup ca trưa", "description": "Chuẩn bị ca trưa", "status": "PENDING" }
-                ]
+                "members": [
+                    { "id": "user-004", "full_name": "Phạm Văn Kinh Doanh" },
+                    { "id": "user-012", "full_name": "Hoàng Thị Lan" }
+                ],
+                "tasks": []
+            },
+            {
+                "id": "team-trua-chammeο-001",
+                "name": "Nhóm Chăm sóc mèo",
+                "description": "Chăm sóc và vui chơi với mèo",
+                "is_active": true,
+                "leader": {
+                    "id": "user-029",
+                    "full_name": "Lê Thị Phương",
+                    "avatar_url": ""
+                },
+                "work_type": {
+                    "name": "Chăm sóc mèo",
+                    "description": "Chăm sóc, cho ăn, vui chơi với mèo"
+                },
+                "members": [
+                    { "id": "user-024", "full_name": "Hoàng Minh Quân" },
+                    { "id": "user-027", "full_name": "Nguyễn Thị Anh" },
+                    { "id": "user-025", "full_name": "Bùi Thị Nhi" }
+                ],
+                "tasks": []
+            },
+            {
+                "id": "team-trua-order-001",
+                "name": "Nhóm Order",
+                "description": "Nhận order và phục vụ khách",
+                "is_active": true,
+                "leader": {
+                    "id": "user-011",
+                    "full_name": "Võ Thành Long",
+                    "avatar_url": ""
+                },
+                "work_type": {
+                    "name": "Phục vụ bàn",
+                    "description": "Nhận order, phục vụ khách hàng"
+                },
+                "members": [
+                    { "id": "user-016", "full_name": "Dương Khánh Linh" }
+                ],
+                "tasks": []
+            },
+            {
+                "id": "team-trua-thuy-001",
+                "name": "Nhóm Thú y",
+                "description": "Kiểm tra sức khỏe thú cưng",
+                "is_active": true,
+                "leader": {
+                    "id": "user-030",
+                    "full_name": "Trần Văn Bình",
+                    "avatar_url": ""
+                },
+                "work_type": {
+                    "name": "Thú y",
+                    "description": "Kiểm tra sức khỏe, tư vấn chăm sóc"
+                },
+                "members": [
+                    { "id": "user-018", "full_name": "Vũ Văn Thú Y" },
+                    { "id": "user-026", "full_name": "Đặng Trung Hiếu" }
+                ],
+                "tasks": []
             }
         ],
         "id": "7ddf3ce1-fd80-4182-8fbf-0af1ffcdbdbc",
@@ -191,29 +297,86 @@ let MOCK_SHIFTS = [
         ],
         "team_work_shifts": [
             {
-                "id": "1b77d4cb-fb6b-4c8e-be18-af8b079e6556",
-                "name": "Nhóm chăm sóc cho chó",
-                "description": "Nhóm chăm sóc cho chó",
+                "id": "team-chieu-grooming-001",
+                "name": "Nhóm Grooming",
+                "description": "Cắt tỉa, tạo kiểu lông cho thú cưng",
                 "is_active": true,
                 "leader": {
-                    "id": "93185191-488d-45ae-b6c5-68a6f8e22bee",
-                    "full_name": "Lê Văn C",
-                    "avatar_url": "https://firebasestorage.googleapis.com/v0/b/digital-dynamo-cb555.appspot.com/o/assets%2Fimages%2F9c80b9cb-22f6-4013-94d3-8b164f1bad07.jpg?alt=media&token=10f52795-d2db-41c9-b0f7-5b336d528f03"
+                    "id": "user-019",
+                    "full_name": "Nguyễn Quốc Hùng",
+                    "avatar_url": ""
                 },
                 "work_type": {
-                    "name": "Tắm rửa thú cưng",
-                    "description": "Dịch vụ tắm rửa",
-                    "services": [
-                        { "id": "svc-301", "name": "Chải lông", "description": "Chải và gỡ rối" }
-                    ]
+                    "name": "Grooming & Tạo kiểu",
+                    "description": "Cắt tỉa, tạo kiểu lông chuyên nghiệp"
                 },
                 "members": [
-                    { "id": "user-020", "full_name": "Phạm Thị Mai" },
-                    { "id": "user-021", "full_name": "Lê Hoàng Đạt" }
+                    { "id": "user-017", "full_name": "Hoàng Thị Chăm Sóc" },
+                    { "id": "user-021", "full_name": "Lê Hoàng Đạt" },
+                    { "id": "user-023", "full_name": "Võ Thị Thúy" },
+                    { "id": "user-028", "full_name": "Phạm Anh Khoa" }
                 ],
-                "tasks": [
-                    { "id": "tt-201", "name": "Chăm sóc sau tắm", "description": "Kiểm tra tai, móng", "status": "PENDING" }
-                ]
+                "tasks": []
+            },
+            {
+                "id": "team-chieu-checkout-001",
+                "name": "Nhóm Check-out",
+                "description": "Hỗ trợ khách thanh toán và đón thú cưng",
+                "is_active": true,
+                "leader": {
+                    "id": "user-013",
+                    "full_name": "Đặng Hoàng Nam",
+                    "avatar_url": ""
+                },
+                "work_type": {
+                    "name": "Thu ngân & Giao pet",
+                    "description": "Thanh toán, giao thú cưng cho khách"
+                },
+                "members": [
+                    { "id": "user-014", "full_name": "Bùi Thị Mỹ" }
+                ],
+                "tasks": []
+            },
+            {
+                "id": "team-chieu-dondep-001",
+                "name": "Nhóm Dọn dẹp",
+                "description": "Dọn dẹp và chuẩn bị cho ca tối",
+                "is_active": true,
+                "leader": {
+                    "id": "user-022",
+                    "full_name": "Trần Minh Tâm",
+                    "avatar_url": ""
+                },
+                "work_type": {
+                    "name": "Vệ sinh cuối ca",
+                    "description": "Dọn dẹp, khử trùng, chuẩn bị ca tối"
+                },
+                "members": [
+                    { "id": "user-031", "full_name": "Hoàng Thị Yến" },
+                    { "id": "user-025", "full_name": "Bùi Thị Nhi" }
+                ],
+                "tasks": []
+            },
+            {
+                "id": "team-chieu-cafemeo-001",
+                "name": "Nhóm Cafe Mèo",
+                "description": "Phục vụ khu vực cafe mèo",
+                "is_active": true,
+                "leader": {
+                    "id": "000cb6f2-7f21-469d-9dc1-7d483b1c5306",
+                    "full_name": "Trần Vân AA",
+                    "avatar_url": "https://firebasestorage.googleapis.com/v0/b/digital-dynamo-cb555.appspot.com/o/assets%2Fimages%2Ff1902bdd-9190-49cb-adc4-02aef350febb.jpg?alt=media&token=3b6f9b39-2dbf-4080-98b8-7ec0637a5744"
+                },
+                "work_type": {
+                    "name": "Cafe & Giải trí",
+                    "description": "Phục vụ đồ uống, hỗ trợ khách chơi với mèo"
+                },
+                "members": [
+                    { "id": "user-003", "full_name": "Lê Thị Bán Hàng" },
+                    { "id": "user-007", "full_name": "Nguyễn Văn Minh" },
+                    { "id": "user-029", "full_name": "Lê Thị Phương" }
+                ],
+                "tasks": []
             }
         ],
         "id": "12fc7623-a0b5-4cb9-bb77-32bf25558ef2",
@@ -839,6 +1002,377 @@ const workshiftApi = {
                 staff_id: staffId,
                 shifts: shifts,
                 total: shifts.length
+            }
+        };
+    },
+
+    // =============================================
+    // TEAM MANAGEMENT APIs
+    // =============================================
+
+    /**
+     * Create a new team in a shift
+     * @param {string} shiftId 
+     * @param {Object} teamData 
+     * @returns {Promise<Object>}
+     */
+    async createTeamWorkShift(shiftId, teamData) {
+        await delay(300);
+        const currentUser = getCurrentUser();
+
+        if (!checkPermission(currentUser, 'shift_management')) {
+            throw new Error('Không có quyền tạo nhóm');
+        }
+
+        const shiftIndex = MOCK_SHIFTS.findIndex(s => s.id === shiftId);
+        if (shiftIndex === -1) {
+            throw new Error('Không tìm thấy ca làm việc');
+        }
+
+        const newTeam = {
+            id: generateId('team'),
+            name: teamData.name || 'Nhóm mới',
+            description: teamData.description || '',
+            is_active: teamData.is_active !== undefined ? teamData.is_active : true,
+            leader: teamData.leader || null,
+            work_type: teamData.work_type || {},
+            members: teamData.members || [],
+            tasks: teamData.tasks || [],
+            created_at: new Date().toISOString(),
+            created_by: currentUser.id
+        };
+
+        if (!MOCK_SHIFTS[shiftIndex].team_work_shifts) {
+            MOCK_SHIFTS[shiftIndex].team_work_shifts = [];
+        }
+
+        MOCK_SHIFTS[shiftIndex].team_work_shifts.push(newTeam);
+
+        return {
+            success: true,
+            data: newTeam,
+            message: 'Tạo nhóm thành công'
+        };
+    },
+
+    /**
+     * Update a team in a shift
+     * @param {string} shiftId 
+     * @param {string} teamId 
+     * @param {Object} teamData 
+     * @returns {Promise<Object>}
+     */
+    async updateTeamWorkShift(shiftId, teamId, teamData) {
+        await delay(300);
+        const currentUser = getCurrentUser();
+
+        if (!checkPermission(currentUser, 'shift_management')) {
+            throw new Error('Không có quyền cập nhật nhóm');
+        }
+
+        const shiftIndex = MOCK_SHIFTS.findIndex(s => s.id === shiftId);
+        if (shiftIndex === -1) {
+            throw new Error('Không tìm thấy ca làm việc');
+        }
+
+        const shift = MOCK_SHIFTS[shiftIndex];
+        if (!Array.isArray(shift.team_work_shifts)) {
+            throw new Error('Ca làm việc chưa có nhóm nào');
+        }
+
+        const teamIndex = shift.team_work_shifts.findIndex(t => t.id === teamId);
+        if (teamIndex === -1) {
+            throw new Error('Không tìm thấy nhóm');
+        }
+
+        const updatedTeam = {
+            ...shift.team_work_shifts[teamIndex],
+            ...teamData,
+            updated_at: new Date().toISOString(),
+            updated_by: currentUser.id
+        };
+
+        MOCK_SHIFTS[shiftIndex].team_work_shifts[teamIndex] = updatedTeam;
+
+        return {
+            success: true,
+            data: updatedTeam,
+            message: 'Cập nhật nhóm thành công'
+        };
+    },
+
+    /**
+     * Delete a team from a shift
+     * @param {string} shiftId 
+     * @param {string} teamId 
+     * @returns {Promise<Object>}
+     */
+    async deleteTeamWorkShift(shiftId, teamId) {
+        await delay(300);
+        const currentUser = getCurrentUser();
+
+        if (!checkPermission(currentUser, 'shift_management')) {
+            throw new Error('Không có quyền xóa nhóm');
+        }
+
+        const shiftIndex = MOCK_SHIFTS.findIndex(s => s.id === shiftId);
+        if (shiftIndex === -1) {
+            throw new Error('Không tìm thấy ca làm việc');
+        }
+
+        const shift = MOCK_SHIFTS[shiftIndex];
+        if (!Array.isArray(shift.team_work_shifts)) {
+            throw new Error('Ca làm việc chưa có nhóm nào');
+        }
+
+        const teamIndex = shift.team_work_shifts.findIndex(t => t.id === teamId);
+        if (teamIndex === -1) {
+            throw new Error('Không tìm thấy nhóm');
+        }
+
+        MOCK_SHIFTS[shiftIndex].team_work_shifts.splice(teamIndex, 1);
+
+        return {
+            success: true,
+            message: 'Xóa nhóm thành công'
+        };
+    },
+
+    /**
+     * Add a staff member to a team
+     * @param {string} shiftId 
+     * @param {string} teamId 
+     * @param {Object} staffData - { id, full_name, avatar_url }
+     * @returns {Promise<Object>}
+     */
+    async addStaffToTeam(shiftId, teamId, staffData) {
+        await delay(300);
+        const currentUser = getCurrentUser();
+
+        if (!checkPermission(currentUser, 'shift_management')) {
+            throw new Error('Không có quyền thêm nhân viên vào nhóm');
+        }
+
+        const shiftIndex = MOCK_SHIFTS.findIndex(s => s.id === shiftId);
+        if (shiftIndex === -1) {
+            throw new Error('Không tìm thấy ca làm việc');
+        }
+
+        const shift = MOCK_SHIFTS[shiftIndex];
+        if (!Array.isArray(shift.team_work_shifts)) {
+            throw new Error('Ca làm việc chưa có nhóm nào');
+        }
+
+        const teamIndex = shift.team_work_shifts.findIndex(t => t.id === teamId);
+        if (teamIndex === -1) {
+            throw new Error('Không tìm thấy nhóm');
+        }
+
+        const team = shift.team_work_shifts[teamIndex];
+        if (!Array.isArray(team.members)) {
+            team.members = [];
+        }
+
+        // Check if staff already in team
+        const existingMember = team.members.find(m => m.id === staffData.id);
+        if (existingMember) {
+            throw new Error('Nhân viên đã có trong nhóm');
+        }
+
+        // Check if staff is leader of this team
+        if (team.leader && team.leader.id === staffData.id) {
+            throw new Error('Nhân viên đang là leader của nhóm');
+        }
+
+        // VALIDATE: Check if staff is already in another team in the SAME shift
+        const isInOtherTeam = shift.team_work_shifts.some(t => {
+            // Skip current team
+            if (t.id === teamId) return false;
+
+            // Check if staff is leader of another team
+            if (t.leader && t.leader.id === staffData.id) return true;
+
+            // Check if staff is member of another team
+            if (Array.isArray(t.members) && t.members.some(m => m.id === staffData.id)) return true;
+
+            return false;
+        });
+
+        if (isInOtherTeam) {
+            throw new Error('Nhân viên đã được phân vào nhóm khác trong ca này. Vui lòng xóa khỏi nhóm đó trước.');
+        }
+
+        team.members.push({
+            id: staffData.id,
+            full_name: staffData.full_name || staffData.name,
+            avatar_url: staffData.avatar_url
+        });
+
+        team.updated_at = new Date().toISOString();
+        team.updated_by = currentUser.id;
+
+        return {
+            success: true,
+            data: team,
+            message: 'Thêm nhân viên vào nhóm thành công'
+        };
+    },
+
+    /**
+     * Remove a staff member from a team
+     * @param {string} shiftId 
+     * @param {string} teamId 
+     * @param {string} staffId 
+     * @returns {Promise<Object>}
+     */
+    async removeStaffFromTeam(shiftId, teamId, staffId) {
+        await delay(300);
+        const currentUser = getCurrentUser();
+
+        if (!checkPermission(currentUser, 'shift_management')) {
+            throw new Error('Không có quyền xóa nhân viên khỏi nhóm');
+        }
+
+        const shiftIndex = MOCK_SHIFTS.findIndex(s => s.id === shiftId);
+        if (shiftIndex === -1) {
+            throw new Error('Không tìm thấy ca làm việc');
+        }
+
+        const shift = MOCK_SHIFTS[shiftIndex];
+        if (!Array.isArray(shift.team_work_shifts)) {
+            throw new Error('Ca làm việc chưa có nhóm nào');
+        }
+
+        const teamIndex = shift.team_work_shifts.findIndex(t => t.id === teamId);
+        if (teamIndex === -1) {
+            throw new Error('Không tìm thấy nhóm');
+        }
+
+        const team = shift.team_work_shifts[teamIndex];
+        if (!Array.isArray(team.members)) {
+            throw new Error('Nhóm chưa có thành viên nào');
+        }
+
+        const memberIndex = team.members.findIndex(m => m.id === staffId);
+        if (memberIndex === -1) {
+            throw new Error('Không tìm thấy nhân viên trong nhóm');
+        }
+
+        team.members.splice(memberIndex, 1);
+        team.updated_at = new Date().toISOString();
+        team.updated_by = currentUser.id;
+
+        return {
+            success: true,
+            data: team,
+            message: 'Xóa nhân viên khỏi nhóm thành công'
+        };
+    },
+
+    /**
+     * Update team leader
+     * @param {string} shiftId 
+     * @param {string} teamId 
+     * @param {Object} leaderData - { id, full_name, avatar_url }
+     * @returns {Promise<Object>}
+     */
+    async updateTeamLeader(shiftId, teamId, leaderData) {
+        await delay(300);
+        const currentUser = getCurrentUser();
+
+        if (!checkPermission(currentUser, 'shift_management')) {
+            throw new Error('Không có quyền cập nhật leader');
+        }
+
+        const shiftIndex = MOCK_SHIFTS.findIndex(s => s.id === shiftId);
+        if (shiftIndex === -1) {
+            throw new Error('Không tìm thấy ca làm việc');
+        }
+
+        const shift = MOCK_SHIFTS[shiftIndex];
+        if (!Array.isArray(shift.team_work_shifts)) {
+            throw new Error('Ca làm việc chưa có nhóm nào');
+        }
+
+        const teamIndex = shift.team_work_shifts.findIndex(t => t.id === teamId);
+        if (teamIndex === -1) {
+            throw new Error('Không tìm thấy nhóm');
+        }
+
+        const team = shift.team_work_shifts[teamIndex];
+
+        // VALIDATE: Check if new leader is in another team in the SAME shift
+        const isInOtherTeam = shift.team_work_shifts.some(t => {
+            // Skip current team
+            if (t.id === teamId) return false;
+
+            // Check if staff is leader of another team
+            if (t.leader && t.leader.id === leaderData.id) return true;
+
+            // Check if staff is member of another team
+            if (Array.isArray(t.members) && t.members.some(m => m.id === leaderData.id)) return true;
+
+            return false;
+        });
+
+        if (isInOtherTeam) {
+            throw new Error('Nhân viên đã được phân vào nhóm khác trong ca này. Vui lòng xóa khỏi nhóm đó trước.');
+        }
+
+        // If new leader is in members, remove them from members
+        if (Array.isArray(team.members)) {
+            const memberIndex = team.members.findIndex(m => m.id === leaderData.id);
+            if (memberIndex !== -1) {
+                team.members.splice(memberIndex, 1);
+            }
+        }
+
+        team.leader = {
+            id: leaderData.id,
+            full_name: leaderData.full_name || leaderData.name,
+            avatar_url: leaderData.avatar_url
+        };
+
+        team.updated_at = new Date().toISOString();
+        team.updated_by = currentUser.id;
+
+        return {
+            success: true,
+            data: team,
+            message: 'Cập nhật leader thành công'
+        };
+    },
+
+    /**
+     * Get team members
+     * @param {string} shiftId 
+     * @param {string} teamId 
+     * @returns {Promise<Object>}
+     */
+    async getTeamMembers(shiftId, teamId) {
+        await delay(200);
+        const currentUser = getCurrentUser();
+
+        if (!checkPermission(currentUser, 'shift_management') && !checkPermission(currentUser, 'view_schedule')) {
+            throw new Error('Không có quyền xem danh sách nhân viên');
+        }
+
+        const shift = MOCK_SHIFTS.find(s => s.id === shiftId);
+        if (!shift) {
+            throw new Error('Không tìm thấy ca làm việc');
+        }
+
+        const team = shift.team_work_shifts?.find(t => t.id === teamId);
+        if (!team) {
+            throw new Error('Không tìm thấy nhóm');
+        }
+
+        return {
+            success: true,
+            data: {
+                leader: team.leader || null,
+                members: team.members || [],
+                total: (team.members || []).length
             }
         };
     }

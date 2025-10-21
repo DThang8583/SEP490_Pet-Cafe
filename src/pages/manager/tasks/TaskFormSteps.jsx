@@ -10,12 +10,117 @@ import workshiftApi from '../../../api/workshiftApi';
 // ==================== STEP 1: Task Type ====================
 export const StepTaskType = ({ formData, setFormData }) => {
     return (
-        <Box sx={{ p: 3 }}>
-            <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>Chọn loại nhiệm vụ</Typography>
-            <RadioGroup value={formData.type} onChange={(e) => setFormData({ ...formData, type: e.target.value })}>
-                <FormControlLabel value="internal" control={<Radio />} label="Nội bộ" />
-                <FormControlLabel value="service" control={<Radio />} label="Dịch vụ" />
-            </RadioGroup>
+        <Box sx={{ p: 4 }}>
+            <Typography variant="h5" sx={{ mb: 1, fontWeight: 800, color: COLORS.ERROR[700] }}>
+                Chọn loại nhiệm vụ
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 3, color: COLORS.TEXT.SECONDARY }}>
+                Chọn loại nhiệm vụ bạn muốn tạo
+            </Typography>
+
+            <Stack spacing={2}>
+                <Box
+                    onClick={() => setFormData({ ...formData, type: 'internal' })}
+                    sx={{
+                        p: 3,
+                        border: `2px solid ${formData.type === 'internal' ? COLORS.PRIMARY[500] : alpha(COLORS.BORDER.DEFAULT, 0.3)}`,
+                        borderRadius: 2,
+                        cursor: 'pointer',
+                        bgcolor: formData.type === 'internal' ? alpha(COLORS.PRIMARY[50], 0.5) : 'transparent',
+                        transition: 'all 0.2s ease',
+                        '&:hover': {
+                            borderColor: COLORS.PRIMARY[400],
+                            bgcolor: alpha(COLORS.PRIMARY[50], 0.3)
+                        }
+                    }}
+                >
+                    <Stack direction="row" spacing={2} alignItems="center">
+                        <Box
+                            sx={{
+                                width: 40,
+                                height: 40,
+                                borderRadius: 2,
+                                bgcolor: formData.type === 'internal' ? COLORS.PRIMARY[500] : alpha(COLORS.PRIMARY[200], 0.5),
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                        >
+                            <Typography variant="h6" sx={{ color: 'white' }}>🏢</Typography>
+                        </Box>
+                        <Box sx={{ flex: 1 }}>
+                            <Typography variant="h6" sx={{ fontWeight: 700, color: COLORS.TEXT.PRIMARY }}>
+                                Nhiệm vụ nội bộ
+                            </Typography>
+                            <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
+                                Công việc nội bộ của cửa hàng (dọn dẹp, chăm sóc pet, v.v.)
+                            </Typography>
+                        </Box>
+                        {formData.type === 'internal' && (
+                            <Chip
+                                label="✓ Đã chọn"
+                                size="small"
+                                sx={{
+                                    bgcolor: COLORS.PRIMARY[500],
+                                    color: 'white',
+                                    fontWeight: 700
+                                }}
+                            />
+                        )}
+                    </Stack>
+                </Box>
+
+                <Box
+                    onClick={() => setFormData({ ...formData, type: 'service' })}
+                    sx={{
+                        p: 3,
+                        border: `2px solid ${formData.type === 'service' ? COLORS.SECONDARY[500] : alpha(COLORS.BORDER.DEFAULT, 0.3)}`,
+                        borderRadius: 2,
+                        cursor: 'pointer',
+                        bgcolor: formData.type === 'service' ? alpha(COLORS.SECONDARY[50], 0.5) : 'transparent',
+                        transition: 'all 0.2s ease',
+                        '&:hover': {
+                            borderColor: COLORS.SECONDARY[400],
+                            bgcolor: alpha(COLORS.SECONDARY[50], 0.3)
+                        }
+                    }}
+                >
+                    <Stack direction="row" spacing={2} alignItems="center">
+                        <Box
+                            sx={{
+                                width: 40,
+                                height: 40,
+                                borderRadius: 2,
+                                bgcolor: formData.type === 'service' ? COLORS.SECONDARY[500] : alpha(COLORS.SECONDARY[200], 0.5),
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                        >
+                            <Typography variant="h6" sx={{ color: 'white' }}>🎯</Typography>
+                        </Box>
+                        <Box sx={{ flex: 1 }}>
+                            <Typography variant="h6" sx={{ fontWeight: 700, color: COLORS.TEXT.PRIMARY }}>
+                                Nhiệm vụ dịch vụ
+                            </Typography>
+                            <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
+                                Phục vụ khách hàng và thú cưng của họ
+                            </Typography>
+                        </Box>
+                        {formData.type === 'service' && (
+                            <Chip
+                                label="✓ Đã chọn"
+                                size="small"
+                                sx={{
+                                    bgcolor: COLORS.SECONDARY[500],
+                                    color: 'white',
+                                    fontWeight: 700
+                                }}
+                            />
+                        )}
+                    </Stack>
+                </Box>
+            </Stack>
         </Box>
     );
 };
@@ -43,14 +148,24 @@ export const StepSelectTask = ({ formData, setFormData, services, isEditMode }) 
     }, [formData.type]);
 
     return (
-        <Box sx={{ p: 3 }}>
-            <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>
+        <Box sx={{ p: 4 }}>
+            <Typography variant="h5" sx={{ mb: 1, fontWeight: 800, color: COLORS.ERROR[700] }}>
                 {formData.type === 'internal' ? 'Chọn nhiệm vụ nội bộ' : 'Chọn dịch vụ'}
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 3, color: COLORS.TEXT.SECONDARY }}>
+                {formData.type === 'internal' ? 'Chọn loại công việc nội bộ cần phân công' : 'Chọn dịch vụ cần phân công nhân viên'}
             </Typography>
 
             {isEditMode && (
-                <Alert severity="info" sx={{ mb: 2 }}>
-                    <Typography variant="body2">
+                <Alert
+                    severity="info"
+                    sx={{
+                        mb: 3,
+                        borderLeft: `4px solid ${COLORS.INFO[500]}`,
+                        bgcolor: alpha(COLORS.INFO[50], 0.5)
+                    }}
+                >
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
                         <strong>Loại nhiệm vụ:</strong> {formData.type === 'internal' ? 'Nội bộ' : 'Dịch vụ'}
                         {' '}<em>(Không thể thay đổi khi chỉnh sửa)</em>
                     </Typography>
@@ -162,8 +277,13 @@ export const StepTimeframe = ({ formData, setFormData, selectedService }) => {
     }, [formData.type, formData.timeframeType, selectedService, formData.servicePeriodStart, formData.servicePeriodEnd, setFormData]);
 
     return (
-        <Box sx={{ p: 3 }}>
-            <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>Chọn khung thời gian</Typography>
+        <Box sx={{ p: 4 }}>
+            <Typography variant="h5" sx={{ mb: 1, fontWeight: 800, color: COLORS.ERROR[700] }}>
+                Chọn khung thời gian
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 3, color: COLORS.TEXT.SECONDARY }}>
+                Xác định thời gian thực hiện nhiệm vụ
+            </Typography>
 
             {formData.type === 'internal' ? (
                 <Stack spacing={2}>
@@ -364,10 +484,12 @@ export const StepShift = ({ formData, setFormData, selectedService }) => {
     // Render for Internal tasks
     if (formData.type === 'internal') {
         return (
-            <Box sx={{ p: 3 }}>
-                <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>Chọn ca làm</Typography>
-                <Typography variant="body2" sx={{ mb: 2, color: COLORS.TEXT.SECONDARY }}>
-                    {loadingShifts ? 'Đang tải ca làm việc...' : 'Bạn có thể chọn một hoặc nhiều ca làm việc cho nhiệm vụ này'}
+            <Box sx={{ p: 4 }}>
+                <Typography variant="h5" sx={{ mb: 1, fontWeight: 800, color: COLORS.ERROR[700] }}>
+                    Chọn ca làm việc
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 3, color: COLORS.TEXT.SECONDARY }}>
+                    {loadingShifts ? 'Đang tải ca làm việc...' : 'Chọn một hoặc nhiều ca làm việc để phân công nhiệm vụ'}
                 </Typography>
 
                 {workShifts.length === 0 && !loadingShifts ? (
@@ -462,10 +584,12 @@ export const StepShift = ({ formData, setFormData, selectedService }) => {
 
     // Render for Service tasks - Show service slots
     return (
-        <Box sx={{ p: 3 }}>
-            <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>Chọn ca dịch vụ</Typography>
-            <Typography variant="body2" sx={{ mb: 2, color: COLORS.TEXT.SECONDARY }}>
-                {loadingSlots ? 'Đang tải ca dịch vụ...' : 'Chọn một hoặc nhiều ca dịch vụ cho nhiệm vụ này'}
+        <Box sx={{ p: 4 }}>
+            <Typography variant="h5" sx={{ mb: 1, fontWeight: 800, color: COLORS.ERROR[700] }}>
+                Chọn ca dịch vụ
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 3, color: COLORS.TEXT.SECONDARY }}>
+                {loadingSlots ? 'Đang tải ca dịch vụ...' : 'Chọn khung giờ dịch vụ cần phân công'}
             </Typography>
 
             {serviceSlots.length === 0 && !loadingSlots ? (
@@ -533,6 +657,7 @@ export const StepAssignment = ({
     areas,
     staff,
     selectedService,
+    petGroupsMap,
     openStaffGroupDialog,
     openPetGroupDialog,
     editStaffGroup
@@ -544,6 +669,7 @@ export const StepAssignment = ({
                 setFormData={setFormData}
                 areas={areas}
                 staff={staff}
+                petGroupsMap={petGroupsMap}
                 openStaffGroupDialog={openStaffGroupDialog}
                 openPetGroupDialog={openPetGroupDialog}
                 editStaffGroup={editStaffGroup}
@@ -557,6 +683,7 @@ export const StepAssignment = ({
                 areas={areas}
                 staff={staff}
                 selectedService={selectedService}
+                petGroupsMap={petGroupsMap}
                 openStaffGroupDialog={openStaffGroupDialog}
                 openPetGroupDialog={openPetGroupDialog}
                 editStaffGroup={editStaffGroup}
@@ -749,8 +876,13 @@ export const StepConfirmation = ({ formData, selectedService, areas, staff, petG
     };
 
     return (
-        <Box sx={{ p: 3 }}>
-            <Typography variant="h6" sx={{ mb: 2, fontWeight: 700 }}>Xác nhận thông tin nhiệm vụ</Typography>
+        <Box sx={{ p: 4 }}>
+            <Typography variant="h5" sx={{ mb: 1, fontWeight: 800, color: COLORS.SUCCESS[700] }}>
+                Xác nhận thông tin nhiệm vụ
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 3, color: COLORS.TEXT.SECONDARY }}>
+                Kiểm tra lại thông tin trước khi tạo nhiệm vụ
+            </Typography>
 
             <Stack spacing={2}>
                 <Box>

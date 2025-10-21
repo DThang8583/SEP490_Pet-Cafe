@@ -394,6 +394,35 @@ const MOCK_DATABASE = {
 
         // Working Staff - Thêm 15 người
         {
+            id: '93185191-488d-45ae-b6c5-68a6f8e22bee',
+            username: 'staff.levanc',
+            email: 'levanc@petcafe.com',
+            password: 'staff123',
+            role: 'working_staff',
+            name: 'Lê Văn C',
+            phone: '0935678901',
+            address: '111 Trần Hưng Đạo, Q.5, TP.HCM',
+            birthDate: '1989-08-10',
+            avatar: 'https://firebasestorage.googleapis.com/v0/b/digital-dynamo-cb555.appspot.com/o/assets%2Fimages%2F9c80b9cb-22f6-4013-94d3-8b164f1bad07.jpg?alt=media&token=10f52795-d2db-41c9-b0f7-5b336d528f03',
+            salary: 8500000,
+            status: 'active',
+            permissions: [
+                'task_management',
+                'pet_status_update',
+                'service_execution',
+                'booking_management',
+                'shift_management'
+            ],
+            createdAt: '2023-04-01',
+            lastLogin: '2024-01-20',
+            workStats: {
+                assignedTasks: 25,
+                completedTasks: 22,
+                activePets: 18,
+                specialization: 'Tắm rửa thú cưng'
+            }
+        },
+        {
             id: 'user-017',
             username: 'staff.charlie',
             email: 'charlie@petcafe.com',
