@@ -148,7 +148,7 @@ const TaskDetailsModal = ({ open, onClose, task, services, areas, staff, petGrou
                             borderRadius: 2,
                             background: `linear-gradient(135deg, ${COLORS.ERROR[500]} 0%, ${COLORS.ERROR[700]} 100%)`,
                             display: 'flex',
-                            alignItems="center",
+                            alignItems: 'center',
                             justifyContent: 'center',
                             boxShadow: `0 4px 12px ${alpha(COLORS.ERROR[500], 0.3)}`
                         }}
