@@ -5,13 +5,9 @@ import { Add, Assignment, Pending, CheckCircle, Schedule, Warning, Search, Filte
 import { COLORS } from '../../../constants/colors';
 import Loading from '../../../components/loading/Loading';
 import ConfirmModal from '../../../components/modals/ConfirmModal';
-
-// Task components
 import TaskList from './TaskList';
 import TaskFormModal from './TaskFormModal';
 import TaskDetailsModal from './TaskDetailsModal';
-
-// API
 import { getAllTasksData } from '../../../api/tasksApi';
 
 const TasksPage = () => {
