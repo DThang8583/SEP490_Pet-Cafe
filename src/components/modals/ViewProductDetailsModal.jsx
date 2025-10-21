@@ -30,38 +30,54 @@ const ViewProductDetailsModal = ({ open, onClose, product }) => {
     if (!product) return null;
 
     const getCategoryLabel = (category) => {
+        // Handle if category is an object
+        if (typeof category === 'object' && category?.name) {
+            return category.name;
+        }
         const labels = {
             drink_customer: 'Đồ uống (Khách hàng)',
             food_customer: 'Đồ ăn (Khách hàng)',
             food_pet: 'Đồ ăn (Pet)'
         };
-        return labels[category] || category;
+        return labels[category] || String(category || 'Chưa phân loại');
     };
 
     const getCategoryIcon = (category) => {
+        const categoryValue = typeof category === 'object' ? category?.id : category;
         const icons = {
             drink_customer: <LocalCafe />,
             food_customer: <Restaurant />,
             food_pet: <Pets />
         };
-        return icons[category] || <Restaurant />;
+        return icons[categoryValue] || <Restaurant />;
     };
 
-    const getStatusChip = (status) => {
+    const computeStatus = () => {
+        if (product && product.is_active === false) return 'disabled';
+        const remaining = typeof product?.remaining_quantity === 'number' ? product.remaining_quantity : undefined;
+        if (remaining !== undefined) {
+            if (remaining <= 0) return 'sold_out';
+            if (remaining <= 5) return 'low_quantity';
+        }
+        return 'available';
+    };
+
+    const getStatusChip = () => {
+        const status = computeStatus();
         const statusConfig = {
             available: {
                 icon: <CheckCircle fontSize="small" />,
-                label: 'Có sẵn',
+                label: 'Còn hàng',
                 color: 'success'
             },
-            out_of_stock: {
+            sold_out: {
                 icon: <ErrorIcon fontSize="small" />,
-                label: 'Hết nguyên liệu',
+                label: 'Hết hàng trong ngày',
                 color: 'error'
             },
-            low_stock: {
+            low_quantity: {
                 icon: <Warning fontSize="small" />,
-                label: 'Sắp hết nguyên liệu',
+                label: 'Sắp hết',
                 color: 'warning'
             },
             disabled: {
@@ -71,7 +87,7 @@ const ViewProductDetailsModal = ({ open, onClose, product }) => {
             }
         };
 
-        const config = statusConfig[status] || statusConfig.out_of_stock;
+        const config = statusConfig[status] || statusConfig.available;
 
         return (
             <Chip
@@ -83,9 +99,6 @@ const ViewProductDetailsModal = ({ open, onClose, product }) => {
             />
         );
     };
-
-    const getMaterialStatus = () => null;
-    const getMaterialUnit = () => '';
 
     return (
         <Dialog
@@ -115,7 +128,7 @@ const ViewProductDetailsModal = ({ open, onClose, product }) => {
                             Chi tiết sản phẩm
                         </Typography>
                         <Typography variant="body2" sx={{ opacity: 0.9, mt: 0.5 }}>
-                            Thông tin chi tiết và công thức chế biến
+                            Thông tin chi tiết sản phẩm và số lượng
                         </Typography>
                     </Box>
                     <IconButton onClick={onClose} sx={{ color: 'white' }}>
@@ -141,7 +154,7 @@ const ViewProductDetailsModal = ({ open, onClose, product }) => {
                         <Stack direction="row" spacing={3}>
                             {/* Product Image */}
                             <Avatar
-                                src={product.image}
+                                src={product.image_url || product.image}
                                 alt={product.name}
                                 variant="rounded"
                                 sx={{
@@ -165,131 +178,93 @@ const ViewProductDetailsModal = ({ open, onClose, product }) => {
                                         variant="outlined"
                                         sx={{ fontWeight: 600 }}
                                     />
-                                    {getStatusChip(product.status)}
+                                    <Chip
+                                        label={product.is_for_pets ? 'Pet' : 'Khách hàng'}
+                                        size="small"
+                                        color={product.is_for_pets ? 'success' : 'primary'}
+                                        variant="outlined"
+                                    />
+                                    {getStatusChip()}
                                 </Stack>
 
                                 <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                                     {product.description || 'Không có mô tả'}
                                 </Typography>
 
-                                <Box
-                                    sx={{
-                                        p: 2,
-                                        borderRadius: 2,
-                                        bgcolor: alpha(COLORS.SUCCESS[500], 0.1),
-                                        border: '2px solid',
-                                        borderColor: COLORS.SUCCESS[300],
-                                        display: 'inline-block'
-                                    }}
-                                >
-                                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
-                                        Giá bán
-                                    </Typography>
-                                    <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.SUCCESS[700] }}>
-                                        {formatPrice(product.price)}
-                                    </Typography>
-                                </Box>
+                                <Stack direction="row" spacing={2}>
+                                    <Box
+                                        sx={{
+                                            p: 2,
+                                            borderRadius: 2,
+                                            bgcolor: alpha(COLORS.SUCCESS[500], 0.1),
+                                            border: '2px solid',
+                                            borderColor: COLORS.SUCCESS[300],
+                                            display: 'inline-block'
+                                        }}
+                                    >
+                                        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+                                            Giá bán
+                                        </Typography>
+                                        <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.SUCCESS[700] }}>
+                                            {formatPrice(product.price)}
+                                        </Typography>
+                                    </Box>
+                                    <Box
+                                        sx={{
+                                            p: 2,
+                                            borderRadius: 2,
+                                            bgcolor: alpha(COLORS.PRIMARY[500], 0.1),
+                                            border: '2px solid',
+                                            borderColor: COLORS.PRIMARY[300],
+                                            display: 'inline-block'
+                                        }}
+                                    >
+                                        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+                                            Số lượng
+                                        </Typography>
+                                        <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.PRIMARY[700] }}>
+                                            {typeof product.daily_quantity === 'number' ? product.daily_quantity : '—'}
+                                        </Typography>
+                                    </Box>
+                                    <Box
+                                        sx={{
+                                            p: 2,
+                                            borderRadius: 2,
+                                            bgcolor: alpha(
+                                                product.remaining_quantity === 0 ? COLORS.ERROR[500] :
+                                                    product.remaining_quantity <= 5 ? COLORS.WARNING[500] :
+                                                        COLORS.INFO[500], 0.1
+                                            ),
+                                            border: '2px solid',
+                                            borderColor:
+                                                product.remaining_quantity === 0 ? COLORS.ERROR[300] :
+                                                    product.remaining_quantity <= 5 ? COLORS.WARNING[300] :
+                                                        COLORS.INFO[300],
+                                            display: 'inline-block'
+                                        }}
+                                    >
+                                        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+                                            Còn lại
+                                        </Typography>
+                                        <Typography variant="h4" sx={{
+                                            fontWeight: 800,
+                                            color:
+                                                product.remaining_quantity === 0 ? COLORS.ERROR[700] :
+                                                    product.remaining_quantity <= 5 ? COLORS.WARNING[700] :
+                                                        COLORS.INFO[700]
+                                        }}>
+                                            {typeof product.remaining_quantity === 'number' ? product.remaining_quantity : '—'}
+                                        </Typography>
+                                    </Box>
+                                </Stack>
                             </Box>
                         </Stack>
                     </Paper>
 
                     <Divider />
 
-                    {/* Recipe Section (legacy, hidden when no recipe) */}
-                    <Box>
-                        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-                            <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                                Công thức chế biến
-                            </Typography>
-                            <Chip
-                                label={`${product.recipe?.length || 0} nguyên liệu`}
-                                size="small"
-                                color="primary"
-                                sx={{ fontWeight: 700 }}
-                            />
-                        </Stack>
-
-                        {product.recipe && product.recipe.length > 0 ? (
-                            <TableContainer
-                                component={Paper}
-                                sx={{
-                                    borderRadius: 2,
-                                    border: '2px solid',
-                                    borderColor: 'divider',
-                                    boxShadow: 2
-                                }}
-                            >
-                                <Table>
-                                    <TableHead>
-                                        <TableRow sx={{ bgcolor: alpha(COLORS.INFO[500], 0.1) }}>
-                                            <TableCell sx={{ fontWeight: 800 }}>Nguyên liệu</TableCell>
-                                            <TableCell sx={{ fontWeight: 800 }} align="right">Hiện có</TableCell>
-                                            <TableCell sx={{ fontWeight: 800 }} align="center">Trạng thái</TableCell>
-                                        </TableRow>
-                                    </TableHead>
-                                    <TableBody>
-                                        {loading ? (
-                                            <TableRow>
-                                                <TableCell colSpan={3} align="center" sx={{ py: 3 }}>
-                                                    <Typography variant="body2" color="text.secondary">
-                                                        Đang tải thông tin nguyên liệu...
-                                                    </Typography>
-                                                </TableCell>
-                                            </TableRow>
-                                        ) : (
-                                            product.recipe.map((ingredient, index) => {
-                                                const unit = '';
-
-                                                return (
-                                                    <TableRow
-                                                        key={index}
-                                                        hover
-                                                        sx={{
-                                                            bgcolor: !materialStatus.isEnough
-                                                                ? alpha(COLORS.ERROR[500], 0.05)
-                                                                : 'transparent'
-                                                        }}
-                                                    >
-                                                        <TableCell>
-                                                            <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                                                                {ingredient.materialName || 'Unknown'}
-                                                            </Typography>
-                                                        </TableCell>
-                                                        <TableCell align="right">
-                                                            <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                                                                {unit}
-                                                            </Typography>
-                                                        </TableCell>
-                                                        <TableCell align="center">
-                                                            —
-                                                        </TableCell>
-                                                    </TableRow>
-                                                );
-                                            })
-                                        )}
-                                    </TableBody>
-                                </Table>
-                            </TableContainer>
-                        ) : (
-                            <Paper
-                                sx={{
-                                    p: 4,
-                                    textAlign: 'center',
-                                    border: '2px dashed',
-                                    borderColor: 'divider',
-                                    borderRadius: 2
-                                }}
-                            >
-                                <Warning sx={{ fontSize: 48, color: COLORS.TEXT.DISABLED, mb: 1 }} />
-                                <Typography variant="body2" color="text.secondary">
-                                    Chưa có công thức chế biến
-                                </Typography>
-                            </Paper>
-                        )}
-                    </Box>
-
                     {/* Summary Alert */}
-                    {product.status === 'unavailable' && (
+                    {computeStatus() === 'sold_out' && (
                         <Paper
                             sx={{
                                 p: 2,
@@ -303,17 +278,41 @@ const ViewProductDetailsModal = ({ open, onClose, product }) => {
                                 <ErrorIcon sx={{ color: COLORS.ERROR[600], fontSize: 32 }} />
                                 <Box>
                                     <Typography variant="subtitle2" sx={{ fontWeight: 700, color: COLORS.ERROR[700] }}>
-                                        Sản phẩm không thể làm được
+                                        Sản phẩm đã hết trong ngày
                                     </Typography>
                                     <Typography variant="body2" color="text.secondary">
-                                        Một hoặc nhiều nguyên liệu đã hết. Vui lòng nhập thêm hàng để có thể làm sản phẩm này.
+                                        Số lượng sản phẩm quy định bán trong ngày đã hết. Hãy quay lại vào ngày mai hoặc liên hệ manager để cập nhật số lượng.
                                     </Typography>
                                 </Box>
                             </Stack>
                         </Paper>
                     )}
 
-                    {product.status === 'available' && (
+                    {computeStatus() === 'low_quantity' && (
+                        <Paper
+                            sx={{
+                                p: 2,
+                                borderRadius: 2,
+                                bgcolor: alpha(COLORS.WARNING[500], 0.1),
+                                border: '2px solid',
+                                borderColor: COLORS.WARNING[300]
+                            }}
+                        >
+                            <Stack direction="row" spacing={2} alignItems="center">
+                                <Warning sx={{ color: COLORS.WARNING[600], fontSize: 32 }} />
+                                <Box>
+                                    <Typography variant="subtitle2" sx={{ fontWeight: 700, color: COLORS.WARNING[700] }}>
+                                        Sản phẩm sắp hết
+                                    </Typography>
+                                    <Typography variant="body2" color="text.secondary">
+                                        Chỉ còn {product.remaining_quantity} sản phẩm. Hãy đặt hàng sớm để không bỏ lỡ!
+                                    </Typography>
+                                </Box>
+                            </Stack>
+                        </Paper>
+                    )}
+
+                    {computeStatus() === 'available' && (
                         <Paper
                             sx={{
                                 p: 2,
@@ -327,10 +326,34 @@ const ViewProductDetailsModal = ({ open, onClose, product }) => {
                                 <CheckCircle sx={{ color: COLORS.SUCCESS[600], fontSize: 32 }} />
                                 <Box>
                                     <Typography variant="subtitle2" sx={{ fontWeight: 700, color: COLORS.SUCCESS[700] }}>
-                                        Sản phẩm có sẵn
+                                        Sản phẩm còn hàng
                                     </Typography>
                                     <Typography variant="body2" color="text.secondary">
-                                        Tất cả nguyên liệu đều có đủ. Sản phẩm sẵn sàng để chế biến và bán.
+                                        Còn {product.remaining_quantity} sản phẩm trong ngày hôm nay. Sản phẩm sẵn sàng để bán.
+                                    </Typography>
+                                </Box>
+                            </Stack>
+                        </Paper>
+                    )}
+
+                    {computeStatus() === 'disabled' && (
+                        <Paper
+                            sx={{
+                                p: 2,
+                                borderRadius: 2,
+                                bgcolor: alpha(COLORS.GRAY[500], 0.1),
+                                border: '2px solid',
+                                borderColor: COLORS.GRAY[300]
+                            }}
+                        >
+                            <Stack direction="row" spacing={2} alignItems="center">
+                                <Block sx={{ color: COLORS.GRAY[600], fontSize: 32 }} />
+                                <Box>
+                                    <Typography variant="subtitle2" sx={{ fontWeight: 700, color: COLORS.GRAY[700] }}>
+                                        Sản phẩm tạm ngừng bán
+                                    </Typography>
+                                    <Typography variant="body2" color="text.secondary">
+                                        Sản phẩm này hiện đang tạm ngừng bán. Vui lòng chọn sản phẩm khác hoặc liên hệ nhân viên.
                                     </Typography>
                                 </Box>
                             </Stack>

@@ -1,17 +1,13 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { Box, Typography, Stack, Chip, Button, Grid, Paper, Toolbar, TextField, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
+import { Box, Typography, Stack, Chip, Button, Grid, Paper, Toolbar, TextField, FormControl, InputLabel, Select, MenuItem, InputAdornment, Divider } from '@mui/material';
 import { alpha } from '@mui/material/styles';
-import { Add, Assignment, Pending, CheckCircle, Schedule, Warning } from '@mui/icons-material';
+import { Add, Assignment, Pending, CheckCircle, Schedule, Warning, Search, FilterList, Refresh } from '@mui/icons-material';
 import { COLORS } from '../../../constants/colors';
 import Loading from '../../../components/loading/Loading';
 import ConfirmModal from '../../../components/modals/ConfirmModal';
-
-// Task components
 import TaskList from './TaskList';
 import TaskFormModal from './TaskFormModal';
 import TaskDetailsModal from './TaskDetailsModal';
-
-// API
 import { getAllTasksData } from '../../../api/tasksApi';
 
 const TasksPage = () => {
@@ -188,19 +184,66 @@ const TasksPage = () => {
         <Box sx={{ background: COLORS.BACKGROUND.NEUTRAL, minHeight: '100vh', width: '100%' }}>
             <Box sx={{ px: { xs: 2, md: 4 }, py: 3 }}>
                 {/* Header */}
-                <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 3 }}>
-                    <Typography variant="h5" sx={{ fontWeight: 900, color: COLORS.ERROR[600] }}>
-                        Quản lý nhiệm vụ
-                    </Typography>
-                    <Box sx={{ flexGrow: 1 }} />
-                    <Button
-                        variant="contained"
-                        startIcon={<Add />}
-                        onClick={() => setWizardOpen(true)}
-                        sx={{ backgroundColor: COLORS.ERROR[500], '&:hover': { backgroundColor: COLORS.ERROR[600] } }}
-                    >
-                        Tạo nhiệm vụ mới
-                    </Button>
+                <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 3 }}>
+                    <Stack direction="row" alignItems="center" spacing={2}>
+                        <Box
+                            sx={{
+                                width: 50,
+                                height: 50,
+                                borderRadius: 2.5,
+                                background: `linear-gradient(135deg, ${COLORS.ERROR[500]} 0%, ${COLORS.ERROR[700]} 100%)`,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                boxShadow: `0 4px 12px ${alpha(COLORS.ERROR[500], 0.3)}`
+                            }}
+                        >
+                            <Assignment sx={{ fontSize: 30, color: 'white' }} />
+                        </Box>
+                        <Box>
+                            <Typography variant="h4" sx={{ fontWeight: 900, color: COLORS.ERROR[600], lineHeight: 1.2 }}>
+                                Quản lý nhiệm vụ
+                            </Typography>
+                            <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, fontWeight: 500 }}>
+                                Phân công và theo dõi nhiệm vụ hàng ngày
+                            </Typography>
+                        </Box>
+                    </Stack>
+                    <Stack direction="row" spacing={2}>
+                        <Button
+                            variant="outlined"
+                            startIcon={<Refresh />}
+                            onClick={() => window.location.reload()}
+                            sx={{
+                                borderColor: COLORS.ERROR[300],
+                                color: COLORS.ERROR[600],
+                                fontWeight: 600,
+                                '&:hover': {
+                                    borderColor: COLORS.ERROR[500],
+                                    bgcolor: alpha(COLORS.ERROR[50], 0.5)
+                                }
+                            }}
+                        >
+                            Làm mới
+                        </Button>
+                        <Button
+                            variant="contained"
+                            startIcon={<Add />}
+                            onClick={() => setWizardOpen(true)}
+                            sx={{
+                                backgroundColor: COLORS.ERROR[500],
+                                fontWeight: 700,
+                                px: 3,
+                                boxShadow: `0 4px 12px ${alpha(COLORS.ERROR[500], 0.3)}`,
+                                '&:hover': {
+                                    backgroundColor: COLORS.ERROR[600],
+                                    boxShadow: `0 6px 16px ${alpha(COLORS.ERROR[600], 0.4)}`
+                                }
+                            }}
+                        >
+                            Tạo nhiệm vụ mới
+                        </Button>
+                    </Stack>
                 </Stack>
 
                 {/* Status Badges */}
@@ -407,43 +450,189 @@ const TasksPage = () => {
                 </Grid>
 
                 {/* Search and Filters */}
-                <Toolbar disableGutters sx={{ gap: 2, flexWrap: 'wrap', mb: 2 }}>
-                    <TextField
-                        size="small"
-                        placeholder="Tìm theo tên nhiệm vụ, ca làm..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        sx={{ minWidth: { xs: '100%', sm: 280 } }}
-                    />
-                    <FormControl size="small" sx={{ minWidth: 160 }}>
-                        <InputLabel>Loại nhiệm vụ</InputLabel>
-                        <Select label="Loại nhiệm vụ" value={filterType} onChange={(e) => setFilterType(e.target.value)}>
-                            <MenuItem value="all">Tất cả</MenuItem>
-                            <MenuItem value="internal">Nội bộ</MenuItem>
-                            <MenuItem value="service">Dịch vụ</MenuItem>
-                        </Select>
-                    </FormControl>
-                    <FormControl size="small" sx={{ minWidth: 160 }}>
-                        <InputLabel>Khung thời gian</InputLabel>
-                        <Select label="Khung thời gian" value={filterTimeframe} onChange={(e) => setFilterTimeframe(e.target.value)}>
-                            <MenuItem value="all">Tất cả</MenuItem>
-                            <MenuItem value="day">Theo ngày</MenuItem>
-                            <MenuItem value="week">Theo tuần</MenuItem>
-                            <MenuItem value="month">Theo tháng</MenuItem>
-                        </Select>
-                    </FormControl>
-                    <FormControl size="small" sx={{ minWidth: 160 }}>
-                        <InputLabel>Trạng thái</InputLabel>
-                        <Select label="Trạng thái" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
-                            <MenuItem value="all">Tất cả</MenuItem>
-                            <MenuItem value="pending">Chưa bắt đầu</MenuItem>
-                            <MenuItem value="in_progress">Đang thực hiện</MenuItem>
-                            <MenuItem value="completed">Hoàn thành</MenuItem>
-                            <MenuItem value="upcoming">Sắp tới</MenuItem>
-                            <MenuItem value="overdue">Quá hạn</MenuItem>
-                        </Select>
-                    </FormControl>
-                </Toolbar>
+                <Paper
+                    elevation={0}
+                    sx={{
+                        p: 2.5,
+                        mb: 3,
+                        borderRadius: 3,
+                        border: `2px solid ${alpha(COLORS.ERROR[200], 0.3)}`,
+                        background: alpha(COLORS.BACKGROUND.PAPER, 0.6)
+                    }}
+                >
+                    <Stack spacing={2.5}>
+                        {/* Header */}
+                        <Stack direction="row" alignItems="center" spacing={1.5}>
+                            <FilterList sx={{ color: COLORS.ERROR[600], fontSize: 24 }} />
+                            <Typography variant="h6" sx={{ fontWeight: 700, color: COLORS.ERROR[700] }}>
+                                Bộ lọc & Tìm kiếm
+                            </Typography>
+                            <Box sx={{ flexGrow: 1 }} />
+                            <Chip
+                                label={`${filteredTasks.length} nhiệm vụ`}
+                                size="small"
+                                sx={{
+                                    fontWeight: 700,
+                                    bgcolor: alpha(COLORS.ERROR[100], 0.8),
+                                    color: COLORS.ERROR[700]
+                                }}
+                            />
+                        </Stack>
+
+                        <Divider />
+
+                        {/* Search */}
+                        <TextField
+                            placeholder="Tìm kiếm theo tên nhiệm vụ, ca làm việc..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            fullWidth
+                            InputProps={{
+                                startAdornment: (
+                                    <InputAdornment position="start">
+                                        <Search sx={{ color: COLORS.ERROR[400] }} />
+                                    </InputAdornment>
+                                )
+                            }}
+                            sx={{
+                                '& .MuiOutlinedInput-root': {
+                                    borderRadius: 2,
+                                    '&:hover fieldset': {
+                                        borderColor: COLORS.ERROR[400]
+                                    },
+                                    '&.Mui-focused fieldset': {
+                                        borderColor: COLORS.ERROR[500],
+                                        borderWidth: 2
+                                    }
+                                }
+                            }}
+                        />
+
+                        {/* Filters Row */}
+                        <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
+                            <FormControl sx={{ minWidth: 200, flex: 1 }}>
+                                <InputLabel sx={{ fontWeight: 600 }}>Loại nhiệm vụ</InputLabel>
+                                <Select
+                                    label="Loại nhiệm vụ"
+                                    value={filterType}
+                                    onChange={(e) => setFilterType(e.target.value)}
+                                    sx={{
+                                        borderRadius: 2,
+                                        '& .MuiOutlinedInput-notchedOutline': {
+                                            borderColor: alpha(COLORS.ERROR[300], 0.5)
+                                        },
+                                        '&:hover .MuiOutlinedInput-notchedOutline': {
+                                            borderColor: COLORS.ERROR[400]
+                                        },
+                                        '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                            borderColor: COLORS.ERROR[500],
+                                            borderWidth: 2
+                                        }
+                                    }}
+                                >
+                                    <MenuItem value="all">
+                                        <Stack direction="row" spacing={1} alignItems="center">
+                                            <Assignment sx={{ fontSize: 18 }} />
+                                            <span>Tất cả loại</span>
+                                        </Stack>
+                                    </MenuItem>
+                                    <MenuItem value="internal">
+                                        <Chip label="Nội bộ" size="small" color="primary" />
+                                    </MenuItem>
+                                    <MenuItem value="service">
+                                        <Chip label="Dịch vụ" size="small" color="secondary" />
+                                    </MenuItem>
+                                </Select>
+                            </FormControl>
+
+                            <FormControl sx={{ minWidth: 200, flex: 1 }}>
+                                <InputLabel sx={{ fontWeight: 600 }}>Khung thời gian</InputLabel>
+                                <Select
+                                    label="Khung thời gian"
+                                    value={filterTimeframe}
+                                    onChange={(e) => setFilterTimeframe(e.target.value)}
+                                    sx={{
+                                        borderRadius: 2,
+                                        '& .MuiOutlinedInput-notchedOutline': {
+                                            borderColor: alpha(COLORS.ERROR[300], 0.5)
+                                        },
+                                        '&:hover .MuiOutlinedInput-notchedOutline': {
+                                            borderColor: COLORS.ERROR[400]
+                                        },
+                                        '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                            borderColor: COLORS.ERROR[500],
+                                            borderWidth: 2
+                                        }
+                                    }}
+                                >
+                                    <MenuItem value="all">Tất cả khung giờ</MenuItem>
+                                    <MenuItem value="day">📅 Theo ngày</MenuItem>
+                                    <MenuItem value="week">📆 Theo tuần</MenuItem>
+                                    <MenuItem value="month">🗓️ Theo tháng</MenuItem>
+                                </Select>
+                            </FormControl>
+
+                            <FormControl sx={{ minWidth: 200, flex: 1 }}>
+                                <InputLabel sx={{ fontWeight: 600 }}>Trạng thái</InputLabel>
+                                <Select
+                                    label="Trạng thái"
+                                    value={filterStatus}
+                                    onChange={(e) => setFilterStatus(e.target.value)}
+                                    sx={{
+                                        borderRadius: 2,
+                                        '& .MuiOutlinedInput-notchedOutline': {
+                                            borderColor: alpha(COLORS.ERROR[300], 0.5)
+                                        },
+                                        '&:hover .MuiOutlinedInput-notchedOutline': {
+                                            borderColor: COLORS.ERROR[400]
+                                        },
+                                        '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                            borderColor: COLORS.ERROR[500],
+                                            borderWidth: 2
+                                        }
+                                    }}
+                                >
+                                    <MenuItem value="all">Tất cả trạng thái</MenuItem>
+                                    <MenuItem value="pending">
+                                        <Chip
+                                            label="Chưa bắt đầu"
+                                            size="small"
+                                            sx={{ bgcolor: alpha(COLORS.TEXT.SECONDARY, 0.1) }}
+                                        />
+                                    </MenuItem>
+                                    <MenuItem value="in_progress">
+                                        <Chip
+                                            label="Đang thực hiện"
+                                            size="small"
+                                            color="warning"
+                                        />
+                                    </MenuItem>
+                                    <MenuItem value="completed">
+                                        <Chip
+                                            label="Hoàn thành"
+                                            size="small"
+                                            color="success"
+                                        />
+                                    </MenuItem>
+                                    <MenuItem value="upcoming">
+                                        <Chip
+                                            label="Sắp tới"
+                                            size="small"
+                                            color="info"
+                                        />
+                                    </MenuItem>
+                                    <MenuItem value="overdue">
+                                        <Chip
+                                            label="Quá hạn"
+                                            size="small"
+                                            color="error"
+                                        />
+                                    </MenuItem>
+                                </Select>
+                            </FormControl>
+                        </Stack>
+                    </Stack>
+                </Paper>
 
                 {/* Task List */}
                 <TaskList

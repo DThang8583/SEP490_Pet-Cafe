@@ -200,8 +200,8 @@ const TimeSlotAssignment = ({ timeSlot, formData, setFormData, areas, staff, ope
 };
 
 // ==================== SHIFT ASSIGNMENT (for Internal tasks with multiple shifts) ====================
-const ShiftAssignment = ({ shift, formData, setFormData, areas, staff, openStaffGroupDialog, openPetGroupDialog, editStaffGroup }) => {
-    const assignment = formData.shiftAssignments[shift] || { areaIds: [], petGroups: [], staffGroups: [] };
+const ShiftAssignment = ({ shift, formData, setFormData, areas, staff, petGroupsMap, openStaffGroupDialog, openPetGroupDialog, editStaffGroup }) => {
+    const assignment = formData.shiftAssignments[shift] || { areaIds: [], petGroups: [], staffGroups: [], areas: [] };
     const [expandedGroups, setExpandedGroups] = React.useState({});
     const [workShift, setWorkShift] = React.useState(null);
     const [allWorkShifts, setAllWorkShifts] = React.useState([]);
@@ -376,74 +376,472 @@ const ShiftAssignment = ({ shift, formData, setFormData, areas, staff, openStaff
         }));
     };
 
+    // Add area by date
+    const addAreaByDate = (area, dateStr) => {
+        const existingAreas = assignment.areas || [];
+        const isDuplicate = existingAreas.some(a =>
+            a.areaId === area.id && a.assignedDate === dateStr
+        );
+
+        if (isDuplicate) {
+            console.warn(`Khu vực "${area.name}" đã được thêm cho ngày ${dateStr}`);
+            return;
+        }
+
+        const dayName = getDayNameFromDate(dateStr);
+        const dayNameVi = {
+            'MONDAY': 'Thứ 2',
+            'TUESDAY': 'Thứ 3',
+            'WEDNESDAY': 'Thứ 4',
+            'THURSDAY': 'Thứ 5',
+            'FRIDAY': 'Thứ 6',
+            'SATURDAY': 'Thứ 7',
+            'SUNDAY': 'Chủ nhật'
+        }[dayName] || dayName;
+
+        const newArea = {
+            areaId: area.id,
+            areaName: area.name,
+            capacity: area.capacity,
+            assignedDate: dateStr,
+            assignedDayName: dayNameVi
+        };
+
+        setFormData(prev => ({
+            ...prev,
+            shiftAssignments: {
+                ...prev.shiftAssignments,
+                [shift]: {
+                    ...assignment,
+                    areaIds: [],  // Clear old format
+                    areas: [...(assignment.areas || []), newArea]
+                }
+            }
+        }));
+    };
+
+    // Add pet group by date
+    const addPetGroupByDate = (groupName, dateStr) => {
+        const existingPetGroups = assignment.petGroups || [];
+        const isDuplicate = existingPetGroups.some(pg =>
+            pg.groupName === groupName && pg.assignedDate === dateStr
+        );
+
+        if (isDuplicate) {
+            console.warn(`Nhóm pet "${groupName}" đã được thêm cho ngày ${dateStr}`);
+            return;
+        }
+
+        const petIds = (petGroupsMap[groupName] || []).map(p => p.id);
+        const count = petIds.length;
+
+        const dayName = getDayNameFromDate(dateStr);
+        const dayNameVi = {
+            'MONDAY': 'Thứ 2',
+            'TUESDAY': 'Thứ 3',
+            'WEDNESDAY': 'Thứ 4',
+            'THURSDAY': 'Thứ 5',
+            'FRIDAY': 'Thứ 6',
+            'SATURDAY': 'Thứ 7',
+            'SUNDAY': 'Chủ nhật'
+        }[dayName] || dayName;
+
+        const newPetGroup = {
+            groupName,
+            petIds,
+            count,
+            assignedDate: dateStr,
+            assignedDayName: dayNameVi
+        };
+
+        setFormData(prev => ({
+            ...prev,
+            shiftAssignments: {
+                ...prev.shiftAssignments,
+                [shift]: {
+                    ...assignment,
+                    petGroups: [...(assignment.petGroups || []), newPetGroup]
+                }
+            }
+        }));
+    };
+
     return (
-        <Stack spacing={3}>
-            {/* Areas */}
-            <Box>
-                <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>Khu vực</Typography>
-                <FormGroup>
-                    {(areas || []).map(area => (
-                        <FormControlLabel
-                            key={area.id}
-                            control={
-                                <Checkbox
-                                    checked={(assignment.areaIds || []).includes(area.id)}
-                                    onChange={(e) => {
-                                        const checked = e.target.checked;
-                                        setFormData(prev => ({
-                                            ...prev,
-                                            shiftAssignments: {
-                                                ...prev.shiftAssignments,
-                                                [shift]: {
-                                                    ...assignment,
-                                                    areaIds: checked
-                                                        ? [...assignment.areaIds, area.id]
-                                                        : assignment.areaIds.filter(id => id !== area.id)
-                                                }
-                                            }
-                                        }));
-                                    }}
-                                />
-                            }
-                            label={`${area.name} (Sức chứa: ${area.capacity || 0})`}
-                        />
-                    ))}
-                </FormGroup>
-            </Box>
-
-            {/* Pet Groups */}
-            <Box>
-                <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 1 }}>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Nhóm pet</Typography>
-                    <Button size="small" variant="outlined" onClick={() => openPetGroupDialog({ shift })}>
-                        Chọn nhóm pet
-                    </Button>
+        <Stack spacing={4}>
+            {/* Areas Section */}
+            <Paper
+                elevation={0}
+                sx={{
+                    p: 3,
+                    borderRadius: 3,
+                    border: `2px solid ${alpha(COLORS.INFO[300], 0.5)}`,
+                    background: `linear-gradient(135deg, ${alpha(COLORS.INFO[50], 0.3)} 0%, ${alpha(COLORS.INFO[100], 0.2)} 100%)`
+                }}
+            >
+                <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 3 }}>
+                    <Box
+                        sx={{
+                            width: 40,
+                            height: 40,
+                            borderRadius: 2,
+                            background: `linear-gradient(135deg, ${COLORS.INFO[400]} 0%, ${COLORS.INFO[600]} 100%)`,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            boxShadow: `0 4px 12px ${alpha(COLORS.INFO[500], 0.3)}`
+                        }}
+                    >
+                        <Typography variant="h6" sx={{ color: 'white' }}>📍</Typography>
+                    </Box>
+                    <Box sx={{ flex: 1 }}>
+                        <Typography variant="h6" sx={{ fontWeight: 800, color: COLORS.INFO[700] }}>
+                            Khu vực
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY }}>
+                            Chọn khu vực phân công theo từng ngày
+                        </Typography>
+                    </Box>
                 </Stack>
-                <Stack direction="row" spacing={1} flexWrap="wrap">
-                    {(assignment.petGroups || []).map((pg, idx) => (
-                        <Chip
-                            key={idx}
-                            label={`${pg.groupName} (${pg.count} con)`}
-                            onDelete={() => {
-                                setFormData(prev => ({
-                                    ...prev,
-                                    shiftAssignments: {
-                                        ...prev.shiftAssignments,
-                                        [shift]: {
-                                            ...assignment,
-                                            petGroups: assignment.petGroups.filter((_, i) => i !== idx)
+
+                {loadingWorkShifts ? (
+                    <Alert severity="info">
+                        Đang tải...
+                    </Alert>
+                ) : (
+                    <Box>
+                        {Object.keys(teamsByDate).length === 0 ? (
+                            <Alert severity="warning">
+                                Không có ngày phù hợp với ca làm việc này
+                            </Alert>
+                        ) : (
+                            <Stack spacing={2}>
+                                {(() => {
+                                    // Group dates by day of week
+                                    const datesByDayOfWeek = {};
+                                    Object.entries(teamsByDate).forEach(([dateStr]) => {
+                                        const dayName = getDayNameFromDate(dateStr);
+                                        if (!datesByDayOfWeek[dayName]) {
+                                            datesByDayOfWeek[dayName] = [];
                                         }
-                                    }
-                                }));
-                            }}
-                        />
-                    ))}
-                </Stack>
-            </Box>
+                                        datesByDayOfWeek[dayName].push(dateStr);
+                                    });
 
-            {/* Staff Groups */}
-            <Box>
-                <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>Nhóm nhân viên</Typography>
+                                    const dayOrder = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
+
+                                    return dayOrder.filter(day => datesByDayOfWeek[day]).map(dayName => {
+                                        const dayNameVi = {
+                                            'MONDAY': 'Thứ 2',
+                                            'TUESDAY': 'Thứ 3',
+                                            'WEDNESDAY': 'Thứ 4',
+                                            'THURSDAY': 'Thứ 5',
+                                            'FRIDAY': 'Thứ 6',
+                                            'SATURDAY': 'Thứ 7',
+                                            'SUNDAY': 'Chủ nhật'
+                                        }[dayName];
+
+                                        const dates = datesByDayOfWeek[dayName];
+                                        const dateCount = dates.length;
+
+                                        return (
+                                            <Box key={dayName}>
+                                                <Typography variant="caption" sx={{ fontWeight: 600, color: COLORS.PRIMARY[600], display: 'block', mb: 0.5 }}>
+                                                    {dayNameVi} ({dateCount} ngày: {dates[0]}{dateCount > 1 ? `, ... ${dates[dates.length - 1]}` : ''})
+                                                </Typography>
+                                                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                                                    {(areas || []).map(area => {
+                                                        // Check if area is selected for ALL dates of this day
+                                                        const selectedCount = dates.filter(d =>
+                                                            (assignment.areas || []).some(a => a.areaId === area.id && a.assignedDate === d)
+                                                        ).length;
+                                                        const isFullySelected = selectedCount === dateCount;
+                                                        const isPartiallySelected = selectedCount > 0 && selectedCount < dateCount;
+
+                                                        return (
+                                                            <Chip
+                                                                key={area.id}
+                                                                label={`${area.name} (Sức chứa: ${area.capacity})${isPartiallySelected ? ` (${selectedCount}/${dateCount})` : ''}`}
+                                                                onClick={() => {
+                                                                    // Add area for ALL dates of this day of week
+                                                                    dates.forEach(dateStr => {
+                                                                        addAreaByDate(area, dateStr);
+                                                                    });
+                                                                }}
+                                                                sx={{
+                                                                    bgcolor: isFullySelected
+                                                                        ? alpha(COLORS.SUCCESS[200], 0.3)
+                                                                        : isPartiallySelected
+                                                                            ? alpha(COLORS.WARNING[100], 0.5)
+                                                                            : alpha(COLORS.INFO[50], 0.8),
+                                                                    cursor: isFullySelected ? 'default' : 'pointer',
+                                                                    opacity: isFullySelected ? 0.6 : 1,
+                                                                    '&:hover': {
+                                                                        bgcolor: isFullySelected
+                                                                            ? alpha(COLORS.SUCCESS[200], 0.3)
+                                                                            : isPartiallySelected
+                                                                                ? alpha(COLORS.WARNING[200], 0.6)
+                                                                                : alpha(COLORS.INFO[100], 0.9)
+                                                                    }
+                                                                }}
+                                                            />
+                                                        );
+                                                    })}
+                                                </Stack>
+                                            </Box>
+                                        );
+                                    });
+                                })()}
+                            </Stack>
+                        )}
+                    </Box>
+                )}
+
+                {/* Display assigned areas */}
+                {(assignment.areas || []).length > 0 && (
+                    <Box sx={{ mt: 3, pt: 2.5, borderTop: `1px dashed ${alpha(COLORS.INFO[300], 0.5)}` }}>
+                        <Typography variant="caption" sx={{ fontWeight: 700, color: COLORS.INFO[700], display: 'block', mb: 1.5 }}>
+                            📍 Đã chọn ({assignment.areas.length} khu vực):
+                        </Typography>
+                        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                            {[...(assignment.areas || [])]
+                                .sort((a, b) => {
+                                    if (a.assignedDate && b.assignedDate) {
+                                        return new Date(a.assignedDate) - new Date(b.assignedDate);
+                                    }
+                                    return 0;
+                                })
+                                .map((area, idx) => (
+                                    <Chip
+                                        key={idx}
+                                        label={`${area.areaName} - ${area.assignedDayName}, ${area.assignedDate}`}
+                                        onDelete={() => {
+                                            setFormData(prev => ({
+                                                ...prev,
+                                                shiftAssignments: {
+                                                    ...prev.shiftAssignments,
+                                                    [shift]: {
+                                                        ...assignment,
+                                                        areas: assignment.areas.filter((_, i) => i !== idx)
+                                                    }
+                                                }
+                                            }));
+                                        }}
+                                        sx={{
+                                            bgcolor: alpha(COLORS.INFO[100], 0.8),
+                                            fontWeight: 600,
+                                            borderLeft: `3px solid ${COLORS.INFO[500]}`
+                                        }}
+                                    />
+                                ))}
+                        </Stack>
+                    </Box>
+                )}
+            </Paper>
+
+            {/* Pet Groups Section */}
+            <Paper
+                elevation={0}
+                sx={{
+                    p: 3,
+                    borderRadius: 3,
+                    border: `2px solid ${alpha(COLORS.SECONDARY[300], 0.5)}`,
+                    background: `linear-gradient(135deg, ${alpha(COLORS.SECONDARY[50], 0.3)} 0%, ${alpha(COLORS.SECONDARY[100], 0.2)} 100%)`
+                }}
+            >
+                <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 3 }}>
+                    <Box
+                        sx={{
+                            width: 40,
+                            height: 40,
+                            borderRadius: 2,
+                            background: `linear-gradient(135deg, ${COLORS.SECONDARY[400]} 0%, ${COLORS.SECONDARY[600]} 100%)`,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            boxShadow: `0 4px 12px ${alpha(COLORS.SECONDARY[500], 0.3)}`
+                        }}
+                    >
+                        <Typography variant="h6" sx={{ color: 'white' }}>🐾</Typography>
+                    </Box>
+                    <Box sx={{ flex: 1 }}>
+                        <Typography variant="h6" sx={{ fontWeight: 800, color: COLORS.SECONDARY[700] }}>
+                            Nhóm pet
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY }}>
+                            Chọn nhóm pet phân công theo từng ngày
+                        </Typography>
+                    </Box>
+                </Stack>
+
+                {loadingWorkShifts ? (
+                    <Alert severity="info">
+                        Đang tải...
+                    </Alert>
+                ) : (
+                    <Box>
+                        {Object.keys(teamsByDate).length === 0 ? (
+                            <Alert severity="warning">
+                                Không có ngày phù hợp với ca làm việc này
+                            </Alert>
+                        ) : (
+                            <Stack spacing={2}>
+                                {(() => {
+                                    // Group dates by day of week (reuse logic from areas)
+                                    const datesByDayOfWeek = {};
+                                    Object.entries(teamsByDate).forEach(([dateStr]) => {
+                                        const dayName = getDayNameFromDate(dateStr);
+                                        if (!datesByDayOfWeek[dayName]) {
+                                            datesByDayOfWeek[dayName] = [];
+                                        }
+                                        datesByDayOfWeek[dayName].push(dateStr);
+                                    });
+
+                                    const dayOrder = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
+                                    const petGroupNames = Object.keys(petGroupsMap || {});
+
+                                    return dayOrder.filter(day => datesByDayOfWeek[day]).map(dayName => {
+                                        const dayNameVi = {
+                                            'MONDAY': 'Thứ 2',
+                                            'TUESDAY': 'Thứ 3',
+                                            'WEDNESDAY': 'Thứ 4',
+                                            'THURSDAY': 'Thứ 5',
+                                            'FRIDAY': 'Thứ 6',
+                                            'SATURDAY': 'Thứ 7',
+                                            'SUNDAY': 'Chủ nhật'
+                                        }[dayName];
+
+                                        const dates = datesByDayOfWeek[dayName];
+                                        const dateCount = dates.length;
+
+                                        return (
+                                            <Box key={dayName}>
+                                                <Typography variant="caption" sx={{ fontWeight: 600, color: COLORS.PRIMARY[600], display: 'block', mb: 0.5 }}>
+                                                    {dayNameVi} ({dateCount} ngày: {dates[0]}{dateCount > 1 ? `, ... ${dates[dates.length - 1]}` : ''})
+                                                </Typography>
+                                                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                                                    {petGroupNames.map(groupName => {
+                                                        // Check if pet group is selected for ALL dates of this day
+                                                        const selectedCount = dates.filter(d =>
+                                                            (assignment.petGroups || []).some(pg => pg.groupName === groupName && pg.assignedDate === d)
+                                                        ).length;
+                                                        const isFullySelected = selectedCount === dateCount;
+                                                        const isPartiallySelected = selectedCount > 0 && selectedCount < dateCount;
+                                                        const petCount = (petGroupsMap[groupName] || []).length;
+
+                                                        return (
+                                                            <Chip
+                                                                key={groupName}
+                                                                label={`${groupName} (${petCount} con)${isPartiallySelected ? ` (${selectedCount}/${dateCount})` : ''}`}
+                                                                onClick={() => {
+                                                                    // Add pet group for ALL dates of this day of week
+                                                                    dates.forEach(dateStr => {
+                                                                        addPetGroupByDate(groupName, dateStr);
+                                                                    });
+                                                                }}
+                                                                sx={{
+                                                                    bgcolor: isFullySelected
+                                                                        ? alpha(COLORS.SUCCESS[200], 0.3)
+                                                                        : isPartiallySelected
+                                                                            ? alpha(COLORS.WARNING[100], 0.5)
+                                                                            : alpha(COLORS.INFO[50], 0.8),
+                                                                    cursor: isFullySelected ? 'default' : 'pointer',
+                                                                    opacity: isFullySelected ? 0.6 : 1,
+                                                                    '&:hover': {
+                                                                        bgcolor: isFullySelected
+                                                                            ? alpha(COLORS.SUCCESS[200], 0.3)
+                                                                            : isPartiallySelected
+                                                                                ? alpha(COLORS.WARNING[200], 0.6)
+                                                                                : alpha(COLORS.INFO[100], 0.9)
+                                                                    }
+                                                                }}
+                                                            />
+                                                        );
+                                                    })}
+                                                </Stack>
+                                            </Box>
+                                        );
+                                    });
+                                })()}
+                            </Stack>
+                        )}
+                    </Box>
+                )}
+
+                {/* Display assigned pet groups */}
+                {(assignment.petGroups || []).length > 0 && (
+                    <Box sx={{ mt: 3, pt: 2.5, borderTop: `1px dashed ${alpha(COLORS.SECONDARY[300], 0.5)}` }}>
+                        <Typography variant="caption" sx={{ fontWeight: 700, color: COLORS.SECONDARY[700], display: 'block', mb: 1.5 }}>
+                            🐾 Đã chọn ({assignment.petGroups.length} nhóm):
+                        </Typography>
+                        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                            {[...(assignment.petGroups || [])]
+                                .sort((a, b) => {
+                                    if (a.assignedDate && b.assignedDate) {
+                                        return new Date(a.assignedDate) - new Date(b.assignedDate);
+                                    }
+                                    return 0;
+                                })
+                                .map((pg, idx) => (
+                                    <Chip
+                                        key={idx}
+                                        label={`${pg.groupName} (${pg.count} con) - ${pg.assignedDayName}, ${pg.assignedDate}`}
+                                        onDelete={() => {
+                                            setFormData(prev => ({
+                                                ...prev,
+                                                shiftAssignments: {
+                                                    ...prev.shiftAssignments,
+                                                    [shift]: {
+                                                        ...assignment,
+                                                        petGroups: assignment.petGroups.filter((_, i) => i !== idx)
+                                                    }
+                                                }
+                                            }));
+                                        }}
+                                        sx={{
+                                            bgcolor: alpha(COLORS.SECONDARY[100], 0.8),
+                                            fontWeight: 600,
+                                            borderLeft: `3px solid ${COLORS.SECONDARY[500]}`
+                                        }}
+                                    />
+                                ))}
+                        </Stack>
+                    </Box>
+                )}
+            </Paper>
+
+            {/* Staff Groups Section */}
+            <Paper
+                elevation={0}
+                sx={{
+                    p: 3,
+                    borderRadius: 3,
+                    border: `2px solid ${alpha(COLORS.PRIMARY[300], 0.5)}`,
+                    background: `linear-gradient(135deg, ${alpha(COLORS.PRIMARY[50], 0.3)} 0%, ${alpha(COLORS.PRIMARY[100], 0.2)} 100%)`
+                }}
+            >
+                <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 3 }}>
+                    <Box
+                        sx={{
+                            width: 40,
+                            height: 40,
+                            borderRadius: 2,
+                            background: `linear-gradient(135deg, ${COLORS.PRIMARY[400]} 0%, ${COLORS.PRIMARY[600]} 100%)`,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            boxShadow: `0 4px 12px ${alpha(COLORS.PRIMARY[500], 0.3)}`
+                        }}
+                    >
+                        <Typography variant="h6" sx={{ color: 'white' }}>👥</Typography>
+                    </Box>
+                    <Box sx={{ flex: 1 }}>
+                        <Typography variant="h6" sx={{ fontWeight: 800, color: COLORS.PRIMARY[700] }}>
+                            Nhóm nhân viên
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY }}>
+                            Chọn nhóm từ WorkShift hoặc tạo nhóm tùy chỉnh
+                        </Typography>
+                    </Box>
+                </Stack>
 
                 {/* Teams from WorkShift matching day/time */}
                 {loadingWorkShifts ? (
@@ -550,127 +948,135 @@ const ShiftAssignment = ({ shift, formData, setFormData, areas, staff, openStaff
                     </Box>
                 )}
 
-                {[...(assignment.staffGroups || [])]
-                    .sort((a, b) => {
-                        // Sort by date
-                        if (a.assignedDate && b.assignedDate) {
-                            return new Date(a.assignedDate) - new Date(b.assignedDate);
-                        }
-                        return 0;
-                    })
-                    .map((sg, idx) => (
-                        <Paper key={idx} sx={{ mb: 2, border: `1px solid ${alpha(COLORS.SECONDARY[200], 0.3)}`, overflow: 'hidden' }}>
-                            <Box sx={{ p: 2 }}>
-                                <Stack direction="row" alignItems="center" justifyContent="space-between">
-                                    <Box sx={{ flex: 1 }}>
-                                        <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap">
-                                            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>{sg.name}</Typography>
-                                            {sg.assignedDayName && (
-                                                <Chip
-                                                    label={`${sg.assignedDayName}, ${sg.assignedDate}`}
+                {/* Display assigned staff groups */}
+                {(assignment.staffGroups || []).length > 0 && (
+                    <Box sx={{ mt: 3, pt: 2.5, borderTop: `1px dashed ${alpha(COLORS.PRIMARY[300], 0.5)}` }}>
+                        <Typography variant="caption" sx={{ fontWeight: 700, color: COLORS.PRIMARY[700], display: 'block', mb: 2 }}>
+                            👥 Nhóm đã phân công ({assignment.staffGroups.length}):
+                        </Typography>
+                        {[...(assignment.staffGroups || [])]
+                            .sort((a, b) => {
+                                // Sort by date
+                                if (a.assignedDate && b.assignedDate) {
+                                    return new Date(a.assignedDate) - new Date(b.assignedDate);
+                                }
+                                return 0;
+                            })
+                            .map((sg, idx) => (
+                                <Paper key={idx} sx={{ mb: 2, border: `1px solid ${alpha(COLORS.PRIMARY[200], 0.4)}`, overflow: 'hidden', boxShadow: `0 2px 8px ${alpha(COLORS.PRIMARY[500], 0.1)}` }}>
+                                    <Box sx={{ p: 2 }}>
+                                        <Stack direction="row" alignItems="center" justifyContent="space-between">
+                                            <Box sx={{ flex: 1 }}>
+                                                <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap">
+                                                    <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>{sg.name}</Typography>
+                                                    {sg.assignedDayName && (
+                                                        <Chip
+                                                            label={`${sg.assignedDayName}, ${sg.assignedDate}`}
+                                                            size="small"
+                                                            sx={{
+                                                                height: 20,
+                                                                fontSize: '0.7rem',
+                                                                backgroundColor: alpha(COLORS.PRIMARY[500], 0.1),
+                                                                color: COLORS.PRIMARY[700],
+                                                                fontWeight: 600
+                                                            }}
+                                                        />
+                                                    )}
+                                                </Stack>
+                                                <Typography variant="caption" sx={{ display: 'block', mt: 0.5 }}>
+                                                    {sg.staffIds?.length || 0} nhân viên | Leader: {staff.find(s => s.id === sg.leaderId)?.full_name || '—'}
+                                                </Typography>
+                                            </Box>
+                                            <Stack direction="row" spacing={0.5}>
+                                                <IconButton
                                                     size="small"
-                                                    sx={{
-                                                        height: 20,
-                                                        fontSize: '0.7rem',
-                                                        backgroundColor: alpha(COLORS.PRIMARY[500], 0.1),
-                                                        color: COLORS.PRIMARY[700],
-                                                        fontWeight: 600
+                                                    onClick={() => toggleGroup(idx)}
+                                                    sx={{ color: COLORS.PRIMARY[600] }}
+                                                >
+                                                    {expandedGroups[idx] ? <ExpandMore /> : <ChevronRight />}
+                                                </IconButton>
+                                                <IconButton
+                                                    size="small"
+                                                    onClick={() => {
+                                                        setFormData(prev => ({
+                                                            ...prev,
+                                                            shiftAssignments: {
+                                                                ...prev.shiftAssignments,
+                                                                [shift]: {
+                                                                    ...assignment,
+                                                                    staffGroups: assignment.staffGroups.filter((_, i) => i !== idx)
+                                                                }
+                                                            }
+                                                        }));
                                                     }}
-                                                />
-                                            )}
+                                                    sx={{ color: COLORS.ERROR[600] }}
+                                                >
+                                                    <Delete fontSize="small" />
+                                                </IconButton>
+                                            </Stack>
                                         </Stack>
-                                        <Typography variant="caption" sx={{ display: 'block', mt: 0.5 }}>
-                                            {sg.staffIds?.length || 0} nhân viên | Leader: {staff.find(s => s.id === sg.leaderId)?.full_name || '—'}
-                                        </Typography>
                                     </Box>
-                                    <Stack direction="row" spacing={0.5}>
-                                        <IconButton
-                                            size="small"
-                                            onClick={() => toggleGroup(idx)}
-                                            sx={{ color: COLORS.PRIMARY[600] }}
-                                        >
-                                            {expandedGroups[idx] ? <ExpandMore /> : <ChevronRight />}
-                                        </IconButton>
-                                        <IconButton
-                                            size="small"
-                                            onClick={() => {
-                                                setFormData(prev => ({
-                                                    ...prev,
-                                                    timeSlotAssignments: {
-                                                        ...prev.timeSlotAssignments,
-                                                        [slotId]: {
-                                                            ...assignment,
-                                                            staffGroups: assignment.staffGroups.filter((_, i) => i !== idx)
-                                                        }
-                                                    }
-                                                }));
-                                            }}
-                                            sx={{ color: COLORS.ERROR[600] }}
-                                        >
-                                            <Delete fontSize="small" />
-                                        </IconButton>
-                                    </Stack>
-                                </Stack>
-                            </Box>
 
-                            {expandedGroups[idx] && (
-                                <Box sx={{
-                                    px: 2,
-                                    pb: 2,
-                                    pt: 0,
-                                    borderTop: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.2)}`,
-                                    backgroundColor: alpha(COLORS.BACKGROUND.NEUTRAL, 0.3)
-                                }}>
-                                    <Typography variant="caption" sx={{ fontWeight: 600, color: COLORS.TEXT.SECONDARY, display: 'block', mb: 1, mt: 2 }}>
-                                        Thành viên:
-                                    </Typography>
-                                    <Stack spacing={0.5}>
-                                        {[...(sg.staffIds || [])].sort((a, b) => {
-                                            if (a === sg.leaderId) return -1;
-                                            if (b === sg.leaderId) return 1;
-                                            return 0;
-                                        }).map(staffId => {
-                                            const member = staff.find(s => s.id === staffId);
-                                            const isLeader = staffId === sg.leaderId;
-                                            return member ? (
-                                                <Box key={staffId} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                    <Box sx={{
-                                                        width: 6,
-                                                        height: 6,
-                                                        borderRadius: '50%',
-                                                        backgroundColor: isLeader ? COLORS.ERROR[500] : COLORS.SECONDARY[400]
-                                                    }} />
-                                                    <Typography variant="body2">
-                                                        {member.full_name}
-                                                        {isLeader && (
-                                                            <Chip
-                                                                label="Leader"
-                                                                size="small"
-                                                                sx={{
-                                                                    ml: 1,
-                                                                    height: 18,
-                                                                    fontSize: '0.65rem',
-                                                                    backgroundColor: alpha(COLORS.ERROR[500], 0.1),
-                                                                    color: COLORS.ERROR[600]
-                                                                }}
-                                                            />
-                                                        )}
-                                                    </Typography>
-                                                </Box>
-                                            ) : null;
-                                        })}
-                                    </Stack>
-                                </Box>
-                            )}
-                        </Paper>
-                    ))}
-            </Box>
+                                    {expandedGroups[idx] && (
+                                        <Box sx={{
+                                            px: 2,
+                                            pb: 2,
+                                            pt: 0,
+                                            borderTop: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.2)}`,
+                                            backgroundColor: alpha(COLORS.BACKGROUND.NEUTRAL, 0.3)
+                                        }}>
+                                            <Typography variant="caption" sx={{ fontWeight: 600, color: COLORS.TEXT.SECONDARY, display: 'block', mb: 1, mt: 2 }}>
+                                                Thành viên:
+                                            </Typography>
+                                            <Stack spacing={0.5}>
+                                                {[...(sg.staffIds || [])].sort((a, b) => {
+                                                    if (a === sg.leaderId) return -1;
+                                                    if (b === sg.leaderId) return 1;
+                                                    return 0;
+                                                }).map(staffId => {
+                                                    const member = staff.find(s => s.id === staffId);
+                                                    const isLeader = staffId === sg.leaderId;
+                                                    return member ? (
+                                                        <Box key={staffId} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                            <Box sx={{
+                                                                width: 6,
+                                                                height: 6,
+                                                                borderRadius: '50%',
+                                                                backgroundColor: isLeader ? COLORS.ERROR[500] : COLORS.SECONDARY[400]
+                                                            }} />
+                                                            <Typography variant="body2">
+                                                                {member.full_name}
+                                                                {isLeader && (
+                                                                    <Chip
+                                                                        label="Leader"
+                                                                        size="small"
+                                                                        sx={{
+                                                                            ml: 1,
+                                                                            height: 18,
+                                                                            fontSize: '0.65rem',
+                                                                            backgroundColor: alpha(COLORS.ERROR[500], 0.1),
+                                                                            color: COLORS.ERROR[600]
+                                                                        }}
+                                                                    />
+                                                                )}
+                                                            </Typography>
+                                                        </Box>
+                                                    ) : null;
+                                                })}
+                                            </Stack>
+                                        </Box>
+                                    )}
+                                </Paper>
+                            ))}
+                    </Box>
+                )}
+            </Paper>
         </Stack>
     );
 };
 
 // ==================== INTERNAL ASSIGNMENT ====================
-export const InternalAssignment = ({ formData, setFormData, areas, staff, openStaffGroupDialog, openPetGroupDialog, editStaffGroup }) => {
+export const InternalAssignment = ({ formData, setFormData, areas, staff, petGroupsMap, openStaffGroupDialog, openPetGroupDialog, editStaffGroup }) => {
     const selectedShifts = formData.shifts || [];
     const [workShifts, setWorkShifts] = React.useState([]);
     const [loadingShifts, setLoadingShifts] = React.useState(true);
@@ -739,6 +1145,7 @@ export const InternalAssignment = ({ formData, setFormData, areas, staff, openSt
                                         setFormData={setFormData}
                                         areas={areas}
                                         staff={staff}
+                                        petGroupsMap={petGroupsMap}
                                         openStaffGroupDialog={openStaffGroupDialog}
                                         openPetGroupDialog={openPetGroupDialog}
                                         editStaffGroup={editStaffGroup}
@@ -774,8 +1181,8 @@ const checkTimeOverlap = (start1, end1, start2, end2) => {
 };
 
 // ==================== SERVICE SLOT ASSIGNMENT ====================
-const ServiceSlotAssignment = ({ slotId, slot, formData, setFormData, areas, staff, selectedService, openStaffGroupDialog, openPetGroupDialog, editStaffGroup }) => {
-    const assignment = formData.timeSlotAssignments?.[slotId] || { areaIds: [], petGroups: [], staffGroups: [] };
+const ServiceSlotAssignment = ({ slotId, slot, formData, setFormData, areas, staff, petGroupsMap, selectedService, openStaffGroupDialog, openPetGroupDialog, editStaffGroup }) => {
+    const assignment = formData.timeSlotAssignments?.[slotId] || { areaIds: [], petGroups: [], staffGroups: [], areas: [] };
     const [expandedGroups, setExpandedGroups] = React.useState({});
     const [staffShifts, setStaffShifts] = React.useState({});
     const [loadingStaff, setLoadingStaff] = React.useState(true);
@@ -954,78 +1361,471 @@ const ServiceSlotAssignment = ({ slotId, slot, formData, setFormData, areas, sta
         }));
     };
 
+    // Add area by date (for service slots)
+    const addAreaByDate = (area, dateStr) => {
+        const existingAreas = assignment.areas || [];
+        const isDuplicate = existingAreas.some(a =>
+            a.areaId === area.id && a.assignedDate === dateStr
+        );
+
+        if (isDuplicate) {
+            console.warn(`Khu vực "${area.name}" đã được thêm cho ngày ${dateStr}`);
+            return;
+        }
+
+        const dayName = getDayNameFromDate(dateStr);
+        const dayNameVi = {
+            'MONDAY': 'Thứ 2',
+            'TUESDAY': 'Thứ 3',
+            'WEDNESDAY': 'Thứ 4',
+            'THURSDAY': 'Thứ 5',
+            'FRIDAY': 'Thứ 6',
+            'SATURDAY': 'Thứ 7',
+            'SUNDAY': 'Chủ nhật'
+        }[dayName] || dayName;
+
+        const newArea = {
+            areaId: area.id,
+            areaName: area.name,
+            capacity: area.capacity,
+            assignedDate: dateStr,
+            assignedDayName: dayNameVi
+        };
+
+        setFormData(prev => ({
+            ...prev,
+            timeSlotAssignments: {
+                ...prev.timeSlotAssignments,
+                [slotId]: {
+                    ...assignment,
+                    areaIds: [],  // Clear old format
+                    areas: [...(assignment.areas || []), newArea]
+                }
+            }
+        }));
+    };
+
+    // Add pet group by date (for service slots)
+    const addPetGroupByDate = (groupName, dateStr) => {
+        const existingPetGroups = assignment.petGroups || [];
+        const isDuplicate = existingPetGroups.some(pg =>
+            pg.groupName === groupName && pg.assignedDate === dateStr
+        );
+
+        if (isDuplicate) {
+            console.warn(`Nhóm pet "${groupName}" đã được thêm cho ngày ${dateStr}`);
+            return;
+        }
+
+        const petIds = (petGroupsMap[groupName] || []).map(p => p.id);
+        const count = petIds.length;
+
+        const dayName = getDayNameFromDate(dateStr);
+        const dayNameVi = {
+            'MONDAY': 'Thứ 2',
+            'TUESDAY': 'Thứ 3',
+            'WEDNESDAY': 'Thứ 4',
+            'THURSDAY': 'Thứ 5',
+            'FRIDAY': 'Thứ 6',
+            'SATURDAY': 'Thứ 7',
+            'SUNDAY': 'Chủ nhật'
+        }[dayName] || dayName;
+
+        const newPetGroup = {
+            groupName,
+            petIds,
+            count,
+            assignedDate: dateStr,
+            assignedDayName: dayNameVi
+        };
+
+        setFormData(prev => ({
+            ...prev,
+            timeSlotAssignments: {
+                ...prev.timeSlotAssignments,
+                [slotId]: {
+                    ...assignment,
+                    petGroups: [...(assignment.petGroups || []), newPetGroup]
+                }
+            }
+        }));
+    };
+
     const toggleGroup = (idx) => {
         setExpandedGroups(prev => ({ ...prev, [idx]: !prev[idx] }));
     };
 
     return (
-        <Stack spacing={3}>
-            {/* Areas */}
-            <Box>
-                <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>Khu vực</Typography>
-                <FormGroup>
-                    {(areas || []).map(area => (
-                        <FormControlLabel
-                            key={area.id}
-                            control={
-                                <Checkbox
-                                    checked={(assignment.areaIds || []).includes(area.id)}
-                                    onChange={(e) => {
-                                        const checked = e.target.checked;
-                                        setFormData(prev => ({
-                                            ...prev,
-                                            timeSlotAssignments: {
-                                                ...prev.timeSlotAssignments,
-                                                [slotId]: {
-                                                    ...assignment,
-                                                    areaIds: checked
-                                                        ? [...assignment.areaIds, area.id]
-                                                        : assignment.areaIds.filter(id => id !== area.id)
-                                                }
-                                            }
-                                        }));
-                                    }}
-                                />
-                            }
-                            label={`${area.name} (Sức chứa: ${area.capacity || 0})`}
-                        />
-                    ))}
-                </FormGroup>
-            </Box>
-
-            {/* Pet Groups */}
-            <Box>
-                <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 1 }}>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>Nhóm pet</Typography>
-                    <Button size="small" variant="outlined" onClick={() => openPetGroupDialog({ shift: slotId })}>
-                        Chọn nhóm pet
-                    </Button>
+        <Stack spacing={4}>
+            {/* Areas Section */}
+            <Paper
+                elevation={0}
+                sx={{
+                    p: 3,
+                    borderRadius: 3,
+                    border: `2px solid ${alpha(COLORS.INFO[300], 0.5)}`,
+                    background: `linear-gradient(135deg, ${alpha(COLORS.INFO[50], 0.3)} 0%, ${alpha(COLORS.INFO[100], 0.2)} 100%)`
+                }}
+            >
+                <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 3 }}>
+                    <Box
+                        sx={{
+                            width: 40,
+                            height: 40,
+                            borderRadius: 2,
+                            background: `linear-gradient(135deg, ${COLORS.INFO[400]} 0%, ${COLORS.INFO[600]} 100%)`,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            boxShadow: `0 4px 12px ${alpha(COLORS.INFO[500], 0.3)}`
+                        }}
+                    >
+                        <Typography variant="h6" sx={{ color: 'white' }}>📍</Typography>
+                    </Box>
+                    <Box sx={{ flex: 1 }}>
+                        <Typography variant="h6" sx={{ fontWeight: 800, color: COLORS.INFO[700] }}>
+                            Khu vực
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY }}>
+                            Chọn khu vực phân công theo từng ngày
+                        </Typography>
+                    </Box>
                 </Stack>
-                <Stack direction="row" spacing={1} flexWrap="wrap">
-                    {(assignment.petGroups || []).map((pg, idx) => (
-                        <Chip
-                            key={idx}
-                            label={`${pg.groupName} (${pg.count} con)`}
-                            onDelete={() => {
-                                setFormData(prev => ({
-                                    ...prev,
-                                    timeSlotAssignments: {
-                                        ...prev.timeSlotAssignments,
-                                        [slotId]: {
-                                            ...assignment,
-                                            petGroups: assignment.petGroups.filter((_, i) => i !== idx)
+
+                {loadingWorkShifts ? (
+                    <Alert severity="info">
+                        Đang tải...
+                    </Alert>
+                ) : (
+                    <Box>
+                        {Object.keys(teamsByDate).length === 0 ? (
+                            <Alert severity="warning">
+                                Không có ngày phù hợp với ca dịch vụ này
+                            </Alert>
+                        ) : (
+                            <Stack spacing={2}>
+                                {(() => {
+                                    // Group dates by day of week
+                                    const datesByDayOfWeek = {};
+                                    Object.entries(teamsByDate).forEach(([dateStr]) => {
+                                        const dayName = getDayNameFromDate(dateStr);
+                                        if (!datesByDayOfWeek[dayName]) {
+                                            datesByDayOfWeek[dayName] = [];
                                         }
-                                    }
-                                }));
-                            }}
-                        />
-                    ))}
-                </Stack>
-            </Box>
+                                        datesByDayOfWeek[dayName].push(dateStr);
+                                    });
 
-            {/* Staff Groups */}
-            <Box>
-                <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>Nhóm nhân viên</Typography>
+                                    const dayOrder = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
+
+                                    return dayOrder.filter(day => datesByDayOfWeek[day]).map(dayName => {
+                                        const dayNameVi = {
+                                            'MONDAY': 'Thứ 2',
+                                            'TUESDAY': 'Thứ 3',
+                                            'WEDNESDAY': 'Thứ 4',
+                                            'THURSDAY': 'Thứ 5',
+                                            'FRIDAY': 'Thứ 6',
+                                            'SATURDAY': 'Thứ 7',
+                                            'SUNDAY': 'Chủ nhật'
+                                        }[dayName];
+
+                                        const dates = datesByDayOfWeek[dayName];
+                                        const dateCount = dates.length;
+
+                                        return (
+                                            <Box key={dayName}>
+                                                <Typography variant="caption" sx={{ fontWeight: 600, color: COLORS.PRIMARY[600], display: 'block', mb: 0.5 }}>
+                                                    {dayNameVi} ({dateCount} ngày: {dates[0]}{dateCount > 1 ? `, ... ${dates[dates.length - 1]}` : ''})
+                                                </Typography>
+                                                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                                                    {(areas || []).map(area => {
+                                                        const selectedCount = dates.filter(d =>
+                                                            (assignment.areas || []).some(a => a.areaId === area.id && a.assignedDate === d)
+                                                        ).length;
+                                                        const isFullySelected = selectedCount === dateCount;
+                                                        const isPartiallySelected = selectedCount > 0 && selectedCount < dateCount;
+
+                                                        return (
+                                                            <Chip
+                                                                key={area.id}
+                                                                label={`${area.name} (Sức chứa: ${area.capacity})${isPartiallySelected ? ` (${selectedCount}/${dateCount})` : ''}`}
+                                                                onClick={() => {
+                                                                    dates.forEach(dateStr => {
+                                                                        addAreaByDate(area, dateStr);
+                                                                    });
+                                                                }}
+                                                                sx={{
+                                                                    bgcolor: isFullySelected
+                                                                        ? alpha(COLORS.SUCCESS[200], 0.3)
+                                                                        : isPartiallySelected
+                                                                            ? alpha(COLORS.WARNING[100], 0.5)
+                                                                            : alpha(COLORS.INFO[50], 0.8),
+                                                                    cursor: isFullySelected ? 'default' : 'pointer',
+                                                                    opacity: isFullySelected ? 0.6 : 1,
+                                                                    '&:hover': {
+                                                                        bgcolor: isFullySelected
+                                                                            ? alpha(COLORS.SUCCESS[200], 0.3)
+                                                                            : isPartiallySelected
+                                                                                ? alpha(COLORS.WARNING[200], 0.6)
+                                                                                : alpha(COLORS.INFO[100], 0.9)
+                                                                    }
+                                                                }}
+                                                            />
+                                                        );
+                                                    })}
+                                                </Stack>
+                                            </Box>
+                                        );
+                                    });
+                                })()}
+                            </Stack>
+                        )}
+                    </Box>
+                )}
+
+                {/* Display assigned areas */}
+                {(assignment.areas || []).length > 0 && (
+                    <Box sx={{ mt: 3, pt: 2.5, borderTop: `1px dashed ${alpha(COLORS.INFO[300], 0.5)}` }}>
+                        <Typography variant="caption" sx={{ fontWeight: 700, color: COLORS.INFO[700], display: 'block', mb: 1.5 }}>
+                            📍 Đã chọn ({assignment.areas.length} khu vực):
+                        </Typography>
+                        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                            {[...(assignment.areas || [])]
+                                .sort((a, b) => {
+                                    if (a.assignedDate && b.assignedDate) {
+                                        return new Date(a.assignedDate) - new Date(b.assignedDate);
+                                    }
+                                    return 0;
+                                })
+                                .map((area, idx) => (
+                                    <Chip
+                                        key={idx}
+                                        label={`${area.areaName} - ${area.assignedDayName}, ${area.assignedDate}`}
+                                        onDelete={() => {
+                                            setFormData(prev => ({
+                                                ...prev,
+                                                timeSlotAssignments: {
+                                                    ...prev.timeSlotAssignments,
+                                                    [slotId]: {
+                                                        ...assignment,
+                                                        areas: assignment.areas.filter((_, i) => i !== idx)
+                                                    }
+                                                }
+                                            }));
+                                        }}
+                                        sx={{
+                                            bgcolor: alpha(COLORS.INFO[100], 0.8),
+                                            fontWeight: 600,
+                                            borderLeft: `3px solid ${COLORS.INFO[500]}`
+                                        }}
+                                    />
+                                ))}
+                        </Stack>
+                    </Box>
+                )}
+            </Paper>
+
+            {/* Pet Groups Section */}
+            <Paper
+                elevation={0}
+                sx={{
+                    p: 3,
+                    borderRadius: 3,
+                    border: `2px solid ${alpha(COLORS.SECONDARY[300], 0.5)}`,
+                    background: `linear-gradient(135deg, ${alpha(COLORS.SECONDARY[50], 0.3)} 0%, ${alpha(COLORS.SECONDARY[100], 0.2)} 100%)`
+                }}
+            >
+                <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 3 }}>
+                    <Box
+                        sx={{
+                            width: 40,
+                            height: 40,
+                            borderRadius: 2,
+                            background: `linear-gradient(135deg, ${COLORS.SECONDARY[400]} 0%, ${COLORS.SECONDARY[600]} 100%)`,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            boxShadow: `0 4px 12px ${alpha(COLORS.SECONDARY[500], 0.3)}`
+                        }}
+                    >
+                        <Typography variant="h6" sx={{ color: 'white' }}>🐾</Typography>
+                    </Box>
+                    <Box sx={{ flex: 1 }}>
+                        <Typography variant="h6" sx={{ fontWeight: 800, color: COLORS.SECONDARY[700] }}>
+                            Nhóm pet
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY }}>
+                            Chọn nhóm pet phân công theo từng ngày
+                        </Typography>
+                    </Box>
+                </Stack>
+
+                {loadingWorkShifts ? (
+                    <Alert severity="info">
+                        Đang tải...
+                    </Alert>
+                ) : (
+                    <Box>
+                        {Object.keys(teamsByDate).length === 0 ? (
+                            <Alert severity="warning">
+                                Không có ngày phù hợp với ca dịch vụ này
+                            </Alert>
+                        ) : (
+                            <Stack spacing={2}>
+                                {(() => {
+                                    const datesByDayOfWeek = {};
+                                    Object.entries(teamsByDate).forEach(([dateStr]) => {
+                                        const dayName = getDayNameFromDate(dateStr);
+                                        if (!datesByDayOfWeek[dayName]) {
+                                            datesByDayOfWeek[dayName] = [];
+                                        }
+                                        datesByDayOfWeek[dayName].push(dateStr);
+                                    });
+
+                                    const dayOrder = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
+                                    const petGroupNames = Object.keys(petGroupsMap || {});
+
+                                    return dayOrder.filter(day => datesByDayOfWeek[day]).map(dayName => {
+                                        const dayNameVi = {
+                                            'MONDAY': 'Thứ 2',
+                                            'TUESDAY': 'Thứ 3',
+                                            'WEDNESDAY': 'Thứ 4',
+                                            'THURSDAY': 'Thứ 5',
+                                            'FRIDAY': 'Thứ 6',
+                                            'SATURDAY': 'Thứ 7',
+                                            'SUNDAY': 'Chủ nhật'
+                                        }[dayName];
+
+                                        const dates = datesByDayOfWeek[dayName];
+                                        const dateCount = dates.length;
+
+                                        return (
+                                            <Box key={dayName}>
+                                                <Typography variant="caption" sx={{ fontWeight: 600, color: COLORS.PRIMARY[600], display: 'block', mb: 0.5 }}>
+                                                    {dayNameVi} ({dateCount} ngày: {dates[0]}{dateCount > 1 ? `, ... ${dates[dates.length - 1]}` : ''})
+                                                </Typography>
+                                                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                                                    {petGroupNames.map(groupName => {
+                                                        const selectedCount = dates.filter(d =>
+                                                            (assignment.petGroups || []).some(pg => pg.groupName === groupName && pg.assignedDate === d)
+                                                        ).length;
+                                                        const isFullySelected = selectedCount === dateCount;
+                                                        const isPartiallySelected = selectedCount > 0 && selectedCount < dateCount;
+                                                        const petCount = (petGroupsMap[groupName] || []).length;
+
+                                                        return (
+                                                            <Chip
+                                                                key={groupName}
+                                                                label={`${groupName} (${petCount} con)${isPartiallySelected ? ` (${selectedCount}/${dateCount})` : ''}`}
+                                                                onClick={() => {
+                                                                    dates.forEach(dateStr => {
+                                                                        addPetGroupByDate(groupName, dateStr);
+                                                                    });
+                                                                }}
+                                                                sx={{
+                                                                    bgcolor: isFullySelected
+                                                                        ? alpha(COLORS.SUCCESS[200], 0.3)
+                                                                        : isPartiallySelected
+                                                                            ? alpha(COLORS.WARNING[100], 0.5)
+                                                                            : alpha(COLORS.INFO[50], 0.8),
+                                                                    cursor: isFullySelected ? 'default' : 'pointer',
+                                                                    opacity: isFullySelected ? 0.6 : 1,
+                                                                    '&:hover': {
+                                                                        bgcolor: isFullySelected
+                                                                            ? alpha(COLORS.SUCCESS[200], 0.3)
+                                                                            : isPartiallySelected
+                                                                                ? alpha(COLORS.WARNING[200], 0.6)
+                                                                                : alpha(COLORS.INFO[100], 0.9)
+                                                                    }
+                                                                }}
+                                                            />
+                                                        );
+                                                    })}
+                                                </Stack>
+                                            </Box>
+                                        );
+                                    });
+                                })()}
+                            </Stack>
+                        )}
+                    </Box>
+                )}
+
+                {/* Display assigned pet groups */}
+                {(assignment.petGroups || []).length > 0 && (
+                    <Box sx={{ mt: 3, pt: 2.5, borderTop: `1px dashed ${alpha(COLORS.SECONDARY[300], 0.5)}` }}>
+                        <Typography variant="caption" sx={{ fontWeight: 700, color: COLORS.SECONDARY[700], display: 'block', mb: 1.5 }}>
+                            🐾 Đã chọn ({assignment.petGroups.length} nhóm):
+                        </Typography>
+                        <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                            {[...(assignment.petGroups || [])]
+                                .sort((a, b) => {
+                                    if (a.assignedDate && b.assignedDate) {
+                                        return new Date(a.assignedDate) - new Date(b.assignedDate);
+                                    }
+                                    return 0;
+                                })
+                                .map((pg, idx) => (
+                                    <Chip
+                                        key={idx}
+                                        label={`${pg.groupName} (${pg.count} con) - ${pg.assignedDayName}, ${pg.assignedDate}`}
+                                        onDelete={() => {
+                                            setFormData(prev => ({
+                                                ...prev,
+                                                timeSlotAssignments: {
+                                                    ...prev.timeSlotAssignments,
+                                                    [slotId]: {
+                                                        ...assignment,
+                                                        petGroups: assignment.petGroups.filter((_, i) => i !== idx)
+                                                    }
+                                                }
+                                            }));
+                                        }}
+                                        sx={{
+                                            bgcolor: alpha(COLORS.SECONDARY[100], 0.8),
+                                            fontWeight: 600,
+                                            borderLeft: `3px solid ${COLORS.SECONDARY[500]}`
+                                        }}
+                                    />
+                                ))}
+                        </Stack>
+                    </Box>
+                )}
+            </Paper>
+
+            {/* Staff Groups Section */}
+            <Paper
+                elevation={0}
+                sx={{
+                    p: 3,
+                    borderRadius: 3,
+                    border: `2px solid ${alpha(COLORS.PRIMARY[300], 0.5)}`,
+                    background: `linear-gradient(135deg, ${alpha(COLORS.PRIMARY[50], 0.3)} 0%, ${alpha(COLORS.PRIMARY[100], 0.2)} 100%)`
+                }}
+            >
+                <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 3 }}>
+                    <Box
+                        sx={{
+                            width: 40,
+                            height: 40,
+                            borderRadius: 2,
+                            background: `linear-gradient(135deg, ${COLORS.PRIMARY[400]} 0%, ${COLORS.PRIMARY[600]} 100%)`,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            boxShadow: `0 4px 12px ${alpha(COLORS.PRIMARY[500], 0.3)}`
+                        }}
+                    >
+                        <Typography variant="h6" sx={{ color: 'white' }}>👥</Typography>
+                    </Box>
+                    <Box sx={{ flex: 1 }}>
+                        <Typography variant="h6" sx={{ fontWeight: 800, color: COLORS.PRIMARY[700] }}>
+                            Nhóm nhân viên
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY }}>
+                            Chọn nhóm từ WorkShift hoặc tạo nhóm tùy chỉnh
+                        </Typography>
+                    </Box>
+                </Stack>
 
                 {/* Teams from WorkShift matching day/time */}
                 {loadingWorkShifts ? (
@@ -1132,127 +1932,135 @@ const ServiceSlotAssignment = ({ slotId, slot, formData, setFormData, areas, sta
                     </Box>
                 )}
 
-                {[...(assignment.staffGroups || [])]
-                    .sort((a, b) => {
-                        // Sort by date
-                        if (a.assignedDate && b.assignedDate) {
-                            return new Date(a.assignedDate) - new Date(b.assignedDate);
-                        }
-                        return 0;
-                    })
-                    .map((sg, idx) => (
-                        <Paper key={idx} sx={{ mb: 2, border: `1px solid ${alpha(COLORS.SECONDARY[200], 0.3)}`, overflow: 'hidden' }}>
-                            <Box sx={{ p: 2 }}>
-                                <Stack direction="row" alignItems="center" justifyContent="space-between">
-                                    <Box sx={{ flex: 1 }}>
-                                        <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap">
-                                            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>{sg.name}</Typography>
-                                            {sg.assignedDayName && (
-                                                <Chip
-                                                    label={`${sg.assignedDayName}, ${sg.assignedDate}`}
+                {/* Display assigned staff groups */}
+                {(assignment.staffGroups || []).length > 0 && (
+                    <Box sx={{ mt: 3, pt: 2.5, borderTop: `1px dashed ${alpha(COLORS.PRIMARY[300], 0.5)}` }}>
+                        <Typography variant="caption" sx={{ fontWeight: 700, color: COLORS.PRIMARY[700], display: 'block', mb: 2 }}>
+                            👥 Nhóm đã phân công ({assignment.staffGroups.length}):
+                        </Typography>
+                        {[...(assignment.staffGroups || [])]
+                            .sort((a, b) => {
+                                // Sort by date
+                                if (a.assignedDate && b.assignedDate) {
+                                    return new Date(a.assignedDate) - new Date(b.assignedDate);
+                                }
+                                return 0;
+                            })
+                            .map((sg, idx) => (
+                                <Paper key={idx} sx={{ mb: 2, border: `1px solid ${alpha(COLORS.PRIMARY[200], 0.4)}`, overflow: 'hidden', boxShadow: `0 2px 8px ${alpha(COLORS.PRIMARY[500], 0.1)}` }}>
+                                    <Box sx={{ p: 2 }}>
+                                        <Stack direction="row" alignItems="center" justifyContent="space-between">
+                                            <Box sx={{ flex: 1 }}>
+                                                <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap">
+                                                    <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>{sg.name}</Typography>
+                                                    {sg.assignedDayName && (
+                                                        <Chip
+                                                            label={`${sg.assignedDayName}, ${sg.assignedDate}`}
+                                                            size="small"
+                                                            sx={{
+                                                                height: 20,
+                                                                fontSize: '0.7rem',
+                                                                backgroundColor: alpha(COLORS.PRIMARY[500], 0.1),
+                                                                color: COLORS.PRIMARY[700],
+                                                                fontWeight: 600
+                                                            }}
+                                                        />
+                                                    )}
+                                                </Stack>
+                                                <Typography variant="caption" sx={{ display: 'block', mt: 0.5 }}>
+                                                    {sg.staffIds?.length || 0} nhân viên | Leader: {staff.find(s => s.id === sg.leaderId)?.full_name || '—'}
+                                                </Typography>
+                                            </Box>
+                                            <Stack direction="row" spacing={0.5}>
+                                                <IconButton
                                                     size="small"
-                                                    sx={{
-                                                        height: 20,
-                                                        fontSize: '0.7rem',
-                                                        backgroundColor: alpha(COLORS.PRIMARY[500], 0.1),
-                                                        color: COLORS.PRIMARY[700],
-                                                        fontWeight: 600
+                                                    onClick={() => toggleGroup(idx)}
+                                                    sx={{ color: COLORS.PRIMARY[600] }}
+                                                >
+                                                    {expandedGroups[idx] ? <ExpandMore /> : <ChevronRight />}
+                                                </IconButton>
+                                                <IconButton
+                                                    size="small"
+                                                    onClick={() => {
+                                                        setFormData(prev => ({
+                                                            ...prev,
+                                                            timeSlotAssignments: {
+                                                                ...prev.timeSlotAssignments,
+                                                                [slotId]: {
+                                                                    ...assignment,
+                                                                    staffGroups: assignment.staffGroups.filter((_, i) => i !== idx)
+                                                                }
+                                                            }
+                                                        }));
                                                     }}
-                                                />
-                                            )}
+                                                    sx={{ color: COLORS.ERROR[600] }}
+                                                >
+                                                    <Delete fontSize="small" />
+                                                </IconButton>
+                                            </Stack>
                                         </Stack>
-                                        <Typography variant="caption" sx={{ display: 'block', mt: 0.5 }}>
-                                            {sg.staffIds?.length || 0} nhân viên | Leader: {staff.find(s => s.id === sg.leaderId)?.full_name || '—'}
-                                        </Typography>
                                     </Box>
-                                    <Stack direction="row" spacing={0.5}>
-                                        <IconButton
-                                            size="small"
-                                            onClick={() => toggleGroup(idx)}
-                                            sx={{ color: COLORS.PRIMARY[600] }}
-                                        >
-                                            {expandedGroups[idx] ? <ExpandMore /> : <ChevronRight />}
-                                        </IconButton>
-                                        <IconButton
-                                            size="small"
-                                            onClick={() => {
-                                                setFormData(prev => ({
-                                                    ...prev,
-                                                    timeSlotAssignments: {
-                                                        ...prev.timeSlotAssignments,
-                                                        [slotId]: {
-                                                            ...assignment,
-                                                            staffGroups: assignment.staffGroups.filter((_, i) => i !== idx)
-                                                        }
-                                                    }
-                                                }));
-                                            }}
-                                            sx={{ color: COLORS.ERROR[600] }}
-                                        >
-                                            <Delete fontSize="small" />
-                                        </IconButton>
-                                    </Stack>
-                                </Stack>
-                            </Box>
 
-                            {expandedGroups[idx] && (
-                                <Box sx={{
-                                    px: 2,
-                                    pb: 2,
-                                    pt: 0,
-                                    borderTop: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.2)}`,
-                                    backgroundColor: alpha(COLORS.BACKGROUND.NEUTRAL, 0.3)
-                                }}>
-                                    <Typography variant="caption" sx={{ fontWeight: 600, color: COLORS.TEXT.SECONDARY, display: 'block', mb: 1, mt: 2 }}>
-                                        Thành viên:
-                                    </Typography>
-                                    <Stack spacing={0.5}>
-                                        {[...(sg.staffIds || [])].sort((a, b) => {
-                                            if (a === sg.leaderId) return -1;
-                                            if (b === sg.leaderId) return 1;
-                                            return 0;
-                                        }).map(staffId => {
-                                            const member = staff.find(s => s.id === staffId);
-                                            const isLeader = staffId === sg.leaderId;
-                                            return member ? (
-                                                <Box key={staffId} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                    <Box sx={{
-                                                        width: 6,
-                                                        height: 6,
-                                                        borderRadius: '50%',
-                                                        backgroundColor: isLeader ? COLORS.ERROR[500] : COLORS.SECONDARY[400]
-                                                    }} />
-                                                    <Typography variant="body2">
-                                                        {member.full_name}
-                                                        {isLeader && (
-                                                            <Chip
-                                                                label="Leader"
-                                                                size="small"
-                                                                sx={{
-                                                                    ml: 1,
-                                                                    height: 18,
-                                                                    fontSize: '0.65rem',
-                                                                    backgroundColor: alpha(COLORS.ERROR[500], 0.1),
-                                                                    color: COLORS.ERROR[600]
-                                                                }}
-                                                            />
-                                                        )}
-                                                    </Typography>
-                                                </Box>
-                                            ) : null;
-                                        })}
-                                    </Stack>
-                                </Box>
-                            )}
-                        </Paper>
-                    ))}
-            </Box>
+                                    {expandedGroups[idx] && (
+                                        <Box sx={{
+                                            px: 2,
+                                            pb: 2,
+                                            pt: 0,
+                                            borderTop: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.2)}`,
+                                            backgroundColor: alpha(COLORS.BACKGROUND.NEUTRAL, 0.3)
+                                        }}>
+                                            <Typography variant="caption" sx={{ fontWeight: 600, color: COLORS.TEXT.SECONDARY, display: 'block', mb: 1, mt: 2 }}>
+                                                Thành viên:
+                                            </Typography>
+                                            <Stack spacing={0.5}>
+                                                {[...(sg.staffIds || [])].sort((a, b) => {
+                                                    if (a === sg.leaderId) return -1;
+                                                    if (b === sg.leaderId) return 1;
+                                                    return 0;
+                                                }).map(staffId => {
+                                                    const member = staff.find(s => s.id === staffId);
+                                                    const isLeader = staffId === sg.leaderId;
+                                                    return member ? (
+                                                        <Box key={staffId} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                            <Box sx={{
+                                                                width: 6,
+                                                                height: 6,
+                                                                borderRadius: '50%',
+                                                                backgroundColor: isLeader ? COLORS.ERROR[500] : COLORS.SECONDARY[400]
+                                                            }} />
+                                                            <Typography variant="body2">
+                                                                {member.full_name}
+                                                                {isLeader && (
+                                                                    <Chip
+                                                                        label="Leader"
+                                                                        size="small"
+                                                                        sx={{
+                                                                            ml: 1,
+                                                                            height: 18,
+                                                                            fontSize: '0.65rem',
+                                                                            backgroundColor: alpha(COLORS.ERROR[500], 0.1),
+                                                                            color: COLORS.ERROR[600]
+                                                                        }}
+                                                                    />
+                                                                )}
+                                                            </Typography>
+                                                        </Box>
+                                                    ) : null;
+                                                })}
+                                            </Stack>
+                                        </Box>
+                                    )}
+                                </Paper>
+                            ))}
+                    </Box>
+                )}
+            </Paper>
         </Stack>
     );
 };
 
 // ==================== SERVICE ASSIGNMENT ====================
-export const ServiceAssignment = ({ formData, setFormData, areas, staff, selectedService, openStaffGroupDialog, openPetGroupDialog, editStaffGroup }) => {
+export const ServiceAssignment = ({ formData, setFormData, areas, staff, petGroupsMap, selectedService, openStaffGroupDialog, openPetGroupDialog, editStaffGroup }) => {
     const [serviceSlots, setServiceSlots] = React.useState([]);
     const [loadingSlots, setLoadingSlots] = React.useState(true);
 
@@ -1330,6 +2138,7 @@ export const ServiceAssignment = ({ formData, setFormData, areas, staff, selecte
                                 setFormData={setFormData}
                                 areas={areas}
                                 staff={staff}
+                                petGroupsMap={petGroupsMap}
                                 selectedService={selectedService}
                                 openStaffGroupDialog={openStaffGroupDialog}
                                 openPetGroupDialog={openPetGroupDialog}

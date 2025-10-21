@@ -15,9 +15,8 @@ import {
     Close, Add, Delete, LocalCafe, Restaurant, Pets, Warning
 } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
+import categoriesApi from '../../api/categoriesApi';
 // Inventory removed
-
-const CATEGORIES = [];
 
 const AddProductModal = ({ open, onClose, onSave, editingProduct = null }) => {
     const [formData, setFormData] = useState({
@@ -26,9 +25,7 @@ const AddProductModal = ({ open, onClose, onSave, editingProduct = null }) => {
         description: '',
         image: '',
         price: '',
-        cost: '',
-        stock_quantity: '',
-        min_stock_level: '',
+        daily_quantity: '',
         is_for_pets: false,
         thumbnails: []
     });
@@ -37,10 +34,20 @@ const AddProductModal = ({ open, onClose, onSave, editingProduct = null }) => {
     const [errors, setErrors] = useState({});
     const [touched, setTouched] = useState({});
 
-    // Load categories (optional)
+    // Load categories
     useEffect(() => {
-        // If you later wire categoriesApi, set categories here
-        setCategories([]);
+        const loadCategories = async () => {
+            try {
+                const response = await categoriesApi.getAllCategories({ IsActive: true });
+                setCategories(response.data || []);
+            } catch (error) {
+                console.error('Error loading categories:', error);
+                setCategories([]);
+            }
+        };
+        if (open) {
+            loadCategories();
+        }
     }, [open]);
 
     // Populate form when editing
@@ -52,9 +59,7 @@ const AddProductModal = ({ open, onClose, onSave, editingProduct = null }) => {
                 description: editingProduct.description || '',
                 image: editingProduct.image_url || editingProduct.image || '',
                 price: editingProduct.price.toString(),
-                cost: editingProduct.cost?.toString() || '',
-                stock_quantity: editingProduct.stock_quantity?.toString() || '',
-                min_stock_level: editingProduct.min_stock_level?.toString() || '',
+                daily_quantity: editingProduct.daily_quantity?.toString() || '',
                 is_for_pets: !!editingProduct.is_for_pets,
                 thumbnails: editingProduct.thumbnails || []
             });
@@ -65,9 +70,7 @@ const AddProductModal = ({ open, onClose, onSave, editingProduct = null }) => {
                 description: '',
                 image: '',
                 price: '',
-                cost: '',
-                stock_quantity: '',
-                min_stock_level: '',
+                daily_quantity: '',
                 is_for_pets: false,
                 thumbnails: []
             });
@@ -90,14 +93,9 @@ const AddProductModal = ({ open, onClose, onSave, editingProduct = null }) => {
                 if (!value) return 'Giá bán là bắt buộc';
                 if (isNaN(value) || parseFloat(value) <= 0) return 'Giá bán phải lớn hơn 0';
                 break;
-            case 'cost':
-                if (value !== '' && (isNaN(value) || parseFloat(value) < 0)) return 'Giá vốn không hợp lệ';
-                break;
-            case 'stock_quantity':
-                if (value !== '' && (isNaN(value) || parseInt(value) < 0)) return 'Tồn kho không hợp lệ';
-                break;
-            case 'min_stock_level':
-                if (value !== '' && (isNaN(value) || parseInt(value) < 0)) return 'Ngưỡng tồn không hợp lệ';
+            case 'daily_quantity':
+                if (!value) return 'Số lượng là bắt buộc';
+                if (isNaN(value) || parseInt(value) < 0) return 'Số lượng phải là số nguyên không âm';
                 break;
             case 'recipe':
                 if (!value || value.length === 0) return 'Công thức chế biến là bắt buộc';
@@ -166,17 +164,15 @@ const AddProductModal = ({ open, onClose, onSave, editingProduct = null }) => {
             name: validateField('name', formData.name),
             category_id: validateField('category_id', formData.category_id),
             price: validateField('price', formData.price),
-            cost: validateField('cost', formData.cost),
-            stock_quantity: validateField('stock_quantity', formData.stock_quantity),
-            min_stock_level: validateField('min_stock_level', formData.min_stock_level)
+            daily_quantity: validateField('daily_quantity', formData.daily_quantity)
         };
 
         setErrors(newErrors);
         setTouched({
             name: true,
-            category: true,
+            category_id: true,
             price: true,
-            recipe: true
+            daily_quantity: true
         });
 
         // Check if there are any errors
@@ -188,19 +184,12 @@ const AddProductModal = ({ open, onClose, onSave, editingProduct = null }) => {
                 category_id: formData.category_id,
                 description: formData.description,
                 price: parseFloat(formData.price),
-                cost: formData.cost === '' ? 0 : parseFloat(formData.cost),
-                stock_quantity: formData.stock_quantity === '' ? 0 : parseInt(formData.stock_quantity),
-                min_stock_level: formData.min_stock_level === '' ? 0 : parseInt(formData.min_stock_level),
+                daily_quantity: parseInt(formData.daily_quantity),
                 image_url: formData.image,
                 is_for_pets: !!formData.is_for_pets,
                 thumbnails: formData.thumbnails || []
             });
         }
-    };
-
-    const getCategoryIcon = (category) => {
-        const cat = CATEGORIES.find(c => c.value === category);
-        return cat?.icon || <Restaurant />;
     };
 
     return (
@@ -268,36 +257,33 @@ const AddProductModal = ({ open, onClose, onSave, editingProduct = null }) => {
                                 placeholder="VD: Cà phê Latte"
                             />
 
-                            <TextField
+                            <FormControl
                                 fullWidth
                                 size="small"
-                                label="Category ID *"
-                                value={formData.category_id}
-                                onChange={(e) => handleChange('category_id', e.target.value)}
-                                onBlur={() => handleBlur('category_id')}
                                 error={touched.category_id && Boolean(errors.category_id)}
-                                helperText={touched.category_id && errors.category_id}
-                                placeholder="dạng UUID từ API danh mục"
-                            />
-
-                            {formData.category && (
-                                <Box
-                                    sx={{
-                                        p: 1.5,
-                                        borderRadius: 2,
-                                        bgcolor: alpha(COLORS.WARNING[500], 0.05),
-                                        border: '1px dashed',
-                                        borderColor: COLORS.WARNING[500]
-                                    }}
+                            >
+                                <InputLabel>Danh mục *</InputLabel>
+                                <Select
+                                    value={formData.category_id}
+                                    onChange={(e) => handleChange('category_id', e.target.value)}
+                                    onBlur={() => handleBlur('category_id')}
+                                    label="Danh mục *"
                                 >
-                                    <Stack direction="row" spacing={1} alignItems="center">
-                                        {getCategoryIcon(formData.category)}
-                                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                                            {CATEGORIES.find(c => c.value === formData.category)?.label}
-                                        </Typography>
-                                    </Stack>
-                                </Box>
-                            )}
+                                    <MenuItem value="">
+                                        <em>Chọn danh mục</em>
+                                    </MenuItem>
+                                    {categories.map((category) => (
+                                        <MenuItem key={category.id} value={category.id}>
+                                            {category.name}
+                                        </MenuItem>
+                                    ))}
+                                </Select>
+                                {touched.category_id && errors.category_id && (
+                                    <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 1.5 }}>
+                                        {errors.category_id}
+                                    </Typography>
+                                )}
+                            </FormControl>
 
                             <TextField
                                 fullWidth
@@ -319,58 +305,33 @@ const AddProductModal = ({ open, onClose, onSave, editingProduct = null }) => {
                                 placeholder="https://images.unsplash.com/..."
                             />
 
-                            <TextField
-                                fullWidth
-                                size="small"
-                                label="Giá bán *"
-                                type="number"
-                                value={formData.price}
-                                onChange={(e) => handleChange('price', e.target.value)}
-                                onBlur={() => handleBlur('price')}
-                                error={touched.price && Boolean(errors.price)}
-                                helperText={touched.price && errors.price}
-                                InputProps={{
-                                    endAdornment: <InputAdornment position="end">₫</InputAdornment>
-                                }}
-                                placeholder="50000"
-                            />
-                            <TextField
-                                fullWidth
-                                size="small"
-                                label="Giá vốn"
-                                type="number"
-                                value={formData.cost}
-                                onChange={(e) => handleChange('cost', e.target.value)}
-                                onBlur={() => handleBlur('cost')}
-                                error={touched.cost && Boolean(errors.cost)}
-                                helperText={touched.cost && errors.cost}
-                                InputProps={{ endAdornment: <InputAdornment position="end">₫</InputAdornment> }}
-                                placeholder="25000"
-                            />
                             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
                                 <TextField
                                     fullWidth
                                     size="small"
-                                    label="Tồn kho ban đầu"
+                                    label="Giá bán *"
                                     type="number"
-                                    value={formData.stock_quantity}
-                                    onChange={(e) => handleChange('stock_quantity', e.target.value)}
-                                    onBlur={() => handleBlur('stock_quantity')}
-                                    error={touched.stock_quantity && Boolean(errors.stock_quantity)}
-                                    helperText={touched.stock_quantity && errors.stock_quantity}
-                                    placeholder="0"
+                                    value={formData.price}
+                                    onChange={(e) => handleChange('price', e.target.value)}
+                                    onBlur={() => handleBlur('price')}
+                                    error={touched.price && Boolean(errors.price)}
+                                    helperText={touched.price && errors.price}
+                                    InputProps={{
+                                        endAdornment: <InputAdornment position="end">₫</InputAdornment>
+                                    }}
+                                    placeholder="50000"
                                 />
                                 <TextField
                                     fullWidth
                                     size="small"
-                                    label="Ngưỡng tồn kho"
+                                    label="Số lượng *"
                                     type="number"
-                                    value={formData.min_stock_level}
-                                    onChange={(e) => handleChange('min_stock_level', e.target.value)}
-                                    onBlur={() => handleBlur('min_stock_level')}
-                                    error={touched.min_stock_level && Boolean(errors.min_stock_level)}
-                                    helperText={touched.min_stock_level && errors.min_stock_level}
-                                    placeholder="0"
+                                    value={formData.daily_quantity}
+                                    onChange={(e) => handleChange('daily_quantity', e.target.value)}
+                                    onBlur={() => handleBlur('daily_quantity')}
+                                    error={touched.daily_quantity && Boolean(errors.daily_quantity)}
+                                    helperText={touched.daily_quantity && errors.daily_quantity || ''}
+                                    placeholder="30"
                                 />
                             </Stack>
                             <FormControl size="small" sx={{ width: { xs: '100%', sm: 200 } }}>
