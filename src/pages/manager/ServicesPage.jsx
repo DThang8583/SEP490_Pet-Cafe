@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Box, Typography, Button, Stack, Dialog, DialogTitle, DialogContent, DialogActions, TextField, IconButton, Alert, Chip, FormControl, InputLabel, Select, MenuItem, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, alpha, Grid, Toolbar, Divider, Tooltip, Accordion, AccordionSummary, AccordionDetails, Collapse } from '@mui/material';
+import { Box, Typography, Button, Stack, Dialog, DialogTitle, DialogContent, DialogActions, TextField, IconButton, Alert, Chip, FormControl, InputLabel, Select, MenuItem, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, alpha, Grid, Toolbar, Divider, Tooltip, Accordion, AccordionSummary, AccordionDetails, Collapse, Checkbox, FormControlLabel, FormGroup, FormLabel } from '@mui/material';
 import { Add, Edit, Delete, MiscellaneousServices, Search, Spa, FitnessCenter, Home, LocalCafe, Schedule, Close, EventAvailable, AccessTime, AttachMoney, ExpandMore, People, Pets, LocationOn, Group } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 import Loading from '../../components/loading/Loading';
@@ -7,7 +7,7 @@ import Pagination from '../../components/common/Pagination';
 import AlertModal from '../../components/modals/AlertModal';
 import ConfirmModal from '../../components/modals/ConfirmModal';
 import serviceApi, { SERVICE_TYPES } from '../../api/serviceApi';
-import slotApi from '../../api/slotApi';
+import slotApi, { WEEKDAYS, WEEKDAY_LABELS } from '../../api/slotApi';
 import { getAllTasks } from '../../api/tasksApi';
 import { AREAS_DATA } from '../../api/areasApi';
 
@@ -42,9 +42,8 @@ const ServicesPage = () => {
     const [editingSlot, setEditingSlot] = useState(null);
     const [slotFormData, setSlotFormData] = useState({
         area_id: '',
-        team_id: '',
         pet_group_id: '',
-        applicable_days: ['', ''],
+        applicable_days: [],
         start_time: '',
         end_time: '',
         max_capacity: '',
@@ -77,9 +76,7 @@ const ServicesPage = () => {
         serviceType: '',
         requiresArea: false,
         image: '',
-        thumbnails: '',
-        startDate: '',
-        endDate: ''
+        thumbnails: ''
     });
 
     // Load services from API and their slots
@@ -89,24 +86,15 @@ const ServicesPage = () => {
                 setLoading(true);
                 const response = await serviceApi.getAllServices();
                 if (response.success) {
-                    // Load slots for each service to get time range and capacity
+                    // Load slots for each service to get slot count
                     const servicesWithSlotInfo = await Promise.all(
                         response.data.map(async (service) => {
                             try {
                                 const slotsResponse = await slotApi.getSlotsByService(service.id);
                                 if (slotsResponse.success && slotsResponse.data.length > 0) {
-                                    const slots = slotsResponse.data;
-
-                                    // Calculate date range from all slots' applicable_days
-                                    const allDates = slots.flatMap(slot => slot.applicable_days);
-                                    const startDate = allDates.reduce((min, date) => date < min ? date : min, allDates[0]);
-                                    const endDate = allDates.reduce((max, date) => date > max ? date : max, allDates[0]);
-
                                     return {
                                         ...service,
-                                        start_date: startDate,
-                                        end_date: endDate,
-                                        totalSlots: slots.length
+                                        totalSlots: slotsResponse.data.length
                                     };
                                 }
                                 return service;
@@ -183,9 +171,7 @@ const ServicesPage = () => {
             const serviceType = service.serviceType || service.service_type || service.category || '';
             const requiresArea = service.requiresArea !== undefined ? service.requiresArea :
                 (service.requires_area !== undefined ? service.requires_area : false);
-            const imageUrl = service.image || service.image_url || '';
-            const startDate = service.startDate || service.start_date || '';
-            const endDate = service.endDate || service.end_date || '';
+            const imageUrl = service.image_url || service.image || '';
 
             setFormData({
                 name: service.name,
@@ -195,9 +181,7 @@ const ServicesPage = () => {
                 serviceType: serviceType,
                 requiresArea: requiresArea,
                 image: imageUrl,
-                thumbnails: service.thumbnails ? service.thumbnails.join(', ') : '',
-                startDate: startDate,
-                endDate: endDate
+                thumbnails: service.thumbnails ? service.thumbnails.join(', ') : ''
             });
         } else {
             setEditingService(null);
@@ -209,9 +193,7 @@ const ServicesPage = () => {
                 serviceType: '',
                 requiresArea: false,
                 image: '',
-                thumbnails: '',
-                startDate: '',
-                endDate: ''
+                thumbnails: ''
             });
         }
         setOpenDialog(true);
@@ -224,23 +206,11 @@ const ServicesPage = () => {
 
     const handleSaveService = async () => {
         if (!formData.name || !formData.description || !formData.durationMinutes ||
-            !formData.basePrice || !formData.serviceType || !formData.startDate ||
-            !formData.endDate) {
+            !formData.basePrice || !formData.serviceType) {
             setAlert({
                 open: true,
                 title: 'Lỗi',
                 message: 'Vui lòng điền đầy đủ thông tin bắt buộc!',
-                type: 'error'
-            });
-            return;
-        }
-
-        // Validate start date < end date
-        if (new Date(formData.startDate) >= new Date(formData.endDate)) {
-            setAlert({
-                open: true,
-                title: 'Lỗi',
-                message: 'Ngày bắt đầu phải nhỏ hơn ngày kết thúc!',
                 type: 'error'
             });
             return;
@@ -266,11 +236,7 @@ const ServicesPage = () => {
                     requires_area: Boolean(formData.requiresArea),
                     image: formData.image,
                     image_url: formData.image,
-                    thumbnails: thumbnailsArray,
-                    start_date: formData.startDate,
-                    startDate: formData.startDate,
-                    end_date: formData.endDate,
-                    endDate: formData.endDate
+                    thumbnails: thumbnailsArray
                 };
 
                 const response = await serviceApi.updateService(editingService.id, updatedData);
@@ -302,11 +268,7 @@ const ServicesPage = () => {
                     requires_area: Boolean(formData.requiresArea),
                     image: formData.image || 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=800',
                     image_url: formData.image || 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=800',
-                    thumbnails: thumbnailsArray,
-                    start_date: formData.startDate,
-                    startDate: formData.startDate,
-                    end_date: formData.endDate,
-                    endDate: formData.endDate
+                    thumbnails: thumbnailsArray
                 };
 
                 const response = await serviceApi.createService(newServiceData);
@@ -442,13 +404,16 @@ const ServicesPage = () => {
     const handleOpenSlotForm = (slot = null) => {
         if (slot) {
             setEditingSlot(slot);
+            // Convert HH:mm:ss to HH:mm for time input
+            const startTime = slot.start_time ? slot.start_time.substring(0, 5) : '';
+            const endTime = slot.end_time ? slot.end_time.substring(0, 5) : '';
+
             setSlotFormData({
                 area_id: slot.area_id,
-                team_id: slot.team_id,
                 pet_group_id: slot.pet_group_id,
-                applicable_days: slot.applicable_days,
-                start_time: slot.start_time,
-                end_time: slot.end_time,
+                applicable_days: slot.applicable_days || [],
+                start_time: startTime,
+                end_time: endTime,
                 max_capacity: slot.max_capacity,
                 price: slot.price,
                 special_notes: slot.special_notes || ''
@@ -457,9 +422,8 @@ const ServicesPage = () => {
             setEditingSlot(null);
             setSlotFormData({
                 area_id: '',
-                team_id: '',
                 pet_group_id: '',
-                applicable_days: ['', ''],
+                applicable_days: [],
                 start_time: '',
                 end_time: '',
                 max_capacity: '',
@@ -504,11 +468,10 @@ const ServicesPage = () => {
             const slotData = {
                 service_id: selectedService.id,
                 area_id: slotFormData.area_id,
-                team_id: slotFormData.team_id,
                 pet_group_id: slotFormData.pet_group_id,
                 applicable_days: slotFormData.applicable_days,
-                start_time: slotFormData.start_time,
-                end_time: slotFormData.end_time,
+                start_time: slotFormData.start_time, // API will normalize to HH:mm:ss
+                end_time: slotFormData.end_time, // API will normalize to HH:mm:ss
                 max_capacity: maxCapacity,
                 price: parseInt(slotFormData.price),
                 special_notes: slotFormData.special_notes
@@ -769,7 +732,6 @@ const ServicesPage = () => {
                                 <TableCell sx={{ fontWeight: 800, display: { xs: 'none', md: 'table-cell' } }}>Mô tả</TableCell>
                                 <TableCell sx={{ fontWeight: 800 }}>Loại</TableCell>
                                 <TableCell sx={{ fontWeight: 800, display: { xs: 'none', sm: 'table-cell' } }}>Thời lượng</TableCell>
-                                <TableCell sx={{ fontWeight: 800, display: { xs: 'none', lg: 'table-cell' } }}>Thời gian diễn ra</TableCell>
                                 <TableCell sx={{ fontWeight: 800, display: { xs: 'none', lg: 'table-cell' } }}>Slots</TableCell>
                                 <TableCell sx={{ fontWeight: 800 }}>Giá</TableCell>
                                 <TableCell align="right" sx={{ fontWeight: 800 }}>Hành động</TableCell>
@@ -781,7 +743,7 @@ const ServicesPage = () => {
                                     <TableCell>
                                         <Box
                                             component="img"
-                                            src={service.image}
+                                            src={service.image_url || service.image || 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=800'}
                                             alt={service.name}
                                             sx={{
                                                 width: { xs: 50, sm: 60 },
@@ -822,19 +784,6 @@ const ServicesPage = () => {
                                     </TableCell>
                                     <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
                                         {service.durationMinutes || service.duration_minutes || service.duration || '—'} phút
-                                    </TableCell>
-                                    <TableCell sx={{ display: { xs: 'none', lg: 'table-cell' } }}>
-                                        {(service.startDate || service.start_date) && (service.endDate || service.end_date) ? (
-                                            <Chip
-                                                size="small"
-                                                label={`${new Date(service.startDate || service.start_date).toLocaleDateString('vi-VN')} - ${new Date(service.endDate || service.end_date).toLocaleDateString('vi-VN')}`}
-                                                sx={{
-                                                    background: alpha(COLORS.PRIMARY[100], 0.7),
-                                                    color: COLORS.PRIMARY[800],
-                                                    fontWeight: 600
-                                                }}
-                                            />
-                                        ) : '—'}
                                     </TableCell>
                                     <TableCell sx={{ display: { xs: 'none', lg: 'table-cell' } }}>
                                         {service.totalSlots ? (
@@ -994,28 +943,6 @@ const ServicesPage = () => {
                             onChange={(e) => setFormData({ ...formData, image: e.target.value })}
                             placeholder="https://example.com/image.jpg"
                         />
-                        <Stack direction="row" spacing={2}>
-                            <TextField
-                                label="Ngày bắt đầu"
-                                fullWidth
-                                required
-                                type="date"
-                                value={formData.startDate}
-                                onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                                InputLabelProps={{ shrink: true }}
-                                helperText="Ngày dịch vụ bắt đầu diễn ra (bắt buộc)"
-                            />
-                            <TextField
-                                label="Ngày kết thúc"
-                                fullWidth
-                                required
-                                type="date"
-                                value={formData.endDate}
-                                onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                                InputLabelProps={{ shrink: true }}
-                                helperText="Ngày dịch vụ kết thúc diễn ra (bắt buộc)"
-                            />
-                        </Stack>
                     </Stack>
                 </Box>
                 <Box sx={{ px: 3, pb: 3, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
@@ -1076,7 +1003,7 @@ const ServicesPage = () => {
                         </Box>
                     ) : (
                         <>
-                            <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Box sx={{ mb: 3, mt: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
                                     Danh sách Slots ({slots.length})
                                 </Typography>
@@ -1108,8 +1035,8 @@ const ServicesPage = () => {
                                     <Table>
                                         <TableHead>
                                             <TableRow sx={{ bgcolor: alpha(COLORS.WARNING[500], 0.1) }}>
-                                                <TableCell sx={{ fontWeight: 800 }}>Thời gian áp dụng</TableCell>
-                                                <TableCell sx={{ fontWeight: 800 }}>Các ca dịch vụ</TableCell>
+                                                <TableCell sx={{ fontWeight: 800 }}>Ngày trong tuần</TableCell>
+                                                <TableCell sx={{ fontWeight: 800 }}>Giờ hoạt động</TableCell>
                                                 <TableCell sx={{ fontWeight: 800 }}>Giá slot</TableCell>
                                                 <TableCell sx={{ fontWeight: 800 }}>Ghi chú</TableCell>
                                                 <TableCell align="right" sx={{ fontWeight: 800 }}>Thao tác</TableCell>
@@ -1124,11 +1051,30 @@ const ServicesPage = () => {
                                                     <React.Fragment key={slot.id}>
                                                         <TableRow hover sx={{ bgcolor: isExpanded ? alpha(COLORS.WARNING[50], 0.3) : 'transparent' }}>
                                                             <TableCell>
-                                                                <Stack direction="row" spacing={1} alignItems="center">
-                                                                    <EventAvailable fontSize="small" sx={{ color: COLORS.INFO[500] }} />
-                                                                    <Typography variant="body2">
-                                                                        {slot.applicable_days[0]} → {slot.applicable_days[1]}
-                                                                    </Typography>
+                                                                <Stack direction="row" spacing={0.5} alignItems="center" flexWrap="wrap">
+                                                                    <EventAvailable fontSize="small" sx={{ color: COLORS.INFO[500], mr: 0.5 }} />
+                                                                    {slot.applicable_days && slot.applicable_days.length > 0 ? (
+                                                                        slot.applicable_days.map((day, idx) => (
+                                                                            <Chip
+                                                                                key={day}
+                                                                                label={WEEKDAY_LABELS[day] || day}
+                                                                                size="small"
+                                                                                sx={{
+                                                                                    bgcolor: alpha(COLORS.INFO[100], 0.7),
+                                                                                    color: COLORS.INFO[800],
+                                                                                    fontWeight: 600,
+                                                                                    fontSize: '0.7rem',
+                                                                                    height: 20,
+                                                                                    mr: 0.5,
+                                                                                    mb: 0.5
+                                                                                }}
+                                                                            />
+                                                                        ))
+                                                                    ) : (
+                                                                        <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY }}>
+                                                                            Chưa có ngày
+                                                                        </Typography>
+                                                                    )}
                                                                 </Stack>
                                                             </TableCell>
                                                             <TableCell>
@@ -1349,14 +1295,6 @@ const ServicesPage = () => {
                                 </Select>
                             </FormControl>
                             <TextField
-                                label="Team ID"
-                                fullWidth
-                                required
-                                value={slotFormData.team_id}
-                                onChange={(e) => setSlotFormData({ ...slotFormData, team_id: e.target.value })}
-                                placeholder="team-001"
-                            />
-                            <TextField
                                 label="Pet Group ID"
                                 fullWidth
                                 required
@@ -1367,35 +1305,52 @@ const ServicesPage = () => {
                         </Stack>
 
                         <Divider>
-                            <Chip label="Thời gian áp dụng" size="small" />
+                            <Chip label="Ngày áp dụng (chọn các thứ trong tuần)" size="small" />
                         </Divider>
 
-                        <Stack direction="row" spacing={2}>
-                            <TextField
-                                label="Ngày bắt đầu"
-                                fullWidth
-                                required
-                                type="date"
-                                value={slotFormData.applicable_days[0]}
-                                onChange={(e) => setSlotFormData({
-                                    ...slotFormData,
-                                    applicable_days: [e.target.value, slotFormData.applicable_days[1]]
-                                })}
-                                InputLabelProps={{ shrink: true }}
-                            />
-                            <TextField
-                                label="Ngày kết thúc"
-                                fullWidth
-                                required
-                                type="date"
-                                value={slotFormData.applicable_days[1]}
-                                onChange={(e) => setSlotFormData({
-                                    ...slotFormData,
-                                    applicable_days: [slotFormData.applicable_days[0], e.target.value]
-                                })}
-                                InputLabelProps={{ shrink: true }}
-                            />
-                        </Stack>
+                        <FormControl component="fieldset" required error={slotFormData.applicable_days.length === 0}>
+                            <FormLabel component="legend" sx={{ mb: 1, fontWeight: 600, color: COLORS.TEXT.PRIMARY }}>
+                                Chọn các ngày slot diễn ra *
+                            </FormLabel>
+                            <FormGroup row>
+                                {WEEKDAYS.map((day) => (
+                                    <FormControlLabel
+                                        key={day}
+                                        control={
+                                            <Checkbox
+                                                checked={slotFormData.applicable_days.includes(day)}
+                                                onChange={(e) => {
+                                                    if (e.target.checked) {
+                                                        setSlotFormData({
+                                                            ...slotFormData,
+                                                            applicable_days: [...slotFormData.applicable_days, day]
+                                                        });
+                                                    } else {
+                                                        setSlotFormData({
+                                                            ...slotFormData,
+                                                            applicable_days: slotFormData.applicable_days.filter(d => d !== day)
+                                                        });
+                                                    }
+                                                }}
+                                                sx={{
+                                                    color: COLORS.WARNING[500],
+                                                    '&.Mui-checked': {
+                                                        color: COLORS.WARNING[600]
+                                                    }
+                                                }}
+                                            />
+                                        }
+                                        label={WEEKDAY_LABELS[day]}
+                                        sx={{ mr: 1, mb: 1 }}
+                                    />
+                                ))}
+                            </FormGroup>
+                            {slotFormData.applicable_days.length === 0 && (
+                                <Typography variant="caption" sx={{ color: COLORS.ERROR[600], mt: 0.5 }}>
+                                    Vui lòng chọn ít nhất một ngày
+                                </Typography>
+                            )}
+                        </FormControl>
 
                         <Divider>
                             <Chip label="Ca làm việc" size="small" />
@@ -1482,6 +1437,7 @@ const ServicesPage = () => {
                         disabled={
                             !slotFormData.area_id ||
                             !slotFormData.max_capacity ||
+                            slotFormData.applicable_days.length === 0 ||
                             (slotFormData.area_id && slotFormData.max_capacity &&
                                 parseInt(slotFormData.max_capacity) > (AREAS_DATA.find(a => a.id === slotFormData.area_id)?.capacity || 999))
                         }
