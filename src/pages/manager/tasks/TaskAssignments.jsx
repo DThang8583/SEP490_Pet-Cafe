@@ -1253,6 +1253,37 @@ const ServiceSlotAssignment = ({ slotId, slot, formData, setFormData, areas, sta
     const getApplicableDates = () => {
         if (!slot) return [];
 
+        // For weekdays timeframe (service tasks with selected weekdays)
+        if (formData?.timeframeType === 'weekdays' && formData?.selectedWeekdays && formData.selectedWeekdays.length > 0) {
+            // Generate dates for the next 30 days that match selected weekdays
+            const weekdayMap = {
+                'SUNDAY': 0,
+                'MONDAY': 1,
+                'TUESDAY': 2,
+                'WEDNESDAY': 3,
+                'THURSDAY': 4,
+                'FRIDAY': 5,
+                'SATURDAY': 6
+            };
+
+            const selectedDayNumbers = formData.selectedWeekdays.map(day => weekdayMap[day]).filter(d => d !== undefined);
+            const dates = [];
+            const today = new Date();
+
+            // Generate for next 30 days
+            for (let i = 0; i < 30; i++) {
+                const currentDate = new Date(today);
+                currentDate.setDate(today.getDate() + i);
+                const dayOfWeek = currentDate.getDay();
+
+                if (selectedDayNumbers.includes(dayOfWeek)) {
+                    dates.push(currentDate.toISOString().split('T')[0]);
+                }
+            }
+
+            return dates;
+        }
+
         // For service_period timeframe, generate all dates between start and end
         if (formData?.timeframeType === 'service_period') {
             const startDate = selectedService?.startDate || formData?.servicePeriodStart;

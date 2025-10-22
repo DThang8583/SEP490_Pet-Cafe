@@ -90,13 +90,10 @@ export const getServicesForTasks = async () => {
             image: service.image || service.image_url,
             description: service.description,
             location: service.location,
-            staffRequired: service.staffRequired,
-            // Service period - extract from service if available (for events/workshops)
-            startDate: service.serviceStartDate || '',
-            endDate: service.serviceEndDate || '',
-            registrationStartDate: service.registrationStartDate || '',
-            registrationEndDate: service.registrationEndDate || ''
-            // NOTE: Services no longer use timeSlots - use SHIFTS instead for assignment
+            staffRequired: service.staffRequired
+            // NOTE: Services no longer have start_date/end_date
+            // Slots use weekdays (MONDAY, TUESDAY, etc.) instead of date ranges
+            // Task timeframes must be selected manually by the user
         }));
 
         console.log('[tasksApi] getServicesForTasks() - loaded from serviceApi:', mappedServices.length);

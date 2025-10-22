@@ -226,55 +226,47 @@ export const StepSelectTask = ({ formData, setFormData, services, isEditMode }) 
 
 // ==================== STEP 3: Timeframe ====================
 export const StepTimeframe = ({ formData, setFormData, selectedService }) => {
-    const [slotDates, setSlotDates] = React.useState({ start: null, end: null });
+    const [serviceSlots, setServiceSlots] = React.useState([]);
+    const [loadingSlots, setLoadingSlots] = React.useState(false);
+    const [availableWeekdays, setAvailableWeekdays] = React.useState([]);
 
-    // Fetch slot dates from applicable_days
+    const WEEKDAY_LABELS_VI = {
+        'MONDAY': 'Thứ Hai',
+        'TUESDAY': 'Thứ Ba',
+        'WEDNESDAY': 'Thứ Tư',
+        'THURSDAY': 'Thứ Năm',
+        'FRIDAY': 'Thứ Sáu',
+        'SATURDAY': 'Thứ Bảy',
+        'SUNDAY': 'Chủ Nhật'
+    };
+
+    // Fetch service slots and extract available weekdays
     React.useEffect(() => {
         if (formData.type === 'service' && selectedService) {
-            const fetchSlotDates = async () => {
-                try {
-                    const response = await slotApi.getSlotsByService(selectedService.id);
+            setLoadingSlots(true);
+            slotApi.getSlotsByService(selectedService.id)
+                .then(response => {
                     if (response.success && response.data.length > 0) {
-                        // Get min and max dates from all slots' applicable_days
-                        let minDate = null;
-                        let maxDate = null;
+                        setServiceSlots(response.data);
 
+                        // Collect all unique weekdays from applicable_days
+                        const weekdaysSet = new Set();
                         response.data.forEach(slot => {
-                            if (slot.applicable_days && slot.applicable_days.length > 0) {
-                                const slotDates = slot.applicable_days.map(d => new Date(d));
-                                const slotMin = new Date(Math.min(...slotDates));
-                                const slotMax = new Date(Math.max(...slotDates));
-
-                                if (!minDate || slotMin < minDate) minDate = slotMin;
-                                if (!maxDate || slotMax > maxDate) maxDate = slotMax;
+                            if (slot.applicable_days && Array.isArray(slot.applicable_days)) {
+                                slot.applicable_days.forEach(day => weekdaysSet.add(day));
                             }
                         });
-
-                        if (minDate && maxDate) {
-                            const formatDate = (date) => date.toISOString().split('T')[0];
-                            const serviceStart = formatDate(minDate);
-                            const serviceEnd = formatDate(maxDate);
-                            setSlotDates({ start: serviceStart, end: serviceEnd });
-
-                            // Auto-fill when selecting service_period
-                            if (formData.timeframeType === 'service_period') {
-                                if (serviceStart && !formData.servicePeriodStart) {
-                                    setFormData(prev => ({ ...prev, servicePeriodStart: serviceStart }));
-                                }
-                                if (serviceEnd && !formData.servicePeriodEnd) {
-                                    setFormData(prev => ({ ...prev, servicePeriodEnd: serviceEnd }));
-                                }
-                            }
-                        }
+                        setAvailableWeekdays(Array.from(weekdaysSet));
                     }
-                } catch (error) {
-                    console.error('Error fetching slot dates:', error);
-                }
-            };
-
-            fetchSlotDates();
+                })
+                .catch(error => {
+                    console.error('Error fetching slots:', error);
+                })
+                .finally(() => {
+                    setLoadingSlots(false);
+                });
         }
-    }, [formData.type, formData.timeframeType, selectedService, formData.servicePeriodStart, formData.servicePeriodEnd, setFormData]);
+    }, [formData.type, selectedService]);
 
     return (
         <Box sx={{ p: 4 }}>
@@ -329,75 +321,93 @@ export const StepTimeframe = ({ formData, setFormData, selectedService }) => {
                 </Stack>
             ) : (
                 <Stack spacing={2}>
-                    <RadioGroup
-                        value={formData.timeframeType}
-                        onChange={(e) => setFormData({ ...formData, timeframeType: e.target.value })}
-                    >
-                        <FormControlLabel value="day" control={<Radio />} label="Theo ngày" />
-                        <FormControlLabel value="service_period" control={<Radio />} label="Theo khoảng thời gian dịch vụ" />
-                    </RadioGroup>
+                    {loadingSlots ? (
+                        <Alert severity="info">Đang tải thông tin ca dịch vụ...</Alert>
+                    ) : availableWeekdays.length > 0 ? (
+                        <>
+                            <Typography variant="body2" sx={{ mb: 1, color: COLORS.TEXT.SECONDARY }}>
+                                Dịch vụ này có ca vào các ngày dưới đây. Chọn các thứ bạn muốn phân công nhiệm vụ:
+                            </Typography>
 
-                    {selectedService && slotDates.start && slotDates.end && (
-                        <Alert severity="info" sx={{ mb: 1 }}>
-                            Dịch vụ <strong>{selectedService.name}</strong> diễn ra từ <strong>{slotDates.start}</strong> đến <strong>{slotDates.end}</strong>
-                            {' '}(từ slot applicable_days)
+                            <Box sx={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
+                                gap: 1.5
+                            }}>
+                                {availableWeekdays.map(day => {
+                                    const isSelected = (formData.selectedWeekdays || []).includes(day);
+                                    return (
+                                        <Box
+                                            key={day}
+                                            onClick={() => {
+                                                const currentSelected = formData.selectedWeekdays || [];
+                                                const newSelected = isSelected
+                                                    ? currentSelected.filter(d => d !== day)
+                                                    : [...currentSelected, day];
+                                                setFormData({
+                                                    ...formData,
+                                                    selectedWeekdays: newSelected,
+                                                    timeframeType: 'weekdays'
+                                                });
+                                            }}
+                                            sx={{
+                                                p: 2,
+                                                borderRadius: 2,
+                                                border: `2px solid ${isSelected ? COLORS.PRIMARY[500] : alpha(COLORS.BORDER.DEFAULT, 0.3)}`,
+                                                bgcolor: isSelected ? alpha(COLORS.PRIMARY[50], 0.5) : 'transparent',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.2s ease',
+                                                '&:hover': {
+                                                    borderColor: COLORS.PRIMARY[400],
+                                                    bgcolor: alpha(COLORS.PRIMARY[50], 0.3),
+                                                    transform: 'translateY(-2px)'
+                                                }
+                                            }}
+                                        >
+                                            <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
+                                                <Typography variant="body2" sx={{
+                                                    fontWeight: isSelected ? 700 : 600,
+                                                    color: isSelected ? COLORS.PRIMARY[700] : COLORS.TEXT.PRIMARY
+                                                }}>
+                                                    {WEEKDAY_LABELS_VI[day] || day}
+                                                </Typography>
+                                                {isSelected && (
+                                                    <Box
+                                                        sx={{
+                                                            width: 20,
+                                                            height: 20,
+                                                            borderRadius: '50%',
+                                                            bgcolor: COLORS.PRIMARY[500],
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            color: 'white',
+                                                            fontSize: 12,
+                                                            fontWeight: 700
+                                                        }}
+                                                    >
+                                                        ✓
+                                                    </Box>
+                                                )}
+                                            </Stack>
+                                        </Box>
+                                    );
+                                })}
+                            </Box>
+
+                            {(formData.selectedWeekdays || []).length > 0 && (
+                                <Alert severity="success" sx={{ mt: 1 }}>
+                                    <Typography variant="body2">
+                                        Đã chọn <strong>{formData.selectedWeekdays.length}</strong> ngày: {' '}
+                                        {formData.selectedWeekdays.map(d => WEEKDAY_LABELS_VI[d]).join(', ')}
+                                    </Typography>
+                                </Alert>
+                            )}
+                        </>
+                    ) : (
+                        <Alert severity="warning">
+                            Dịch vụ này chưa có ca dịch vụ nào. Vui lòng tạo slot cho dịch vụ trước.
                         </Alert>
-                    )}
-
-                    {formData.timeframeType === 'day' && (
-                        <TextField
-                            type="date"
-                            label="Chọn ngày"
-                            value={formData.date}
-                            onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                            InputLabelProps={{ shrink: true }}
-                            inputProps={{
-                                min: slotDates.start || undefined,
-                                max: slotDates.end || undefined
-                            }}
-                            helperText={slotDates.start && slotDates.end
-                                ? `Chỉ được chọn ngày trong khoảng ${slotDates.start} - ${slotDates.end}`
-                                : ''
-                            }
-                            fullWidth
-                        />
-                    )}
-
-                    {formData.timeframeType === 'service_period' && (
-                        <Stack spacing={2}>
-                            <TextField
-                                type="date"
-                                label="Ngày bắt đầu"
-                                value={formData.servicePeriodStart || slotDates.start || ''}
-                                onChange={(e) => setFormData({ ...formData, servicePeriodStart: e.target.value })}
-                                InputLabelProps={{ shrink: true }}
-                                inputProps={{
-                                    min: slotDates.start || undefined,
-                                    max: slotDates.end || undefined
-                                }}
-                                helperText={slotDates.start && slotDates.end
-                                    ? `Phải trong khoảng ${slotDates.start} - ${slotDates.end}`
-                                    : ''
-                                }
-                                fullWidth
-                            />
-                            <TextField
-                                type="date"
-                                label="Ngày kết thúc"
-                                value={formData.servicePeriodEnd || slotDates.end || ''}
-                                onChange={(e) => setFormData({ ...formData, servicePeriodEnd: e.target.value })}
-                                InputLabelProps={{ shrink: true }}
-                                inputProps={{
-                                    min: formData.servicePeriodStart || slotDates.start || undefined,
-                                    max: slotDates.end || undefined
-                                }}
-                                helperText={slotDates.start && slotDates.end
-                                    ? `Phải trong khoảng ${slotDates.start} - ${slotDates.end}`
-                                    : ''
-                                }
-                                fullWidth
-                            />
-                        </Stack>
                     )}
                 </Stack>
             )}
@@ -411,6 +421,7 @@ export const StepShift = ({ formData, setFormData, selectedService }) => {
     const [loadingSlots, setLoadingSlots] = React.useState(false);
     const [workShifts, setWorkShifts] = React.useState([]);
     const [loadingShifts, setLoadingShifts] = React.useState(false);
+    const [filteredSlots, setFilteredSlots] = React.useState([]);
 
     // Fetch work shifts for internal tasks
     React.useEffect(() => {
@@ -449,6 +460,23 @@ export const StepShift = ({ formData, setFormData, selectedService }) => {
                 });
         }
     }, [formData.type, selectedService]);
+
+    // Filter slots based on selected weekdays
+    React.useEffect(() => {
+        if (formData.type === 'service' && formData.selectedWeekdays && formData.selectedWeekdays.length > 0 && serviceSlots.length > 0) {
+            // Filter slots that have applicable_days overlapping with selectedWeekdays
+            const filtered = serviceSlots.filter(slot => {
+                if (!slot.applicable_days || slot.applicable_days.length === 0) return false;
+
+                // Check if slot has any of the selected weekdays
+                return slot.applicable_days.some(day => formData.selectedWeekdays.includes(day));
+            });
+
+            setFilteredSlots(filtered);
+        } else {
+            setFilteredSlots([]);
+        }
+    }, [formData.type, formData.selectedWeekdays, serviceSlots]);
 
     const handleShiftChange = (event) => {
         const selectedShifts = event.target.value;
@@ -588,9 +616,16 @@ export const StepShift = ({ formData, setFormData, selectedService }) => {
             <Typography variant="h5" sx={{ mb: 1, fontWeight: 800, color: COLORS.ERROR[700] }}>
                 Chọn ca dịch vụ
             </Typography>
-            <Typography variant="body2" sx={{ mb: 3, color: COLORS.TEXT.SECONDARY }}>
-                {loadingSlots ? 'Đang tải ca dịch vụ...' : 'Chọn khung giờ dịch vụ cần phân công'}
+            <Typography variant="body2" sx={{ mb: 1, color: COLORS.TEXT.SECONDARY }}>
+                {loadingSlots ? 'Đang tải ca dịch vụ...' : 'Chọn ca từ Giờ hoạt động đã cấu hình cho dịch vụ'}
             </Typography>
+            <Alert severity="info" sx={{ mb: 3, borderRadius: 2, bgcolor: alpha(COLORS.INFO[50], 0.3) }}>
+                <Typography variant="caption" sx={{ display: 'block', lineHeight: 1.6 }}>
+                    <strong>Lưu ý:</strong> Ca dịch vụ được lấy từ Giờ hoạt động (slots) đã thiết lập cho dịch vụ này.
+                    Danh sách chỉ hiển thị các ca có ngày áp dụng (applicable_days) khớp với các thứ bạn đã chọn ở bước trước,
+                    và tuân theo khung giờ (start_time - end_time) đã cấu hình.
+                </Typography>
+            </Alert>
 
             {serviceSlots.length === 0 && !loadingSlots ? (
                 <Alert severity="warning">
@@ -598,6 +633,32 @@ export const StepShift = ({ formData, setFormData, selectedService }) => {
                 </Alert>
             ) : (
                 <>
+                    {formData.selectedWeekdays && formData.selectedWeekdays.length > 0 && (
+                        <Alert
+                            severity={filteredSlots.length > 0 ? "info" : "warning"}
+                            sx={{ mb: 2, borderRadius: 2 }}
+                        >
+                            <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
+                                Các ngày đã chọn: {formData.selectedWeekdays.map(day => {
+                                    const labels = {
+                                        'MONDAY': 'Thứ Hai',
+                                        'TUESDAY': 'Thứ Ba',
+                                        'WEDNESDAY': 'Thứ Tư',
+                                        'THURSDAY': 'Thứ Năm',
+                                        'FRIDAY': 'Thứ Sáu',
+                                        'SATURDAY': 'Thứ Bảy',
+                                        'SUNDAY': 'Chủ Nhật'
+                                    };
+                                    return labels[day] || day;
+                                }).join(', ')}
+                            </Typography>
+                            <Typography variant="body2">
+                                {filteredSlots.length > 0
+                                    ? `Có ${filteredSlots.length} ca dịch vụ khả dụng cho các ngày này`
+                                    : 'Không có ca dịch vụ nào cho các ngày đã chọn.'}
+                            </Typography>
+                        </Alert>
+                    )}
                     <FormControl fullWidth>
                         <InputLabel>Ca dịch vụ</InputLabel>
                         <Select
@@ -606,33 +667,94 @@ export const StepShift = ({ formData, setFormData, selectedService }) => {
                             onChange={handleSlotChange}
                             label="Ca dịch vụ"
                             disabled={loadingSlots}
-                            renderValue={(selected) => (
-                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                                    {selected.map((slotId) => {
-                                        const slot = serviceSlots.find(s => s.id === slotId);
-                                        return slot ? (
-                                            <Chip
-                                                key={slotId}
-                                                label={`${slot.start_time} - ${slot.end_time}`}
-                                                size="small"
-                                            />
-                                        ) : null;
-                                    })}
-                                </Box>
-                            )}
-                        >
-                            {serviceSlots.map(slot => (
-                                <MenuItem key={slot.id} value={slot.id}>
-                                    <Box sx={{ width: '100%' }}>
-                                        <Typography variant="body1" sx={{ fontWeight: 600 }}>
-                                            {slot.start_time} - {slot.end_time}
-                                        </Typography>
-                                        <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY }}>
-                                            Khu vực: {slot.area_id} | Sức chứa: {slot.max_capacity} | Giá: {slot.price?.toLocaleString('vi-VN')}đ
-                                        </Typography>
+                            renderValue={(selected) => {
+                                const weekdayLabels = {
+                                    'MONDAY': 'T2',
+                                    'TUESDAY': 'T3',
+                                    'WEDNESDAY': 'T4',
+                                    'THURSDAY': 'T5',
+                                    'FRIDAY': 'T6',
+                                    'SATURDAY': 'T7',
+                                    'SUNDAY': 'CN'
+                                };
+
+                                return (
+                                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                        {selected.map((slotId) => {
+                                            const slot = serviceSlots.find(s => s.id === slotId);
+                                            if (!slot) return null;
+
+                                            const daysStr = (slot.applicable_days || [])
+                                                .map(d => weekdayLabels[d] || d)
+                                                .join(',');
+
+                                            return (
+                                                <Chip
+                                                    key={slotId}
+                                                    label={`${slot.start_time?.substring(0, 5)}-${slot.end_time?.substring(0, 5)} (${daysStr})`}
+                                                    size="small"
+                                                    sx={{
+                                                        bgcolor: alpha(COLORS.PRIMARY[100], 0.8),
+                                                        color: COLORS.PRIMARY[700],
+                                                        fontWeight: 600
+                                                    }}
+                                                />
+                                            );
+                                        })}
                                     </Box>
+                                );
+                            }}
+                        >
+                            {filteredSlots.length > 0 ? (
+                                filteredSlots.map(slot => {
+                                    const weekdayLabels = {
+                                        'MONDAY': 'T2',
+                                        'TUESDAY': 'T3',
+                                        'WEDNESDAY': 'T4',
+                                        'THURSDAY': 'T5',
+                                        'FRIDAY': 'T6',
+                                        'SATURDAY': 'T7',
+                                        'SUNDAY': 'CN'
+                                    };
+
+                                    return (
+                                        <MenuItem key={slot.id} value={slot.id}>
+                                            <Box sx={{ width: '100%' }}>
+                                                <Stack direction="row" spacing={1.5} alignItems="center">
+                                                    <Typography variant="body1" sx={{ fontWeight: 600, color: COLORS.TEXT.PRIMARY }}>
+                                                        {slot.start_time?.substring(0, 5)} - {slot.end_time?.substring(0, 5)}
+                                                    </Typography>
+                                                    <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                                                        {(slot.applicable_days || []).map(day => (
+                                                            <Chip
+                                                                key={day}
+                                                                label={weekdayLabels[day] || day}
+                                                                size="small"
+                                                                sx={{
+                                                                    height: 20,
+                                                                    fontSize: '0.7rem',
+                                                                    bgcolor: alpha(COLORS.PRIMARY[100], 0.5),
+                                                                    color: COLORS.PRIMARY[700],
+                                                                    fontWeight: 600,
+                                                                    '& .MuiChip-label': { px: 1 }
+                                                                }}
+                                                            />
+                                                        ))}
+                                                    </Box>
+                                                </Stack>
+                                            </Box>
+                                        </MenuItem>
+                                    );
+                                })
+                            ) : (
+                                <MenuItem disabled>
+                                    <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, fontStyle: 'italic' }}>
+                                        {formData.selectedWeekdays && formData.selectedWeekdays.length > 0
+                                            ? 'Không có ca dịch vụ nào cho các ngày đã chọn'
+                                            : 'Vui lòng chọn các thứ trong tuần trước'}
+                                    </Typography>
                                 </MenuItem>
-                            ))}
+                            )}
                         </Select>
                     </FormControl>
 
@@ -900,6 +1022,22 @@ export const StepConfirmation = ({ formData, selectedService, areas, staff, petG
                 <Box>
                     <Typography variant="subtitle2" sx={{ fontWeight: 600, color: COLORS.TEXT.SECONDARY }}>Khung thời gian:</Typography>
                     <Typography>
+                        {formData.timeframeType === 'weekdays' && formData.selectedWeekdays && (
+                            <>
+                                Các ngày: {formData.selectedWeekdays.map(day => {
+                                    const labels = {
+                                        'MONDAY': 'Thứ Hai',
+                                        'TUESDAY': 'Thứ Ba',
+                                        'WEDNESDAY': 'Thứ Tư',
+                                        'THURSDAY': 'Thứ Năm',
+                                        'FRIDAY': 'Thứ Sáu',
+                                        'SATURDAY': 'Thứ Bảy',
+                                        'SUNDAY': 'Chủ Nhật'
+                                    };
+                                    return labels[day] || day;
+                                }).join(', ')}
+                            </>
+                        )}
                         {formData.timeframeType === 'day' && `Ngày: ${formData.date}`}
                         {formData.timeframeType === 'week' && (() => {
                             if (!formData.week) return 'Tuần: —';
@@ -921,11 +1059,6 @@ export const StepConfirmation = ({ formData, selectedService, areas, staff, petG
                             const formatDate = (d) => d.toISOString().split('T')[0];
                             return `Tháng ${monthNum}/${year}: ${formatDate(firstDay)} → ${formatDate(lastDay)}`;
                         })()}
-                        {formData.timeframeType === 'service_period' && selectedService?.startDate
-                            ? `Khoảng: ${selectedService.startDate} → ${selectedService.endDate}`
-                            : formData.timeframeType === 'service_period'
-                                ? `Khoảng: ${formData.servicePeriodStart} → ${formData.servicePeriodEnd}`
-                                : ''}
                     </Typography>
                 </Box>
 
@@ -1000,7 +1133,7 @@ export const StepConfirmation = ({ formData, selectedService, areas, staff, petG
 
                 <Box>
                     <Typography variant="h6" sx={{ fontWeight: 700, color: COLORS.ERROR[700], mb: 1 }}>
-                        📋 Chi tiết phân công
+                        Chi tiết phân công
                     </Typography>
 
                     <Stack spacing={2}>
