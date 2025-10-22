@@ -8,6 +8,7 @@ import ShiftFormModal from '../../components/modals/ShiftFormModal';
 import StaffAssignmentModal from '../../components/modals/StaffAssignmentModal';
 import TeamMembersModal from '../../components/modals/TeamMembersModal';
 import TeamFormModal from '../../components/modals/TeamFormModal';
+import TeamScheduleMatrixModal from '../../components/modals/TeamScheduleMatrixModal';
 import { Edit, Delete, Schedule, Add, AccessTime, GroupAdd, Groups, CalendarMonth, CheckCircle, People, Search, Person } from '@mui/icons-material';
 import { managerApi } from '../../api/userApi';
 import workshiftApi from '../../api/workshiftApi';
@@ -69,8 +70,14 @@ const WorkShiftPage = () => {
     const [teamFormData, setTeamFormData] = useState({
         name: '',
         description: '',
-        work_type_id: ''
+        work_type_id: '',
+        scheduleMatrix: {}, // Matrix of weekday-timeSlot selections
+        selectedShiftIds: [] // For creating team in multiple shifts
     });
+
+    // Team shift management states
+    const [openTeamShiftDialog, setOpenTeamShiftDialog] = useState(false);
+    const [managingTeam, setManagingTeam] = useState(null);
 
     // View and filter states
     const [searchQuery, setSearchQuery] = useState('');
@@ -515,23 +522,49 @@ const WorkShiftPage = () => {
     // TEAM CREATE/EDIT HANDLERS
     // ===============================================
 
-    const handleOpenTeamFormDialog = (shift, team = null) => {
-        setCurrentShiftId(shift.id);
+    const handleOpenTeamFormDialog = (shift = null, team = null) => {
+        if (shift) {
+            setCurrentShiftId(shift.id);
+        } else {
+            setCurrentShiftId(null);
+        }
+
         if (team) {
             // Edit mode
             setEditingTeam(team);
             setTeamFormData({
                 name: team.name || '',
                 description: team.description || '',
-                work_type_id: team.work_type?.id || ''
+                work_type_id: team.work_type?.id || '',
+                scheduleMatrix: {},
+                selectedShiftsWithDays: []
             });
         } else {
             // Create mode
             setEditingTeam(null);
+
+            // Pre-select from shift if provided
+            const scheduleMatrix = {};
+            const selectedShiftsWithDays = [];
+            if (shift) {
+                const timeKey = `${shift.start_time}-${shift.end_time}`;
+                const applicableDays = shift.applicable_days || [];
+                applicableDays.forEach(day => {
+                    scheduleMatrix[`${day}-${timeKey}`] = true;
+                });
+                selectedShiftsWithDays.push({
+                    shiftId: shift.id,
+                    shift: shift,
+                    working_days: applicableDays
+                });
+            }
+
             setTeamFormData({
                 name: '',
                 description: '',
-                work_type_id: ''
+                work_type_id: '',
+                scheduleMatrix,
+                selectedShiftsWithDays
             });
         }
         setOpenTeamFormDialog(true);
@@ -544,18 +577,40 @@ const WorkShiftPage = () => {
         setTeamFormData({
             name: '',
             description: '',
-            work_type_id: ''
+            work_type_id: '',
+            scheduleMatrix: {},
+            selectedShiftIds: []
         });
     };
 
     const handleSaveTeam = async () => {
-        if (!currentShiftId) return;
-
         if (!teamFormData.name) {
             setAlert({
                 open: true,
                 title: 'Lỗi',
                 message: 'Vui lòng điền tên nhóm!',
+                type: 'error'
+            });
+            return;
+        }
+
+        // For new team, check if shifts are selected
+        if (!editingTeam && (!teamFormData.selectedShiftsWithDays || teamFormData.selectedShiftsWithDays.length === 0)) {
+            setAlert({
+                open: true,
+                title: 'Lỗi',
+                message: 'Vui lòng chọn ít nhất một ca làm việc!',
+                type: 'error'
+            });
+            return;
+        }
+
+        // For editing team, we need currentShiftId
+        if (editingTeam && !currentShiftId) {
+            setAlert({
+                open: true,
+                title: 'Lỗi',
+                message: 'Không xác định được ca làm việc!',
                 type: 'error'
             });
             return;
@@ -572,24 +627,55 @@ const WorkShiftPage = () => {
                 leader: editingTeam?.leader || null // Keep existing leader when editing
             };
 
-            let response;
             if (editingTeam) {
-                // Update existing team
-                response = await workshiftApi.updateTeamWorkShift(currentShiftId, editingTeam.id, teamDataToSend);
-            } else {
-                // Create new team
-                response = await workshiftApi.createTeamWorkShift(currentShiftId, teamDataToSend);
-            }
+                // Update existing team in single shift
+                const response = await workshiftApi.updateTeamWorkShift(currentShiftId, editingTeam.id, teamDataToSend);
 
-            if (response.success) {
-                setAlert({
-                    open: true,
-                    title: 'Thành công',
-                    message: editingTeam ? 'Cập nhật nhóm thành công!' : 'Tạo nhóm mới thành công!',
-                    type: 'success'
-                });
-                await loadShiftsWithStaffCount();
-                handleCloseTeamFormDialog();
+                if (response.success) {
+                    setAlert({
+                        open: true,
+                        title: 'Thành công',
+                        message: 'Cập nhật nhóm thành công!',
+                        type: 'success'
+                    });
+                    await loadShiftsWithStaffCount();
+                    handleCloseTeamFormDialog();
+                }
+            } else {
+                // Create new team in multiple shifts with working_days
+                const selectedShiftsWithDays = teamFormData.selectedShiftsWithDays;
+                let successCount = 0;
+                let failCount = 0;
+
+                for (const shiftData of selectedShiftsWithDays) {
+                    try {
+                        const shiftId = shiftData.shiftId || shiftData.shift?.id;
+                        const working_days = shiftData.working_days || [];
+                        await workshiftApi.createTeamWorkShift(shiftId, { ...teamDataToSend, working_days });
+                        successCount++;
+                    } catch (error) {
+                        console.error(`Error creating team in shift:`, error);
+                        failCount++;
+                    }
+                }
+
+                if (successCount > 0) {
+                    setAlert({
+                        open: true,
+                        title: 'Thành công',
+                        message: `Đã tạo nhóm "${teamFormData.name}" cho ${successCount} ca làm việc${failCount > 0 ? ` (${failCount} ca thất bại)` : ''}!`,
+                        type: successCount === selectedShiftsWithDays.length ? 'success' : 'warning'
+                    });
+                    await loadShiftsWithStaffCount();
+                    handleCloseTeamFormDialog();
+                } else {
+                    setAlert({
+                        open: true,
+                        title: 'Lỗi',
+                        message: 'Không thể tạo nhóm cho bất kỳ ca làm việc nào!',
+                        type: 'error'
+                    });
+                }
             }
         } catch (error) {
             console.error('Error saving team:', error);
@@ -597,6 +683,114 @@ const WorkShiftPage = () => {
                 open: true,
                 title: 'Lỗi',
                 message: error.message || 'Không thể lưu thông tin nhóm',
+                type: 'error'
+            });
+        } finally {
+            setLoadingTeamAction(false);
+        }
+    };
+
+    const handleOpenTeamShiftDialog = (shift, team) => {
+        setCurrentShiftId(shift.id);
+        setManagingTeam(team);
+        setOpenTeamShiftDialog(true);
+    };
+
+    const handleCloseTeamShiftDialog = () => {
+        setOpenTeamShiftDialog(false);
+        setManagingTeam(null);
+        setCurrentShiftId(null);
+    };
+
+    const handleSaveTeamShifts = async (team, shiftsToAdd, shiftsToRemove, shiftsToUpdate = []) => {
+        try {
+            setLoadingTeamAction(true);
+
+            let addCount = 0;
+            let removeCount = 0;
+            let updateCount = 0;
+
+            // Prepare team data (copy from existing team)
+            const teamDataToSend = {
+                name: team.name,
+                description: team.description || '',
+                work_type_id: team.work_type?.id || '',
+                leader: team.leader || null,
+                members: team.members || []
+            };
+
+            // Remove team from shifts
+            for (const shift of shiftsToRemove) {
+                try {
+                    const shiftId = typeof shift === 'string' ? shift : shift.id;
+                    const shiftObj = shifts.find(s => s.id === shiftId);
+                    const teamInShift = shiftObj?.team_work_shifts?.find(t => t.name === team.name);
+                    if (teamInShift) {
+                        await workshiftApi.deleteTeamWorkShift(shiftId, teamInShift.id);
+                        removeCount++;
+                    }
+                } catch (error) {
+                    console.error(`Error removing team from shift:`, error);
+                }
+            }
+
+            // Add team to new shifts with working_days
+            for (const shiftData of shiftsToAdd) {
+                try {
+                    const shiftId = typeof shiftData === 'string' ? shiftData : (shiftData.shift?.id || shiftData.id);
+                    const working_days = shiftData.working_days || [];
+                    await workshiftApi.createTeamWorkShift(shiftId, { ...teamDataToSend, working_days });
+                    addCount++;
+                } catch (error) {
+                    console.error(`Error adding team to shift:`, error);
+                }
+            }
+
+            // Update working_days for existing teams in shifts
+            for (const shiftData of shiftsToUpdate) {
+                try {
+                    const shiftId = typeof shiftData === 'string' ? shiftData : (shiftData.shift?.id || shiftData.id);
+                    const working_days = shiftData.working_days || [];
+                    const shiftObj = shifts.find(s => s.id === shiftId);
+                    const teamInShift = shiftObj?.team_work_shifts?.find(t => t.name === team.name);
+                    if (teamInShift) {
+                        await workshiftApi.updateTeamWorkShift(shiftId, teamInShift.id, { working_days });
+                        updateCount++;
+                    }
+                } catch (error) {
+                    console.error(`Error updating team in shift:`, error);
+                }
+            }
+
+            if (addCount > 0 || removeCount > 0 || updateCount > 0) {
+                const messages = [];
+                if (addCount > 0) messages.push(`Thêm vào ${addCount} ca`);
+                if (updateCount > 0) messages.push(`Cập nhật ${updateCount} ca`);
+                if (removeCount > 0) messages.push(`Xóa khỏi ${removeCount} ca`);
+
+                setAlert({
+                    open: true,
+                    title: 'Thành công',
+                    message: `Đã cập nhật nhóm "${team.name}": ${messages.join(', ')}`,
+                    type: 'success'
+                });
+                await loadShiftsWithStaffCount();
+                handleCloseTeamShiftDialog();
+            } else {
+                setAlert({
+                    open: true,
+                    title: 'Thông báo',
+                    message: 'Không có thay đổi nào',
+                    type: 'info'
+                });
+                handleCloseTeamShiftDialog();
+            }
+        } catch (error) {
+            console.error('Error saving team shifts:', error);
+            setAlert({
+                open: true,
+                title: 'Lỗi',
+                message: error.message || 'Không thể cập nhật ca làm việc cho nhóm',
                 type: 'error'
             });
         } finally {
@@ -713,11 +907,32 @@ const WorkShiftPage = () => {
         };
     }, [shifts]);
 
-    // Filtered shifts
+    // Filtered shifts with staff search support
     const filteredShifts = useMemo(() => {
         return shifts.filter(shift => {
-            const matchSearch = shift.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                (shift.description || '').toLowerCase().includes(searchQuery.toLowerCase());
+            const query = searchQuery.toLowerCase();
+
+            // Search in shift name and description
+            const matchShiftName = shift.name.toLowerCase().includes(query) ||
+                (shift.description || '').toLowerCase().includes(query);
+
+            // Search in team members and leaders
+            const teams = Array.isArray(shift.team_work_shifts) ? shift.team_work_shifts : [];
+            const matchStaff = teams.some(team => {
+                // Search in team name
+                if (team.name?.toLowerCase().includes(query)) return true;
+
+                // Search in leader
+                if (team.leader?.full_name?.toLowerCase().includes(query)) return true;
+
+                // Search in members
+                const members = Array.isArray(team.members) ? team.members : [];
+                return members.some(member =>
+                    member.full_name?.toLowerCase().includes(query)
+                );
+            });
+
+            const matchSearch = matchShiftName || matchStaff;
 
             const matchStatus = statusFilter === 'all' ||
                 (statusFilter === 'active' && (shift.is_active !== false && shift.status !== 'inactive')) ||
@@ -771,9 +986,45 @@ const WorkShiftPage = () => {
     }[d] || d);
     const toHHmm = (t) => (typeof t === 'string' ? t.slice(0, 5) : t);
 
-    const renderShiftRow = (shift) => {
+    // Helper function to check if team matches search query
+    const teamMatchesSearch = (team, query) => {
+        if (!query) return false;
+        const q = query.toLowerCase();
+
+        // Check team name
+        if (team.name?.toLowerCase().includes(q)) return true;
+
+        // Check leader
+        if (team.leader?.full_name?.toLowerCase().includes(q)) return true;
+
+        // Check members
+        const members = Array.isArray(team.members) ? team.members : [];
+        return members.some(member => member.full_name?.toLowerCase().includes(q));
+    };
+
+    // Helper function to check if staff name matches search
+    const staffMatchesSearch = (staffName, query) => {
+        if (!query || !staffName) return false;
+        return staffName.toLowerCase().includes(query.toLowerCase());
+    };
+
+    const renderShiftRow = (shift, currentDay = null) => {
         const active = typeof shift.is_active === 'boolean' ? shift.is_active : (shift.status !== 'inactive');
-        const teams = Array.isArray(shift.team_work_shifts) ? shift.team_work_shifts : [];
+        let teams = Array.isArray(shift.team_work_shifts) ? shift.team_work_shifts : [];
+
+        // Filter teams by working_days if currentDay is specified
+        if (currentDay) {
+            teams = teams.filter(team => {
+                const workingDays = team.working_days || [];
+                return workingDays.includes(currentDay);
+            });
+        }
+
+        // Filter teams by search query if specified
+        if (searchQuery && searchQuery.trim()) {
+            teams = teams.filter(team => teamMatchesSearch(team, searchQuery));
+        }
+
         return (
             <React.Fragment key={shift.id}>
                 <TableRow hover>
@@ -862,18 +1113,28 @@ const WorkShiftPage = () => {
                                     const leaderName = team?.leader?.full_name || team?.leader?.name || 'Chưa có leader';
                                     const members = Array.isArray(team?.members) ? team.members : [];
                                     const totalMembers = members.length + (team?.leader ? 1 : 0);
+                                    const isHighlighted = teamMatchesSearch(team, searchQuery);
 
                                     return (
                                         <Grid item xs={12} md={6} key={team?.id || leaderName}>
                                             <Paper sx={{
                                                 p: 2.5,
                                                 borderRadius: 2.5,
-                                                border: `2px solid ${alpha(COLORS.INFO[200], 0.4)}`,
-                                                bgcolor: 'white',
+                                                border: isHighlighted
+                                                    ? `2px solid ${COLORS.WARNING[500]}`
+                                                    : `2px solid ${alpha(COLORS.INFO[200], 0.4)}`,
+                                                bgcolor: isHighlighted
+                                                    ? alpha(COLORS.WARNING[50], 0.3)
+                                                    : 'white',
                                                 transition: 'all 0.3s ease',
+                                                boxShadow: isHighlighted
+                                                    ? `0 4px 12px ${alpha(COLORS.WARNING[300], 0.4)}`
+                                                    : 'none',
                                                 '&:hover': {
                                                     transform: 'translateY(-2px)',
-                                                    boxShadow: `0 6px 16px ${alpha(COLORS.INFO[200], 0.3)}`
+                                                    boxShadow: isHighlighted
+                                                        ? `0 6px 16px ${alpha(COLORS.WARNING[300], 0.5)}`
+                                                        : `0 6px 16px ${alpha(COLORS.INFO[200], 0.3)}`
                                                 }
                                             }}>
                                                 {/* Team Header */}
@@ -898,7 +1159,16 @@ const WorkShiftPage = () => {
                                                         <Stack direction="row" spacing={0.5} alignItems="center">
                                                             <Person sx={{ fontSize: 16, color: COLORS.PRIMARY[600] }} />
                                                             <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, fontWeight: 600 }}>
-                                                                Leader: <strong style={{ color: COLORS.PRIMARY[700] }}>{leaderName}</strong>
+                                                                Leader: <strong style={{
+                                                                    color: staffMatchesSearch(leaderName, searchQuery)
+                                                                        ? COLORS.WARNING[700]
+                                                                        : COLORS.PRIMARY[700],
+                                                                    backgroundColor: staffMatchesSearch(leaderName, searchQuery)
+                                                                        ? alpha(COLORS.WARNING[200], 0.3)
+                                                                        : 'transparent',
+                                                                    padding: staffMatchesSearch(leaderName, searchQuery) ? '2px 6px' : '0',
+                                                                    borderRadius: '4px'
+                                                                }}>{leaderName}</strong>
                                                             </Typography>
                                                         </Stack>
                                                     </Stack>
@@ -917,6 +1187,20 @@ const WorkShiftPage = () => {
                                                                 }}
                                                             >
                                                                 <Edit fontSize="small" sx={{ color: COLORS.INFO[700] }} />
+                                                            </IconButton>
+                                                        </Tooltip>
+                                                        <Tooltip title="Quản lý ca làm việc">
+                                                            <IconButton
+                                                                size="small"
+                                                                onClick={() => handleOpenTeamShiftDialog(shift, team)}
+                                                                sx={{
+                                                                    bgcolor: alpha(COLORS.PRIMARY[100], 0.6),
+                                                                    '&:hover': {
+                                                                        bgcolor: alpha(COLORS.PRIMARY[200], 0.8)
+                                                                    }
+                                                                }}
+                                                            >
+                                                                <Schedule fontSize="small" sx={{ color: COLORS.PRIMARY[700] }} />
                                                             </IconButton>
                                                         </Tooltip>
                                                         <Tooltip title="Quản lý thành viên">
@@ -952,6 +1236,35 @@ const WorkShiftPage = () => {
 
                                                 <Divider sx={{ my: 1.5 }} />
 
+                                                {/* Working Days */}
+                                                {currentDay && (
+                                                    <Box sx={{ mb: 1.5 }}>
+                                                        <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, fontWeight: 700, display: 'block', mb: 0.75 }}>
+                                                            Ngày làm việc:
+                                                        </Typography>
+                                                        <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+                                                            {(team.working_days || []).map((day) => (
+                                                                <Chip
+                                                                    key={day}
+                                                                    label={dayLabel(day)}
+                                                                    size="small"
+                                                                    sx={{
+                                                                        bgcolor: day === currentDay
+                                                                            ? alpha(COLORS.PRIMARY[200], 0.6)
+                                                                            : alpha(COLORS.GRAY[200], 0.5),
+                                                                        color: day === currentDay
+                                                                            ? COLORS.PRIMARY[800]
+                                                                            : COLORS.TEXT.SECONDARY,
+                                                                        fontWeight: day === currentDay ? 700 : 600,
+                                                                        fontSize: '0.7rem',
+                                                                        height: 22
+                                                                    }}
+                                                                />
+                                                            ))}
+                                                        </Stack>
+                                                    </Box>
+                                                )}
+
                                                 {/* Team Members */}
                                                 <Box>
                                                     <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, fontWeight: 700, display: 'block', mb: 1 }}>
@@ -959,18 +1272,26 @@ const WorkShiftPage = () => {
                                                     </Typography>
                                                     {members.length > 0 ? (
                                                         <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
-                                                            {members.map((m) => (
-                                                                <Chip
-                                                                    key={m?.id || m?.full_name || Math.random()}
-                                                                    label={m?.full_name || m?.name || '—'}
-                                                                    size="small"
-                                                                    avatar={<Avatar src={m?.avatar_url} sx={{ width: 24, height: 24 }} />}
-                                                                    sx={{
-                                                                        bgcolor: alpha(COLORS.GRAY[100], 0.8),
-                                                                        fontWeight: 600
-                                                                    }}
-                                                                />
-                                                            ))}
+                                                            {members.map((m) => {
+                                                                const memberName = m?.full_name || m?.name || '—';
+                                                                const isMatched = staffMatchesSearch(memberName, searchQuery);
+                                                                return (
+                                                                    <Chip
+                                                                        key={m?.id || m?.full_name || Math.random()}
+                                                                        label={memberName}
+                                                                        size="small"
+                                                                        avatar={<Avatar src={m?.avatar_url} sx={{ width: 24, height: 24 }} />}
+                                                                        sx={{
+                                                                            bgcolor: isMatched
+                                                                                ? alpha(COLORS.WARNING[200], 0.5)
+                                                                                : alpha(COLORS.GRAY[100], 0.8),
+                                                                            fontWeight: isMatched ? 700 : 600,
+                                                                            color: isMatched ? COLORS.WARNING[900] : 'inherit',
+                                                                            border: isMatched ? `1px solid ${COLORS.WARNING[400]}` : 'none'
+                                                                        }}
+                                                                    />
+                                                                );
+                                                            })}
                                                         </Stack>
                                                     ) : (
                                                         <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, fontStyle: 'italic', fontSize: '0.85rem' }}>
@@ -1004,28 +1325,30 @@ const WorkShiftPage = () => {
                                 Lập lịch và quản lý ca làm việc của nhân viên
                             </Typography>
                         </Box>
-                        <Button
-                            variant="contained"
-                            startIcon={<Add />}
-                            onClick={() => handleOpenShiftDialog()}
-                            sx={{
-                                bgcolor: COLORS.PRIMARY[600],
-                                color: 'white',
-                                px: 3,
-                                py: 1.5,
-                                borderRadius: 2,
-                                fontWeight: 700,
-                                boxShadow: `0 4px 12px ${alpha(COLORS.PRIMARY[500], 0.3)}`,
-                                '&:hover': {
-                                    bgcolor: COLORS.PRIMARY[700],
-                                    transform: 'translateY(-2px)',
-                                    boxShadow: `0 6px 16px ${alpha(COLORS.PRIMARY[500], 0.4)}`
-                                },
-                                transition: 'all 0.3s ease'
-                            }}
-                        >
-                            Tạo ca làm việc
-                        </Button>
+                        <Stack direction="row" spacing={2}>
+                            <Button
+                                variant="contained"
+                                startIcon={<Add />}
+                                onClick={() => handleOpenShiftDialog()}
+                                sx={{
+                                    bgcolor: COLORS.PRIMARY[600],
+                                    color: 'white',
+                                    px: 3,
+                                    py: 1.5,
+                                    borderRadius: 2,
+                                    fontWeight: 700,
+                                    boxShadow: `0 4px 12px ${alpha(COLORS.PRIMARY[500], 0.3)}`,
+                                    '&:hover': {
+                                        bgcolor: COLORS.PRIMARY[700],
+                                        transform: 'translateY(-2px)',
+                                        boxShadow: `0 6px 16px ${alpha(COLORS.PRIMARY[500], 0.4)}`
+                                    },
+                                    transition: 'all 0.3s ease'
+                                }}
+                            >
+                                Tạo ca làm việc
+                            </Button>
+                        </Stack>
                     </Stack>
                 </Box>
 
@@ -1180,7 +1503,7 @@ const WorkShiftPage = () => {
                             <Stack direction="row" spacing={2} alignItems="center" flexWrap="wrap">
                                 <TextField
                                     size="small"
-                                    placeholder="Tìm kiếm ca làm việc..."
+                                    placeholder="Tìm ca làm việc, nhân viên, nhóm..."
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                     InputProps={{
@@ -1292,7 +1615,7 @@ const WorkShiftPage = () => {
                                                     </TableRow>
                                                 </TableHead>
                                                 <TableBody>
-                                                    {dayShifts.map((s) => renderShiftRow(s))}
+                                                    {dayShifts.map((s) => renderShiftRow(s, day))}
                                                 </TableBody>
                                             </Table>
                                         </TableContainer>
@@ -1421,6 +1744,18 @@ const WorkShiftPage = () => {
                     loading={loadingTeamAction}
                     onFormChange={setTeamFormData}
                     onSave={handleSaveTeam}
+                    availableShifts={shifts}
+                />
+
+                {/* Team Shift Management Dialog */}
+                <TeamScheduleMatrixModal
+                    open={openTeamShiftDialog}
+                    onClose={handleCloseTeamShiftDialog}
+                    team={managingTeam}
+                    allShifts={shifts}
+                    currentShiftId={currentShiftId}
+                    loading={loadingTeamAction}
+                    onSave={handleSaveTeamShifts}
                 />
             </Box>
         </Box>

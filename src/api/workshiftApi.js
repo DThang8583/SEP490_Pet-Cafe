@@ -80,6 +80,7 @@ let MOCK_SHIFTS = [
                 "name": "Nhóm chăm sóc cho chó",
                 "description": "Nhóm chăm sóc cho chó",
                 "is_active": true,
+                "working_days": ["MONDAY", "TUESDAY", "SATURDAY"],
                 "leader": {
                     "id": "93185191-488d-45ae-b6c5-68a6f8e22bee",
                     "full_name": "Lê Văn C",
@@ -101,6 +102,7 @@ let MOCK_SHIFTS = [
                 "name": "Nhóm bán tại Quầy",
                 "description": "Nhân viên tại quầy",
                 "is_active": true,
+                "working_days": ["MONDAY", "WEDNESDAY", "FRIDAY", "SATURDAY"],
                 "leader": {
                     "id": "000cb6f2-7f21-469d-9dc1-7d483b1c5306",
                     "full_name": "Trần Vân AA",
@@ -121,6 +123,7 @@ let MOCK_SHIFTS = [
                 "name": "Nhóm Tắm Spa",
                 "description": "Chuyên về dịch vụ spa cao cấp cho thú cưng",
                 "is_active": true,
+                "working_days": ["TUESDAY", "THURSDAY", "SATURDAY"],
                 "leader": {
                     "id": "user-020",
                     "full_name": "Phạm Thị Mai",
@@ -142,6 +145,7 @@ let MOCK_SHIFTS = [
                 "name": "Nhóm Tiếp đón khách",
                 "description": "Đón tiếp và hỗ trợ khách hàng",
                 "is_active": true,
+                "working_days": ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"],
                 "leader": {
                     "id": "user-008",
                     "full_name": "Trần Thị Thu",
@@ -162,6 +166,7 @@ let MOCK_SHIFTS = [
                 "name": "Nhóm Vệ sinh",
                 "description": "Vệ sinh và dọn dẹp khu vực",
                 "is_active": true,
+                "working_days": ["MONDAY", "FRIDAY"],
                 "leader": {
                     "id": "user-031",
                     "full_name": "Hoàng Thị Yến",
@@ -201,6 +206,7 @@ let MOCK_SHIFTS = [
                 "name": "Nhóm Pha chế",
                 "description": "Chuyên pha chế đồ uống và thức ăn nhẹ",
                 "is_active": true,
+                "working_days": ["TUESDAY", "SUNDAY"],
                 "leader": {
                     "id": "user-010",
                     "full_name": "Phạm Thị Hoa",
@@ -1034,6 +1040,7 @@ const workshiftApi = {
             name: teamData.name || 'Nhóm mới',
             description: teamData.description || '',
             is_active: teamData.is_active !== undefined ? teamData.is_active : true,
+            working_days: teamData.working_days || [], // Các ngày cụ thể team làm việc
             leader: teamData.leader || null,
             work_type: teamData.work_type || {},
             members: teamData.members || [],
