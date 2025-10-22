@@ -3,11 +3,12 @@ import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, G
 import { COLORS } from '../../constants/colors';
 import { Pets } from '@mui/icons-material';
 
-const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData = null, isLoading = false, breeds = [], species = [] }) => {
+const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData = null, isLoading = false, breeds = [], species = [], groups = [] }) => {
     const [formData, setFormData] = useState({
         name: '',
         species_id: '',
         breed_id: '',
+        pet_group_id: '',
         age: '',
         weight: '',
         gender: '',
@@ -27,6 +28,13 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
         return breeds.filter(b => b.species_id === formData.species_id);
     }, [breeds, formData.species_id]);
 
+    // Get available groups for selected species and breed
+    const availableGroups = useMemo(() => {
+        if (!formData.species_id) return [];
+        // Manager can assign pet to any group with matching species, regardless of breed
+        return groups.filter(g => g.pet_species_id === formData.species_id);
+    }, [groups, formData.species_id]);
+
     // Get species name
     const getSpeciesName = (speciesId) => {
         const sp = species.find(s => s.id === speciesId);
@@ -41,6 +49,7 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
                     name: initialData.name || '',
                     species_id: initialData.species_id || '',
                     breed_id: initialData.breed_id || '',
+                    pet_group_id: initialData.pet_group_id || '',
                     age: initialData.age || '',
                     weight: initialData.weight || '',
                     gender: initialData.gender || '',
@@ -55,6 +64,7 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
                     name: '',
                     species_id: '',
                     breed_id: '',
+                    pet_group_id: '',
                     age: '',
                     weight: '',
                     gender: '',
@@ -70,15 +80,25 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
         }
     }, [isOpen, editMode, initialData]);
 
-    // Clear breed_id when species changes
+    // Clear breed_id and pet_group_id when species changes
     useEffect(() => {
         if (touched.species_id && formData.breed_id) {
             const currentBreedBelongsToSpecies = availableBreeds.some(b => b.id === formData.breed_id);
             if (!currentBreedBelongsToSpecies) {
-                setFormData(prev => ({ ...prev, breed_id: '' }));
+                setFormData(prev => ({ ...prev, breed_id: '', pet_group_id: '' }));
             }
         }
     }, [formData.species_id, formData.breed_id, availableBreeds, touched.species_id]);
+
+    // Clear pet_group_id when it's no longer valid (e.g., species changed)
+    useEffect(() => {
+        if ((touched.breed_id || touched.species_id) && formData.pet_group_id) {
+            const currentGroupStillValid = availableGroups.some(g => g.id === formData.pet_group_id);
+            if (!currentGroupStillValid) {
+                setFormData(prev => ({ ...prev, pet_group_id: '' }));
+            }
+        }
+    }, [formData.breed_id, formData.pet_group_id, availableGroups, touched.breed_id, touched.species_id]);
 
     // Validation functions
     const validateName = (name) => {
@@ -326,7 +346,7 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
 
     const handleSubmit = () => {
         // Mark all fields as touched
-        const allFields = ['name', 'species_id', 'breed_id', 'age', 'weight', 'gender', 'color', 'image_url', 'arrival_date', 'preferences', 'special_notes'];
+        const allFields = ['name', 'species_id', 'breed_id', 'pet_group_id', 'age', 'weight', 'gender', 'color', 'image_url', 'arrival_date', 'preferences', 'special_notes'];
         const newTouched = {};
         allFields.forEach(field => {
             newTouched[field] = true;
@@ -352,6 +372,11 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
     const getBreedName = (breedId) => {
         const br = breeds.find(b => b.id === breedId);
         return br ? br.name : '';
+    };
+
+    const getGroupName = (groupId) => {
+        const gr = groups.find(g => g.id === groupId);
+        return gr ? gr.name : '';
     };
 
     return (
@@ -444,6 +469,39 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
                                 ))}
                             </Select>
                         </FormControl>
+                        <FormControl sx={{ flex: 1 }} disabled={!formData.species_id || isLoading} error={touched.pet_group_id && Boolean(errors.pet_group_id)}>
+                            <InputLabel>Nhóm thú cưng</InputLabel>
+                            <Select
+                                label="Nhóm thú cưng"
+                                value={formData.pet_group_id}
+                                onChange={(e) => handleChange('pet_group_id', e.target.value)}
+                                onBlur={() => handleBlur('pet_group_id')}
+                            >
+                                <MenuItem value="">
+                                    <em>Không chọn nhóm</em>
+                                </MenuItem>
+                                {availableGroups.map(g => (
+                                    <MenuItem key={g.id} value={g.id}>
+                                        <Stack direction="row" alignItems="center" spacing={1}>
+                                            <Typography>{g.name}</Typography>
+                                            <Chip
+                                                label={`${g.current_count || 0}/${g.max_capacity}`}
+                                                size="small"
+                                                sx={{
+                                                    height: 20,
+                                                    fontSize: '0.7rem',
+                                                    background: alpha(COLORS.WARNING[100], 0.5)
+                                                }}
+                                            />
+                                        </Stack>
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+                    </Stack>
+
+                    {/* Row 3 */}
+                    <Stack direction="row" spacing={2}>
                         <TextField
                             label="Tuổi"
                             sx={{ flex: 1 }}
@@ -456,10 +514,6 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
                             inputProps={{ min: 0, max: 30, step: 1 }}
                             disabled={isLoading}
                         />
-                    </Stack>
-
-                    {/* Row 3 */}
-                    <Stack direction="row" spacing={2}>
                         <TextField
                             label="Cân nặng (kg)"
                             sx={{ flex: 1 }}
@@ -472,6 +526,10 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
                             inputProps={{ min: 0, max: 100, step: 0.1 }}
                             disabled={isLoading}
                         />
+                    </Stack>
+
+                    {/* Row 4 */}
+                    <Stack direction="row" spacing={2}>
                         <FormControl sx={{ flex: 1 }} required disabled={isLoading} error={touched.gender && Boolean(errors.gender)}>
                             <InputLabel>Giới tính</InputLabel>
                             <Select
@@ -484,10 +542,6 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
                                 <MenuItem value="female">♀ Cái</MenuItem>
                             </Select>
                         </FormControl>
-                    </Stack>
-
-                    {/* Row 4 */}
-                    <Stack direction="row" spacing={2}>
                         <TextField
                             label="Màu sắc"
                             sx={{ flex: 1 }}
@@ -498,25 +552,27 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
                             disabled={isLoading}
                             placeholder="Nhập màu sắc..."
                         />
-                        <TextField
-                            label="Ngày đến quán"
-                            sx={{ flex: 1 }}
-                            required
-                            type="date"
-                            value={formData.arrival_date}
-                            onChange={(e) => handleChange('arrival_date', e.target.value)}
-                            onBlur={() => handleBlur('arrival_date')}
-                            error={touched.arrival_date && Boolean(errors.arrival_date)}
-                            InputLabelProps={{ shrink: true }}
-                            inputProps={{
-                                placeholder: 'dd/mm/yyyy',
-                                max: new Date().toISOString().split('T')[0]
-                            }}
-                            disabled={isLoading}
-                        />
                     </Stack>
 
-                    {/* Row 5: Image URL */}
+                    {/* Row 5 */}
+                    <TextField
+                        label="Ngày đến quán"
+                        fullWidth
+                        required
+                        type="date"
+                        value={formData.arrival_date}
+                        onChange={(e) => handleChange('arrival_date', e.target.value)}
+                        onBlur={() => handleBlur('arrival_date')}
+                        error={touched.arrival_date && Boolean(errors.arrival_date)}
+                        InputLabelProps={{ shrink: true }}
+                        inputProps={{
+                            placeholder: 'dd/mm/yyyy',
+                            max: new Date().toISOString().split('T')[0]
+                        }}
+                        disabled={isLoading}
+                    />
+
+                    {/* Row 6: Image URL */}
                     <Box>
                         <TextField
                             label="URL hình ảnh"
@@ -545,7 +601,7 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
                         )}
                     </Box>
 
-                    {/* Row 6: Preferences */}
+                    {/* Row 7: Preferences */}
                     <TextField
                         label="Sở thích & Đặc điểm"
                         fullWidth
@@ -559,7 +615,7 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
                         disabled={isLoading}
                     />
 
-                    {/* Row 7: Special Notes */}
+                    {/* Row 8: Special Notes */}
                     <TextField
                         label="Ghi chú đặc biệt"
                         fullWidth
@@ -574,7 +630,7 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
                     />
 
                     {/* Preview Info */}
-                    {formData.name && formData.species_id && formData.breed_id && formData.age && formData.weight && (
+                    {formData.name && formData.species_id && formData.breed_id && formData.age && formData.weight && formData.gender && (
                         <Box>
                             <Box
                                 sx={{
@@ -656,8 +712,20 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
                                             </Box>
                                         )}
                                     </Stack>
-                                    {(formData.color || formData.arrival_date) && (
+                                    {(formData.pet_group_id || formData.color || formData.arrival_date) && (
                                         <Stack direction="row" spacing={2}>
+                                            {formData.pet_group_id && (
+                                                <Box sx={{ flex: 1 }}>
+                                                    <Stack direction="row" spacing={1}>
+                                                        <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, minWidth: '100px' }}>
+                                                            Nhóm:
+                                                        </Typography>
+                                                        <Typography variant="body2" sx={{ fontWeight: 600, flex: 1 }}>
+                                                            {getGroupName(formData.pet_group_id)}
+                                                        </Typography>
+                                                    </Stack>
+                                                </Box>
+                                            )}
                                             {formData.color && (
                                                 <Box sx={{ flex: 1 }}>
                                                     <Stack direction="row" spacing={1}>
@@ -670,18 +738,20 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
                                                     </Stack>
                                                 </Box>
                                             )}
-                                            {formData.arrival_date && (
-                                                <Box sx={{ flex: 1 }}>
-                                                    <Stack direction="row" spacing={1}>
-                                                        <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, minWidth: '100px' }}>
-                                                            Ngày đến quán:
-                                                        </Typography>
-                                                        <Typography variant="body2" sx={{ fontWeight: 600, flex: 1 }}>
-                                                            {new Date(formData.arrival_date).toLocaleDateString('vi-VN')}
-                                                        </Typography>
-                                                    </Stack>
-                                                </Box>
-                                            )}
+                                        </Stack>
+                                    )}
+                                    {formData.arrival_date && (
+                                        <Stack direction="row" spacing={2}>
+                                            <Box sx={{ flex: 1 }}>
+                                                <Stack direction="row" spacing={1}>
+                                                    <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, minWidth: '100px' }}>
+                                                        Ngày đến quán:
+                                                    </Typography>
+                                                    <Typography variant="body2" sx={{ fontWeight: 600, flex: 1 }}>
+                                                        {new Date(formData.arrival_date).toLocaleDateString('vi-VN')}
+                                                    </Typography>
+                                                </Stack>
+                                            </Box>
                                         </Stack>
                                     )}
                                 </Stack>
