@@ -1186,9 +1186,13 @@ const workshiftApi = {
             throw new Error('Nhân viên đã có trong nhóm');
         }
 
-        // Check if staff is leader of this team
+        // Check if staff is leader of this team - if yes, skip adding (leader is already part of team)
         if (team.leader && team.leader.id === staffData.id) {
-            throw new Error('Nhân viên đang là leader của nhóm');
+            return {
+                success: true,
+                data: team,
+                message: 'Nhân viên đã là leader của nhóm'
+            };
         }
 
         // VALIDATE: Check if staff is already in another team in the SAME shift

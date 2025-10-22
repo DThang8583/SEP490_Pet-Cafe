@@ -77,42 +77,27 @@ const ShiftFormModal = ({
                         placeholder="Mô tả về ca làm việc..."
                     />
 
-                    <Stack direction="row" spacing={2.5}>
-                        <FormControl sx={{ flex: 1 }}>
-                            <InputLabel>Ngày áp dụng</InputLabel>
-                            <Select
-                                multiple
-                                label="Ngày áp dụng"
-                                value={formData.applicable_days}
-                                onChange={(e) => onFormChange({ ...formData, applicable_days: e.target.value })}
-                                renderValue={(selected) => {
-                                    if (!selected || selected.length === 0) return 'Chọn ngày';
-                                    if (selected.length === 7) return 'Tất cả các ngày';
-                                    return `${selected.length} ngày đã chọn`;
-                                }}
-                                sx={{ height: 56 }}
-                            >
-                                {DAYS_IN_WEEK.map(day => (
-                                    <MenuItem key={day.value} value={day.value}>
-                                        {day.label}
-                                    </MenuItem>
-                                ))}
-                            </Select>
-                        </FormControl>
-
-                        <FormControl sx={{ width: 200 }}>
-                            <InputLabel>Trạng thái</InputLabel>
-                            <Select
-                                label="Trạng thái"
-                                value={formData.is_active ? 'true' : 'false'}
-                                onChange={(e) => onFormChange({ ...formData, is_active: e.target.value === 'true' })}
-                                sx={{ height: 56 }}
-                            >
-                                <MenuItem value="true">Hoạt động</MenuItem>
-                                <MenuItem value="false">Tạm ngừng</MenuItem>
-                            </Select>
-                        </FormControl>
-                    </Stack>
+                    <FormControl fullWidth>
+                        <InputLabel>Ngày áp dụng</InputLabel>
+                        <Select
+                            multiple
+                            label="Ngày áp dụng"
+                            value={formData.applicable_days}
+                            onChange={(e) => onFormChange({ ...formData, applicable_days: e.target.value })}
+                            renderValue={(selected) => {
+                                if (!selected || selected.length === 0) return 'Chọn ngày';
+                                if (selected.length === 7) return 'Tất cả các ngày';
+                                return `${selected.length} ngày đã chọn`;
+                            }}
+                            sx={{ height: 56 }}
+                        >
+                            {DAYS_IN_WEEK.map(day => (
+                                <MenuItem key={day.value} value={day.value}>
+                                    {day.label}
+                                </MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
                 </Stack>
             </DialogContent>
             <DialogActions sx={{ px: 3, py: 2.5, gap: 2 }}>
