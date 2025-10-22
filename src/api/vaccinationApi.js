@@ -37,8 +37,9 @@ let MOCK_VACCINE_TYPES = [
         id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
         name: 'Vaccine Dại (Rabies)',
         description: 'Vaccine phòng bệnh dại cho chó mèo, tiêm hàng năm',
-        species_id: 'dog',
+        species_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6', // Chó
         interval_months: 12,
+        required_doses: 0,
         is_required: true,
         createdAt: '2023-01-01T10:00:00Z'
     },
@@ -46,8 +47,9 @@ let MOCK_VACCINE_TYPES = [
         id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7',
         name: 'Vaccine Dại (Rabies)',
         description: 'Vaccine phòng bệnh dại cho mèo, tiêm hàng năm',
-        species_id: 'cat',
+        species_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7', // Mèo
         interval_months: 12,
+        required_doses: 0,
         is_required: true,
         createdAt: '2023-01-01T10:00:00Z'
     },
@@ -55,8 +57,9 @@ let MOCK_VACCINE_TYPES = [
         id: '5gc07g86-7939-6784-d5he-4e185h88chc8',
         name: 'Vaccine 7 bệnh (DHPPi+L)',
         description: 'Vaccine phòng 7 bệnh cho chó: Carré, Parvo, Hepatitis, Para-influenza, Leptospirosis',
-        species_id: 'dog',
+        species_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6', // Chó
         interval_months: 12,
+        required_doses: 0,
         is_required: true,
         createdAt: '2023-01-01T10:00:00Z'
     },
@@ -64,8 +67,9 @@ let MOCK_VACCINE_TYPES = [
         id: '6hd18h97-8040-7895-e6if-5f296i99dif9',
         name: 'Vaccine 4 bệnh (FVRCP)',
         description: 'Vaccine phòng 4 bệnh cho mèo: Viêm mũi khí quản, Calici, Phân trắng (Panleukopenia)',
-        species_id: 'cat',
+        species_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7', // Mèo
         interval_months: 12,
+        required_doses: 0,
         is_required: true,
         createdAt: '2023-01-01T10:00:00Z'
     },
@@ -73,8 +77,9 @@ let MOCK_VACCINE_TYPES = [
         id: '7ie29i08-9151-8906-f7jg-6g307j00ejg0',
         name: 'Vaccine Viêm gan truyền nhiễm (Hepatitis)',
         description: 'Vaccine phòng viêm gan truyền nhiễm cho chó',
-        species_id: 'dog',
+        species_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6', // Chó
         interval_months: 12,
+        required_doses: 0,
         is_required: false,
         createdAt: '2023-01-01T10:00:00Z'
     },
@@ -82,8 +87,9 @@ let MOCK_VACCINE_TYPES = [
         id: '8jf30j19-0262-9017-g8kh-7h418k11fkh1',
         name: 'Vaccine Bạch hầu mèo (FeLV)',
         description: 'Vaccine phòng bệnh bạch hầu ở mèo',
-        species_id: 'cat',
+        species_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7', // Mèo
         interval_months: 12,
+        required_doses: 0,
         is_required: false,
         createdAt: '2023-01-01T10:00:00Z'
     },
@@ -91,8 +97,9 @@ let MOCK_VACCINE_TYPES = [
         id: '9kg41k20-1373-0128-h9li-8i529l22gki2',
         name: 'Vaccine Ho cũi chó (Kennel Cough)',
         description: 'Vaccine phòng ho cũi chó (Bordetella)',
-        species_id: 'dog',
+        species_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6', // Chó
         interval_months: 6,
+        required_doses: 0,
         is_required: false,
         createdAt: '2023-01-01T10:00:00Z'
     },
@@ -100,8 +107,9 @@ let MOCK_VACCINE_TYPES = [
         id: '0lh52l31-2484-1239-i0mj-9j630m33hkj3',
         name: 'Vaccine FIP (Peritonitis)',
         description: 'Vaccine phòng viêm phúc mạc truyền nhiễm ở mèo',
-        species_id: 'cat',
+        species_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7', // Mèo
         interval_months: 12,
+        required_doses: 0,
         is_required: false,
         createdAt: '2023-01-01T10:00:00Z'
     }
@@ -569,6 +577,7 @@ const vaccinationApi = {
             description: vaccineData.description || '',
             species_id: vaccineData.species_id,
             interval_months: parseInt(vaccineData.interval_months),
+            required_doses: parseInt(vaccineData.required_doses) || 0,
             is_required: vaccineData.is_required || false,
             createdAt: new Date().toISOString()
         };
@@ -576,6 +585,86 @@ const vaccinationApi = {
         MOCK_VACCINE_TYPES.push(newVaccineType);
 
         return { success: true, data: newVaccineType, message: 'Thêm loại vaccine thành công' };
+    },
+
+    // Update vaccine type
+    async updateVaccineType(vaccineTypeId, updates) {
+        await delay(400);
+        const currentUser = getCurrentUser();
+
+        if (!checkPermission(currentUser, 'pet_management')) {
+            throw new Error('Không có quyền cập nhật loại vaccine');
+        }
+
+        const vaccineTypeIndex = MOCK_VACCINE_TYPES.findIndex(vt => vt.id === vaccineTypeId);
+
+        if (vaccineTypeIndex === -1) {
+            throw new Error('Không tìm thấy loại vaccine');
+        }
+
+        // Validate
+        if (updates.name && !updates.name.trim()) {
+            throw new Error('Tên vaccine không được để trống');
+        }
+
+        if (updates.interval_months && updates.interval_months < 1) {
+            throw new Error('Khoảng thời gian tiêm lại không hợp lệ');
+        }
+
+        // Apply updates
+        const allowedFields = ['name', 'description', 'species_id', 'interval_months', 'required_doses', 'is_required'];
+        allowedFields.forEach(field => {
+            if (updates[field] !== undefined) {
+                if (field === 'name' || field === 'description') {
+                    MOCK_VACCINE_TYPES[vaccineTypeIndex][field] = updates[field]?.trim ? updates[field].trim() : updates[field];
+                } else if (field === 'interval_months' || field === 'required_doses') {
+                    MOCK_VACCINE_TYPES[vaccineTypeIndex][field] = parseInt(updates[field]);
+                } else {
+                    MOCK_VACCINE_TYPES[vaccineTypeIndex][field] = updates[field];
+                }
+            }
+        });
+
+        MOCK_VACCINE_TYPES[vaccineTypeIndex].updatedAt = new Date().toISOString();
+
+        return {
+            success: true,
+            data: MOCK_VACCINE_TYPES[vaccineTypeIndex],
+            message: 'Cập nhật loại vaccine thành công'
+        };
+    },
+
+    // Delete vaccine type
+    async deleteVaccineType(vaccineTypeId) {
+        await delay(400);
+        const currentUser = getCurrentUser();
+
+        if (!checkPermission(currentUser, 'pet_management')) {
+            throw new Error('Không có quyền xóa loại vaccine');
+        }
+
+        const vaccineTypeIndex = MOCK_VACCINE_TYPES.findIndex(vt => vt.id === vaccineTypeId);
+
+        if (vaccineTypeIndex === -1) {
+            throw new Error('Không tìm thấy loại vaccine');
+        }
+
+        // Check if this vaccine type is being used in any vaccination records
+        const isUsedInRecords = MOCK_VACCINATION_RECORDS.some(r => r.vaccine_type_id === vaccineTypeId);
+        const isUsedInSchedules = MOCK_VACCINATION_SCHEDULES.some(s => s.vaccine_type_id === vaccineTypeId);
+
+        if (isUsedInRecords || isUsedInSchedules) {
+            throw new Error('Không thể xóa loại vaccine này vì đang được sử dụng trong hồ sơ hoặc lịch tiêm');
+        }
+
+        const deletedVaccineType = MOCK_VACCINE_TYPES[vaccineTypeIndex];
+        MOCK_VACCINE_TYPES.splice(vaccineTypeIndex, 1);
+
+        return {
+            success: true,
+            data: deletedVaccineType,
+            message: 'Xóa loại vaccine thành công'
+        };
     },
 
     // ==================== VACCINATION SCHEDULES APIs ====================

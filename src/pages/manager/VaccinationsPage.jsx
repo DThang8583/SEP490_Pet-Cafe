@@ -1,11 +1,13 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { Box, Typography, Paper, Stack, Avatar, Chip, Grid, alpha, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Dialog, DialogTitle, DialogContent, DialogActions, Button, Divider, IconButton, Tabs, Tab } from '@mui/material';
-import { Vaccines, CheckCircle, Schedule, Visibility, Close, Pets, CalendarToday, Person, LocalHospital, MedicalServices, Event } from '@mui/icons-material';
+import { Vaccines, CheckCircle, Schedule, Visibility, Close, Pets, CalendarToday, Person, LocalHospital, MedicalServices, Event, Add } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 import Loading from '../../components/loading/Loading';
 import AlertModal from '../../components/modals/AlertModal';
 import Pagination from '../../components/common/Pagination';
 import VaccinationCalendar from '../../components/vaccination/VaccinationCalendar';
+import VaccineTypesTab from './VaccineTypesTab';
+import VaccinationScheduleModal from '../../components/modals/VaccinationScheduleModal';
 import { vaccinationApi } from '../../api/vaccinationApi';
 import { petApi, MOCK_PET_SPECIES, MOCK_PET_BREEDS } from '../../api/petApi';
 
@@ -18,6 +20,8 @@ const VaccinationsPage = () => {
     const [pets, setPets] = useState([]);
     const [species, setSpecies] = useState([]);
     const [breeds, setBreeds] = useState([]);
+    const [groups, setGroups] = useState([]);
+    const [vaccineTypes, setVaccineTypes] = useState([]);
 
     // Detail dialog
     const [detailDialogOpen, setDetailDialogOpen] = useState(false);
@@ -27,6 +31,11 @@ const VaccinationsPage = () => {
 
     // Alert modal
     const [alert, setAlert] = useState({ open: false, message: '', type: 'info', title: 'Thông báo' });
+
+    // Schedule modal
+    const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
+    const [currentSchedule, setCurrentSchedule] = useState(null);
+    const [scheduleEditMode, setScheduleEditMode] = useState(false);
 
     // Pagination for upcoming vaccinations
     const [upcomingPage, setUpcomingPage] = useState(1);
@@ -45,20 +54,26 @@ const VaccinationsPage = () => {
         try {
             setIsLoading(true);
 
-            // Load pets, species, breeds data
-            const [petsRes, speciesRes, breedsRes] = await Promise.all([
+            // Load pets, species, breeds, groups, vaccine types data
+            const [petsRes, speciesRes, breedsRes, groupsRes, vaccineTypesRes] = await Promise.all([
                 petApi.getPets(),
                 petApi.getPetSpecies(),
-                petApi.getPetBreeds()
+                petApi.getPetBreeds(),
+                petApi.getPetGroups(),
+                vaccinationApi.getVaccineTypes()
             ]);
 
             const petsData = petsRes.success ? petsRes.data : [];
             const speciesData = speciesRes.success ? speciesRes.data : [];
             const breedsData = breedsRes.success ? breedsRes.data : [];
+            const groupsData = groupsRes.success ? groupsRes.data : [];
+            const vaccineTypesData = vaccineTypesRes.success ? vaccineTypesRes.data : [];
 
             setPets(petsData);
             setSpecies(speciesData);
             setBreeds(breedsData);
+            setGroups(groupsData);
+            setVaccineTypes(vaccineTypesData);
 
             // Then load vaccination data with pets data
             const [statsRes, upcomingRes, recordsRes] = await Promise.all([
@@ -123,6 +138,94 @@ const VaccinationsPage = () => {
         setDetailDialogOpen(false);
         setSelectedItem(null);
         setSelectedPetDetails(null);
+    };
+
+    // Handle open schedule modal
+    const handleOpenScheduleModal = (schedule = null) => {
+        setScheduleEditMode(!!schedule);
+        setCurrentSchedule(schedule);
+        setScheduleModalOpen(true);
+    };
+
+    // Handle close schedule modal
+    const handleCloseScheduleModal = () => {
+        setScheduleModalOpen(false);
+        setScheduleEditMode(false);
+        setCurrentSchedule(null);
+    };
+
+    // Handle create/update schedule
+    const handleSaveSchedule = async (formData) => {
+        try {
+            setIsLoading(true);
+
+            if (formData.target_type === 'pet') {
+                // Create schedule for single pet
+                const scheduleData = {
+                    pet_id: formData.pet_id,
+                    vaccine_type_id: formData.vaccine_type_id,
+                    scheduled_date: new Date(formData.scheduled_date).toISOString(),
+                    notes: formData.notes
+                };
+
+                const response = await vaccinationApi.createVaccinationSchedule(scheduleData, pets);
+
+                if (response.success) {
+                    await loadVaccinationData();
+                    handleCloseScheduleModal();
+                    setAlert({
+                        open: true,
+                        title: 'Thành công',
+                        message: 'Tạo lịch tiêm thành công',
+                        type: 'success'
+                    });
+                }
+            } else {
+                // Create schedules for all pets in group
+                const group = groups.find(g => g.id === formData.group_id);
+                const groupPets = pets.filter(p => p.pet_group_id === formData.group_id);
+
+                if (groupPets.length === 0) {
+                    setAlert({
+                        open: true,
+                        title: 'Lỗi',
+                        message: 'Nhóm không có thú cưng nào',
+                        type: 'error'
+                    });
+                    return;
+                }
+
+                const createPromises = groupPets.map(pet => {
+                    const scheduleData = {
+                        pet_id: pet.id,
+                        vaccine_type_id: formData.vaccine_type_id,
+                        scheduled_date: new Date(formData.scheduled_date).toISOString(),
+                        notes: formData.notes + ` (Nhóm: ${group.name})`
+                    };
+                    return vaccinationApi.createVaccinationSchedule(scheduleData, pets);
+                });
+
+                await Promise.all(createPromises);
+                await loadVaccinationData();
+                handleCloseScheduleModal();
+                setAlert({
+                    open: true,
+                    title: 'Thành công',
+                    message: `Tạo lịch tiêm thành công cho ${groupPets.length} thú cưng trong nhóm ${group.name}`,
+                    type: 'success'
+                });
+            }
+        } catch (error) {
+            console.error('Error saving schedule:', error);
+            setAlert({
+                open: true,
+                title: 'Lỗi',
+                message: error.message || 'Không thể tạo lịch tiêm',
+                type: 'error'
+            });
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     // Helper functions to get names from IDs
@@ -294,6 +397,7 @@ const VaccinationsPage = () => {
                     <Grid item xs={12} sm={6} md={2}>
                         <Paper
                             elevation={0}
+                            onClick={() => setCurrentTab(2)}
                             sx={{
                                 p: 2.5,
                                 borderRadius: 3,
@@ -384,7 +488,7 @@ const VaccinationsPage = () => {
                     <Grid item xs={12} sm={6} md={2}>
                         <Paper
                             elevation={0}
-                            onClick={() => setCurrentTab(2)}
+                            onClick={() => setCurrentTab(3)}
                             sx={{
                                 p: 2.5,
                                 borderRadius: 3,
@@ -561,6 +665,11 @@ const VaccinationsPage = () => {
                             label={`Lịch tiêm sắp tới (${upcomingVaccinations.length})`}
                         />
                         <Tab
+                            icon={<Vaccines />}
+                            iconPosition="start"
+                            label="Quản lý Vaccines"
+                        />
+                        <Tab
                             icon={<CheckCircle />}
                             iconPosition="start"
                             label={`Hồ sơ đã thực hiện (${vaccinationRecords.length})`}
@@ -580,10 +689,42 @@ const VaccinationsPage = () => {
                             p: 3,
                             borderRadius: 3,
                             border: `2px solid ${alpha(COLORS.WARNING[200], 0.4)}`,
-                            boxShadow: `0 10px 24px ${alpha(COLORS.WARNING[200], 0.15)}`,
-                            mb: 3
+                            boxShadow: `0 10px 24px ${alpha(COLORS.WARNING[200], 0.15)}`
                         }}
                     >
+                        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 3 }}>
+                            <Stack direction="row" alignItems="center" spacing={1}>
+                                <Schedule sx={{ color: COLORS.WARNING[700], fontSize: 28 }} />
+                                <Typography variant="h6" sx={{ fontWeight: 800, color: COLORS.WARNING[700] }}>
+                                    Danh sách lịch tiêm sắp tới
+                                </Typography>
+                                <Chip
+                                    label={upcomingVaccinations.length}
+                                    size="small"
+                                    sx={{
+                                        background: alpha(COLORS.WARNING[100], 0.7),
+                                        color: COLORS.WARNING[800],
+                                        fontWeight: 700
+                                    }}
+                                />
+                            </Stack>
+                            <Button
+                                variant="contained"
+                                startIcon={<Add />}
+                                onClick={() => handleOpenScheduleModal()}
+                                sx={{
+                                    background: `linear-gradient(135deg, ${COLORS.WARNING[500]} 0%, ${COLORS.WARNING[700]} 100%)`,
+                                    color: '#fff',
+                                    fontWeight: 700,
+                                    px: 3,
+                                    '&:hover': {
+                                        background: `linear-gradient(135deg, ${COLORS.WARNING[600]} 0%, ${COLORS.WARNING[800]} 100%)`
+                                    }
+                                }}
+                            >
+                                Tạo lịch tiêm
+                            </Button>
+                        </Stack>
                         {upcomingVaccinations.length > 0 ? (
                             <>
                                 <Stack spacing={2}>
@@ -676,8 +817,13 @@ const VaccinationsPage = () => {
                     </Paper>
                 )}
 
-                {/* Tab Content: Vaccination Records */}
+                {/* Tab Content: Vaccine Types Management */}
                 {currentTab === 2 && (
+                    <VaccineTypesTab species={species} />
+                )}
+
+                {/* Tab Content: Vaccination Records */}
+                {currentTab === 3 && (
                     <Paper
                         sx={{
                             p: 3,
@@ -1251,6 +1397,19 @@ const VaccinationsPage = () => {
                     </Button>
                 </DialogActions>
             </Dialog>
+
+            {/* Vaccination Schedule Modal */}
+            <VaccinationScheduleModal
+                isOpen={scheduleModalOpen}
+                onClose={handleCloseScheduleModal}
+                onSubmit={handleSaveSchedule}
+                editMode={scheduleEditMode}
+                initialData={currentSchedule}
+                pets={pets}
+                groups={groups}
+                vaccineTypes={vaccineTypes}
+                isLoading={isLoading}
+            />
 
             {/* Alert Modal */}
             <AlertModal
