@@ -1108,7 +1108,7 @@ const WorkShiftPage = () => {
                                 </Typography>
                             </Paper>
                         ) : (
-                            <Grid container spacing={2}>
+                            <Grid container spacing={2} alignItems="stretch">
                                 {teams.map((team) => {
                                     const leaderName = team?.leader?.full_name || team?.leader?.name || 'Chưa có leader';
                                     const members = Array.isArray(team?.members) ? team.members : [];
@@ -1116,7 +1116,7 @@ const WorkShiftPage = () => {
                                     const isHighlighted = teamMatchesSearch(team, searchQuery);
 
                                     return (
-                                        <Grid item xs={12} md={6} key={team?.id || leaderName}>
+                                        <Grid item xs={12} md={6} key={team?.id || leaderName} sx={{ display: 'flex' }}>
                                             <Paper sx={{
                                                 p: 2.5,
                                                 borderRadius: 2.5,
@@ -1135,7 +1135,10 @@ const WorkShiftPage = () => {
                                                     boxShadow: isHighlighted
                                                         ? `0 6px 16px ${alpha(COLORS.WARNING[300], 0.5)}`
                                                         : `0 6px 16px ${alpha(COLORS.INFO[200], 0.3)}`
-                                                }
+                                                },
+                                                width: '100%',
+                                                display: 'flex',
+                                                flexDirection: 'column'
                                             }}>
                                                 {/* Team Header */}
                                                 <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 2 }}>
