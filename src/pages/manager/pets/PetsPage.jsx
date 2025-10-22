@@ -518,6 +518,7 @@ const PetsPage = () => {
                         pets={pets}
                         species={species}
                         breeds={breeds}
+                        groups={groups}
                         onDataChange={loadAllData}
                     />
                 )}

@@ -389,7 +389,7 @@ export const StepTimeframe = ({ formData, setFormData, selectedService }) => {
                                                         ✓
                                                     </Box>
                                                 )}
-                                            </Stack>
+                        </Stack>
                                         </Box>
                                     );
                                 })}
@@ -679,9 +679,9 @@ export const StepShift = ({ formData, setFormData, selectedService }) => {
                                 };
 
                                 return (
-                                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                                        {selected.map((slotId) => {
-                                            const slot = serviceSlots.find(s => s.id === slotId);
+                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                    {selected.map((slotId) => {
+                                        const slot = serviceSlots.find(s => s.id === slotId);
                                             if (!slot) return null;
 
                                             const daysStr = (slot.applicable_days || [])
@@ -689,19 +689,19 @@ export const StepShift = ({ formData, setFormData, selectedService }) => {
                                                 .join(',');
 
                                             return (
-                                                <Chip
-                                                    key={slotId}
+                                            <Chip
+                                                key={slotId}
                                                     label={`${slot.start_time?.substring(0, 5)}-${slot.end_time?.substring(0, 5)} (${daysStr})`}
-                                                    size="small"
+                                                size="small"
                                                     sx={{
                                                         bgcolor: alpha(COLORS.PRIMARY[100], 0.8),
                                                         color: COLORS.PRIMARY[700],
                                                         fontWeight: 600
                                                     }}
-                                                />
+                                            />
                                             );
-                                        })}
-                                    </Box>
+                                    })}
+                                </Box>
                                 );
                             }}
                         >
@@ -718,12 +718,12 @@ export const StepShift = ({ formData, setFormData, selectedService }) => {
                                     };
 
                                     return (
-                                        <MenuItem key={slot.id} value={slot.id}>
-                                            <Box sx={{ width: '100%' }}>
+                                <MenuItem key={slot.id} value={slot.id}>
+                                    <Box sx={{ width: '100%' }}>
                                                 <Stack direction="row" spacing={1.5} alignItems="center">
                                                     <Typography variant="body1" sx={{ fontWeight: 600, color: COLORS.TEXT.PRIMARY }}>
                                                         {slot.start_time?.substring(0, 5)} - {slot.end_time?.substring(0, 5)}
-                                                    </Typography>
+                                        </Typography>
                                                     <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
                                                         {(slot.applicable_days || []).map(day => (
                                                             <Chip
@@ -742,8 +742,8 @@ export const StepShift = ({ formData, setFormData, selectedService }) => {
                                                         ))}
                                                     </Box>
                                                 </Stack>
-                                            </Box>
-                                        </MenuItem>
+                                    </Box>
+                                </MenuItem>
                                     );
                                 })
                             ) : (

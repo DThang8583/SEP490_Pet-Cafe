@@ -24,6 +24,7 @@ const GroupsTab = ({ pets, species, breeds, groups, onDataChange }) => {
     const [alert, setAlert] = useState({ open: false, message: '', type: 'info', title: 'Thông báo' });
 
     const [groupDetailDialog, setGroupDetailDialog] = useState({ open: false, group: null, pets: [] });
+    const [addPetToGroupDialog, setAddPetToGroupDialog] = useState({ open: false, group: null });
 
     // Get species name by ID
     const getSpeciesName = (speciesId) => {
@@ -112,7 +113,7 @@ const GroupsTab = ({ pets, species, breeds, groups, onDataChange }) => {
             }
 
             if (response.success) {
-                onDataChange();
+                await onDataChange();
                 setGroupDialogOpen(false);
                 setAlert({
                     open: true,
@@ -166,12 +167,117 @@ const GroupsTab = ({ pets, species, breeds, groups, onDataChange }) => {
 
     // Handle view group details
     const handleViewGroupDetails = (group) => {
-        const groupPets = pets.filter(p => {
-            const matchSpecies = p.species_id === group.pet_species_id;
-            const matchBreed = !group.pet_breed_id || p.breed_id === group.pet_breed_id;
-            return matchSpecies && matchBreed;
-        });
+        // Only show pets that are ACTUALLY in this group (pet_group_id matches)
+        const groupPets = pets.filter(p => p.pet_group_id === group.id);
         setGroupDetailDialog({ open: true, group, pets: groupPets });
+    };
+
+    // Handle add pets to group
+    const handleOpenAddPetsDialog = (group) => {
+        setAddPetToGroupDialog({ open: true, group });
+    };
+
+    const handleAddPetsToGroup = async (selectedPetIds) => {
+        try {
+            // Update pets with group_id
+            const updatePromises = selectedPetIds.map(petId =>
+                petApi.updatePet(petId, { pet_group_id: addPetToGroupDialog.group.id })
+            );
+
+            await Promise.all(updatePromises);
+
+            // Wait for data to refresh before updating UI
+            await onDataChange();
+
+            // Store current group for later refresh
+            const currentGroupId = addPetToGroupDialog.group.id;
+            const shouldRefreshDetails = groupDetailDialog.open && groupDetailDialog.group?.id === currentGroupId;
+
+            setAddPetToGroupDialog({ open: false, group: null });
+            setAlert({
+                open: true,
+                title: 'Thành công',
+                message: `Đã thêm ${selectedPetIds.length} thú cưng vào nhóm!`,
+                type: 'success'
+            });
+
+            // Refresh group details with fresh data from API
+            if (shouldRefreshDetails) {
+                setTimeout(async () => {
+                    try {
+                        // Fetch fresh data directly from API
+                        const [petsResponse, groupsResponse] = await Promise.all([
+                            petApi.getPets(),
+                            petApi.getPetGroups()
+                        ]);
+
+                        if (petsResponse.success && groupsResponse.success) {
+                            const freshGroupPets = petsResponse.data.filter(p => p.pet_group_id === currentGroupId);
+                            const updatedGroup = groupsResponse.data.find(g => g.id === currentGroupId);
+
+                            if (updatedGroup) {
+                                setGroupDetailDialog({ open: true, group: updatedGroup, pets: freshGroupPets });
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Error refreshing group details:', error);
+                    }
+                }, 100);
+            }
+        } catch (error) {
+            setAlert({
+                open: true,
+                title: 'Lỗi',
+                message: error.message || 'Không thể thêm thú cưng vào nhóm',
+                type: 'error'
+            });
+        }
+    };
+
+    // Handle remove pet from group
+    const handleRemovePetFromGroup = async (pet, group) => {
+        try {
+            // Set pet_group_id to null
+            await petApi.updatePet(pet.id, { pet_group_id: null });
+
+            // Wait for data to refresh
+            await onDataChange();
+
+            setAlert({
+                open: true,
+                title: 'Thành công',
+                message: `Đã xóa ${pet.name} khỏi nhóm!`,
+                type: 'success'
+            });
+
+            // Refresh group details with fresh data from API
+            setTimeout(async () => {
+                try {
+                    const [petsResponse, groupsResponse] = await Promise.all([
+                        petApi.getPets(),
+                        petApi.getPetGroups()
+                    ]);
+
+                    if (petsResponse.success && groupsResponse.success) {
+                        const freshGroupPets = petsResponse.data.filter(p => p.pet_group_id === group.id);
+                        const updatedGroup = groupsResponse.data.find(g => g.id === group.id);
+
+                        if (updatedGroup) {
+                            setGroupDetailDialog({ open: true, group: updatedGroup, pets: freshGroupPets });
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error refreshing group details:', error);
+                }
+            }, 100);
+        } catch (error) {
+            setAlert({
+                open: true,
+                title: 'Lỗi',
+                message: error.message || 'Không thể xóa thú cưng khỏi nhóm',
+                type: 'error'
+            });
+        }
     };
 
     return (
@@ -241,7 +347,6 @@ const GroupsTab = ({ pets, species, breeds, groups, onDataChange }) => {
                             <TableRow>
                                 <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.WARNING[50], 0.5) }}>Tên nhóm</TableCell>
                                 <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.WARNING[50], 0.5) }}>Loài</TableCell>
-                                <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.WARNING[50], 0.5), display: { xs: 'none', sm: 'table-cell' } }}>Giống</TableCell>
                                 <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.WARNING[50], 0.5), display: { xs: 'none', md: 'table-cell' } }}>Mô tả</TableCell>
                                 <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.WARNING[50], 0.5), display: { xs: 'none', lg: 'table-cell' } }}>Sức chứa</TableCell>
                                 <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.WARNING[50], 0.5) }}>Số lượng</TableCell>
@@ -278,9 +383,6 @@ const GroupsTab = ({ pets, species, breeds, groups, onDataChange }) => {
                                                     fontWeight: 700
                                                 }}
                                             />
-                                        </TableCell>
-                                        <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
-                                            {group.pet_breed_id ? getBreedName(group.pet_breed_id) : 'Tất cả'}
                                         </TableCell>
                                         <TableCell sx={{ display: { xs: 'none', md: 'table-cell' }, maxWidth: 300 }}>
                                             <Typography variant="body2" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -479,6 +581,24 @@ const GroupsTab = ({ pets, species, breeds, groups, onDataChange }) => {
                                             fontWeight: 700
                                         }}
                                     />
+                                    <Box sx={{ flexGrow: 1 }} />
+                                    <Button
+                                        variant="contained"
+                                        size="small"
+                                        startIcon={<Add />}
+                                        onClick={() => handleOpenAddPetsDialog(groupDetailDialog.group)}
+                                        sx={{
+                                            background: `linear-gradient(135deg, ${COLORS.ERROR[500]} 0%, ${COLORS.ERROR[700]} 100%)`,
+                                            color: '#fff',
+                                            fontWeight: 700,
+                                            fontSize: '0.8rem',
+                                            '&:hover': {
+                                                background: `linear-gradient(135deg, ${COLORS.ERROR[600]} 0%, ${COLORS.ERROR[800]} 100())`
+                                            }
+                                        }}
+                                    >
+                                        Thêm thú cưng
+                                    </Button>
                                 </Stack>
                                 <Divider sx={{ mb: 2 }} />
                                 {groupDetailDialog.pets.length > 0 ? (
@@ -516,6 +636,18 @@ const GroupsTab = ({ pets, species, breeds, groups, onDataChange }) => {
                                                             fontSize: '0.75rem'
                                                         }}
                                                     />
+                                                    <IconButton
+                                                        size="small"
+                                                        onClick={() => handleRemovePetFromGroup(pet, groupDetailDialog.group)}
+                                                        sx={{
+                                                            color: COLORS.ERROR[600],
+                                                            '&:hover': {
+                                                                background: alpha(COLORS.ERROR[500], 0.1)
+                                                            }
+                                                        }}
+                                                    >
+                                                        <Delete fontSize="small" />
+                                                    </IconButton>
                                                 </Stack>
                                             </Paper>
                                         ))}
@@ -563,6 +695,59 @@ const GroupsTab = ({ pets, species, breeds, groups, onDataChange }) => {
                 type="error"
             />
 
+            {/* Add Pets to Group Dialog */}
+            <Dialog
+                open={addPetToGroupDialog.open}
+                onClose={() => setAddPetToGroupDialog({ open: false, group: null })}
+                maxWidth="md"
+                fullWidth
+                PaperProps={{
+                    sx: {
+                        borderRadius: 3,
+                        boxShadow: `0 20px 60px ${alpha(COLORS.ERROR[900], 0.3)}`
+                    }
+                }}
+            >
+                <DialogTitle
+                    sx={{
+                        background: `linear-gradient(135deg, ${COLORS.ERROR[500]} 0%, ${COLORS.ERROR[700]} 100())`,
+                        color: '#fff',
+                        fontWeight: 800,
+                        fontSize: '1.3rem',
+                        py: 2.5
+                    }}
+                >
+                    <Stack direction="row" alignItems="center" spacing={2}>
+                        <PetsIcon sx={{ fontSize: 32 }} />
+                        <Typography variant="h5" sx={{ fontWeight: 800, flexGrow: 1 }}>
+                            Thêm thú cưng vào {addPetToGroupDialog.group?.name}
+                        </Typography>
+                        <IconButton
+                            onClick={() => setAddPetToGroupDialog({ open: false, group: null })}
+                            sx={{
+                                color: '#fff',
+                                '&:hover': {
+                                    background: alpha('#fff', 0.2)
+                                }
+                            }}
+                        >
+                            <Close />
+                        </IconButton>
+                    </Stack>
+                </DialogTitle>
+                <DialogContent sx={{ p: 3, mt: 2 }}>
+                    <AddPetsToGroupContent
+                        group={addPetToGroupDialog.group}
+                        allPets={pets}
+                        species={species}
+                        breeds={breeds}
+                        groups={groups}
+                        onSubmit={handleAddPetsToGroup}
+                        onClose={() => setAddPetToGroupDialog({ open: false, group: null })}
+                    />
+                </DialogContent>
+            </Dialog>
+
             {/* Alert Modal */}
             <AlertModal
                 isOpen={alert.open}
@@ -572,6 +757,300 @@ const GroupsTab = ({ pets, species, breeds, groups, onDataChange }) => {
                 type={alert.type}
             />
         </Box>
+    );
+};
+
+// Component for adding pets to group
+const AddPetsToGroupContent = ({ group, allPets, species, breeds, groups, onSubmit, onClose }) => {
+    const [selectedPets, setSelectedPets] = useState([]);
+    const [searchPet, setSearchPet] = useState('');
+
+    // Get breed name
+    const getBreedName = (breedId) => {
+        const br = breeds.find(b => b.id === breedId);
+        return br ? br.name : '—';
+    };
+
+    // Get group name by ID
+    const getGroupName = (groupId) => {
+        const gr = groups.find(g => g.id === groupId);
+        return gr ? gr.name : 'Nhóm không xác định';
+    };
+
+    // Filter eligible pets by species and search only
+    const eligiblePets = useMemo(() => {
+        if (!group) return [];
+
+        return allPets.filter(pet => {
+            const matchSpecies = pet.species_id === group.pet_species_id;
+            const matchSearch = pet.name?.toLowerCase().includes(searchPet.toLowerCase());
+
+            // Filter by species and search term
+            return matchSpecies && matchSearch;
+        });
+    }, [group, allPets, searchPet]);
+
+    // Separate pets into available (no group) and already in other groups
+    const { availablePets, petsInOtherGroups } = useMemo(() => {
+        const available = [];
+        const inOtherGroups = [];
+
+        eligiblePets.forEach(pet => {
+            // Pet is in another group
+            if (pet.pet_group_id && pet.pet_group_id !== group?.id) {
+                inOtherGroups.push(pet);
+            }
+            // Pet is not in any group (can be added)
+            else if (!pet.pet_group_id || pet.pet_group_id === null || pet.pet_group_id === group?.id) {
+                // Don't show pets already in current group
+                if (pet.pet_group_id !== group?.id) {
+                    available.push(pet);
+                }
+            }
+        });
+
+        return { availablePets: available, petsInOtherGroups: inOtherGroups };
+    }, [eligiblePets, group]);
+
+    const handleTogglePet = (petId) => {
+        // Check if pet is already in another group
+        const pet = allPets.find(p => p.id === petId);
+        if (pet?.pet_group_id && pet.pet_group_id !== group?.id) {
+            // Don't allow selection of pets already in other groups
+            return;
+        }
+
+        setSelectedPets(prev =>
+            prev.includes(petId)
+                ? prev.filter(id => id !== petId)
+                : [...prev, petId]
+        );
+    };
+
+    const handleSubmit = () => {
+        if (selectedPets.length === 0) {
+            return;
+        }
+        onSubmit(selectedPets);
+    };
+
+    return (
+        <Stack spacing={3}>
+            <Box
+                sx={{
+                    p: 2,
+                    borderRadius: 2,
+                    background: alpha(COLORS.INFO[50], 0.5),
+                    border: `1px solid ${alpha(COLORS.INFO[200], 0.3)}`
+                }}
+            >
+                <Typography variant="body2" sx={{ color: COLORS.INFO[800], fontWeight: 600 }}>
+                    ℹ️ Chỉ hiển thị thú cưng phù hợp với loài và giống của nhóm
+                </Typography>
+                <Typography variant="caption" sx={{ color: COLORS.INFO[700], display: 'block', mt: 0.5 }}>
+                    • Thú cưng đã thuộc nhóm khác sẽ hiển thị nhưng không thể chọn
+                </Typography>
+            </Box>
+
+            <TextField
+                size="small"
+                placeholder="Tìm theo tên thú cưng..."
+                value={searchPet}
+                onChange={(e) => setSearchPet(e.target.value)}
+                fullWidth
+            />
+
+            <Paper
+                sx={{
+                    maxHeight: 400,
+                    overflow: 'auto',
+                    border: `2px solid ${alpha(COLORS.ERROR[200], 0.3)}`,
+                    borderRadius: 2
+                }}
+            >
+                {eligiblePets.length > 0 ? (
+                    <Stack>
+                        {/* Available pets (can be selected) */}
+                        {availablePets.length > 0 && (
+                            <>
+                                <Box sx={{ p: 1.5, background: alpha(COLORS.SUCCESS[50], 0.3), borderBottom: `1px solid ${alpha(COLORS.SUCCESS[200], 0.3)}` }}>
+                                    <Typography variant="caption" sx={{ color: COLORS.SUCCESS[800], fontWeight: 700 }}>
+                                        ✓ Có thể thêm ({availablePets.length})
+                                    </Typography>
+                                </Box>
+                                {availablePets.map((pet) => (
+                                    <Box
+                                        key={pet.id}
+                                        onClick={() => handleTogglePet(pet.id)}
+                                        sx={{
+                                            p: 2,
+                                            borderBottom: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.1)}`,
+                                            cursor: 'pointer',
+                                            background: selectedPets.includes(pet.id)
+                                                ? alpha(COLORS.ERROR[100], 0.3)
+                                                : 'transparent',
+                                            '&:hover': {
+                                                background: alpha(COLORS.ERROR[50], 0.5)
+                                            },
+                                            transition: 'all 0.2s'
+                                        }}
+                                    >
+                                        <Stack direction="row" spacing={2} alignItems="center">
+                                            <Box
+                                                sx={{
+                                                    width: 24,
+                                                    height: 24,
+                                                    borderRadius: 1,
+                                                    border: `2px solid ${selectedPets.includes(pet.id) ? COLORS.ERROR[600] : COLORS.BORDER.DEFAULT}`,
+                                                    background: selectedPets.includes(pet.id) ? COLORS.ERROR[600] : '#fff',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    color: '#fff',
+                                                    fontWeight: 700,
+                                                    fontSize: '0.9rem'
+                                                }}
+                                            >
+                                                {selectedPets.includes(pet.id) && '✓'}
+                                            </Box>
+                                            <Avatar
+                                                src={pet.image_url}
+                                                alt={pet.name}
+                                                sx={{ width: 40, height: 40 }}
+                                            />
+                                            <Box sx={{ flex: 1 }}>
+                                                <Typography sx={{ fontWeight: 700 }}>{pet.name}</Typography>
+                                                <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY }}>
+                                                    {getBreedName(pet.breed_id)} • {pet.age} tuổi • {pet.weight} kg
+                                                </Typography>
+                                            </Box>
+                                        </Stack>
+                                    </Box>
+                                ))}
+                            </>
+                        )}
+
+                        {/* Pets in other groups (cannot be selected) */}
+                        {petsInOtherGroups.length > 0 && (
+                            <>
+                                <Box sx={{ p: 1.5, background: alpha(COLORS.WARNING[50], 0.3), borderBottom: `1px solid ${alpha(COLORS.WARNING[200], 0.3)}` }}>
+                                    <Typography variant="caption" sx={{ color: COLORS.WARNING[800], fontWeight: 700 }}>
+                                        ⚠️ Đã thuộc nhóm khác ({petsInOtherGroups.length})
+                                    </Typography>
+                                </Box>
+                                {petsInOtherGroups.map((pet) => (
+                                    <Box
+                                        key={pet.id}
+                                        sx={{
+                                            p: 2,
+                                            borderBottom: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.1)}`,
+                                            cursor: 'not-allowed',
+                                            background: alpha(COLORS.WARNING[50], 0.2),
+                                            opacity: 0.6,
+                                            transition: 'all 0.2s'
+                                        }}
+                                    >
+                                        <Stack direction="row" spacing={2} alignItems="center">
+                                            <Box
+                                                sx={{
+                                                    width: 24,
+                                                    height: 24,
+                                                    borderRadius: 1,
+                                                    border: `2px solid ${COLORS.BORDER.DEFAULT}`,
+                                                    background: alpha(COLORS.WARNING[100], 0.5),
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    color: COLORS.WARNING[700],
+                                                    fontWeight: 700,
+                                                    fontSize: '0.75rem'
+                                                }}
+                                            >
+                                                🔒
+                                            </Box>
+                                            <Avatar
+                                                src={pet.image_url}
+                                                alt={pet.name}
+                                                sx={{ width: 40, height: 40, opacity: 0.7 }}
+                                            />
+                                            <Box sx={{ flex: 1 }}>
+                                                <Typography sx={{ fontWeight: 700 }}>{pet.name}</Typography>
+                                                <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY }}>
+                                                    {getBreedName(pet.breed_id)} • {pet.age} tuổi • {pet.weight} kg
+                                                </Typography>
+                                                <Typography variant="caption" sx={{ display: 'block', color: COLORS.WARNING[700], fontWeight: 600, mt: 0.5 }}>
+                                                    📍 Đang ở: {getGroupName(pet.pet_group_id)}
+                                                </Typography>
+                                            </Box>
+                                            <Chip
+                                                label="Không thể chọn"
+                                                size="small"
+                                                sx={{
+                                                    background: alpha(COLORS.WARNING[100], 0.7),
+                                                    color: COLORS.WARNING[800],
+                                                    fontWeight: 600,
+                                                    fontSize: '0.7rem'
+                                                }}
+                                            />
+                                        </Stack>
+                                    </Box>
+                                ))}
+                            </>
+                        )}
+                    </Stack>
+                ) : (
+                    <Box sx={{ p: 4, textAlign: 'center' }}>
+                        <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
+                            {searchPet ? 'Không tìm thấy thú cưng phù hợp' : 'Không có thú cưng nào phù hợp để thêm vào nhóm'}
+                        </Typography>
+                    </Box>
+                )}
+            </Paper>
+
+            {selectedPets.length > 0 && (
+                <Paper
+                    elevation={0}
+                    sx={{
+                        p: 2,
+                        background: alpha(COLORS.SUCCESS[50], 0.5),
+                        border: `1px solid ${alpha(COLORS.SUCCESS[200], 0.3)}`,
+                        borderRadius: 2
+                    }}
+                >
+                    <Typography variant="body2" sx={{ color: COLORS.SUCCESS[800], fontWeight: 700 }}>
+                        ✓ Đã chọn {selectedPets.length} thú cưng
+                    </Typography>
+                </Paper>
+            )}
+
+            <Stack direction="row" spacing={2} justifyContent="flex-end">
+                <Button
+                    onClick={onClose}
+                    sx={{ fontWeight: 600 }}
+                >
+                    Hủy
+                </Button>
+                <Button
+                    variant="contained"
+                    onClick={handleSubmit}
+                    disabled={selectedPets.length === 0}
+                    sx={{
+                        background: `linear-gradient(135deg, ${COLORS.ERROR[500]} 0%, ${COLORS.ERROR[700]} 100())`,
+                        color: '#fff',
+                        fontWeight: 700,
+                        '&:hover': {
+                            background: `linear-gradient(135deg, ${COLORS.ERROR[600]} 0%, ${COLORS.ERROR[800]} 100())`
+                        },
+                        '&:disabled': {
+                            background: COLORS.BORDER.DEFAULT,
+                            color: COLORS.TEXT.SECONDARY
+                        }
+                    }}
+                >
+                    Thêm {selectedPets.length > 0 && `(${selectedPets.length})`}
+                </Button>
+            </Stack>
+        </Stack>
     );
 };
 

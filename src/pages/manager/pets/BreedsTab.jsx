@@ -96,7 +96,7 @@ const BreedsTab = ({ pets, species, breeds, onDataChange }) => {
             }
 
             if (response.success) {
-                onDataChange();
+                await onDataChange();
                 setBreedDialogOpen(false);
                 setAlert({
                     open: true,
@@ -127,7 +127,7 @@ const BreedsTab = ({ pets, species, breeds, onDataChange }) => {
         try {
             const response = await petApi.deletePetBreed(deleteTarget);
             if (response.success) {
-                onDataChange();
+                await onDataChange();
                 setAlert({
                     open: true,
                     title: 'Thành công',

@@ -10,7 +10,7 @@ import AddPetModal from '../../../components/modals/AddPetModal';
 import { petApi } from '../../../api/petApi';
 import { vaccinationApi } from '../../../api/vaccinationApi';
 
-const PetsTab = ({ pets, species, breeds, onDataChange }) => {
+const PetsTab = ({ pets, species, breeds, groups, onDataChange }) => {
     const [searchPet, setSearchPet] = useState('');
     const [filterSpecies, setFilterSpecies] = useState('all');
     const [filterBreed, setFilterBreed] = useState('all');
@@ -106,6 +106,7 @@ const PetsTab = ({ pets, species, breeds, onDataChange }) => {
                 name: petFormData.name.trim(),
                 species_id: petFormData.species_id,
                 breed_id: petFormData.breed_id,
+                pet_group_id: petFormData.pet_group_id || null,
                 age: parseInt(petFormData.age),
                 weight: parseFloat(petFormData.weight),
                 gender: petFormData.gender,
@@ -124,7 +125,7 @@ const PetsTab = ({ pets, species, breeds, onDataChange }) => {
             }
 
             if (response.success) {
-                onDataChange();
+                await onDataChange();
                 setPetDialogOpen(false);
                 setAlert({
                     open: true,
@@ -155,7 +156,7 @@ const PetsTab = ({ pets, species, breeds, onDataChange }) => {
         try {
             const response = await petApi.deletePet(deleteTarget);
             if (response.success) {
-                onDataChange();
+                await onDataChange();
                 setAlert({
                     open: true,
                     title: 'Thành công',
@@ -408,6 +409,7 @@ const PetsTab = ({ pets, species, breeds, onDataChange }) => {
                 isLoading={isSubmitting}
                 breeds={breeds}
                 species={species}
+                groups={groups || []}
             />
 
             {/* Detail Dialog */}
