@@ -341,283 +341,81 @@ const VaccinationsPage = () => {
                 <Grid container spacing={2} sx={{ mb: 3 }}>
                     {/* Lịch tháng này */}
                     <Grid item xs={12} sm={6} md={2}>
-                        <Paper
-                            elevation={0}
-                            onClick={() => setCurrentTab(0)}
-                            sx={{
-                                p: 2.5,
-                                borderRadius: 3,
-                                background: `linear-gradient(135deg, ${alpha(COLORS.INFO[50], 0.9)} 0%, ${alpha(COLORS.INFO[100], 0.6)} 100%)`,
-                                border: `2px solid ${COLORS.INFO[200]}`,
-                                boxShadow: `0 4px 12px ${alpha(COLORS.INFO[200], 0.3)}`,
-                                transition: 'all 0.3s ease',
-                                cursor: 'pointer',
-                                '&:hover': {
-                                    transform: 'translateY(-4px)',
-                                    boxShadow: `0 8px 20px ${alpha(COLORS.INFO[300], 0.4)}`,
-                                    border: `2px solid ${COLORS.INFO[300]}`
-                                }
-                            }}
-                        >
-                            <Stack direction="row" alignItems="center" justifyContent="space-between">
-                                <Box>
-                                    <Typography variant="body2" sx={{ color: COLORS.INFO[600], fontWeight: 600, mb: 0.5, fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                                        Lịch tháng này
-                                    </Typography>
-                                    <Typography variant="h3" sx={{ color: COLORS.INFO[700], fontWeight: 900, lineHeight: 1 }}>
-                                        {(() => {
-                                            const today = new Date();
-                                            const currentMonth = today.getMonth();
-                                            const currentYear = today.getFullYear();
-                                            return upcomingVaccinations.filter(v => {
-                                                const date = new Date(v.scheduled_date);
-                                                return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
-                                            }).length;
-                                        })()}
-                                    </Typography>
-                                </Box>
-                                <Box
-                                    sx={{
-                                        width: 56,
-                                        height: 56,
-                                        borderRadius: '50%',
-                                        background: alpha(COLORS.INFO[200], 0.4),
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center'
-                                    }}
-                                >
-                                    <Event sx={{ fontSize: 32, color: COLORS.INFO[600] }} />
-                                </Box>
-                            </Stack>
+                        <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.INFO[500]}`, cursor: 'pointer' }} onClick={() => setCurrentTab(0)}>
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                                Lịch tháng này
+                            </Typography>
+                            <Typography variant="h4" fontWeight={600} color={COLORS.INFO[700]}>
+                                {(() => {
+                                    const today = new Date();
+                                    const currentMonth = today.getMonth();
+                                    const currentYear = today.getFullYear();
+                                    return upcomingVaccinations.filter(v => {
+                                        const date = new Date(v.scheduled_date);
+                                        return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
+                                    }).length;
+                                })()}
+                            </Typography>
                         </Paper>
                     </Grid>
 
                     {/* Tổng loại vaccine */}
                     <Grid item xs={12} sm={6} md={2}>
-                        <Paper
-                            elevation={0}
-                            onClick={() => setCurrentTab(2)}
-                            sx={{
-                                p: 2.5,
-                                borderRadius: 3,
-                                background: `linear-gradient(135deg, ${alpha(COLORS.PRIMARY[50], 0.9)} 0%, ${alpha(COLORS.PRIMARY[100], 0.6)} 100%)`,
-                                border: `2px solid ${COLORS.PRIMARY[200]}`,
-                                boxShadow: `0 4px 12px ${alpha(COLORS.PRIMARY[200], 0.3)}`,
-                                transition: 'all 0.3s ease',
-                                cursor: 'pointer',
-                                '&:hover': {
-                                    transform: 'translateY(-4px)',
-                                    boxShadow: `0 8px 20px ${alpha(COLORS.PRIMARY[300], 0.4)}`,
-                                    border: `2px solid ${COLORS.PRIMARY[300]}`
-                                }
-                            }}
-                        >
-                            <Stack direction="row" alignItems="center" justifyContent="space-between">
-                                <Box>
-                                    <Typography variant="body2" sx={{ color: COLORS.PRIMARY[600], fontWeight: 600, mb: 0.5, fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                                        Tổng loại vaccine
-                                    </Typography>
-                                    <Typography variant="h3" sx={{ color: COLORS.PRIMARY[700], fontWeight: 900, lineHeight: 1 }}>
-                                        {vaccinationStats?.total_vaccine_types || 0}
-                                    </Typography>
-                                </Box>
-                                <Box
-                                    sx={{
-                                        width: 56,
-                                        height: 56,
-                                        borderRadius: '50%',
-                                        background: alpha(COLORS.PRIMARY[200], 0.4),
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center'
-                                    }}
-                                >
-                                    <Vaccines sx={{ fontSize: 32, color: COLORS.PRIMARY[600] }} />
-                                </Box>
-                            </Stack>
+                        <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.PRIMARY[500]}`, cursor: 'pointer' }} onClick={() => setCurrentTab(2)}>
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                                Tổng loại vaccine
+                            </Typography>
+                            <Typography variant="h4" fontWeight={600} color={COLORS.PRIMARY[700]}>
+                                {vaccinationStats?.total_vaccine_types || 0}
+                            </Typography>
                         </Paper>
                     </Grid>
 
                     {/* Tổng hồ sơ */}
                     <Grid item xs={12} sm={6} md={2}>
-                        <Paper
-                            elevation={0}
-                            sx={{
-                                p: 2.5,
-                                borderRadius: 3,
-                                background: `linear-gradient(135deg, ${alpha(COLORS.INFO[50], 0.9)} 0%, ${alpha(COLORS.INFO[100], 0.6)} 100%)`,
-                                border: `2px solid ${COLORS.INFO[200]}`,
-                                boxShadow: `0 4px 12px ${alpha(COLORS.INFO[200], 0.3)}`,
-                                transition: 'all 0.3s ease',
-                                cursor: 'pointer',
-                                '&:hover': {
-                                    transform: 'translateY(-4px)',
-                                    boxShadow: `0 8px 20px ${alpha(COLORS.INFO[300], 0.4)}`,
-                                    border: `2px solid ${COLORS.INFO[300]}`
-                                }
-                            }}
-                        >
-                            <Stack direction="row" alignItems="center" justifyContent="space-between">
-                                <Box>
-                                    <Typography variant="body2" sx={{ color: COLORS.INFO[600], fontWeight: 600, mb: 0.5, fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                                        Tổng hồ sơ
-                                    </Typography>
-                                    <Typography variant="h3" sx={{ color: COLORS.INFO[700], fontWeight: 900, lineHeight: 1 }}>
-                                        {vaccinationRecords.length}
-                                    </Typography>
-                                </Box>
-                                <Box
-                                    sx={{
-                                        width: 56,
-                                        height: 56,
-                                        borderRadius: '50%',
-                                        background: alpha(COLORS.INFO[200], 0.4),
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center'
-                                    }}
-                                >
-                                    <CheckCircle sx={{ fontSize: 32, color: COLORS.INFO[600] }} />
-                                </Box>
-                            </Stack>
+                        <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.INFO[500]}` }}>
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                                Tổng hồ sơ
+                            </Typography>
+                            <Typography variant="h4" fontWeight={600} color={COLORS.INFO[700]}>
+                                {vaccinationRecords.length}
+                            </Typography>
                         </Paper>
                     </Grid>
 
                     {/* Đã tiêm */}
                     <Grid item xs={12} sm={6} md={2}>
-                        <Paper
-                            elevation={0}
-                            onClick={() => setCurrentTab(3)}
-                            sx={{
-                                p: 2.5,
-                                borderRadius: 3,
-                                background: `linear-gradient(135deg, ${alpha(COLORS.SUCCESS[50], 0.9)} 0%, ${alpha(COLORS.SUCCESS[100], 0.6)} 100%)`,
-                                border: `2px solid ${COLORS.SUCCESS[200]}`,
-                                boxShadow: `0 4px 12px ${alpha(COLORS.SUCCESS[200], 0.3)}`,
-                                transition: 'all 0.3s ease',
-                                cursor: 'pointer',
-                                '&:hover': {
-                                    transform: 'translateY(-4px)',
-                                    boxShadow: `0 8px 20px ${alpha(COLORS.SUCCESS[300], 0.4)}`,
-                                    border: `2px solid ${COLORS.SUCCESS[300]}`
-                                }
-                            }}
-                        >
-                            <Stack direction="row" alignItems="center" justifyContent="space-between">
-                                <Box>
-                                    <Typography variant="body2" sx={{ color: COLORS.SUCCESS[600], fontWeight: 600, mb: 0.5, fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                                        Đã tiêm
-                                    </Typography>
-                                    <Typography variant="h3" sx={{ color: COLORS.SUCCESS[700], fontWeight: 900, lineHeight: 1 }}>
-                                        {vaccinationRecords.length}
-                                    </Typography>
-                                </Box>
-                                <Box
-                                    sx={{
-                                        width: 56,
-                                        height: 56,
-                                        borderRadius: '50%',
-                                        background: alpha(COLORS.SUCCESS[200], 0.4),
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center'
-                                    }}
-                                >
-                                    <CheckCircle sx={{ fontSize: 32, color: COLORS.SUCCESS[600] }} />
-                                </Box>
-                            </Stack>
+                        <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.SUCCESS[500]}`, cursor: 'pointer' }} onClick={() => setCurrentTab(3)}>
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                                Đã tiêm
+                            </Typography>
+                            <Typography variant="h4" fontWeight={600} color={COLORS.SUCCESS[700]}>
+                                {vaccinationRecords.length}
+                            </Typography>
                         </Paper>
                     </Grid>
 
                     {/* Đã lên lịch */}
                     <Grid item xs={12} sm={6} md={2}>
-                        <Paper
-                            elevation={0}
-                            onClick={() => setCurrentTab(1)}
-                            sx={{
-                                p: 2.5,
-                                borderRadius: 3,
-                                background: `linear-gradient(135deg, ${alpha(COLORS.WARNING[50], 0.9)} 0%, ${alpha(COLORS.WARNING[100], 0.6)} 100%)`,
-                                border: `2px solid ${COLORS.WARNING[200]}`,
-                                boxShadow: `0 4px 12px ${alpha(COLORS.WARNING[200], 0.3)}`,
-                                transition: 'all 0.3s ease',
-                                cursor: 'pointer',
-                                '&:hover': {
-                                    transform: 'translateY(-4px)',
-                                    boxShadow: `0 8px 20px ${alpha(COLORS.WARNING[300], 0.4)}`,
-                                    border: `2px solid ${COLORS.WARNING[300]}`
-                                }
-                            }}
-                        >
-                            <Stack direction="row" alignItems="center" justifyContent="space-between">
-                                <Box>
-                                    <Typography variant="body2" sx={{ color: COLORS.WARNING[600], fontWeight: 600, mb: 0.5, fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                                        Đã lên lịch
-                                    </Typography>
-                                    <Typography variant="h3" sx={{ color: COLORS.WARNING[700], fontWeight: 900, lineHeight: 1 }}>
-                                        {upcomingVaccinations.length}
-                                    </Typography>
-                                </Box>
-                                <Box
-                                    sx={{
-                                        width: 56,
-                                        height: 56,
-                                        borderRadius: '50%',
-                                        background: alpha(COLORS.WARNING[200], 0.4),
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center'
-                                    }}
-                                >
-                                    <Schedule sx={{ fontSize: 32, color: COLORS.WARNING[600] }} />
-                                </Box>
-                            </Stack>
+                        <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.WARNING[500]}`, cursor: 'pointer' }} onClick={() => setCurrentTab(1)}>
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                                Đã lên lịch
+                            </Typography>
+                            <Typography variant="h4" fontWeight={600} color={COLORS.WARNING[700]}>
+                                {upcomingVaccinations.length}
+                            </Typography>
                         </Paper>
                     </Grid>
 
                     {/* Quá hạn */}
                     <Grid item xs={12} sm={6} md={2}>
-                        <Paper
-                            elevation={0}
-                            sx={{
-                                p: 2.5,
-                                borderRadius: 3,
-                                background: `linear-gradient(135deg, ${alpha(COLORS.ERROR[50], 0.9)} 0%, ${alpha(COLORS.ERROR[100], 0.6)} 100%)`,
-                                border: `2px solid ${COLORS.ERROR[200]}`,
-                                boxShadow: `0 4px 12px ${alpha(COLORS.ERROR[200], 0.3)}`,
-                                transition: 'all 0.3s ease',
-                                cursor: 'pointer',
-                                '&:hover': {
-                                    transform: 'translateY(-4px)',
-                                    boxShadow: `0 8px 20px ${alpha(COLORS.ERROR[300], 0.4)}`,
-                                    border: `2px solid ${COLORS.ERROR[300]}`
-                                }
-                            }}
-                        >
-                            <Stack direction="row" alignItems="center" justifyContent="space-between">
-                                <Box>
-                                    <Typography variant="body2" sx={{ color: COLORS.ERROR[600], fontWeight: 600, mb: 0.5, fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                                        Quá hạn
-                                    </Typography>
-                                    <Typography variant="h3" sx={{ color: COLORS.ERROR[700], fontWeight: 900, lineHeight: 1 }}>
-                                        {statusCounts.overdue}
-                                    </Typography>
-                                </Box>
-                                <Box
-                                    sx={{
-                                        width: 56,
-                                        height: 56,
-                                        borderRadius: '50%',
-                                        background: alpha(COLORS.ERROR[200], 0.4),
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center'
-                                    }}
-                                >
-                                    <Typography variant="h3" sx={{ fontSize: '2rem' }}>🚨</Typography>
-                                </Box>
-                            </Stack>
+                        <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.ERROR[500]}` }}>
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                                Quá hạn
+                            </Typography>
+                            <Typography variant="h4" fontWeight={600} color={COLORS.ERROR[700]}>
+                                {statusCounts.overdue}
+                            </Typography>
                         </Paper>
                     </Grid>
                 </Grid>
@@ -702,9 +500,9 @@ const VaccinationsPage = () => {
                                     label={upcomingVaccinations.length}
                                     size="small"
                                     sx={{
-                                        background: alpha(COLORS.WARNING[100], 0.7),
-                                        color: COLORS.WARNING[800],
-                                        fontWeight: 700
+                                        bgcolor: alpha(COLORS.WARNING[600], 0.2),
+                                        color: COLORS.WARNING[700],
+                                        fontWeight: 600
                                     }}
                                 />
                             </Stack>

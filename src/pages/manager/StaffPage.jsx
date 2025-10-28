@@ -206,202 +206,57 @@ const StaffPage = () => {
                 {/* Status Badges */}
                 <Grid container spacing={2} sx={{ mb: 3 }}>
                     <Grid item xs={6} sm={6} md={2.4}>
-                        <Paper
-                            sx={{
-                                p: 2,
-                                background: `linear-gradient(135deg, ${alpha(COLORS.PRIMARY[50], 0.8)} 0%, ${alpha(COLORS.PRIMARY[100], 0.6)} 100%)`,
-                                border: `2px solid ${alpha(COLORS.PRIMARY[300], 0.3)}`,
-                                borderRadius: 3,
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 1.5,
-                                transition: 'all 0.3s ease',
-                                '&:hover': {
-                                    transform: 'translateY(-4px)',
-                                    boxShadow: `0 8px 24px ${alpha(COLORS.PRIMARY[500], 0.2)}`
-                                }
-                            }}
-                        >
-                            <Box
-                                sx={{
-                                    background: `linear-gradient(135deg, ${COLORS.PRIMARY[400]} 0%, ${COLORS.PRIMARY[600]} 100%)`,
-                                    borderRadius: 2,
-                                    p: 1,
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center'
-                                }}
-                            >
-                                <People sx={{ color: 'white', fontSize: 28 }} />
-                            </Box>
-                            <Box>
-                                <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.PRIMARY[700] }}>
-                                    {stats.total}
-                                </Typography>
-                                <Typography variant="caption" sx={{ color: COLORS.PRIMARY[600], fontWeight: 600 }}>
-                                    Tổng nhân viên
-                                </Typography>
-                            </Box>
+                        <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.PRIMARY[500]}` }}>
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                                Tổng nhân viên
+                            </Typography>
+                            <Typography variant="h4" fontWeight={600} color={COLORS.PRIMARY[700]}>
+                                {stats.total}
+                            </Typography>
                         </Paper>
                     </Grid>
 
                     <Grid item xs={6} sm={6} md={2.4}>
-                        <Paper
-                            sx={{
-                                p: 2,
-                                background: `linear-gradient(135deg, ${alpha(COLORS.INFO[50], 0.8)} 0%, ${alpha(COLORS.INFO[100], 0.6)} 100%)`,
-                                border: `2px solid ${alpha(COLORS.INFO[300], 0.3)}`,
-                                borderRadius: 3,
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 1.5,
-                                transition: 'all 0.3s ease',
-                                '&:hover': {
-                                    transform: 'translateY(-4px)',
-                                    boxShadow: `0 8px 24px ${alpha(COLORS.INFO[500], 0.2)}`
-                                }
-                            }}
-                        >
-                            <Box
-                                sx={{
-                                    background: `linear-gradient(135deg, ${COLORS.INFO[400]} 0%, ${COLORS.INFO[600]} 100%)`,
-                                    borderRadius: 2,
-                                    p: 1,
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center'
-                                }}
-                            >
-                                <PersonAdd sx={{ color: 'white', fontSize: 28 }} />
-                            </Box>
-                            <Box>
-                                <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.INFO[700] }}>
-                                    {stats.saleStaff}
-                                </Typography>
-                                <Typography variant="caption" sx={{ color: COLORS.INFO[600], fontWeight: 600 }}>
-                                    Sale Staff
-                                </Typography>
-                            </Box>
+                        <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.INFO[500]}` }}>
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                                Sale Staff
+                            </Typography>
+                            <Typography variant="h4" fontWeight={600} color={COLORS.INFO[700]}>
+                                {stats.saleStaff}
+                            </Typography>
                         </Paper>
                     </Grid>
 
                     <Grid item xs={6} sm={6} md={2.4}>
-                        <Paper
-                            sx={{
-                                p: 2,
-                                background: `linear-gradient(135deg, ${alpha(COLORS.WARNING[50], 0.8)} 0%, ${alpha(COLORS.WARNING[100], 0.6)} 100%)`,
-                                border: `2px solid ${alpha(COLORS.WARNING[300], 0.3)}`,
-                                borderRadius: 3,
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 1.5,
-                                transition: 'all 0.3s ease',
-                                '&:hover': {
-                                    transform: 'translateY(-4px)',
-                                    boxShadow: `0 8px 24px ${alpha(COLORS.WARNING[500], 0.2)}`
-                                }
-                            }}
-                        >
-                            <Box
-                                sx={{
-                                    background: `linear-gradient(135deg, ${COLORS.WARNING[400]} 0%, ${COLORS.WARNING[600]} 100%)`,
-                                    borderRadius: 2,
-                                    p: 1,
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center'
-                                }}
-                            >
-                                <Person sx={{ color: 'white', fontSize: 28 }} />
-                            </Box>
-                            <Box>
-                                <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.WARNING[700] }}>
-                                    {stats.workingStaff}
-                                </Typography>
-                                <Typography variant="caption" sx={{ color: COLORS.WARNING[600], fontWeight: 600 }}>
-                                    Working Staff
-                                </Typography>
-                            </Box>
+                        <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.WARNING[500]}` }}>
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                                Working Staff
+                            </Typography>
+                            <Typography variant="h4" fontWeight={600} color={COLORS.WARNING[700]}>
+                                {stats.workingStaff}
+                            </Typography>
                         </Paper>
                     </Grid>
 
                     <Grid item xs={6} sm={6} md={2.4}>
-                        <Paper
-                            sx={{
-                                p: 2,
-                                background: `linear-gradient(135deg, ${alpha(COLORS.SUCCESS[50], 0.8)} 0%, ${alpha(COLORS.SUCCESS[100], 0.6)} 100%)`,
-                                border: `2px solid ${alpha(COLORS.SUCCESS[300], 0.3)}`,
-                                borderRadius: 3,
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 1.5,
-                                transition: 'all 0.3s ease',
-                                '&:hover': {
-                                    transform: 'translateY(-4px)',
-                                    boxShadow: `0 8px 24px ${alpha(COLORS.SUCCESS[500], 0.2)}`
-                                }
-                            }}
-                        >
-                            <Box
-                                sx={{
-                                    background: `linear-gradient(135deg, ${COLORS.SUCCESS[400]} 0%, ${COLORS.SUCCESS[600]} 100%)`,
-                                    borderRadius: 2,
-                                    p: 1,
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center'
-                                }}
-                            >
-                                <People sx={{ color: 'white', fontSize: 28 }} />
-                            </Box>
-                            <Box>
-                                <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.SUCCESS[700] }}>
-                                    {stats.active}
-                                </Typography>
-                                <Typography variant="caption" sx={{ color: COLORS.SUCCESS[600], fontWeight: 600 }}>
-                                    Đang làm việc
-                                </Typography>
-                            </Box>
+                        <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.SUCCESS[500]}` }}>
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                                Đang làm việc
+                            </Typography>
+                            <Typography variant="h4" fontWeight={600} color={COLORS.SUCCESS[700]}>
+                                {stats.active}
+                            </Typography>
                         </Paper>
                     </Grid>
 
                     <Grid item xs={6} sm={6} md={2.4}>
-                        <Paper
-                            sx={{
-                                p: 2,
-                                background: `linear-gradient(135deg, ${alpha(COLORS.ERROR[50], 0.8)} 0%, ${alpha(COLORS.ERROR[100], 0.6)} 100%)`,
-                                border: `2px solid ${alpha(COLORS.ERROR[300], 0.3)}`,
-                                borderRadius: 3,
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 1.5,
-                                transition: 'all 0.3s ease',
-                                '&:hover': {
-                                    transform: 'translateY(-4px)',
-                                    boxShadow: `0 8px 24px ${alpha(COLORS.ERROR[500], 0.2)}`
-                                }
-                            }}
-                        >
-                            <Box
-                                sx={{
-                                    background: `linear-gradient(135deg, ${COLORS.ERROR[400]} 0%, ${COLORS.ERROR[600]} 100%)`,
-                                    borderRadius: 2,
-                                    p: 1,
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center'
-                                }}
-                            >
-                                <EventBusy sx={{ color: 'white', fontSize: 28 }} />
-                            </Box>
-                            <Box>
-                                <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.ERROR[700] }}>
-                                    {stats.onLeave}
-                                </Typography>
-                                <Typography variant="caption" sx={{ color: COLORS.ERROR[600], fontWeight: 600 }}>
-                                    Nghỉ phép
-                                </Typography>
-                            </Box>
+                        <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.ERROR[500]}` }}>
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                                Nghỉ phép
+                            </Typography>
+                            <Typography variant="h4" fontWeight={600} color={COLORS.ERROR[700]}>
+                                {stats.onLeave}
+                            </Typography>
                         </Paper>
                     </Grid>
                 </Grid>

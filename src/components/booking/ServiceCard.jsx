@@ -142,7 +142,7 @@ const ServiceCard = ({ service, onSelect, showFavorite = true }) => {
                     <CardMedia
                         component="img"
                         height="250"
-                        image={service.image || `https://images.unsplash.com/photo-1601758228041-f3b2795255f1?q=80&w=800&auto=format&fit=crop`}
+                        image={(service.images && service.images[0]) || `https://images.unsplash.com/photo-1601758228041-f3b2795255f1?q=80&w=800&auto=format&fit=crop`}
                         alt={service.name}
                         className="service-image"
                         sx={{
@@ -359,7 +359,7 @@ const ServiceCard = ({ service, onSelect, showFavorite = true }) => {
                         {/* Service Image */}
                         <Box
                             component="img"
-                            src={service.image || `https://images.unsplash.com/photo-1601758228041-f3b2795255f1?q=80&w=800&auto=format&fit=crop`}
+                            src={(service.images && service.images[0]) || `https://images.unsplash.com/photo-1601758228041-f3b2795255f1?q=80&w=800&auto=format&fit=crop`}
                             alt={service.name}
                             sx={{
                                 width: '100%',

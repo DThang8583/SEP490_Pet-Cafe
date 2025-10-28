@@ -269,9 +269,9 @@ const VaccineTypesTab = ({ species = [] }) => {
                         label={filteredVaccineTypes.length}
                         size="small"
                         sx={{
-                            background: alpha(COLORS.SUCCESS[100], 0.7),
-                            color: COLORS.SUCCESS[800],
-                            fontWeight: 700
+                            bgcolor: alpha(COLORS.SUCCESS[600], 0.2),
+                            color: COLORS.SUCCESS[700],
+                            fontWeight: 600
                         }}
                     />
                 </Stack>

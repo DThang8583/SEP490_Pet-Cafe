@@ -202,7 +202,7 @@ Thời gian: ${formatDateTime(booking?.bookingDateTime).date} lúc ${formatDateT
                                                 <Grid item xs={12} sm={4}>
                                                     <Box
                                                         component="img"
-                                                        src={booking.service?.image || `https://images.unsplash.com/photo-1601758228041-f3b2795255f1?q=80&w=300&auto=format&fit=crop`}
+                                                        src={(booking.service?.images && booking.service.images[0]) || `https://images.unsplash.com/photo-1601758228041-f3b2795255f1?q=80&w=300&auto=format&fit=crop`}
                                                         alt={booking.service?.name}
                                                         sx={{
                                                             width: '100%',

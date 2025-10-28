@@ -115,7 +115,11 @@ const Navbar = () => {
                     variant={isDesktop ? 'permanent' : 'temporary'}
                     open={sidebarOpen}
                     onClose={() => setSidebarOpen(false)}
-                    ModalProps={{ keepMounted: true }}
+                    ModalProps={{
+                        keepMounted: true,
+                        disableEnforceFocus: true,
+                        disableAutoFocus: true
+                    }}
                     sx={{
                         '& .MuiDrawer-paper': {
                             width: drawerWidth,

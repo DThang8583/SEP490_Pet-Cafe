@@ -129,369 +129,97 @@ const PetsPage = () => {
                 <Grid container spacing={2} sx={{ mb: 3 }}>
                     {/* Tổng thú cưng */}
                     <Grid item xs={12} sm={6} md={3}>
-                        <Paper
-                            elevation={0}
-                            sx={{
-                                p: 2.5,
-                                borderRadius: 3,
-                                background: `linear-gradient(135deg, ${alpha(COLORS.ERROR[50], 0.9)} 0%, ${alpha(COLORS.ERROR[100], 0.6)} 100%)`,
-                                border: `2px solid ${COLORS.ERROR[200]}`,
-                                boxShadow: `0 4px 12px ${alpha(COLORS.ERROR[200], 0.3)}`,
-                                transition: 'all 0.3s ease',
-                                cursor: 'pointer',
-                                '&:hover': {
-                                    transform: 'translateY(-4px)',
-                                    boxShadow: `0 8px 20px ${alpha(COLORS.ERROR[300], 0.4)}`,
-                                    border: `2px solid ${COLORS.ERROR[300]}`
-                                }
-                            }}
-                            onClick={() => setCurrentTab(0)}
-                        >
-                            <Stack direction="row" alignItems="center" justifyContent="space-between">
-                                <Box>
-                                    <Typography variant="body2" sx={{ color: COLORS.ERROR[600], fontWeight: 600, mb: 0.5, fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                                        Thú cưng
-                                    </Typography>
-                                    <Typography variant="h3" sx={{ color: COLORS.ERROR[700], fontWeight: 900, lineHeight: 1 }}>
-                                        {pets.length}
-                                    </Typography>
-                                </Box>
-                                <Box
-                                    sx={{
-                                        width: 56,
-                                        height: 56,
-                                        borderRadius: '50%',
-                                        background: alpha(COLORS.ERROR[200], 0.4),
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center'
-                                    }}
-                                >
-                                    <PetsIcon sx={{ fontSize: 32, color: COLORS.ERROR[600] }} />
-                                </Box>
-                            </Stack>
+                        <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.ERROR[500]}` }}>
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                                Thú cưng
+                            </Typography>
+                            <Typography variant="h4" fontWeight={600} color={COLORS.ERROR[700]}>
+                                {pets.length}
+                            </Typography>
                         </Paper>
                     </Grid>
 
                     {/* Giống */}
                     <Grid item xs={12} sm={6} md={3}>
-                        <Paper
-                            elevation={0}
-                            sx={{
-                                p: 2.5,
-                                borderRadius: 3,
-                                background: `linear-gradient(135deg, ${alpha(COLORS.INFO[50], 0.9)} 0%, ${alpha(COLORS.INFO[100], 0.6)} 100%)`,
-                                border: `2px solid ${COLORS.INFO[200]}`,
-                                boxShadow: `0 4px 12px ${alpha(COLORS.INFO[200], 0.3)}`,
-                                transition: 'all 0.3s ease',
-                                cursor: 'pointer',
-                                '&:hover': {
-                                    transform: 'translateY(-4px)',
-                                    boxShadow: `0 8px 20px ${alpha(COLORS.INFO[300], 0.4)}`,
-                                    border: `2px solid ${COLORS.INFO[300]}`
-                                }
-                            }}
-                            onClick={() => setCurrentTab(1)}
-                        >
-                            <Stack direction="row" alignItems="center" justifyContent="space-between">
-                                <Box>
-                                    <Typography variant="body2" sx={{ color: COLORS.INFO[600], fontWeight: 600, mb: 0.5, fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                                        Giống
-                                    </Typography>
-                                    <Typography variant="h3" sx={{ color: COLORS.INFO[700], fontWeight: 900, lineHeight: 1 }}>
-                                        {breeds.length}
-                                    </Typography>
-                                </Box>
-                                <Box
-                                    sx={{
-                                        width: 56,
-                                        height: 56,
-                                        borderRadius: '50%',
-                                        background: alpha(COLORS.INFO[200], 0.4),
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center'
-                                    }}
-                                >
-                                    <Category sx={{ fontSize: 32, color: COLORS.INFO[600] }} />
-                                </Box>
-                            </Stack>
+                        <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.INFO[500]}` }}>
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                                Giống
+                            </Typography>
+                            <Typography variant="h4" fontWeight={600} color={COLORS.INFO[700]}>
+                                {breeds.length}
+                            </Typography>
                         </Paper>
                     </Grid>
 
                     {/* Nhóm */}
                     <Grid item xs={12} sm={6} md={3}>
-                        <Paper
-                            elevation={0}
-                            sx={{
-                                p: 2.5,
-                                borderRadius: 3,
-                                background: `linear-gradient(135deg, ${alpha(COLORS.WARNING[50], 0.9)} 0%, ${alpha(COLORS.WARNING[100], 0.6)} 100())`,
-                                border: `2px solid ${COLORS.WARNING[200]}`,
-                                boxShadow: `0 4px 12px ${alpha(COLORS.WARNING[200], 0.3)}`,
-                                transition: 'all 0.3s ease',
-                                cursor: 'pointer',
-                                '&:hover': {
-                                    transform: 'translateY(-4px)',
-                                    boxShadow: `0 8px 20px ${alpha(COLORS.WARNING[300], 0.4)}`,
-                                    border: `2px solid ${COLORS.WARNING[300]}`
-                                }
-                            }}
-                            onClick={() => setCurrentTab(2)}
-                        >
-                            <Stack direction="row" alignItems="center" justifyContent="space-between">
-                                <Box>
-                                    <Typography variant="body2" sx={{ color: COLORS.WARNING[600], fontWeight: 600, mb: 0.5, fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                                        Nhóm
-                                    </Typography>
-                                    <Typography variant="h3" sx={{ color: COLORS.WARNING[700], fontWeight: 900, lineHeight: 1 }}>
-                                        {groups.length}
-                                    </Typography>
-                                </Box>
-                                <Box
-                                    sx={{
-                                        width: 56,
-                                        height: 56,
-                                        borderRadius: '50%',
-                                        background: alpha(COLORS.WARNING[200], 0.4),
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center'
-                                    }}
-                                >
-                                    <Groups sx={{ fontSize: 32, color: COLORS.WARNING[600] }} />
-                                </Box>
-                            </Stack>
+                        <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.WARNING[500]}` }}>
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                                Nhóm
+                            </Typography>
+                            <Typography variant="h4" fontWeight={600} color={COLORS.WARNING[700]}>
+                                {groups.length}
+                            </Typography>
                         </Paper>
                     </Grid>
 
                     {/* Đực */}
                     <Grid item xs={12} sm={6} md={3}>
-                        <Paper
-                            elevation={0}
-                            sx={{
-                                p: 2.5,
-                                borderRadius: 3,
-                                background: `linear-gradient(135deg, ${alpha(COLORS.PRIMARY[50], 0.9)} 0%, ${alpha(COLORS.PRIMARY[100], 0.6)} 100%)`,
-                                border: `2px solid ${COLORS.PRIMARY[200]}`,
-                                boxShadow: `0 4px 12px ${alpha(COLORS.PRIMARY[200], 0.3)}`,
-                                transition: 'all 0.3s ease',
-                                cursor: 'pointer',
-                                '&:hover': {
-                                    transform: 'translateY(-4px)',
-                                    boxShadow: `0 8px 20px ${alpha(COLORS.PRIMARY[300], 0.4)}`,
-                                    border: `2px solid ${COLORS.PRIMARY[300]}`
-                                }
-                            }}
-                            onClick={() => setCurrentTab(0)}
-                        >
-                            <Stack direction="row" alignItems="center" justifyContent="space-between">
-                                <Box>
-                                    <Typography variant="body2" sx={{ color: COLORS.PRIMARY[600], fontWeight: 600, mb: 0.5, fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                                        Đực
-                                    </Typography>
-                                    <Typography variant="h3" sx={{ color: COLORS.PRIMARY[700], fontWeight: 900, lineHeight: 1 }}>
-                                        {petStats.male}
-                                    </Typography>
-                                </Box>
-                                <Box
-                                    sx={{
-                                        width: 56,
-                                        height: 56,
-                                        borderRadius: '50%',
-                                        background: alpha(COLORS.PRIMARY[200], 0.4),
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center'
-                                    }}
-                                >
-                                    <Typography variant="h3" sx={{ fontSize: '2rem' }}>♂️</Typography>
-                                </Box>
-                            </Stack>
+                        <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.PRIMARY[500]}` }}>
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                                Đực
+                            </Typography>
+                            <Typography variant="h4" fontWeight={600} color={COLORS.PRIMARY[700]}>
+                                {petStats.male}
+                            </Typography>
                         </Paper>
                     </Grid>
 
                     {/* Cái */}
                     <Grid item xs={12} sm={6} md={3}>
-                        <Paper
-                            elevation={0}
-                            sx={{
-                                p: 2.5,
-                                borderRadius: 3,
-                                background: `linear-gradient(135deg, ${alpha(COLORS.ERROR[50], 0.9)} 0%, ${alpha(COLORS.ERROR[100], 0.6)} 100())`,
-                                border: `2px solid ${COLORS.ERROR[200]}`,
-                                boxShadow: `0 4px 12px ${alpha(COLORS.ERROR[200], 0.3)}`,
-                                transition: 'all 0.3s ease',
-                                cursor: 'pointer',
-                                '&:hover': {
-                                    transform: 'translateY(-4px)',
-                                    boxShadow: `0 8px 20px ${alpha(COLORS.ERROR[300], 0.4)}`,
-                                    border: `2px solid ${COLORS.ERROR[300]}`
-                                }
-                            }}
-                            onClick={() => setCurrentTab(0)}
-                        >
-                            <Stack direction="row" alignItems="center" justifyContent="space-between">
-                                <Box>
-                                    <Typography variant="body2" sx={{ color: COLORS.ERROR[600], fontWeight: 600, mb: 0.5, fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                                        Cái
-                                    </Typography>
-                                    <Typography variant="h3" sx={{ color: COLORS.ERROR[700], fontWeight: 900, lineHeight: 1 }}>
-                                        {petStats.female}
-                                    </Typography>
-                                </Box>
-                                <Box
-                                    sx={{
-                                        width: 56,
-                                        height: 56,
-                                        borderRadius: '50%',
-                                        background: alpha(COLORS.ERROR[200], 0.4),
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center'
-                                    }}
-                                >
-                                    <Typography variant="h3" sx={{ fontSize: '2rem' }}>♀️</Typography>
-                                </Box>
-                            </Stack>
+                        <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.ERROR[500]}` }}>
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                                Cái
+                            </Typography>
+                            <Typography variant="h4" fontWeight={600} color={COLORS.ERROR[700]}>
+                                {petStats.female}
+                            </Typography>
                         </Paper>
                     </Grid>
 
                     {/* Khỏe mạnh */}
                     <Grid item xs={12} sm={6} md={3}>
-                        <Paper
-                            elevation={0}
-                            sx={{
-                                p: 2.5,
-                                borderRadius: 3,
-                                background: `linear-gradient(135deg, ${alpha(COLORS.SUCCESS[50], 0.9)} 0%, ${alpha(COLORS.SUCCESS[100], 0.6)} 100%)`,
-                                border: `2px solid ${COLORS.SUCCESS[200]}`,
-                                boxShadow: `0 4px 12px ${alpha(COLORS.SUCCESS[200], 0.3)}`,
-                                transition: 'all 0.3s ease',
-                                cursor: 'pointer',
-                                '&:hover': {
-                                    transform: 'translateY(-4px)',
-                                    boxShadow: `0 8px 20px ${alpha(COLORS.SUCCESS[300], 0.4)}`,
-                                    border: `2px solid ${COLORS.SUCCESS[300]}`
-                                }
-                            }}
-                            onClick={() => setCurrentTab(0)}
-                        >
-                            <Stack direction="row" alignItems="center" justifyContent="space-between">
-                                <Box>
-                                    <Typography variant="body2" sx={{ color: COLORS.SUCCESS[600], fontWeight: 600, mb: 0.5, fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                                        Khỏe mạnh
-                                    </Typography>
-                                    <Typography variant="h3" sx={{ color: COLORS.SUCCESS[700], fontWeight: 900, lineHeight: 1 }}>
-                                        {petStats.healthy}
-                                    </Typography>
-                                </Box>
-                                <Box
-                                    sx={{
-                                        width: 56,
-                                        height: 56,
-                                        borderRadius: '50%',
-                                        background: alpha(COLORS.SUCCESS[200], 0.4),
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center'
-                                    }}
-                                >
-                                    <Typography variant="h3" sx={{ fontSize: '2rem' }}>💪</Typography>
-                                </Box>
-                            </Stack>
+                        <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.SUCCESS[500]}` }}>
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                                Khỏe mạnh
+                            </Typography>
+                            <Typography variant="h4" fontWeight={600} color={COLORS.SUCCESS[700]}>
+                                {petStats.healthy}
+                            </Typography>
                         </Paper>
                     </Grid>
 
                     {/* Cần theo dõi */}
                     <Grid item xs={12} sm={6} md={3}>
-                        <Paper
-                            elevation={0}
-                            sx={{
-                                p: 2.5,
-                                borderRadius: 3,
-                                background: `linear-gradient(135deg, ${alpha(COLORS.WARNING[50], 0.9)} 0%, ${alpha(COLORS.WARNING[100], 0.6)} 100%)`,
-                                border: `2px solid ${COLORS.WARNING[200]}`,
-                                boxShadow: `0 4px 12px ${alpha(COLORS.WARNING[200], 0.3)}`,
-                                transition: 'all 0.3s ease',
-                                cursor: 'pointer',
-                                '&:hover': {
-                                    transform: 'translateY(-4px)',
-                                    boxShadow: `0 8px 20px ${alpha(COLORS.WARNING[300], 0.4)}`,
-                                    border: `2px solid ${COLORS.WARNING[300]}`
-                                }
-                            }}
-                            onClick={() => setCurrentTab(0)}
-                        >
-                            <Stack direction="row" alignItems="center" justifyContent="space-between">
-                                <Box>
-                                    <Typography variant="body2" sx={{ color: COLORS.WARNING[600], fontWeight: 600, mb: 0.5, fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                                        Cần theo dõi
-                                    </Typography>
-                                    <Typography variant="h3" sx={{ color: COLORS.WARNING[700], fontWeight: 900, lineHeight: 1 }}>
-                                        {petStats.needMonitoring}
-                                    </Typography>
-                                </Box>
-                                <Box
-                                    sx={{
-                                        width: 56,
-                                        height: 56,
-                                        borderRadius: '50%',
-                                        background: alpha(COLORS.WARNING[200], 0.4),
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center'
-                                    }}
-                                >
-                                    <Typography variant="h3" sx={{ fontSize: '2rem' }}>⚠️</Typography>
-                                </Box>
-                            </Stack>
+                        <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.WARNING[500]}` }}>
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                                Cần theo dõi
+                            </Typography>
+                            <Typography variant="h4" fontWeight={600} color={COLORS.WARNING[700]}>
+                                {petStats.needMonitoring}
+                            </Typography>
                         </Paper>
                     </Grid>
 
                     {/* Cần kiểm tra */}
                     <Grid item xs={12} sm={6} md={3}>
-                        <Paper
-                            elevation={0}
-                            sx={{
-                                p: 2.5,
-                                borderRadius: 3,
-                                background: `linear-gradient(135deg, ${alpha(COLORS.INFO[50], 0.9)} 0%, ${alpha(COLORS.INFO[100], 0.6)} 100())`,
-                                border: `2px solid ${COLORS.INFO[200]}`,
-                                boxShadow: `0 4px 12px ${alpha(COLORS.INFO[200], 0.3)}`,
-                                transition: 'all 0.3s ease',
-                                cursor: 'pointer',
-                                '&:hover': {
-                                    transform: 'translateY(-4px)',
-                                    boxShadow: `0 8px 20px ${alpha(COLORS.INFO[300], 0.4)}`,
-                                    border: `2px solid ${COLORS.INFO[300]}`
-                                }
-                            }}
-                            onClick={() => setCurrentTab(0)}
-                        >
-                            <Stack direction="row" alignItems="center" justifyContent="space-between">
-                                <Box>
-                                    <Typography variant="body2" sx={{ color: COLORS.INFO[600], fontWeight: 600, mb: 0.5, fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                                        Cần kiểm tra
-                                    </Typography>
-                                    <Typography variant="h3" sx={{ color: COLORS.INFO[700], fontWeight: 900, lineHeight: 1 }}>
-                                        {petStats.needCheckup}
-                                    </Typography>
-                                </Box>
-                                <Box
-                                    sx={{
-                                        width: 56,
-                                        height: 56,
-                                        borderRadius: '50%',
-                                        background: alpha(COLORS.INFO[200], 0.4),
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center'
-                                    }}
-                                >
-                                    <Typography variant="h3" sx={{ fontSize: '2rem' }}>🏥</Typography>
-                                </Box>
-                            </Stack>
+                        <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.INFO[500]}` }}>
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                                Cần kiểm tra
+                            </Typography>
+                            <Typography variant="h4" fontWeight={600} color={COLORS.INFO[700]}>
+                                {petStats.needCheckup}
+                            </Typography>
                         </Paper>
                     </Grid>
                 </Grid>

@@ -503,166 +503,60 @@ const ProductPage = () => {
                     <>
                         {/* Status Badges */}
                         <Grid container spacing={2} sx={{ mb: 3 }}>
-                            {(() => {
-                                const kpis = (() => {
-                                    const result = {
-                                        total: products.length,
-                                        active: 0,
-                                        inactive: 0,
-                                        customer: 0,
-                                        pet: 0
-                                    };
-                                    products.forEach(p => {
-                                        if (p.is_active === false) result.inactive += 1; else result.active += 1;
-                                        if (p.is_for_pets) result.pet += 1; else result.customer += 1;
-                                    });
-                                    return result;
-                                })();
-                                return (
-                                    <>
-                                        <Grid item xs={6} sm={4} md={3}>
-                                            <Paper sx={{
-                                                p: 2,
-                                                background: `linear-gradient(135deg, ${alpha(COLORS.PRIMARY[50], 0.8)} 0%, ${alpha(COLORS.PRIMARY[100], 0.6)} 100%)`,
-                                                border: `2px solid ${alpha(COLORS.PRIMARY[300], 0.3)}`,
-                                                borderRadius: 3,
-                                                transition: 'all 0.3s ease',
-                                                '&:hover': { transform: 'translateY(-4px)', boxShadow: `0 8px 24px ${alpha(COLORS.PRIMARY[500], 0.2)}` }
-                                            }}>
-                                                <Stack direction="row" spacing={1.5} alignItems="center">
-                                                    <Box sx={{
-                                                        background: `linear-gradient(135deg, ${COLORS.PRIMARY[400]} 0%, ${COLORS.PRIMARY[600]} 100%)`,
-                                                        borderRadius: 2, p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center'
-                                                    }}>
-                                                        <Restaurant sx={{ color: 'white', fontSize: 28 }} />
-                                                    </Box>
-                                                    <Box>
-                                                        <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.PRIMARY[700] }}>
-                                                            {kpis.total}
-                                                        </Typography>
-                                                        <Typography variant="caption" sx={{ color: COLORS.PRIMARY[600], fontWeight: 600 }}>
-                                                            Tổng sản phẩm
-                                                        </Typography>
-                                                    </Box>
-                                                </Stack>
-                                            </Paper>
-                                        </Grid>
+                            <Grid item xs={12} sm={6} md={2.4}>
+                                <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.PRIMARY[500]}` }}>
+                                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                                        Tổng sản phẩm
+                                    </Typography>
+                                    <Typography variant="h4" fontWeight={600} color={COLORS.PRIMARY[700]}>
+                                        {products.length}
+                                    </Typography>
+                                </Paper>
+                            </Grid>
 
-                                        <Grid item xs={6} sm={4} md={3}>
-                                            <Paper sx={{
-                                                p: 2,
-                                                background: `linear-gradient(135deg, ${alpha(COLORS.SUCCESS[50], 0.8)} 0%, ${alpha(COLORS.SUCCESS[100], 0.6)} 100%)`,
-                                                border: `2px solid ${alpha(COLORS.SUCCESS[300], 0.3)}`,
-                                                borderRadius: 3,
-                                                transition: 'all 0.3s ease',
-                                                '&:hover': { transform: 'translateY(-4px)', boxShadow: `0 8px 24px ${alpha(COLORS.SUCCESS[500], 0.2)}` }
-                                            }}>
-                                                <Stack direction="row" spacing={1.5} alignItems="center">
-                                                    <Box sx={{
-                                                        background: `linear-gradient(135deg, ${COLORS.SUCCESS[400]} 0%, ${COLORS.SUCCESS[600]} 100%)`,
-                                                        borderRadius: 2, p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center'
-                                                    }}>
-                                                        <CheckCircle sx={{ color: 'white', fontSize: 28 }} />
-                                                    </Box>
-                                                    <Box>
-                                                        <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.SUCCESS[700] }}>
-                                                            {kpis.active}
-                                                        </Typography>
-                                                        <Typography variant="caption" sx={{ color: COLORS.SUCCESS[600], fontWeight: 600 }}>
-                                                            Đang bán
-                                                        </Typography>
-                                                    </Box>
-                                                </Stack>
-                                            </Paper>
-                                        </Grid>
-                                        <Grid item xs={6} sm={4} md={3}>
-                                            <Paper sx={{
-                                                p: 2,
-                                                background: `linear-gradient(135deg, ${alpha(COLORS.ERROR[50], 0.8)} 0%, ${alpha(COLORS.ERROR[100], 0.6)} 100%)`,
-                                                border: `2px solid ${alpha(COLORS.ERROR[300], 0.3)}`,
-                                                borderRadius: 3,
-                                                transition: 'all 0.3s ease',
-                                                '&:hover': { transform: 'translateY(-4px)', boxShadow: `0 8px 24px ${alpha(COLORS.ERROR[500], 0.2)}` }
-                                            }}>
-                                                <Stack direction="row" spacing={1.5} alignItems="center">
-                                                    <Box sx={{
-                                                        background: `linear-gradient(135deg, ${COLORS.ERROR[400]} 0%, ${COLORS.ERROR[600]} 100%)`,
-                                                        borderRadius: 2, p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center'
-                                                    }}>
-                                                        <Block sx={{ color: 'white', fontSize: 28 }} />
-                                                    </Box>
-                                                    <Box>
-                                                        <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.ERROR[700] }}>
-                                                            {kpis.inactive}
-                                                        </Typography>
-                                                        <Typography variant="caption" sx={{ color: COLORS.ERROR[600], fontWeight: 600 }}>
-                                                            Ngừng bán
-                                                        </Typography>
-                                                    </Box>
-                                                </Stack>
-                                            </Paper>
-                                        </Grid>
+                            <Grid item xs={12} sm={6} md={2.4}>
+                                <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.SUCCESS[500]}` }}>
+                                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                                        Đang bán
+                                    </Typography>
+                                    <Typography variant="h4" fontWeight={600} color={COLORS.SUCCESS[700]}>
+                                        {products.filter(p => p.is_active !== false).length}
+                                    </Typography>
+                                </Paper>
+                            </Grid>
 
-                                        <Grid item xs={6} sm={4} md={3}>
-                                            <Paper sx={{
-                                                p: 2,
-                                                background: `linear-gradient(135deg, ${alpha(COLORS.INFO[50], 0.8)} 0%, ${alpha(COLORS.INFO[100], 0.6)} 100%)`,
-                                                border: `2px solid ${alpha(COLORS.INFO[300], 0.3)}`,
-                                                borderRadius: 3,
-                                                transition: 'all 0.3s ease',
-                                                '&:hover': { transform: 'translateY(-4px)', boxShadow: `0 8px 24px ${alpha(COLORS.INFO[500], 0.2)}` }
-                                            }}>
-                                                <Stack direction="row" spacing={1.5} alignItems="center">
-                                                    <Box sx={{
-                                                        background: `linear-gradient(135deg, ${COLORS.INFO[400]} 0%, ${COLORS.INFO[600]} 100%)`,
-                                                        borderRadius: 2, p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center'
-                                                    }}>
-                                                        <LocalCafe sx={{ color: 'white', fontSize: 28 }} />
-                                                    </Box>
-                                                    <Box>
-                                                        <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.INFO[700] }}>
-                                                            {kpis.customer}
-                                                        </Typography>
-                                                        <Typography variant="caption" sx={{ color: COLORS.INFO[600], fontWeight: 600 }}>
-                                                            Sản phẩm Khách hàng
-                                                        </Typography>
-                                                    </Box>
-                                                </Stack>
-                                            </Paper>
-                                        </Grid>
+                            <Grid item xs={12} sm={6} md={2.4}>
+                                <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.ERROR[500]}` }}>
+                                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                                        Ngừng bán
+                                    </Typography>
+                                    <Typography variant="h4" fontWeight={600} color={COLORS.ERROR[700]}>
+                                        {products.filter(p => p.is_active === false).length}
+                                    </Typography>
+                                </Paper>
+                            </Grid>
 
+                            <Grid item xs={12} sm={6} md={2.4}>
+                                <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.INFO[500]}` }}>
+                                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                                        Sản phẩm Khách hàng
+                                    </Typography>
+                                    <Typography variant="h4" fontWeight={600} color={COLORS.INFO[700]}>
+                                        {products.filter(p => !p.is_for_pets).length}
+                                    </Typography>
+                                </Paper>
+                            </Grid>
 
-
-                                        <Grid item xs={6} sm={4} md={3}>
-                                            <Paper sx={{
-                                                p: 2,
-                                                background: `linear-gradient(135deg, ${alpha('#E8F5E9', 0.8)} 0%, ${alpha('#C8E6C9', 0.6)} 100%)`,
-                                                border: `2px solid ${alpha('#81C784', 0.3)}`,
-                                                borderRadius: 3,
-                                                transition: 'all 0.3s ease',
-                                                '&:hover': { transform: 'translateY(-4px)', boxShadow: `0 8px 24px ${alpha('#66BB6A', 0.2)}` }
-                                            }}>
-                                                <Stack direction="row" spacing={1.5} alignItems="center">
-                                                    <Box sx={{
-                                                        background: `linear-gradient(135deg, #81C784 0%, #388E3C 100%)`,
-                                                        borderRadius: 2, p: 1, display: 'flex', alignItems: 'center', justifyContent: 'center'
-                                                    }}>
-                                                        <Pets sx={{ color: 'white', fontSize: 28 }} />
-                                                    </Box>
-                                                    <Box>
-                                                        <Typography variant="h4" sx={{ fontWeight: 800, color: '#2E7D32' }}>
-                                                            {kpis.pet}
-                                                        </Typography>
-                                                        <Typography variant="caption" sx={{ color: '#388E3C', fontWeight: 600 }}>
-                                                            Sản phẩm Pet
-                                                        </Typography>
-                                                    </Box>
-                                                </Stack>
-                                            </Paper>
-                                        </Grid>
-                                    </>
-                                );
-                            })()}
+                            <Grid item xs={12} sm={6} md={2.4}>
+                                <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.WARNING[500]}` }}>
+                                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                                        Sản phẩm Pet
+                                    </Typography>
+                                    <Typography variant="h4" fontWeight={600} color={COLORS.WARNING[700]}>
+                                        {products.filter(p => p.is_for_pets).length}
+                                    </Typography>
+                                </Paper>
+                            </Grid>
                         </Grid>
 
                         {/* Search and Filter Toolbar */}
@@ -950,94 +844,38 @@ const ProductPage = () => {
                     <>
                         {/* Statistics */}
                         <Grid container spacing={2} sx={{ mb: 3 }}>
-                            {(() => {
-                                const stats = {
-                                    total: categories.length,
-                                    active: categories.filter(c => c.is_active).length,
-                                    inactive: categories.filter(c => !c.is_active).length
-                                };
-                                return (
-                                    <>
-                                        <Grid item xs={12} sm={4}>
-                                            <Paper sx={{
-                                                p: 2,
-                                                background: `linear-gradient(135deg, ${alpha(COLORS.PRIMARY[50], 0.8)} 0%, ${alpha(COLORS.PRIMARY[100], 0.6)} 100%)`,
-                                                border: `2px solid ${alpha(COLORS.PRIMARY[300], 0.3)}`,
-                                                borderRadius: 3
-                                            }}>
-                                                <Stack direction="row" spacing={1.5} alignItems="center">
-                                                    <Box sx={{
-                                                        background: `linear-gradient(135deg, ${COLORS.PRIMARY[400]} 0%, ${COLORS.PRIMARY[600]} 100%)`,
-                                                        borderRadius: 2, p: 1
-                                                    }}>
-                                                        <Category sx={{ color: 'white', fontSize: 28 }} />
-                                                    </Box>
-                                                    <Box>
-                                                        <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.PRIMARY[700] }}>
-                                                            {stats.total}
-                                                        </Typography>
-                                                        <Typography variant="caption" sx={{ color: COLORS.PRIMARY[600], fontWeight: 600 }}>
-                                                            Tổng danh mục
-                                                        </Typography>
-                                                    </Box>
-                                                </Stack>
-                                            </Paper>
-                                        </Grid>
+                            <Grid item xs={12} sm={4}>
+                                <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.PRIMARY[500]}` }}>
+                                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                                        Tổng danh mục
+                                    </Typography>
+                                    <Typography variant="h4" fontWeight={600} color={COLORS.PRIMARY[700]}>
+                                        {categories.length}
+                                    </Typography>
+                                </Paper>
+                            </Grid>
 
-                                        <Grid item xs={12} sm={4}>
-                                            <Paper sx={{
-                                                p: 2,
-                                                background: `linear-gradient(135deg, ${alpha(COLORS.SUCCESS[50], 0.8)} 0%, ${alpha(COLORS.SUCCESS[100], 0.6)} 100%)`,
-                                                border: `2px solid ${alpha(COLORS.SUCCESS[300], 0.3)}`,
-                                                borderRadius: 3
-                                            }}>
-                                                <Stack direction="row" spacing={1.5} alignItems="center">
-                                                    <Box sx={{
-                                                        background: `linear-gradient(135deg, ${COLORS.SUCCESS[400]} 0%, ${COLORS.SUCCESS[600]} 100%)`,
-                                                        borderRadius: 2, p: 1
-                                                    }}>
-                                                        <CheckCircle sx={{ color: 'white', fontSize: 28 }} />
-                                                    </Box>
-                                                    <Box>
-                                                        <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.SUCCESS[700] }}>
-                                                            {stats.active}
-                                                        </Typography>
-                                                        <Typography variant="caption" sx={{ color: COLORS.SUCCESS[600], fontWeight: 600 }}>
-                                                            Đang hoạt động
-                                                        </Typography>
-                                                    </Box>
-                                                </Stack>
-                                            </Paper>
-                                        </Grid>
+                            <Grid item xs={12} sm={4}>
+                                <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.SUCCESS[500]}` }}>
+                                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                                        Đang hoạt động
+                                    </Typography>
+                                    <Typography variant="h4" fontWeight={600} color={COLORS.SUCCESS[700]}>
+                                        {categories.filter(c => c.is_active).length}
+                                    </Typography>
+                                </Paper>
+                            </Grid>
 
-                                        <Grid item xs={12} sm={4}>
-                                            <Paper sx={{
-                                                p: 2,
-                                                background: `linear-gradient(135deg, ${alpha(COLORS.ERROR[50], 0.8)} 0%, ${alpha(COLORS.ERROR[100], 0.6)} 100%)`,
-                                                border: `2px solid ${alpha(COLORS.ERROR[300], 0.3)}`,
-                                                borderRadius: 3
-                                            }}>
-                                                <Stack direction="row" spacing={1.5} alignItems="center">
-                                                    <Box sx={{
-                                                        background: `linear-gradient(135deg, ${COLORS.ERROR[400]} 0%, ${COLORS.ERROR[600]} 100%)`,
-                                                        borderRadius: 2, p: 1
-                                                    }}>
-                                                        <Block sx={{ color: 'white', fontSize: 28 }} />
-                                                    </Box>
-                                                    <Box>
-                                                        <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.ERROR[700] }}>
-                                                            {stats.inactive}
-                                                        </Typography>
-                                                        <Typography variant="caption" sx={{ color: COLORS.ERROR[600], fontWeight: 600 }}>
-                                                            Vô hiệu hóa
-                                                        </Typography>
-                                                    </Box>
-                                                </Stack>
-                                            </Paper>
-                                        </Grid>
-                                    </>
-                                );
-                            })()}
+                            <Grid item xs={12} sm={4}>
+                                <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.ERROR[500]}` }}>
+                                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                                        Vô hiệu hóa
+                                    </Typography>
+                                    <Typography variant="h4" fontWeight={600} color={COLORS.ERROR[700]}>
+                                        {categories.filter(c => !c.is_active).length}
+                                    </Typography>
+                                </Paper>
+                            </Grid>
                         </Grid>
 
                         {/* Toolbar */}

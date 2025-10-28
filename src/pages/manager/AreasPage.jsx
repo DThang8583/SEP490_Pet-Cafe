@@ -214,163 +214,25 @@ const AreasPage = () => {
 
                 {/* Status Badges */}
                 <Grid container spacing={2} sx={{ mb: 3 }}>
-                    <Grid item xs={6} sm={6} md={3}>
-                        <Paper
-                            sx={{
-                                p: 2,
-                                background: `linear-gradient(135deg, ${alpha(COLORS.PRIMARY[50], 0.8)} 0%, ${alpha(COLORS.PRIMARY[100], 0.6)} 100%)`,
-                                border: `2px solid ${alpha(COLORS.PRIMARY[300], 0.3)}`,
-                                borderRadius: 3,
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 1.5,
-                                transition: 'all 0.3s ease',
-                                '&:hover': {
-                                    transform: 'translateY(-4px)',
-                                    boxShadow: `0 8px 24px ${alpha(COLORS.PRIMARY[500], 0.2)}`
-                                }
-                            }}
-                        >
-                            <Box
-                                sx={{
-                                    background: `linear-gradient(135deg, ${COLORS.PRIMARY[400]} 0%, ${COLORS.PRIMARY[600]} 100%)`,
-                                    borderRadius: 2,
-                                    p: 1,
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center'
-                                }}
-                            >
-                                <Home sx={{ color: 'white', fontSize: 28 }} />
-                            </Box>
-                            <Box>
-                                <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.PRIMARY[700] }}>
-                                    {stats.total}
-                                </Typography>
-                                <Typography variant="caption" sx={{ color: COLORS.PRIMARY[600], fontWeight: 600 }}>
-                                    Tổng khu vực
-                                </Typography>
-                            </Box>
+                    <Grid item xs={12} sm={6} md={6}>
+                        <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.PRIMARY[500]}` }}>
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                                Tổng khu vực
+                            </Typography>
+                            <Typography variant="h4" fontWeight={600} color={COLORS.PRIMARY[700]}>
+                                {stats.total}
+                            </Typography>
                         </Paper>
                     </Grid>
 
-                    <Grid item xs={6} sm={6} md={3}>
-                        <Paper
-                            sx={{
-                                p: 2,
-                                background: `linear-gradient(135deg, ${alpha(COLORS.SUCCESS[50], 0.8)} 0%, ${alpha(COLORS.SUCCESS[100], 0.6)} 100%)`,
-                                border: `2px solid ${alpha(COLORS.SUCCESS[300], 0.3)}`,
-                                borderRadius: 3,
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 1.5,
-                                transition: 'all 0.3s ease',
-                                '&:hover': {
-                                    transform: 'translateY(-4px)',
-                                    boxShadow: `0 8px 24px ${alpha(COLORS.SUCCESS[500], 0.2)}`
-                                }
-                            }}
-                        >
-                            <Box
-                                sx={{
-                                    background: `linear-gradient(135deg, ${COLORS.SUCCESS[400]} 0%, ${COLORS.SUCCESS[600]} 100%)`,
-                                    borderRadius: 2,
-                                    p: 1,
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center'
-                                }}
-                            >
-                                <Groups sx={{ color: 'white', fontSize: 28 }} />
-                            </Box>
-                            <Box>
-                                <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.SUCCESS[700] }}>
-                                    {stats.totalCapacity}
-                                </Typography>
-                                <Typography variant="caption" sx={{ color: COLORS.SUCCESS[600], fontWeight: 600 }}>
-                                    Tổng sức chứa
-                                </Typography>
-                            </Box>
-                        </Paper>
-                    </Grid>
-
-                    <Grid item xs={6} sm={6} md={3}>
-                        <Paper
-                            sx={{
-                                p: 2,
-                                background: `linear-gradient(135deg, ${alpha(COLORS.INFO[50], 0.8)} 0%, ${alpha(COLORS.INFO[100], 0.6)} 100%)`,
-                                border: `2px solid ${alpha(COLORS.INFO[300], 0.3)}`,
-                                borderRadius: 3,
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 1.5,
-                                transition: 'all 0.3s ease',
-                                '&:hover': {
-                                    transform: 'translateY(-4px)',
-                                    boxShadow: `0 8px 24px ${alpha(COLORS.INFO[500], 0.2)}`
-                                }
-                            }}
-                        >
-                            <Box
-                                sx={{
-                                    background: `linear-gradient(135deg, ${COLORS.INFO[400]} 0%, ${COLORS.INFO[600]} 100%)`,
-                                    borderRadius: 2,
-                                    p: 1,
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center'
-                                }}
-                            >
-                                <MeetingRoom sx={{ color: 'white', fontSize: 28 }} />
-                            </Box>
-                            <Box>
-                                <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.INFO[700] }}>
-                                    {stats.averageCapacity}
-                                </Typography>
-                                <Typography variant="caption" sx={{ color: COLORS.INFO[600], fontWeight: 600 }}>
-                                    SC trung bình
-                                </Typography>
-                            </Box>
-                        </Paper>
-                    </Grid>
-
-                    <Grid item xs={6} sm={6} md={3}>
-                        <Paper
-                            sx={{
-                                p: 2,
-                                background: `linear-gradient(135deg, ${alpha(COLORS.WARNING[50], 0.8)} 0%, ${alpha(COLORS.WARNING[100], 0.6)} 100%)`,
-                                border: `2px solid ${alpha(COLORS.WARNING[300], 0.3)}`,
-                                borderRadius: 3,
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 1.5,
-                                transition: 'all 0.3s ease',
-                                '&:hover': {
-                                    transform: 'translateY(-4px)',
-                                    boxShadow: `0 8px 24px ${alpha(COLORS.WARNING[500], 0.2)}`
-                                }
-                            }}
-                        >
-                            <Box
-                                sx={{
-                                    background: `linear-gradient(135deg, ${COLORS.WARNING[400]} 0%, ${COLORS.WARNING[600]} 100%)`,
-                                    borderRadius: 2,
-                                    p: 1,
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center'
-                                }}
-                            >
-                                <LocationOn sx={{ color: 'white', fontSize: 28 }} />
-                            </Box>
-                            <Box>
-                                <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.WARNING[700] }}>
-                                    {stats.large}
-                                </Typography>
-                                <Typography variant="caption" sx={{ color: COLORS.WARNING[600], fontWeight: 600 }}>
-                                    {'Khu lớn (>20)'}
-                                </Typography>
-                            </Box>
+                    <Grid item xs={12} sm={6} md={6}>
+                        <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.SUCCESS[500]}` }}>
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                                Tổng sức chứa
+                            </Typography>
+                            <Typography variant="h4" fontWeight={600} color={COLORS.SUCCESS[700]}>
+                                {stats.totalCapacity}
+                            </Typography>
                         </Paper>
                     </Grid>
                 </Grid>

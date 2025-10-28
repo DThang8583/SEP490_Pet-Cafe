@@ -103,17 +103,17 @@ const PetsTab = ({ pets, species, breeds, groups, onDataChange }) => {
             setIsSubmitting(true);
 
             const petData = {
-                name: petFormData.name.trim(),
+                name: (petFormData.name || '').trim(),
                 species_id: petFormData.species_id,
                 breed_id: petFormData.breed_id,
                 pet_group_id: petFormData.pet_group_id || null,
-                age: parseInt(petFormData.age),
-                weight: parseFloat(petFormData.weight),
+                age: parseInt(petFormData.age || 0),
+                weight: parseFloat(petFormData.weight || 0),
                 gender: petFormData.gender,
-                color: petFormData.color.trim(),
-                image_url: petFormData.image_url.trim(),
-                preferences: petFormData.preferences.trim(),
-                special_notes: petFormData.special_notes.trim(),
+                color: (petFormData.color || '').trim(),
+                image_url: (petFormData.image || petFormData.image_url || '').trim(),
+                preferences: (petFormData.preferences || '').trim(),
+                special_notes: (petFormData.special_notes || '').trim(),
                 arrival_date: new Date(petFormData.arrival_date).toISOString()
             };
 
@@ -312,7 +312,7 @@ const PetsTab = ({ pets, species, breeds, groups, onDataChange }) => {
                                     <TableCell>
                                         <Stack direction="row" alignItems="center" spacing={1.5}>
                                             <Avatar
-                                                src={pet.image_url}
+                                                src={pet.image || pet.image_url}
                                                 alt={pet.name}
                                                 sx={{ width: 40, height: 40 }}
                                             />
@@ -345,10 +345,9 @@ const PetsTab = ({ pets, species, breeds, groups, onDataChange }) => {
                                                     size="small"
                                                     label={status.label}
                                                     sx={{
-                                                        background: alpha(status.bg, 0.7),
-                                                        color: status.color[800],
-                                                        fontWeight: 700,
-                                                        fontSize: '0.75rem'
+                                                        bgcolor: alpha(status.color[600], 0.2),
+                                                        color: status.color[700],
+                                                        fontWeight: 600
                                                     }}
                                                 />
                                             );
@@ -476,7 +475,7 @@ const PetsTab = ({ pets, species, breeds, groups, onDataChange }) => {
                                     <Grid item xs={12} sm={3}>
                                         <Box sx={{ textAlign: 'center' }}>
                                             <Avatar
-                                                src={petDetailDialog.pet.image_url}
+                                                src={petDetailDialog.pet.image || petDetailDialog.pet.image_url}
                                                 alt={petDetailDialog.pet.name}
                                                 sx={{
                                                     width: 100,
