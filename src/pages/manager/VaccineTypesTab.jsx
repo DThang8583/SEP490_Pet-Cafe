@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
     Box, Typography, Paper, Stack, TextField, Button, IconButton, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-    Dialog, DialogTitle, DialogContent, DialogActions, FormControl, InputLabel, Select, MenuItem, Chip, alpha, Tooltip, InputAdornment
+    Dialog, DialogTitle, DialogContent, DialogActions, FormControl, InputLabel, Select, MenuItem, Chip, alpha, Tooltip, InputAdornment, Menu, ListItemIcon, ListItemText
 } from '@mui/material';
-import { Add, Edit, Delete, Search, Vaccines } from '@mui/icons-material';
+import { Add, Edit, Delete, Search, Vaccines, MoreVert } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 import Loading from '../../components/loading/Loading';
 import AlertModal from '../../components/modals/AlertModal';
@@ -32,6 +32,10 @@ const VaccineTypesTab = ({ species = [] }) => {
     // Delete confirmation
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [vaccineToDelete, setVaccineToDelete] = useState(null);
+
+    // Menu state
+    const [menuAnchor, setMenuAnchor] = useState(null);
+    const [menuVaccineType, setMenuVaccineType] = useState(null);
 
     useEffect(() => {
         loadVaccineTypes();
@@ -373,38 +377,15 @@ const VaccineTypesTab = ({ species = [] }) => {
                                                 )}
                                             </TableCell>
                                             <TableCell>
-                                                <Stack direction="row" spacing={1}>
-                                                    <Tooltip title="Chỉnh sửa">
-                                                        <IconButton
-                                                            size="small"
-                                                            onClick={() => handleOpenDialog(vt)}
-                                                            sx={{
-                                                                background: alpha(COLORS.WARNING[100], 0.5),
-                                                                color: COLORS.WARNING[700],
-                                                                '&:hover': {
-                                                                    background: alpha(COLORS.WARNING[200], 0.7)
-                                                                }
-                                                            }}
-                                                        >
-                                                            <Edit fontSize="small" />
-                                                        </IconButton>
-                                                    </Tooltip>
-                                                    <Tooltip title="Xóa">
-                                                        <IconButton
-                                                            size="small"
-                                                            onClick={() => handleOpenDeleteDialog(vt)}
-                                                            sx={{
-                                                                background: alpha(COLORS.ERROR[100], 0.5),
-                                                                color: COLORS.ERROR[700],
-                                                                '&:hover': {
-                                                                    background: alpha(COLORS.ERROR[200], 0.7)
-                                                                }
-                                                            }}
-                                                        >
-                                                            <Delete fontSize="small" />
-                                                        </IconButton>
-                                                    </Tooltip>
-                                                </Stack>
+                                                <IconButton
+                                                    size="small"
+                                                    onClick={(e) => {
+                                                        setMenuAnchor(e.currentTarget);
+                                                        setMenuVaccineType(vt);
+                                                    }}
+                                                >
+                                                    <MoreVert fontSize="small" />
+                                                </IconButton>
                                             </TableCell>
                                         </TableRow>
                                     ))}
@@ -509,6 +490,53 @@ const VaccineTypesTab = ({ species = [] }) => {
                 message={alert.message}
                 type={alert.type}
             />
+
+            {/* Vaccine Type Actions Menu */}
+            <Menu
+                anchorEl={menuAnchor}
+                open={Boolean(menuAnchor)}
+                onClose={() => {
+                    setMenuAnchor(null);
+                    setMenuVaccineType(null);
+                }}
+                anchorOrigin={{
+                    vertical: 'bottom',
+                    horizontal: 'right',
+                }}
+                transformOrigin={{
+                    vertical: 'top',
+                    horizontal: 'right',
+                }}
+            >
+                <MenuItem
+                    onClick={() => {
+                        if (menuVaccineType) {
+                            handleOpenDialog(menuVaccineType);
+                        }
+                        setMenuAnchor(null);
+                        setMenuVaccineType(null);
+                    }}
+                >
+                    <ListItemIcon>
+                        <Edit fontSize="small" sx={{ color: COLORS.WARNING[700] }} />
+                    </ListItemIcon>
+                    <ListItemText>Chỉnh sửa</ListItemText>
+                </MenuItem>
+                <MenuItem
+                    onClick={() => {
+                        if (menuVaccineType) {
+                            handleOpenDeleteDialog(menuVaccineType);
+                        }
+                        setMenuAnchor(null);
+                        setMenuVaccineType(null);
+                    }}
+                >
+                    <ListItemIcon>
+                        <Delete fontSize="small" sx={{ color: COLORS.ERROR[700] }} />
+                    </ListItemIcon>
+                    <ListItemText>Xóa</ListItemText>
+                </MenuItem>
+            </Menu>
         </Box>
     );
 };

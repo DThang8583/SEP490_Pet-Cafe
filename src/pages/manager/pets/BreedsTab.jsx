@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Stack, Toolbar, TextField, Select, MenuItem, InputLabel, FormControl, IconButton, Button, Avatar, alpha, Dialog, DialogTitle, DialogContent, DialogActions, Divider } from '@mui/material';
-import { Add, Edit, Delete, Category, Pets as PetsIcon, Visibility, Close } from '@mui/icons-material';
+import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Stack, Toolbar, TextField, Select, MenuItem, InputLabel, FormControl, IconButton, Button, Avatar, alpha, Dialog, DialogTitle, DialogContent, DialogActions, Divider, Menu, ListItemIcon, ListItemText } from '@mui/material';
+import { Add, Edit, Delete, Category, Pets as PetsIcon, Visibility, Close, MoreVert } from '@mui/icons-material';
 import { COLORS } from '../../../constants/colors';
 import Pagination from '../../../components/common/Pagination';
 import ConfirmModal from '../../../components/modals/ConfirmModal';
@@ -22,6 +22,10 @@ const BreedsTab = ({ pets, species, breeds, onDataChange }) => {
     const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
     const [deleteTarget, setDeleteTarget] = useState(null);
     const [alert, setAlert] = useState({ open: false, message: '', type: 'info', title: 'Thông báo' });
+
+    // Menu state
+    const [menuAnchor, setMenuAnchor] = useState(null);
+    const [menuBreed, setMenuBreed] = useState(null);
 
     const [breedDetailDialog, setBreedDetailDialog] = useState({ open: false, breed: null, pets: [] });
 
@@ -224,7 +228,7 @@ const BreedsTab = ({ pets, species, breeds, onDataChange }) => {
                                 <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.INFO[50], 0.5), display: { xs: 'none', md: 'table-cell' } }}>Mô tả</TableCell>
                                 <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.INFO[50], 0.5), display: { xs: 'none', sm: 'table-cell' } }}>Cân nặng TB</TableCell>
                                 <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.INFO[50], 0.5), display: { xs: 'none', lg: 'table-cell' } }}>Tuổi thọ TB</TableCell>
-                                <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.INFO[50], 0.5), textAlign: 'right' }}>Hành động</TableCell>
+                                <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.INFO[50], 0.5), textAlign: 'right' }}>Thao tác</TableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>
@@ -264,24 +268,12 @@ const BreedsTab = ({ pets, species, breeds, onDataChange }) => {
                                     <TableCell align="right">
                                         <IconButton
                                             size="small"
-                                            sx={{ color: COLORS.INFO[600] }}
-                                            onClick={() => handleViewBreedDetails(breed)}
+                                            onClick={(e) => {
+                                                setMenuAnchor(e.currentTarget);
+                                                setMenuBreed(breed);
+                                            }}
                                         >
-                                            <Visibility fontSize="small" />
-                                        </IconButton>
-                                        <IconButton
-                                            size="small"
-                                            color="primary"
-                                            onClick={() => handleOpenBreedDialog(breed)}
-                                        >
-                                            <Edit fontSize="small" />
-                                        </IconButton>
-                                        <IconButton
-                                            size="small"
-                                            color="error"
-                                            onClick={() => handleDelete(breed.id)}
-                                        >
-                                            <Delete fontSize="small" />
+                                            <MoreVert fontSize="small" />
                                         </IconButton>
                                     </TableCell>
                                 </TableRow>
@@ -512,6 +504,67 @@ const BreedsTab = ({ pets, species, breeds, onDataChange }) => {
                 message={alert.message}
                 type={alert.type}
             />
+
+            {/* Breed Actions Menu */}
+            <Menu
+                anchorEl={menuAnchor}
+                open={Boolean(menuAnchor)}
+                onClose={() => {
+                    setMenuAnchor(null);
+                    setMenuBreed(null);
+                }}
+                anchorOrigin={{
+                    vertical: 'bottom',
+                    horizontal: 'right',
+                }}
+                transformOrigin={{
+                    vertical: 'top',
+                    horizontal: 'right',
+                }}
+            >
+                <MenuItem
+                    onClick={() => {
+                        if (menuBreed) {
+                            handleViewBreedDetails(menuBreed);
+                        }
+                        setMenuAnchor(null);
+                        setMenuBreed(null);
+                    }}
+                >
+                    <ListItemIcon>
+                        <Visibility fontSize="small" sx={{ color: COLORS.INFO[600] }} />
+                    </ListItemIcon>
+                    <ListItemText>Xem chi tiết</ListItemText>
+                </MenuItem>
+                <MenuItem
+                    onClick={() => {
+                        if (menuBreed) {
+                            handleOpenBreedDialog(menuBreed);
+                        }
+                        setMenuAnchor(null);
+                        setMenuBreed(null);
+                    }}
+                >
+                    <ListItemIcon>
+                        <Edit fontSize="small" sx={{ color: COLORS.INFO[600] }} />
+                    </ListItemIcon>
+                    <ListItemText>Chỉnh sửa</ListItemText>
+                </MenuItem>
+                <MenuItem
+                    onClick={() => {
+                        if (menuBreed) {
+                            handleDelete(menuBreed.id);
+                        }
+                        setMenuAnchor(null);
+                        setMenuBreed(null);
+                    }}
+                >
+                    <ListItemIcon>
+                        <Delete fontSize="small" sx={{ color: COLORS.ERROR[600] }} />
+                    </ListItemIcon>
+                    <ListItemText>Xóa</ListItemText>
+                </MenuItem>
+            </Menu>
         </Box>
     );
 };

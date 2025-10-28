@@ -1,15 +1,16 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Stack, IconButton, Button, Avatar, Grid, Card, CardContent, Badge, Tooltip, TextField, Select, MenuItem, InputLabel, FormControl, Divider } from '@mui/material';
+import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Stack, IconButton, Button, Avatar, Grid, Card, CardContent, Badge, Tooltip, TextField, Select, MenuItem, InputLabel, FormControl, Divider, Menu, ListItemIcon, ListItemText } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import { COLORS } from '../../constants/colors';
 import Loading from '../../components/loading/Loading';
 import AlertModal from '../../components/modals/AlertModal';
+import ConfirmModal from '../../components/modals/ConfirmModal';
 import ShiftFormModal from '../../components/modals/ShiftFormModal';
 import StaffAssignmentModal from '../../components/modals/StaffAssignmentModal';
 import TeamMembersModal from '../../components/modals/TeamMembersModal';
 import TeamFormModal from '../../components/modals/TeamFormModal';
 import TeamScheduleMatrixModal from '../../components/modals/TeamScheduleMatrixModal';
-import { Edit, Delete, Schedule, Add, AccessTime, GroupAdd, Groups, CalendarMonth, CheckCircle, People, Search, Person } from '@mui/icons-material';
+import { Edit, Delete, Schedule, Add, AccessTime, GroupAdd, Groups, CalendarMonth, CheckCircle, People, Search, Person, MoreVert } from '@mui/icons-material';
 import { managerApi } from '../../api/userApi';
 import workshiftApi from '../../api/workshiftApi';
 
@@ -28,6 +29,12 @@ const WorkShiftPage = () => {
 
     // Alert modal
     const [alert, setAlert] = useState({ open: false, message: '', type: 'info', title: 'Thông báo' });
+
+    // Confirm modals
+    const [confirmDeleteShiftOpen, setConfirmDeleteShiftOpen] = useState(false);
+    const [deleteShiftTarget, setDeleteShiftTarget] = useState(null);
+    const [confirmDeleteTeamOpen, setConfirmDeleteTeamOpen] = useState(false);
+    const [deleteTeamTarget, setDeleteTeamTarget] = useState(null);
 
     // Work Shifts states
     const [shifts, setShifts] = useState([]);
@@ -74,6 +81,12 @@ const WorkShiftPage = () => {
         scheduleMatrix: {}, // Matrix of weekday-timeSlot selections
         selectedShiftIds: [] // For creating team in multiple shifts
     });
+
+    // Menu states
+    const [shiftMenuAnchor, setShiftMenuAnchor] = useState(null);
+    const [menuShift, setMenuShift] = useState(null);
+    const [teamMenuAnchor, setTeamMenuAnchor] = useState(null);
+    const [menuTeam, setMenuTeam] = useState(null);
 
     // Team shift management states
     const [openTeamShiftDialog, setOpenTeamShiftDialog] = useState(false);
@@ -234,28 +247,37 @@ const WorkShiftPage = () => {
     };
 
     // Handle shift delete
-    const handleDeleteShift = async (shiftId) => {
-        if (window.confirm('Bạn có chắc muốn xóa ca làm việc này?')) {
-            try {
-                const response = await workshiftApi.deleteShift(shiftId);
-                if (response.success) {
-                    setAlert({
-                        open: true,
-                        title: 'Thành công',
-                        message: 'Xóa ca làm việc thành công!',
-                        type: 'success'
-                    });
-                    await loadShiftsWithStaffCount();
-                }
-            } catch (error) {
-                console.error('Error deleting shift:', error);
+    const handleDeleteShift = (shift) => {
+        setDeleteShiftTarget(shift);
+        setConfirmDeleteShiftOpen(true);
+    };
+
+    const confirmDeleteShift = async () => {
+        if (!deleteShiftTarget) return;
+
+        setConfirmDeleteShiftOpen(false);
+
+        try {
+            const response = await workshiftApi.deleteShift(deleteShiftTarget.id);
+            if (response.success) {
                 setAlert({
                     open: true,
-                    title: 'Lỗi',
-                    message: error.message || 'Không thể xóa ca làm việc',
-                    type: 'error'
+                    title: 'Thành công',
+                    message: 'Xóa ca làm việc thành công!',
+                    type: 'success'
                 });
+                await loadShiftsWithStaffCount();
             }
+        } catch (error) {
+            console.error('Error deleting shift:', error);
+            setAlert({
+                open: true,
+                title: 'Lỗi',
+                message: error.message || 'Không thể xóa ca làm việc',
+                type: 'error'
+            });
+        } finally {
+            setDeleteShiftTarget(null);
         }
     };
 
@@ -798,14 +820,19 @@ const WorkShiftPage = () => {
         }
     };
 
-    const handleDeleteTeam = async (shiftId, teamId, teamName) => {
-        if (!window.confirm(`Bạn có chắc muốn xóa nhóm "${teamName}"?`)) {
-            return;
-        }
+    const handleDeleteTeam = (shiftId, teamId, teamName) => {
+        setDeleteTeamTarget({ shiftId, teamId, teamName });
+        setConfirmDeleteTeamOpen(true);
+    };
+
+    const confirmDeleteTeam = async () => {
+        if (!deleteTeamTarget) return;
+
+        setConfirmDeleteTeamOpen(false);
 
         try {
             setLoadingTeamAction(true);
-            const response = await workshiftApi.deleteTeamWorkShift(shiftId, teamId);
+            const response = await workshiftApi.deleteTeamWorkShift(deleteTeamTarget.shiftId, deleteTeamTarget.teamId);
 
             if (response.success) {
                 setAlert({
@@ -826,6 +853,7 @@ const WorkShiftPage = () => {
             });
         } finally {
             setLoadingTeamAction(false);
+            setDeleteTeamTarget(null);
         }
     };
 
@@ -1050,11 +1078,14 @@ const WorkShiftPage = () => {
                         </Typography>
                     </TableCell>
                     <TableCell align="right">
-                        <IconButton size="small" color="primary" onClick={() => handleOpenShiftDialog(shift)}>
-                            <Edit fontSize="small" />
-                        </IconButton>
-                        <IconButton size="small" color="error" onClick={() => handleDeleteShift(shift.id)}>
-                            <Delete fontSize="small" />
+                        <IconButton
+                            size="small"
+                            onClick={(e) => {
+                                setShiftMenuAnchor(e.currentTarget);
+                                setMenuShift(shift);
+                            }}
+                        >
+                            <MoreVert fontSize="small" />
                         </IconButton>
                     </TableCell>
                 </TableRow>
@@ -1175,64 +1206,15 @@ const WorkShiftPage = () => {
                                                     </Stack>
 
                                                     {/* Action Buttons */}
-                                                    <Stack direction="row" spacing={0.5}>
-                                                        <Tooltip title="Sửa nhóm">
-                                                            <IconButton
-                                                                size="small"
-                                                                onClick={() => handleOpenTeamFormDialog(shift, team)}
-                                                                sx={{
-                                                                    bgcolor: alpha(COLORS.INFO[100], 0.6),
-                                                                    '&:hover': {
-                                                                        bgcolor: alpha(COLORS.INFO[200], 0.8)
-                                                                    }
-                                                                }}
-                                                            >
-                                                                <Edit fontSize="small" sx={{ color: COLORS.INFO[700] }} />
-                                                            </IconButton>
-                                                        </Tooltip>
-                                                        <Tooltip title="Quản lý ca làm việc">
-                                                            <IconButton
-                                                                size="small"
-                                                                onClick={() => handleOpenTeamShiftDialog(shift, team)}
-                                                                sx={{
-                                                                    bgcolor: alpha(COLORS.PRIMARY[100], 0.6),
-                                                                    '&:hover': {
-                                                                        bgcolor: alpha(COLORS.PRIMARY[200], 0.8)
-                                                                    }
-                                                                }}
-                                                            >
-                                                                <Schedule fontSize="small" sx={{ color: COLORS.PRIMARY[700] }} />
-                                                            </IconButton>
-                                                        </Tooltip>
-                                                        <Tooltip title="Quản lý thành viên">
-                                                            <IconButton
-                                                                size="small"
-                                                                onClick={() => handleOpenTeamDialog(shift, team)}
-                                                                sx={{
-                                                                    bgcolor: alpha(COLORS.SUCCESS[100], 0.6),
-                                                                    '&:hover': {
-                                                                        bgcolor: alpha(COLORS.SUCCESS[200], 0.8)
-                                                                    }
-                                                                }}
-                                                            >
-                                                                <GroupAdd fontSize="small" sx={{ color: COLORS.SUCCESS[700] }} />
-                                                            </IconButton>
-                                                        </Tooltip>
-                                                        <Tooltip title="Xóa nhóm">
-                                                            <IconButton
-                                                                size="small"
-                                                                onClick={() => handleDeleteTeam(shift.id, team.id, team.name)}
-                                                                sx={{
-                                                                    bgcolor: alpha(COLORS.ERROR[100], 0.6),
-                                                                    '&:hover': {
-                                                                        bgcolor: alpha(COLORS.ERROR[200], 0.8)
-                                                                    }
-                                                                }}
-                                                            >
-                                                                <Delete fontSize="small" sx={{ color: COLORS.ERROR[700] }} />
-                                                            </IconButton>
-                                                        </Tooltip>
-                                                    </Stack>
+                                                    <IconButton
+                                                        size="small"
+                                                        onClick={(e) => {
+                                                            setTeamMenuAnchor(e.currentTarget);
+                                                            setMenuTeam({ team, shift });
+                                                        }}
+                                                    >
+                                                        <MoreVert fontSize="small" />
+                                                    </IconButton>
                                                 </Stack>
 
                                                 <Divider sx={{ my: 1.5 }} />
@@ -1518,7 +1500,7 @@ const WorkShiftPage = () => {
                                                         <TableCell sx={{ fontWeight: 800 }}>Thời gian</TableCell>
                                                         <TableCell sx={{ fontWeight: 800 }}>Trạng thái</TableCell>
                                                         <TableCell sx={{ fontWeight: 800, display: { xs: 'none', md: 'table-cell' } }}>Mô tả</TableCell>
-                                                        <TableCell align="right" sx={{ fontWeight: 800 }}>Hành động</TableCell>
+                                                        <TableCell align="right" sx={{ fontWeight: 800 }}>Thao tác</TableCell>
                                                     </TableRow>
                                                 </TableHead>
                                                 <TableBody>
@@ -1575,7 +1557,7 @@ const WorkShiftPage = () => {
                                                     <TableCell sx={{ fontWeight: 800 }}>Thời gian</TableCell>
                                                     <TableCell sx={{ fontWeight: 800 }}>Trạng thái</TableCell>
                                                     <TableCell sx={{ fontWeight: 800, display: { xs: 'none', md: 'table-cell' } }}>Mô tả</TableCell>
-                                                    <TableCell align="right" sx={{ fontWeight: 800 }}>Hành động</TableCell>
+                                                    <TableCell align="right" sx={{ fontWeight: 800 }}>Thao tác</TableCell>
                                                 </TableRow>
                                             </TableHead>
                                             <TableBody>
@@ -1663,6 +1645,156 @@ const WorkShiftPage = () => {
                     currentShiftId={currentShiftId}
                     loading={loadingTeamAction}
                     onSave={handleSaveTeamShifts}
+                />
+
+                {/* Shift Actions Menu */}
+                <Menu
+                    anchorEl={shiftMenuAnchor}
+                    open={Boolean(shiftMenuAnchor)}
+                    onClose={() => {
+                        setShiftMenuAnchor(null);
+                        setMenuShift(null);
+                    }}
+                    anchorOrigin={{
+                        vertical: 'bottom',
+                        horizontal: 'right',
+                    }}
+                    transformOrigin={{
+                        vertical: 'top',
+                        horizontal: 'right',
+                    }}
+                >
+                    <MenuItem
+                        onClick={() => {
+                            if (menuShift) {
+                                handleOpenShiftDialog(menuShift);
+                            }
+                            setShiftMenuAnchor(null);
+                            setMenuShift(null);
+                        }}
+                    >
+                        <ListItemIcon>
+                            <Edit fontSize="small" sx={{ color: COLORS.INFO[600] }} />
+                        </ListItemIcon>
+                        <ListItemText>Chỉnh sửa</ListItemText>
+                    </MenuItem>
+                    <MenuItem
+                        onClick={() => {
+                            if (menuShift) {
+                                handleDeleteShift(menuShift);
+                            }
+                            setShiftMenuAnchor(null);
+                            setMenuShift(null);
+                        }}
+                    >
+                        <ListItemIcon>
+                            <Delete fontSize="small" sx={{ color: COLORS.ERROR[600] }} />
+                        </ListItemIcon>
+                        <ListItemText>Xóa</ListItemText>
+                    </MenuItem>
+                </Menu>
+
+                {/* Team Actions Menu */}
+                <Menu
+                    anchorEl={teamMenuAnchor}
+                    open={Boolean(teamMenuAnchor)}
+                    onClose={() => {
+                        setTeamMenuAnchor(null);
+                        setMenuTeam(null);
+                    }}
+                    anchorOrigin={{
+                        vertical: 'bottom',
+                        horizontal: 'right',
+                    }}
+                    transformOrigin={{
+                        vertical: 'top',
+                        horizontal: 'right',
+                    }}
+                >
+                    <MenuItem
+                        onClick={() => {
+                            if (menuTeam) {
+                                handleOpenTeamFormDialog(menuTeam.shift, menuTeam.team);
+                            }
+                            setTeamMenuAnchor(null);
+                            setMenuTeam(null);
+                        }}
+                    >
+                        <ListItemIcon>
+                            <Edit fontSize="small" sx={{ color: COLORS.INFO[600] }} />
+                        </ListItemIcon>
+                        <ListItemText>Chỉnh sửa</ListItemText>
+                    </MenuItem>
+                    <MenuItem
+                        onClick={() => {
+                            if (menuTeam) {
+                                handleOpenTeamShiftDialog(menuTeam.shift, menuTeam.team);
+                            }
+                            setTeamMenuAnchor(null);
+                            setMenuTeam(null);
+                        }}
+                    >
+                        <ListItemIcon>
+                            <Schedule fontSize="small" sx={{ color: COLORS.PRIMARY[600] }} />
+                        </ListItemIcon>
+                        <ListItemText>Quản lý ca làm việc</ListItemText>
+                    </MenuItem>
+                    <MenuItem
+                        onClick={() => {
+                            if (menuTeam) {
+                                handleOpenTeamDialog(menuTeam.shift, menuTeam.team);
+                            }
+                            setTeamMenuAnchor(null);
+                            setMenuTeam(null);
+                        }}
+                    >
+                        <ListItemIcon>
+                            <GroupAdd fontSize="small" sx={{ color: COLORS.SUCCESS[600] }} />
+                        </ListItemIcon>
+                        <ListItemText>Quản lý thành viên</ListItemText>
+                    </MenuItem>
+                    <MenuItem
+                        onClick={() => {
+                            if (menuTeam) {
+                                handleDeleteTeam(menuTeam.shift.id, menuTeam.team.id, menuTeam.team.name);
+                            }
+                            setTeamMenuAnchor(null);
+                            setMenuTeam(null);
+                        }}
+                    >
+                        <ListItemIcon>
+                            <Delete fontSize="small" sx={{ color: COLORS.ERROR[600] }} />
+                        </ListItemIcon>
+                        <ListItemText>Xóa</ListItemText>
+                    </MenuItem>
+                </Menu>
+
+                {/* Confirm Delete Shift Modal */}
+                <ConfirmModal
+                    isOpen={confirmDeleteShiftOpen}
+                    onClose={() => {
+                        setConfirmDeleteShiftOpen(false);
+                        setDeleteShiftTarget(null);
+                    }}
+                    onConfirm={confirmDeleteShift}
+                    title="Xóa Ca làm việc?"
+                    message={`Bạn có chắc chắn muốn xóa ca làm việc "${deleteShiftTarget?.name}"? Hành động này không thể hoàn tác.`}
+                    confirmText="Xóa"
+                    type="error"
+                />
+
+                {/* Confirm Delete Team Modal */}
+                <ConfirmModal
+                    isOpen={confirmDeleteTeamOpen}
+                    onClose={() => {
+                        setConfirmDeleteTeamOpen(false);
+                        setDeleteTeamTarget(null);
+                    }}
+                    onConfirm={confirmDeleteTeam}
+                    title="Xóa Nhóm làm việc?"
+                    message={`Bạn có chắc chắn muốn xóa nhóm "${deleteTeamTarget?.teamName}"? Hành động này không thể hoàn tác.`}
+                    confirmText="Xóa"
+                    type="error"
                 />
             </Box>
         </Box>

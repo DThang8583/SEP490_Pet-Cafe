@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
     Box, Typography, Button, Stack, TextField, IconButton, Chip, Table, TableBody, TableCell,
-    TableContainer, TableHead, TableRow, Paper, Toolbar, Grid, Avatar, Tabs, Tab
+    TableContainer, TableHead, TableRow, Paper, Toolbar, Grid, Avatar, Tabs, Tab, Menu, MenuItem, ListItemIcon, ListItemText
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import {
-    Add, Edit, Delete, Restaurant, Search, LocalCafe, Pets, CheckCircle, Error as ErrorIcon, Visibility, Warning, Block, Check, Close, Category
+    Add, Edit, Delete, Restaurant, Search, LocalCafe, Pets, CheckCircle, Error as ErrorIcon, Visibility, Warning, Block, Check, Close, Category, MoreVert
 } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 import Loading from '../../components/loading/Loading';
@@ -42,6 +42,10 @@ const ProductPage = () => {
     const [page, setPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
 
+    // Menu state for Products
+    const [productMenuAnchor, setProductMenuAnchor] = useState(null);
+    const [menuProduct, setMenuProduct] = useState(null);
+
     // Categories state
     const [categories, setCategories] = useState([]);
     const [openCategoryDialog, setOpenCategoryDialog] = useState(false);
@@ -50,6 +54,10 @@ const ProductPage = () => {
     const [deleteCategoryId, setDeleteCategoryId] = useState(null);
     const [categorySearchQuery, setCategorySearchQuery] = useState('');
     const [categoryActiveFilter, setCategoryActiveFilter] = useState(undefined);
+
+    // Menu state for Categories
+    const [categoryMenuAnchor, setCategoryMenuAnchor] = useState(null);
+    const [menuCategory, setMenuCategory] = useState(null);
 
     // Shared
     const [alert, setAlert] = useState({ open: false, message: '', type: 'info', title: 'Thông báo' });
@@ -669,7 +677,7 @@ const ProductPage = () => {
                                         <TableCell sx={{ fontWeight: 800 }} align="right">Số lượng</TableCell>
                                         <TableCell sx={{ fontWeight: 800 }} align="right">Còn lại</TableCell>
                                         <TableCell sx={{ fontWeight: 800 }}>Trạng thái</TableCell>
-                                        <TableCell align="right" sx={{ fontWeight: 800 }}>Hành động</TableCell>
+                                        <TableCell align="right" sx={{ fontWeight: 800 }}>Thao tác</TableCell>
                                     </TableRow>
                                 </TableHead>
                                 <TableBody>
@@ -781,11 +789,14 @@ const ProductPage = () => {
                                                 >
                                                     <Block fontSize="small" />
                                                 </IconButton>
-                                                <IconButton size="small" color="primary" onClick={() => handleOpenDialog(product)}>
-                                                    <Edit fontSize="small" />
-                                                </IconButton>
-                                                <IconButton size="small" color="error" onClick={() => handleDeleteProduct(product.id)}>
-                                                    <Delete fontSize="small" />
+                                                <IconButton
+                                                    size="small"
+                                                    onClick={(e) => {
+                                                        setProductMenuAnchor(e.currentTarget);
+                                                        setMenuProduct(product);
+                                                    }}
+                                                >
+                                                    <MoreVert fontSize="small" />
                                                 </IconButton>
                                             </TableCell>
                                         </TableRow>
@@ -947,7 +958,7 @@ const ProductPage = () => {
                                         <TableCell sx={{ fontWeight: 800 }}>Tên danh mục</TableCell>
                                         <TableCell sx={{ fontWeight: 800, display: { xs: 'none', md: 'table-cell' } }}>Mô tả</TableCell>
                                         <TableCell sx={{ fontWeight: 800 }}>Trạng thái</TableCell>
-                                        <TableCell align="right" sx={{ fontWeight: 800 }}>Hành động</TableCell>
+                                        <TableCell align="right" sx={{ fontWeight: 800 }}>Thao tác</TableCell>
                                     </TableRow>
                                 </TableHead>
                                 <TableBody>
@@ -988,11 +999,14 @@ const ProductPage = () => {
                                                 >
                                                     <Block fontSize="small" />
                                                 </IconButton>
-                                                <IconButton size="small" color="primary" onClick={() => handleOpenCategoryDialog(category)}>
-                                                    <Edit fontSize="small" />
-                                                </IconButton>
-                                                <IconButton size="small" color="error" onClick={() => handleDeleteCategory(category.id)}>
-                                                    <Delete fontSize="small" />
+                                                <IconButton
+                                                    size="small"
+                                                    onClick={(e) => {
+                                                        setCategoryMenuAnchor(e.currentTarget);
+                                                        setMenuCategory(category);
+                                                    }}
+                                                >
+                                                    <MoreVert fontSize="small" />
                                                 </IconButton>
                                             </TableCell>
                                         </TableRow>
@@ -1072,6 +1086,100 @@ const ProductPage = () => {
                 message={alert.message}
                 type={alert.type}
             />
+
+            {/* Product Actions Menu */}
+            <Menu
+                anchorEl={productMenuAnchor}
+                open={Boolean(productMenuAnchor)}
+                onClose={() => {
+                    setProductMenuAnchor(null);
+                    setMenuProduct(null);
+                }}
+                anchorOrigin={{
+                    vertical: 'bottom',
+                    horizontal: 'right',
+                }}
+                transformOrigin={{
+                    vertical: 'top',
+                    horizontal: 'right',
+                }}
+            >
+                <MenuItem
+                    onClick={() => {
+                        if (menuProduct) {
+                            handleOpenDialog(menuProduct);
+                        }
+                        setProductMenuAnchor(null);
+                        setMenuProduct(null);
+                    }}
+                >
+                    <ListItemIcon>
+                        <Edit fontSize="small" sx={{ color: COLORS.INFO[600] }} />
+                    </ListItemIcon>
+                    <ListItemText>Chỉnh sửa</ListItemText>
+                </MenuItem>
+                <MenuItem
+                    onClick={() => {
+                        if (menuProduct) {
+                            handleDeleteProduct(menuProduct.id);
+                        }
+                        setProductMenuAnchor(null);
+                        setMenuProduct(null);
+                    }}
+                >
+                    <ListItemIcon>
+                        <Delete fontSize="small" sx={{ color: COLORS.ERROR[600] }} />
+                    </ListItemIcon>
+                    <ListItemText>Xóa</ListItemText>
+                </MenuItem>
+            </Menu>
+
+            {/* Category Actions Menu */}
+            <Menu
+                anchorEl={categoryMenuAnchor}
+                open={Boolean(categoryMenuAnchor)}
+                onClose={() => {
+                    setCategoryMenuAnchor(null);
+                    setMenuCategory(null);
+                }}
+                anchorOrigin={{
+                    vertical: 'bottom',
+                    horizontal: 'right',
+                }}
+                transformOrigin={{
+                    vertical: 'top',
+                    horizontal: 'right',
+                }}
+            >
+                <MenuItem
+                    onClick={() => {
+                        if (menuCategory) {
+                            handleOpenCategoryDialog(menuCategory);
+                        }
+                        setCategoryMenuAnchor(null);
+                        setMenuCategory(null);
+                    }}
+                >
+                    <ListItemIcon>
+                        <Edit fontSize="small" sx={{ color: COLORS.INFO[600] }} />
+                    </ListItemIcon>
+                    <ListItemText>Chỉnh sửa</ListItemText>
+                </MenuItem>
+                <MenuItem
+                    onClick={() => {
+                        if (menuCategory) {
+                            handleDeleteCategory(menuCategory.id);
+                        }
+                        setCategoryMenuAnchor(null);
+                        setMenuCategory(null);
+                    }}
+                >
+                    <ListItemIcon>
+                        <Delete fontSize="small" sx={{ color: COLORS.ERROR[600] }} />
+                    </ListItemIcon>
+                    <ListItemText>Xóa</ListItemText>
+                </MenuItem>
+            </Menu>
         </Box>
     );
 };

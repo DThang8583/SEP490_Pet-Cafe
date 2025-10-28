@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Box, Typography, Button, Stack, Dialog, TextField, IconButton, Chip, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, alpha, Toolbar, Grid } from '@mui/material';
-import { Add, Edit, Delete, LocationOn, Home, MeetingRoom, Groups } from '@mui/icons-material';
+import { Box, Typography, Button, Stack, Dialog, TextField, IconButton, Chip, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, alpha, Toolbar, Grid, Menu, MenuItem, ListItemIcon, ListItemText } from '@mui/material';
+import { Add, Edit, Delete, LocationOn, Home, MeetingRoom, Groups, MoreVert } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 import Loading from '../../components/loading/Loading';
 import Pagination from '../../components/common/Pagination';
@@ -17,6 +17,10 @@ const AreasPage = () => {
     const [deleteAreaId, setDeleteAreaId] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [alert, setAlert] = useState({ open: false, message: '', type: 'info', title: 'Thông báo' });
+
+    // Menu state
+    const [menuAnchor, setMenuAnchor] = useState(null);
+    const [menuArea, setMenuArea] = useState(null);
 
     // Pagination state
     const [page, setPage] = useState(1);
@@ -307,7 +311,7 @@ const AreasPage = () => {
                                         fontWeight: 800
                                     }}
                                 >
-                                    Hành động
+                                    Thao tác
                                 </TableCell>
                             </TableRow>
                         </TableHead>
@@ -357,17 +361,12 @@ const AreasPage = () => {
                                     <TableCell align="right">
                                         <IconButton
                                             size="small"
-                                            color="primary"
-                                            onClick={() => handleOpenDialog(area)}
+                                            onClick={(e) => {
+                                                setMenuAnchor(e.currentTarget);
+                                                setMenuArea(area);
+                                            }}
                                         >
-                                            <Edit fontSize="small" />
-                                        </IconButton>
-                                        <IconButton
-                                            size="small"
-                                            color="error"
-                                            onClick={() => handleDeleteArea(area.id)}
-                                        >
-                                            <Delete fontSize="small" />
+                                            <MoreVert fontSize="small" />
                                         </IconButton>
                                     </TableCell>
                                 </TableRow>
@@ -504,6 +503,53 @@ const AreasPage = () => {
                 message={alert.message}
                 type={alert.type}
             />
+
+            {/* Area Actions Menu */}
+            <Menu
+                anchorEl={menuAnchor}
+                open={Boolean(menuAnchor)}
+                onClose={() => {
+                    setMenuAnchor(null);
+                    setMenuArea(null);
+                }}
+                anchorOrigin={{
+                    vertical: 'bottom',
+                    horizontal: 'right',
+                }}
+                transformOrigin={{
+                    vertical: 'top',
+                    horizontal: 'right',
+                }}
+            >
+                <MenuItem
+                    onClick={() => {
+                        if (menuArea) {
+                            handleOpenDialog(menuArea);
+                        }
+                        setMenuAnchor(null);
+                        setMenuArea(null);
+                    }}
+                >
+                    <ListItemIcon>
+                        <Edit fontSize="small" sx={{ color: COLORS.INFO[600] }} />
+                    </ListItemIcon>
+                    <ListItemText>Chỉnh sửa</ListItemText>
+                </MenuItem>
+                <MenuItem
+                    onClick={() => {
+                        if (menuArea) {
+                            handleDeleteArea(menuArea.id);
+                        }
+                        setMenuAnchor(null);
+                        setMenuArea(null);
+                    }}
+                >
+                    <ListItemIcon>
+                        <Delete fontSize="small" sx={{ color: COLORS.ERROR[600] }} />
+                    </ListItemIcon>
+                    <ListItemText>Xóa</ListItemText>
+                </MenuItem>
+            </Menu>
         </Box>
     );
 };

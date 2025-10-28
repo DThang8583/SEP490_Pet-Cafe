@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Box, Typography, Button, Tabs, Tab, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, IconButton, TextField, Stack, Toolbar, Grid, Avatar, Select, MenuItem, FormControl, InputLabel, Tooltip } from '@mui/material';
+import { Box, Typography, Button, Tabs, Tab, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, IconButton, TextField, Stack, Toolbar, Grid, Avatar, Select, MenuItem, FormControl, InputLabel, Tooltip, Menu, ListItemIcon, ListItemText } from '@mui/material';
 import { alpha } from '@mui/material/styles';
-import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, Refresh as RefreshIcon, Schedule as ScheduleIcon, Public as PublicIcon, Lock as LockIcon, Visibility as VisibilityIcon, Assignment as AssignmentIcon } from '@mui/icons-material';
+import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, Refresh as RefreshIcon, Schedule as ScheduleIcon, Public as PublicIcon, Lock as LockIcon, Visibility as VisibilityIcon, Assignment as AssignmentIcon, MoreVert as MoreVertIcon } from '@mui/icons-material';
 import { COLORS } from '../../../constants/colors';
 import Loading from '../../../components/loading/Loading';
 import Pagination from '../../../components/common/Pagination';
@@ -41,10 +41,18 @@ const TasksPage = () => {
     const [slotPublishOpen, setSlotPublishOpen] = useState(false);
     const [slotDetailsOpen, setSlotDetailsOpen] = useState(false);
     const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+    const [confirmUnpublishOpen, setConfirmUnpublishOpen] = useState(false);
+    const [unpublishTarget, setUnpublishTarget] = useState(null);
     const [alert, setAlert] = useState({ open: false, message: '', type: 'info', title: 'Thông báo' });
 
     // Modal data
     const [selectedTask, setSelectedTask] = useState(null);
+
+    // Menu state
+    const [menuAnchor, setMenuAnchor] = useState(null);
+    const [menuTask, setMenuTask] = useState(null);
+    const [slotMenuAnchor, setSlotMenuAnchor] = useState(null);
+    const [menuSlot, setMenuSlot] = useState(null);
     const [selectedSlot, setSelectedSlot] = useState(null);
     const [editingTask, setEditingTask] = useState(null);
     const [deleteTarget, setDeleteTarget] = useState(null);
@@ -256,14 +264,14 @@ const TasksPage = () => {
                 setAlert({
                     open: true,
                     title: 'Thành công',
-                    message: `Tạo thành công ${successCount} slot${successCount > 1 ? 's' : ''}!`,
+                    message: `Tạo thành công ${successCount} ca!`,
                     type: 'success'
                 });
             } else {
                 setAlert({
                     open: true,
                     title: 'Cảnh báo',
-                    message: `Tạo thành công ${successCount} slots, thất bại ${failCount} slots`,
+                    message: `Tạo thành công ${successCount} ca, thất bại ${failCount} ca`,
                     type: 'warning'
                 });
             }
@@ -291,7 +299,7 @@ const TasksPage = () => {
             setAlert({
                 open: true,
                 title: 'Thành công',
-                message: 'Publish slot thành công!',
+                message: 'Publish ca thành công!',
                 type: 'success'
             });
             await loadSlots();
@@ -301,13 +309,20 @@ const TasksPage = () => {
         }
     };
 
-    const handleUnpublishSlot = async (slot) => {
+    const handleUnpublishSlot = (slot) => {
+        setUnpublishTarget(slot);
+        setConfirmUnpublishOpen(true);
+    };
+
+    const confirmUnpublishSlot = async () => {
+        if (!unpublishTarget) return;
+
         try {
-            await slotApi.unpublishSlot(slot.id);
+            await slotApi.unpublishSlot(unpublishTarget.id);
             setAlert({
                 open: true,
                 title: 'Thành công',
-                message: 'Unpublish slot thành công!',
+                message: 'Hủy công khai ca thành công!',
                 type: 'success'
             });
             await loadSlots();
@@ -316,9 +331,12 @@ const TasksPage = () => {
             setAlert({
                 open: true,
                 title: 'Lỗi',
-                message: error.message || 'Không thể unpublish slot',
+                message: error.message || 'Không thể hủy công khai ca',
                 type: 'error'
             });
+        } finally {
+            setConfirmUnpublishOpen(false);
+            setUnpublishTarget(null);
         }
     };
 
@@ -346,7 +364,7 @@ const TasksPage = () => {
                 setAlert({
                     open: true,
                     title: 'Thành công',
-                    message: 'Xóa slot thành công!',
+                    message: 'Xóa ca thành công!',
                     type: 'success'
                 });
             }
@@ -412,11 +430,11 @@ const TasksPage = () => {
                 <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 1 }}>
                     <AssignmentIcon sx={{ fontSize: 32, color: COLORS.PRIMARY[600] }} />
                     <Typography variant="h4" fontWeight={600}>
-                        Quản lý Task & Slot
+                        Quản lý Nhiệm vụ & Ca
                     </Typography>
                 </Stack>
                 <Typography variant="body2" color="text.secondary">
-                    Tạo Task Template → Tạo Slot → Publish cho khách hàng
+                    Tạo Nhiệm vụ → Tạo Ca → Publish cho khách hàng
                 </Typography>
             </Box>
 
@@ -425,7 +443,7 @@ const TasksPage = () => {
                 <Grid item xs={12} sm={6} md={3}>
                     <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.PRIMARY[500]}` }}>
                         <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Tổng Task Templates
+                            Tổng Nhiệm vụ
                         </Typography>
                         <Typography variant="h4" fontWeight={600} color={COLORS.PRIMARY[700]}>
                             {stats.totalTasks}
@@ -435,7 +453,7 @@ const TasksPage = () => {
                 <Grid item xs={12} sm={6} md={3}>
                     <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.SUCCESS[500]}` }}>
                         <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Slots Public
+                            Ca Công khai
                         </Typography>
                         <Typography variant="h4" fontWeight={600} color={COLORS.SUCCESS[700]}>
                             {stats.slotsByStatus.public}
@@ -445,7 +463,7 @@ const TasksPage = () => {
                 <Grid item xs={12} sm={6} md={3}>
                     <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.INFO[500]}` }}>
                         <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Slots Internal
+                            Ca Nội bộ
                         </Typography>
                         <Typography variant="h4" fontWeight={600} color={COLORS.INFO[700]}>
                             {stats.slotsByStatus.internal}
@@ -455,7 +473,7 @@ const TasksPage = () => {
                 <Grid item xs={12} sm={6} md={3}>
                     <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.WARNING[500]}` }}>
                         <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Tổng Slots
+                            Tổng Ca
                         </Typography>
                         <Typography variant="h4" fontWeight={600} color={COLORS.WARNING[700]}>
                             {stats.totalSlots}
@@ -481,8 +499,8 @@ const TasksPage = () => {
                         }
                     }}
                 >
-                    <Tab label={`Task Templates (${taskTemplates.length})`} />
-                    <Tab label={`Slots (${slots.length})`} />
+                    <Tab label={`Nhiệm vụ (${taskTemplates.length})`} />
+                    <Tab label={`Ca (${slots.length})`} />
                 </Tabs>
             </Paper>
 
@@ -490,7 +508,7 @@ const TasksPage = () => {
             <Paper sx={{ mb: 2 }}>
                 <Toolbar sx={{ gap: 2, flexWrap: 'wrap' }}>
                     <TextField
-                        placeholder={currentTab === 0 ? "Tìm task..." : "Tìm slot..."}
+                        placeholder={currentTab === 0 ? "Tìm nhiệm vụ..." : "Tìm ca..."}
                         value={searchQuery}
                         onChange={(e) => {
                             setSearchQuery(e.target.value);
@@ -502,19 +520,19 @@ const TasksPage = () => {
 
                     {currentTab === 0 && (
                         <FormControl size="small" sx={{ minWidth: 150 }}>
-                            <InputLabel>Task Type</InputLabel>
+                            <InputLabel>Loại nhiệm vụ</InputLabel>
                             <Select
                                 value={filterTaskType}
                                 onChange={(e) => {
                                     setFilterTaskType(e.target.value);
                                     setPage(1);
                                 }}
-                                label="Task Type"
+                                label="Loại nhiệm vụ"
                             >
                                 <MenuItem value="all">Tất cả</MenuItem>
                                 {TASK_TYPES.map(type => (
                                     <MenuItem key={type.key} value={type.key}>
-                                        {type.icon} {type.name}
+                                        {type.name}
                                     </MenuItem>
                                 ))}
                             </Select>
@@ -524,33 +542,32 @@ const TasksPage = () => {
                     {currentTab === 1 && (
                         <>
                             <FormControl size="small" sx={{ minWidth: 150 }}>
-                                <InputLabel>Status</InputLabel>
+                                <InputLabel>Trạng thái</InputLabel>
                                 <Select
                                     value={filterSlotStatus}
                                     onChange={(e) => {
                                         setFilterSlotStatus(e.target.value);
                                         setPage(1);
                                     }}
-                                    label="Status"
+                                    label="Trạng thái"
                                 >
                                     <MenuItem value="all">Tất cả</MenuItem>
-                                    <MenuItem value={SLOT_STATUS.PUBLIC}>Public</MenuItem>
-                                    <MenuItem value={SLOT_STATUS.INTERNAL_ONLY}>Internal Only</MenuItem>
-                                    <MenuItem value={SLOT_STATUS.DRAFT}>Draft</MenuItem>
+                                    <MenuItem value={SLOT_STATUS.PUBLIC}>Công khai</MenuItem>
+                                    <MenuItem value={SLOT_STATUS.INTERNAL_ONLY}>Nội bộ</MenuItem>
                                 </Select>
                             </FormControl>
 
                             <FormControl size="small" sx={{ minWidth: 200 }}>
-                                <InputLabel>Task</InputLabel>
+                                <InputLabel>Nhiệm vụ</InputLabel>
                                 <Select
                                     value={filterSlotTask}
                                     onChange={(e) => {
                                         setFilterSlotTask(e.target.value);
                                         setPage(1);
                                     }}
-                                    label="Task"
+                                    label="Nhiệm vụ"
                                 >
-                                    <MenuItem value="all">Tất cả Task</MenuItem>
+                                    <MenuItem value="all">Tất cả nhiệm vụ</MenuItem>
                                     {taskTemplates.map(task => (
                                         <MenuItem key={task.id} value={task.id}>
                                             {task.name}
@@ -573,7 +590,7 @@ const TasksPage = () => {
                             startIcon={<AddIcon />}
                             onClick={handleCreateTask}
                         >
-                            Tạo Task
+                            Tạo nhiệm vụ
                         </Button>
                     )}
                 </Toolbar>
@@ -587,10 +604,10 @@ const TasksPage = () => {
                             <TableRow>
                                 <TableCell width="5%">STT</TableCell>
                                 <TableCell width="10%">Loại</TableCell>
-                                <TableCell width="25%">Tên Task</TableCell>
+                                <TableCell width="25%">Tên nhiệm vụ</TableCell>
                                 <TableCell width="35%">Mô tả</TableCell>
                                 <TableCell width="10%" align="center">Thời gian</TableCell>
-                                <TableCell width="10%" align="center">Slots</TableCell>
+                                <TableCell width="10%" align="center">Ca</TableCell>
                                 <TableCell width="5%" align="center">Thao tác</TableCell>
                             </TableRow>
                         </TableHead>
@@ -640,16 +657,22 @@ const TasksPage = () => {
                                                 </Typography>
                                             </TableCell>
                                             <TableCell align="center">
-                                                <Stack direction="row" alignItems="center" justifyContent="center" spacing={0.5}>
-                                                    <ScheduleIcon fontSize="small" color="action" />
-                                                    <Typography variant="body2">
-                                                        {task.estimate_duration}p
+                                                {task.estimate_duration > 0 ? (
+                                                    <Stack direction="row" alignItems="center" justifyContent="center" spacing={0.5}>
+                                                        <ScheduleIcon fontSize="small" color="action" />
+                                                        <Typography variant="body2">
+                                                            {task.estimate_duration}p
+                                                        </Typography>
+                                                    </Stack>
+                                                ) : (
+                                                    <Typography variant="body2" color="text.secondary">
+                                                        —
                                                     </Typography>
-                                                </Stack>
+                                                )}
                                             </TableCell>
                                             <TableCell align="center">
                                                 <Stack direction="row" spacing={0.5} justifyContent="center">
-                                                    <Tooltip title="Xem chi tiết slots">
+                                                    <Tooltip title="Xem chi tiết ca">
                                                         <Chip
                                                             label={slotsCount.total}
                                                             size="small"
@@ -663,7 +686,7 @@ const TasksPage = () => {
                                                             }}
                                                         />
                                                     </Tooltip>
-                                                    <Tooltip title="Slots public">
+                                                    <Tooltip title="Ca công khai">
                                                         <Chip
                                                             label={`${slotsCount.public}P`}
                                                             size="small"
@@ -679,36 +702,18 @@ const TasksPage = () => {
                                                     </Tooltip>
                                                 </Stack>
                                             </TableCell>
+
+                                            {/* Thao tác */}
                                             <TableCell align="center">
-                                                <Stack direction="row" spacing={0.5} justifyContent="center">
-                                                    <Tooltip title="Tạo Slot">
-                                                        <IconButton
-                                                            size="small"
-                                                            onClick={() => handleCreateSlot(task)}
-                                                            sx={{ color: COLORS.SUCCESS[600] }}
-                                                        >
-                                                            <AddIcon fontSize="small" />
-                                                        </IconButton>
-                                                    </Tooltip>
-                                                    <Tooltip title="Chỉnh sửa">
-                                                        <IconButton
-                                                            size="small"
-                                                            onClick={() => handleEditTask(task)}
-                                                            sx={{ color: COLORS.INFO[600] }}
-                                                        >
-                                                            <EditIcon fontSize="small" />
-                                                        </IconButton>
-                                                    </Tooltip>
-                                                    <Tooltip title="Xóa">
-                                                        <IconButton
-                                                            size="small"
-                                                            onClick={() => handleDeleteTask(task)}
-                                                            sx={{ color: COLORS.ERROR[600] }}
-                                                        >
-                                                            <DeleteIcon fontSize="small" />
-                                                        </IconButton>
-                                                    </Tooltip>
-                                                </Stack>
+                                                <IconButton
+                                                    size="small"
+                                                    onClick={(e) => {
+                                                        setMenuAnchor(e.currentTarget);
+                                                        setMenuTask(task);
+                                                    }}
+                                                >
+                                                    <MoreVertIcon fontSize="small" />
+                                                </IconButton>
                                             </TableCell>
                                         </TableRow>
                                     );
@@ -726,10 +731,10 @@ const TasksPage = () => {
                         <TableHead sx={{ bgcolor: alpha(COLORS.GRAY[100], 0.5) }}>
                             <TableRow>
                                 <TableCell width="5%">STT</TableCell>
-                                <TableCell width="20%">Task</TableCell>
+                                <TableCell width="20%">Nhiệm vụ</TableCell>
                                 <TableCell width="12%">Thời gian</TableCell>
                                 <TableCell width="18%">Ngày áp dụng</TableCell>
-                                <TableCell width="10%" align="center">Capacity</TableCell>
+                                <TableCell width="10%" align="center">Chỗ ngồi</TableCell>
                                 <TableCell width="12%" align="right">Giá</TableCell>
                                 <TableCell width="13%" align="center">Trạng thái</TableCell>
                                 <TableCell width="10%" align="center">Thao tác</TableCell>
@@ -775,21 +780,14 @@ const TasksPage = () => {
                                             {/* Ngày áp dụng */}
                                             <TableCell>
                                                 <Stack direction="row" spacing={0.5} flexWrap="wrap">
-                                                    {slot.applicable_days.slice(0, 3).map(day => (
+                                                    {slot.applicable_days && Array.isArray(slot.applicable_days) && slot.applicable_days.map(day => (
                                                         <Chip
                                                             key={day}
-                                                            label={WEEKDAY_LABELS[day].substring(0, 3)}
+                                                            label={WEEKDAY_LABELS[day]}
                                                             size="small"
                                                             variant="outlined"
                                                         />
                                                     ))}
-                                                    {slot.applicable_days.length > 3 && (
-                                                        <Chip
-                                                            label={`+${slot.applicable_days.length - 3}`}
-                                                            size="small"
-                                                            variant="outlined"
-                                                        />
-                                                    )}
                                                 </Stack>
                                             </TableCell>
 
@@ -825,7 +823,7 @@ const TasksPage = () => {
                                             {/* Trạng thái */}
                                             <TableCell align="center">
                                                 <Chip
-                                                    label={slot.status === SLOT_STATUS.PUBLIC ? 'Public' : 'Internal'}
+                                                    label={slot.status === SLOT_STATUS.PUBLIC ? 'Công khai' : 'Nội bộ'}
                                                     size="small"
                                                     icon={slot.status === SLOT_STATUS.PUBLIC ? <PublicIcon /> : <LockIcon />}
                                                     color={slot.status === SLOT_STATUS.PUBLIC ? 'success' : 'default'}
@@ -842,42 +840,15 @@ const TasksPage = () => {
 
                                             {/* Thao tác */}
                                             <TableCell align="center">
-                                                <Stack direction="row" spacing={0.5} justifyContent="center">
-                                                    {slot.status === SLOT_STATUS.PUBLIC ? (
-                                                        <>
-                                                            <Tooltip title="Unpublish">
-                                                                <IconButton
-                                                                    size="small"
-                                                                    onClick={() => handleUnpublishSlot(slot)}
-                                                                    sx={{ color: COLORS.WARNING[600] }}
-                                                                >
-                                                                    <LockIcon fontSize="small" />
-                                                                </IconButton>
-                                                            </Tooltip>
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <Tooltip title="Publish">
-                                                                <IconButton
-                                                                    size="small"
-                                                                    onClick={() => handlePublishSlot(slot)}
-                                                                    sx={{ color: COLORS.SUCCESS[600] }}
-                                                                >
-                                                                    <PublicIcon fontSize="small" />
-                                                                </IconButton>
-                                                            </Tooltip>
-                                                            <Tooltip title="Xóa">
-                                                                <IconButton
-                                                                    size="small"
-                                                                    onClick={() => handleDeleteSlot(slot)}
-                                                                    sx={{ color: COLORS.ERROR[600] }}
-                                                                >
-                                                                    <DeleteIcon fontSize="small" />
-                                                                </IconButton>
-                                                            </Tooltip>
-                                                        </>
-                                                    )}
-                                                </Stack>
+                                                <IconButton
+                                                    size="small"
+                                                    onClick={(e) => {
+                                                        setSlotMenuAnchor(e.currentTarget);
+                                                        setMenuSlot(slot);
+                                                    }}
+                                                >
+                                                    <MoreVertIcon fontSize="small" />
+                                                </IconButton>
                                             </TableCell>
                                         </TableRow>
                                     );
@@ -941,13 +912,26 @@ const TasksPage = () => {
             />
 
             <ConfirmModal
-                open={confirmDeleteOpen}
+                isOpen={confirmDeleteOpen}
                 onClose={() => setConfirmDeleteOpen(false)}
                 onConfirm={handleConfirmDelete}
-                title={`Xóa ${deleteTarget?.type === 'task' ? 'Task Template' : 'Slot'}?`}
-                message={`Bạn có chắc chắn muốn xóa ${deleteTarget?.type === 'task' ? `task "${deleteTarget?.data?.name}"` : 'slot này'}?`}
+                title={`Xóa ${deleteTarget?.type === 'task' ? 'Nhiệm vụ' : 'Ca'}?`}
+                message={`Bạn có chắc chắn muốn xóa ${deleteTarget?.type === 'task' ? `nhiệm vụ "${deleteTarget?.data?.name}"` : 'ca này'}?`}
                 confirmText="Xóa"
-                confirmColor="error"
+                type="error"
+            />
+
+            <ConfirmModal
+                isOpen={confirmUnpublishOpen}
+                onClose={() => {
+                    setConfirmUnpublishOpen(false);
+                    setUnpublishTarget(null);
+                }}
+                onConfirm={confirmUnpublishSlot}
+                title="Hủy công khai Ca?"
+                message="Bạn có chắc chắn muốn hủy công khai ca này? Ca sẽ không còn hiển thị cho khách hàng."
+                confirmText="Hủy công khai"
+                type="warning"
             />
 
             <AlertModal
@@ -957,6 +941,122 @@ const TasksPage = () => {
                 message={alert.message}
                 type={alert.type}
             />
+
+            {/* Task Actions Menu */}
+            <Menu
+                anchorEl={menuAnchor}
+                open={Boolean(menuAnchor)}
+                onClose={() => {
+                    setMenuAnchor(null);
+                    setMenuTask(null);
+                }}
+                anchorOrigin={{
+                    vertical: 'bottom',
+                    horizontal: 'right',
+                }}
+                transformOrigin={{
+                    vertical: 'top',
+                    horizontal: 'right',
+                }}
+            >
+                <MenuItem
+                    onClick={() => {
+                        if (menuTask) handleCreateSlot(menuTask);
+                        setMenuAnchor(null);
+                        setMenuTask(null);
+                    }}
+                >
+                    <ListItemIcon>
+                        <AddIcon fontSize="small" sx={{ color: COLORS.SUCCESS[600] }} />
+                    </ListItemIcon>
+                    <ListItemText>Tạo Ca</ListItemText>
+                </MenuItem>
+                <MenuItem
+                    onClick={() => {
+                        if (menuTask) handleEditTask(menuTask);
+                        setMenuAnchor(null);
+                        setMenuTask(null);
+                    }}
+                >
+                    <ListItemIcon>
+                        <EditIcon fontSize="small" sx={{ color: COLORS.INFO[600] }} />
+                    </ListItemIcon>
+                    <ListItemText>Chỉnh sửa</ListItemText>
+                </MenuItem>
+                <MenuItem
+                    onClick={() => {
+                        if (menuTask) handleDeleteTask(menuTask);
+                        setMenuAnchor(null);
+                        setMenuTask(null);
+                    }}
+                >
+                    <ListItemIcon>
+                        <DeleteIcon fontSize="small" sx={{ color: COLORS.ERROR[600] }} />
+                    </ListItemIcon>
+                    <ListItemText>Xóa</ListItemText>
+                </MenuItem>
+            </Menu>
+
+            {/* Slot Actions Menu */}
+            <Menu
+                anchorEl={slotMenuAnchor}
+                open={Boolean(slotMenuAnchor)}
+                onClose={() => {
+                    setSlotMenuAnchor(null);
+                    setMenuSlot(null);
+                }}
+                anchorOrigin={{
+                    vertical: 'bottom',
+                    horizontal: 'right',
+                }}
+                transformOrigin={{
+                    vertical: 'top',
+                    horizontal: 'right',
+                }}
+                onClick={(e) => e.stopPropagation()}
+            >
+                {menuSlot?.status === SLOT_STATUS.PUBLIC ? (
+                    <MenuItem
+                        onClick={() => {
+                            if (menuSlot) handleUnpublishSlot(menuSlot);
+                            setSlotMenuAnchor(null);
+                            setMenuSlot(null);
+                        }}
+                    >
+                        <ListItemIcon>
+                            <LockIcon fontSize="small" sx={{ color: COLORS.WARNING[600] }} />
+                        </ListItemIcon>
+                        <ListItemText>Hủy công khai</ListItemText>
+                    </MenuItem>
+                ) : (
+                    <>
+                        <MenuItem
+                            onClick={() => {
+                                if (menuSlot) handlePublishSlot(menuSlot);
+                                setSlotMenuAnchor(null);
+                                setMenuSlot(null);
+                            }}
+                        >
+                            <ListItemIcon>
+                                <PublicIcon fontSize="small" sx={{ color: COLORS.SUCCESS[600] }} />
+                            </ListItemIcon>
+                            <ListItemText>Công khai</ListItemText>
+                        </MenuItem>
+                        <MenuItem
+                            onClick={() => {
+                                if (menuSlot) handleDeleteSlot(menuSlot);
+                                setSlotMenuAnchor(null);
+                                setMenuSlot(null);
+                            }}
+                        >
+                            <ListItemIcon>
+                                <DeleteIcon fontSize="small" sx={{ color: COLORS.ERROR[600] }} />
+                            </ListItemIcon>
+                            <ListItemText>Xóa</ListItemText>
+                        </MenuItem>
+                    </>
+                )}
+            </Menu>
         </Box>
     );
 };
