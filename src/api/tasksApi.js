@@ -1,268 +1,287 @@
-// Tasks API - Constants, mock data, and data fetching logic
+import taskTemplateApi, { TASK_TYPES } from './taskTemplateApi';
+import slotApi, { WEEKDAYS, WEEKDAY_LABELS, SLOT_STATUS } from './slotApi';
+import serviceApi, { SERVICE_STATUS } from './serviceApi';
+import * as areasApi from './areasApi';
+import petApi from './petApi';
+import userApi from './userApi';
+import workshiftApi from './workshiftApi';
 
-import { AREAS_DATA } from './areasApi';
-import { petApi, MOCK_PET_GROUPS } from './petApi';
-import { managerApi } from './userApi';
-import serviceApi from './serviceApi';
-import workTypeApi from './workTypeApi';
-
-// ========== CONSTANTS ==========
-
-export const INTERNAL_TEMPLATES = [
-    { key: 'cleaning', name: 'Dọn dẹp' },
-    { key: 'feeding', name: 'Cho pet ăn' },
-    { key: 'cashier', name: 'Thu ngân' },
-    { key: 'service', name: 'Làm service' },
-];
-
-export const SHIFTS = [
-    '06:00 - 09:00',
-    '09:00 - 12:00',
-    '12:00 - 15:00',
-    '15:00 - 18:00',
-    '18:00 - 21:00',
-    '21:00 - 00:00'
-];
-
-export const WIZARD_STEPS = ['Loại nhiệm vụ', 'Chọn nhiệm vụ', 'Khung thời gian', 'Ca làm', 'Phân công', 'Xác nhận'];
-
-// ========== API FUNCTIONS ==========
+// ========== HELPER FUNCTIONS ==========
 
 /**
- * Get all tasks from localStorage (same as TasksPage.jsx)
- * @returns {Promise<Object>} { success: boolean, data: Array }
- */
-export const getAllTasks = async () => {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 100));
-
-    try {
-        // Read from localStorage - same key as TasksPage.jsx
-        const saved = localStorage.getItem('mgr_tasks_v2');
-        if (saved) {
-            const tasks = JSON.parse(saved);
-            return {
-                success: true,
-                data: tasks
-            };
-        }
-
-        // Return empty array if no tasks found
-        return {
-            success: true,
-            data: []
-        };
-    } catch (error) {
-        console.error('Error loading tasks from localStorage:', error);
-        return {
-            success: false,
-            data: [],
-            error: error.message
-        };
-    }
-};
-
-// NOTE: All data (services, pets, areas, staff, pet groups) are now fetched from their respective APIs
-// - Services: serviceApi.getAllServices()
-// - Areas: AREAS_DATA from areasApi
-// - Pets: petApi.getPets()
-// - Staff: managerApi.getStaff() from userApi
-// - Pet Groups: petApi.getPetGroups()
-// This ensures data consistency across all manager pages
-
-/**
- * Get all services for task assignment
- * Loads from serviceApi.js with proper field mapping
- * @returns {Promise<Array>} Array of service objects
- */
-export const getServicesForTasks = async () => {
-    try {
-        const response = await serviceApi.getAllServices();
-        const services = response?.data || [];
-
-        // Map services to task format
-        const mappedServices = services.map(service => ({
-            id: service.id,
-            name: service.name,
-            category: service.category || service.service_type,
-            duration: service.duration || service.duration_minutes,
-            price: service.price || service.base_price,
-            image: service.image || service.image_url,
-            description: service.description,
-            location: service.location,
-            staffRequired: service.staffRequired
-            // NOTE: Services no longer have start_date/end_date
-            // Slots use weekdays (MONDAY, TUESDAY, etc.) instead of date ranges
-            // Task timeframes must be selected manually by the user
-        }));
-
-        console.log('[tasksApi] getServicesForTasks() - loaded from serviceApi:', mappedServices.length);
-        return mappedServices;
-    } catch (error) {
-        console.error('[tasksApi] getServicesForTasks() error:', error);
-        return [];
-    }
-};
-
-/**
- * Get all areas for task assignment
- * @returns {Promise<Array>} Array of area objects
- */
-export const getAreasForTasks = async () => {
-    // Use areas from areasApi
-    return new Promise((resolve) => {
-        setTimeout(() => resolve(AREAS_DATA), 100);
-    });
-};
-
-/**
- * Get all pets for task assignment
- * Uses the same API as PetsPage to ensure data consistency
- * @returns {Promise<Array>} Array of pet objects
- */
-export const getPetsForTasks = async () => {
-    try {
-        const response = await petApi.getPets();
-        const pets = response?.data || [];
-        console.log('[tasksApi] getPetsForTasks() - loaded from petApi:', pets.length);
-        return pets;
-    } catch (error) {
-        console.error('[tasksApi] getPetsForTasks() error:', error);
-        return [];
-    }
-};
-
-/**
- * Get all staff for task assignment
- * Uses managerApi from userApi.js to ensure data consistency
- * @returns {Promise<Array>} Array of staff objects
- */
-export const getStaffForTasks = async () => {
-    try {
-        const response = await managerApi.getStaff();
-        const staff = response?.data || [];
-        console.log('[tasksApi] getStaffForTasks() - loaded from userApi:', staff.length);
-        return staff;
-    } catch (error) {
-        console.error('[tasksApi] getStaffForTasks() error:', error);
-        return [];
-    }
-};
-
-/**
- * Get pet groups for task assignment
- * Uses MOCK_PET_GROUPS from petApi.js to ensure data consistency
- * @returns {Promise<Array>} Array of pet group objects
- */
-export const getPetGroupsForTasks = async () => {
-    try {
-        const response = await petApi.getPetGroups();
-        const groups = response?.data || [];
-        console.log('[tasksApi] getPetGroupsForTasks() - loaded from petApi:', groups.length);
-        return groups;
-    } catch (error) {
-        console.error('[tasksApi] getPetGroupsForTasks() error:', error);
-        return [];
-    }
-};
-
-/**
- * Get work types for internal task assignment
- * Uses workTypeApi to fetch from official API
- * @returns {Promise<Array>} Array of work type objects
- */
-export const getWorkTypesForTasks = async () => {
-    try {
-        const response = await workTypeApi.getAllWorkTypes({ is_active: true });
-        const workTypes = response?.data || [];
-        console.log('[tasksApi] getWorkTypesForTasks() - loaded from workTypeApi:', workTypes.length);
-        return workTypes;
-    } catch (error) {
-        console.error('[tasksApi] getWorkTypesForTasks() error:', error);
-        return [];
-    }
-};
-
-/**
- * Get pet groups map from groups and pets arrays
- * Maps each group to its associated pets based on species_id and breed_id
- * @param {Array} groups - Array of pet group objects from petApi
- * @param {Array} pets - Array of pet objects from petApi
- * @returns {Object} Map of group name to pets
- */
-export const getPetGroupsMap = (groups, pets) => {
-    const map = {};
-
-    groups.forEach(group => {
-        // Filter pets that match this group's criteria
-        const matchingPets = pets.filter(pet => {
-            // Must match species
-            if (pet.species_id !== group.pet_species_id) return false;
-
-            // If group has a specific breed, pet must match it
-            if (group.pet_breed_id && group.pet_breed_id !== '') {
-                return pet.breed_id === group.pet_breed_id;
-            }
-
-            // If group has no specific breed, all pets of that species match
-            return true;
-        });
-
-        map[group.name] = matchingPets;
-    });
-
-    return map;
-};
-
-/**
- * Get all tasks data needed for task management
- * @returns {Promise<Object>} Object containing services, areas, pets, staff, groups
+ * Get all data needed for Tasks Management page
+ * @returns {Promise<Object>}
  */
 export const getAllTasksData = async () => {
-    const [services, areas, pets, staff, groups] = await Promise.all([
-        getServicesForTasks(),
-        getAreasForTasks(),
-        getPetsForTasks(),
-        getStaffForTasks(),
-        getPetGroupsForTasks()
-    ]);
+    try {
+        const [
+            tasksResponse,
+            slotsResponse,
+            servicesResponse,
+            areasResponse,
+            petGroupsResponse,
+            shiftsResponse
+        ] = await Promise.all([
+            taskTemplateApi.getAllTaskTemplates(),
+            slotApi.getAllSlots(),
+            serviceApi.getAllServices(),
+            areasApi.getAllAreas(),
+            petApi.getPetGroups(),
+            workshiftApi.getAllShifts()
+        ]);
 
-    const petGroupsMap = getPetGroupsMap(groups, pets);
-    const petGroupNames = Object.keys(petGroupsMap);
+        return {
+            tasks: tasksResponse.data || [],
+            slots: slotsResponse.data || [],
+            services: servicesResponse.data || [],
+            areas: areasResponse.data || [],
+            petGroups: petGroupsResponse.data || [],
+            shifts: shiftsResponse.data || []
+        };
+    } catch (error) {
+        console.error('Error fetching tasks data:', error);
+        throw error;
+    }
+};
 
-    console.log('[tasksApi] getAllTasksData() - Pet Groups:', groups.length, '| Staff:', staff.length);
+/**
+ * Get tasks with their slots count
+ * @returns {Promise<Array>}
+ */
+export const getTasksWithSlotsCount = async () => {
+    try {
+        const tasksResponse = await taskTemplateApi.getAllTaskTemplates();
+        const slotsResponse = await slotApi.getAllSlots();
 
+        const tasks = tasksResponse.data || [];
+        const slots = slotsResponse.data || [];
+
+        // Count slots for each task
+        const tasksWithSlots = tasks.map(task => {
+            const taskSlots = slots.filter(slot => slot.task_id === task.id);
+            const publicSlots = taskSlots.filter(slot => slot.status === SLOT_STATUS.PUBLIC);
+
+            return {
+                ...task,
+                total_slots: taskSlots.length,
+                public_slots: publicSlots.length,
+                internal_slots: taskSlots.length - publicSlots.length
+            };
+        });
+
+        return tasksWithSlots;
+    } catch (error) {
+        console.error('Error fetching tasks with slots count:', error);
+        throw error;
+    }
+};
+
+/**
+ * Get services with their task info
+ * @returns {Promise<Array>}
+ */
+export const getServicesWithTaskInfo = async () => {
+    try {
+        const servicesResponse = await serviceApi.getAllServices();
+        const tasksResponse = await taskTemplateApi.getAllTaskTemplates();
+
+        const services = servicesResponse.data || [];
+        const tasks = tasksResponse.data || [];
+
+        // Add task info to each service
+        const servicesWithTaskInfo = services.map(service => {
+            const task = tasks.find(t => t.id === service.task_id);
+
+            return {
+                ...service,
+                task_info: task || null
+            };
+        });
+
+        return servicesWithTaskInfo;
+    } catch (error) {
+        console.error('Error fetching services with task info:', error);
+        throw error;
+    }
+};
+
+/**
+ * Get slot with full details (task, area, pet group, shift, team)
+ * @param {string} slotId 
+ * @returns {Promise<Object>}
+ */
+export const getSlotWithDetails = async (slotId) => {
+    try {
+        const slotResponse = await slotApi.getSlotById(slotId);
+        const slot = slotResponse.data;
+
+        // Fetch related data
+        const [taskResponse, areaResponse, petGroupResponse, shiftResponse] = await Promise.all([
+            taskTemplateApi.getTaskTemplateById(slot.task_id),
+            areasApi.getAreaById(slot.area_id),
+            petApi.getPetGroups({ id: slot.pet_group_id }),
+            workshiftApi.getShiftById(slot.work_shift_id)
+        ]);
+
+        // Find team in shift
+        const shift = shiftResponse.data;
+        const team = shift.teams?.find(t => t.id === slot.team_id) || null;
+
+        return {
+            ...slot,
+            task: taskResponse.data,
+            area: areaResponse.data,
+            pet_group: petGroupResponse.data?.find(pg => pg.id === slot.pet_group_id) || null,
+            shift: shift,
+            team: team
+        };
+    } catch (error) {
+        console.error('Error fetching slot with details:', error);
+        throw error;
+    }
+};
+
+/**
+ * Get available teams from work shift
+ * @param {string} workShiftId 
+ * @returns {Promise<Array>}
+ */
+export const getTeamsFromWorkShift = async (workShiftId) => {
+    try {
+        const shiftResponse = await workshiftApi.getShiftById(workShiftId);
+        const shift = shiftResponse.data;
+
+        return shift.teams || [];
+    } catch (error) {
+        console.error('Error fetching teams from work shift:', error);
+        throw error;
+    }
+};
+
+/**
+ * Create initial form data for creating slot
+ * @param {string} taskId 
+ * @returns {Object}
+ */
+export const createSlotFormData = (taskId) => {
     return {
-        services,
-        areas,
-        pets,
-        staff,
-        groups,
-        petGroupsMap,
-        petGroupNames
+        task_id: taskId,
+        start_time: '',
+        end_time: '',
+        applicable_days: [],
+        work_shift_id: '',
+        team_id: '',
+        pet_group_id: '',
+        area_id: ''
     };
 };
 
-// ========== FORM UTILITIES ==========
+/**
+ * Create initial form data for creating service from task
+ * @param {Object} task 
+ * @returns {Object}
+ */
+export const createServiceFormData = (task) => {
+    return {
+        task_id: task.id,
+        task_type: task.task_type,
+        image: task.image,
+        name: task.name,
+        description: task.description,
+        estimate_duration: task.estimate_duration,
+        price: 0
+    };
+};
 
 /**
- * Create initial form data for task wizard
- * @returns {Object} Initial form state
+ * Create initial form data for publishing slot
+ * @param {Object} slot 
+ * @returns {Object}
  */
-export const createInitialFormData = () => ({
-    type: 'internal',
-    internalName: '',
-    internalWorkTypeId: '', // Work type ID for internal tasks
-    serviceId: '',
-    timeframeType: 'day',
-    date: new Date().toISOString().slice(0, 10),
-    week: '',
-    month: new Date().toISOString().slice(0, 7),
-    servicePeriodStart: '',
-    servicePeriodEnd: '',
-    shifts: [], // Array of shifts for both internal and service tasks
-    // Both internal and service tasks use shiftAssignments now
-    // shiftAssignments[shift] = { areaIds, petGroups, staffGroups }
-    shiftAssignments: {}
-});
+export const createPublishSlotFormData = (slot) => {
+    return {
+        capacity: slot.capacity || 1,
+        price: slot.price || 0,
+        description: slot.description || '',
+        start_time: slot.start_time,
+        end_time: slot.end_time,
+        applicable_days: slot.applicable_days
+    };
+};
 
+/**
+ * Validate slot capacity against area capacity
+ * @param {number} slotCapacity 
+ * @param {string} areaId 
+ * @returns {Promise<boolean>}
+ */
+export const validateSlotCapacity = async (slotCapacity, areaId) => {
+    try {
+        const areaResponse = await areasApi.getAreaById(areaId);
+        const area = areaResponse.data;
+
+        if (slotCapacity > area.capacity) {
+            throw new Error(`Capacity vượt quá giới hạn của khu vực (${area.capacity})`);
+        }
+
+        return true;
+    } catch (error) {
+        console.error('Error validating slot capacity:', error);
+        throw error;
+    }
+};
+
+/**
+ * Get statistics for dashboard
+ * @returns {Promise<Object>}
+ */
+export const getTasksStatistics = async () => {
+    try {
+        const [taskStats, slotStats, serviceStats] = await Promise.all([
+            taskTemplateApi.getStatistics(),
+            slotApi.getStatistics(),
+            serviceApi.getStatistics()
+        ]);
+
+        return {
+            tasks: taskStats.data,
+            slots: slotStats.data,
+            services: serviceStats.data
+        };
+    } catch (error) {
+        console.error('Error fetching tasks statistics:', error);
+        throw error;
+    }
+};
+
+// ========== EXPORTS ==========
+
+// Export constants
+export {
+    TASK_TYPES,
+    WEEKDAYS,
+    WEEKDAY_LABELS,
+    SLOT_STATUS,
+    SERVICE_STATUS
+};
+
+// Export APIs
+export {
+    taskTemplateApi,
+    slotApi,
+    serviceApi
+};
+
+// Default export
+export default {
+    getAllTasksData,
+    getTasksWithSlotsCount,
+    getServicesWithTaskInfo,
+    getSlotWithDetails,
+    getTeamsFromWorkShift,
+    createSlotFormData,
+    createServiceFormData,
+    createPublishSlotFormData,
+    validateSlotCapacity,
+    getTasksStatistics
+};

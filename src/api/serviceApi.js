@@ -1,313 +1,33 @@
-/**
- * SERVICE API - Data Mapping & Mock Implementation
- * 
- * ============================================
- * OFFICIAL API FIELDS
- * ============================================
- * 
- * | Field Name       | Type     | Required | Description                    |
- * |------------------|----------|----------|--------------------------------|
- * | name             | string   | ✅ Yes   | Service name                   |
- * | description      | string   | ⚠️ Opt   | Service description            |
- * | duration_minutes | number   | ✅ Yes   | Service duration in minutes    |
- * | base_price       | number   | ✅ Yes   | Base price in VND              |
- * | service_type     | string   | ✅ Yes   | Service type/category          |
- * | requires_area    | boolean  | ⚠️ Opt   | Whether service requires area  |
- * | image_url        | string   | ⚠️ Opt   | Main image URL                 |
- * | thumbnails       | string[] | ⚠️ Opt   | Array of thumbnail URLs        |
- * 
- * ============================================
- * BACKEND SCHEMA (from Swagger API)
- * ============================================
- * {
- *   "name": "string",
- *   "description": "string",
- *   "duration_minutes": 0,
- *   "base_price": 0,
- *   "service_type": "string",
- *   "requires_area": true,
- *   "image_url": "string",
- *   "thumbnails": ["string"]
- * }
- * 
- * ============================================
- * DATA SCHEMA (Matches Official API)
- * ============================================
- * {
- *   id: "string",                  // Auto-generated
- *   name: "string",
- *   description: "string",
- *   duration_minutes: 90,
- *   base_price: 150000,
- *   service_type: "Chăm sóc & Làm đẹp",
- *   requires_area: true,
- *   image_url: "url",
- *   thumbnails: []
- * }
- * 
- * ============================================
- * TRANSFORMER FUNCTIONS
- * ============================================
- * 
- * transformToBackendFormat(serviceData)
- * - Validates and normalizes service data to official API format
- * 
- * Example:
- *   const serviceData = {
- *     name: "Tắm và chải lông",
- *     description: "Dịch vụ tắm cơ bản",
- *     duration_minutes: 90,
- *     base_price: 150000,
- *     service_type: "Chăm sóc & Làm đẹp",
- *     requires_area: true,
- *     image_url: "https://example.com/image.jpg"
- *   };
- * 
- *   const apiFormat = transformToBackendFormat(serviceData);
- *   // Result: Official API format (8 fields only)
- * 
- * transformFromBackendFormat(backendService)
- * - Returns backend API response as-is (no transformation needed)
- * 
- * ============================================
- * SERVICE TYPES (must match backend enum)
- * ============================================
- * - Chăm sóc & Làm đẹp (Grooming & Beauty)
- * - Huấn luyện (Training)
- * - Giữ thú cưng (Daycare)
- * - Dịch vụ Cafe (Cafe Service)
- * 
- * ============================================
- * VALIDATION RULES (Backend API)
- * ============================================
- * 1. name: Required, non-empty string
- * 2. duration_minutes: Required, must be > 0
- * 3. base_price: Required, must be >= 0
- * 4. service_type: Required, must be one of SERVICE_TYPES
- * 
- * Note: start_date, end_date, max_capacity are FRONTEND-ONLY fields for UI display
- * 
- * ============================================
- * USAGE EXAMPLES
- * ============================================
- * 
- * // Creating a Service
- * const createService = async (formData) => {
- *   try {
- *     const serviceData = {
- *       name: formData.name,
- *       description: formData.description,
- *       duration_minutes: formData.duration_minutes,
- *       base_price: formData.base_price,
- *       service_type: formData.service_type,
- *       requires_area: formData.requires_area,
- *       image_url: formData.image_url,
- *       thumbnails: formData.thumbnails || []
- *     };
- * 
- *     const response = await serviceApi.createService(serviceData);
- *     console.log(response.data);
- *   } catch (error) {
- *     console.error('Error creating service:', error.message);
- *   }
- * };
- * 
- * // Updating a Service
- * const updateService = async (serviceId, updates) => {
- *   try {
- *     const updateData = {
- *       name: updates.name,
- *       duration_minutes: updates.duration_minutes,
- *       base_price: updates.base_price,
- *       service_type: updates.service_type
- *     };
- * 
- *     const response = await serviceApi.updateService(serviceId, updateData);
- *     console.log(response.data);
- *   } catch (error) {
- *     console.error('Error updating service:', error.message);
- *   }
- * };
- * 
- * ============================================
- * TROUBLESHOOTING
- * ============================================
- * 
- * 1. "Giá dịch vụ không hợp lệ"
- *    → Check that `price` or `base_price` is >= 0
- * 
- * 2. "Thời gian dịch vụ phải lớn hơn 0"
- *    → Check that `duration` or `duration_minutes` is > 0
- * 
- * 3. "Loại dịch vụ là bắt buộc"
- *    → Ensure `category` or `service_type` is provided and matches SERVICE_TYPES
- * 
- * 4. Field not updating
- *    → Make sure you're using the correct field name (either frontend or backend convention)
- *    → The transformer will handle the conversion automatically
- * 
- * @module serviceApi
- * @lastUpdated 2025-10-10
- */
-
 import axios from 'axios';
 
-// Base configuration
-const API_BASE_URL = 'http://localhost:8080/api';
+// ========== CONSTANTS ==========
 
-// Utility functions
+export const SERVICE_STATUS = {
+    ENABLED: 'enabled',
+    DISABLED: 'disabled'
+};
+
+// ========== UTILITY FUNCTIONS ==========
+
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-const generateId = (prefix = 'id') => {
+const generateId = (prefix = 'service') => {
     return `${prefix}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 };
 
-// Transform frontend service data to backend API format
-const transformToBackendFormat = (frontendService) => {
-    return {
-        name: frontendService.name,
-        description: frontendService.description || '',
-        duration_minutes: frontendService.duration_minutes || 0,
-        base_price: frontendService.base_price || 0,
-        service_type: frontendService.service_type || 'Chăm sóc & Làm đẹp',
-        requires_area: frontendService.requires_area !== undefined ? frontendService.requires_area : false,
-        image_url: frontendService.image_url || '',
-        thumbnails: frontendService.thumbnails || []
-    };
-};
-
-// Transform backend API response to frontend format (returns as-is since they match)
-const transformFromBackendFormat = (backendService) => {
-    return backendService;
-};
-
-// Mock database for services (matching official API)
-const MOCK_SERVICES = [
-    {
-        id: 'service-001',
-        name: 'Tắm và chải lông cơ bản',
-        description: 'Tắm sạch và chải lông mượt mà cho thú cưng của bạn',
-        duration_minutes: 90,
-        base_price: 150000,
-        service_type: 'Chăm sóc & Làm đẹp',
-        requires_area: true,
-        image_url: 'https://images.unsplash.com/photo-1601758228041-f3b2795255f1?q=80&w=800&auto=format&fit=crop',
-        thumbnails: []
-    },
-    {
-        id: 'service-002',
-        name: 'Cắt tỉa lông chuyên nghiệp',
-        description: 'Cắt tỉa lông chuyên nghiệp theo kiểu dáng và giống thú cưng',
-        duration_minutes: 120,
-        base_price: 300000,
-        service_type: 'Chăm sóc & Làm đẹp',
-        requires_area: true,
-        image_url: 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?q=80&w=800&auto=format&fit=crop',
-        thumbnails: []
-    },
-    {
-        id: 'service-003',
-        name: 'Daycare theo ngày',
-        description: 'Chăm sóc thú cưng cả ngày với hoạt động vui chơi',
-        duration_minutes: 480,
-        base_price: 200000,
-        service_type: 'Giữ thú cưng',
-        requires_area: true,
-        image_url: 'https://images.unsplash.com/photo-1583337130417-3346a1be7dee?q=80&w=800&auto=format&fit=crop',
-        thumbnails: []
-    },
-    {
-        id: 'service-004',
-        name: 'Trải nghiệm huấn luyện thú cưng',
-        description: 'Trải nghiệm huấn luyện cùng thú cưng được đào tạo của quán, học cách giao tiếp và hiểu thú cưng',
-        duration_minutes: 60,
-        base_price: 500000,
-        service_type: 'Huấn luyện',
-        requires_area: false,
-        image_url: 'https://images.unsplash.com/photo-1551717743-49959800b1f6?q=80&w=800&auto=format&fit=crop',
-        thumbnails: []
-    },
-    {
-        id: 'service-005',
-        name: 'Tắm và vệ sinh nhanh',
-        description: 'Dịch vụ tắm và vệ sinh nhanh cho thú cưng',
-        duration_minutes: 30,
-        base_price: 80000,
-        service_type: 'Chăm sóc & Làm đẹp',
-        requires_area: true,
-        image_url: 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?q=80&w=800&auto=format&fit=crop',
-        thumbnails: []
-    },
-    {
-        id: 'service-006',
-        name: 'Tương tác với thú cưng cafe',
-        description: 'Trải nghiệm tương tác và chơi đùa với các thú cưng đáng yêu của cafe',
-        duration_minutes: 30,
-        base_price: 100000,
-        service_type: 'Dịch vụ Cafe',
-        requires_area: false,
-        image_url: 'https://images.unsplash.com/photo-1552053831-71594a27632d?q=80&w=800&auto=format&fit=crop',
-        thumbnails: []
-    },
-    {
-        id: 'service-007',
-        name: 'Workshop chăm sóc thú cưng cơ bản',
-        description: 'Học các kỹ thuật chăm sóc thú cưng cơ bản từ các chuyên gia',
-        duration_minutes: 120,
-        base_price: 200000,
-        service_type: 'Dịch vụ Cafe',
-        requires_area: false,
-        image_url: 'https://images.unsplash.com/photo-1583337130417-3346a1be7dee?q=80&w=800&auto=format&fit=crop',
-        thumbnails: []
-    }
-];
-
-// Service categories
-const SERVICE_CATEGORIES = [
-    {
-        id: 'Chăm sóc & Làm đẹp',
-        name: 'Chăm sóc & Làm đẹp',
-        description: 'Dịch vụ tắm gội, cắt tỉa lông và chăm sóc ngoại hình',
-        icon: 'spa',
-        color: '#4CAF50'
-    },
-    {
-        id: 'Huấn luyện',
-        name: 'Huấn luyện',
-        description: 'Dịch vụ huấn luyện và giáo dục thú cưng',
-        icon: 'school',
-        color: '#2196F3'
-    },
-    {
-        id: 'Giữ thú cưng',
-        name: 'Giữ thú cưng',
-        description: 'Dịch vụ giữ và chăm sóc thú cưng theo giờ/ngày',
-        icon: 'home',
-        color: '#FF9800'
-    },
-    {
-        id: 'Dịch vụ Cafe',
-        name: 'Dịch vụ Cafe',
-        description: 'Trải nghiệm tương tác và hoạt động cùng thú cưng tại cafe',
-        icon: 'local_cafe',
-        color: '#795548'
-    }
-];
-
-// Auth helper
 const getCurrentUser = () => {
     const userStr = localStorage.getItem('currentUser');
     return userStr ? JSON.parse(userStr) : null;
 };
 
-// Permission check
 const checkPermission = (user, permission) => {
     if (!user) return false;
 
     const rolePermissions = {
-        'customer': ['service_booking', 'feedback_submission', 'notification_receive'],
-        'working_staff': ['view_schedule', 'update_task_status', 'notification_receive'],
-        'manager': ['user_management', 'service_management', 'booking_management', 'analytics_view', 'notification_receive'],
+        'customer': ['view_services'],
+        'working_staff': ['view_services'],
+        'sales_staff': ['view_services'],
+        'manager': ['service_management', 'view_services', 'full_access'],
         'admin': ['full_access']
     };
 
@@ -315,317 +35,281 @@ const checkPermission = (user, permission) => {
     return userPermissions.includes(permission) || userPermissions.includes('full_access');
 };
 
-// Service APIs
+// ========== MOCK DATABASE ==========
+
+let MOCK_SERVICES = [
+    {
+        id: 'service-001',
+        task_id: 'task-template-001',
+        task_type: 'service',
+        images: [
+            'https://images.unsplash.com/photo-1601758228041-f3b2795255f1?w=400',
+            'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=400'
+        ],
+        name: 'Tắm rửa thú cưng cơ bản',
+        description: 'Dịch vụ tắm gội với sữa tắm chuyên dụng, sấy khô và chải lông cơ bản cho chó và mèo',
+        estimate_duration: 60,
+        price: 150000,
+        status: 'enabled',
+        created_at: '2024-01-15T10:30:00Z',
+        created_by: 'user-001',
+        updated_at: '2024-01-20T14:00:00Z',
+        updated_by: 'user-001'
+    },
+    {
+        id: 'service-002',
+        task_id: 'task-template-002',
+        task_type: 'service',
+        images: [
+            'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=400',
+            'https://images.unsplash.com/photo-1601758228041-f3b2795255f1?w=400',
+            'https://images.unsplash.com/photo-1551717743-49959800b1f6?w=400'
+        ],
+        name: 'Grooming cao cấp',
+        description: 'Dịch vụ grooming cao cấp bao gồm spa, massage thư giãn, và tạo kiểu lông theo yêu cầu',
+        estimate_duration: 120,
+        price: 350000,
+        status: 'enabled',
+        created_at: '2024-01-16T14:30:00Z',
+        created_by: 'user-001',
+        updated_at: '2024-01-16T14:30:00Z',
+        updated_by: null
+    },
+    {
+        id: 'service-003',
+        task_id: 'task-template-006',
+        task_type: 'service',
+        images: [
+            'https://images.unsplash.com/photo-1551717743-49959800b1f6?w=400'
+        ],
+        name: 'Huấn luyện cơ bản',
+        description: 'Huấn luyện các lệnh cơ bản và kỹ năng xã hội cho chó: ngồi, nằm, ở lại, đến',
+        estimate_duration: 90,
+        price: 250000,
+        status: 'disabled',
+        created_at: '2024-01-20T10:30:00Z',
+        created_by: 'user-001',
+        updated_at: '2024-01-20T10:30:00Z',
+        updated_by: null
+    }
+];
+
+// ========== API FUNCTIONS ==========
+
 const serviceApi = {
-    // Get all available services (public access - no auth required)
-    async getAvailableServices(filters = {}) {
+    /**
+     * Get all services (for management)
+     * @param {Object} filters 
+     * @returns {Promise<Object>}
+     */
+    async getAllServices(filters = {}) {
         await delay(300);
+        const currentUser = getCurrentUser();
+
+        if (!checkPermission(currentUser, 'service_management')) {
+            throw new Error('Không có quyền xem danh sách dịch vụ');
+        }
 
         let services = [...MOCK_SERVICES];
 
         // Apply filters
-        if (filters.category && filters.category !== 'all') {
-            services = services.filter(service => service.service_type === filters.category);
+        if (filters.status) {
+            services = services.filter(s => s.status === filters.status);
         }
 
-        if (filters.priceMin) {
-            services = services.filter(service => service.base_price >= filters.priceMin);
+        if (filters.task_type) {
+            services = services.filter(s => s.task_type === filters.task_type);
         }
 
-        if (filters.priceMax) {
-            services = services.filter(service => service.base_price <= filters.priceMax);
+        if (filters.task_id) {
+            services = services.filter(s => s.task_id === filters.task_id);
         }
 
         if (filters.search) {
-            const searchTerm = filters.search.toLowerCase();
-            services = services.filter(service =>
-                service.name.toLowerCase().includes(searchTerm) ||
-                service.description.toLowerCase().includes(searchTerm)
+            const searchLower = filters.search.toLowerCase();
+            services = services.filter(s =>
+                s.name.toLowerCase().includes(searchLower) ||
+                s.description.toLowerCase().includes(searchLower)
             );
         }
 
-        // Sort services
-        if (filters.sortBy) {
-            switch (filters.sortBy) {
-                case 'price_asc':
-                    services.sort((a, b) => a.base_price - b.base_price);
-                    break;
-                case 'price_desc':
-                    services.sort((a, b) => b.base_price - a.base_price);
-                    break;
-                case 'duration':
-                    services.sort((a, b) => a.duration_minutes - b.duration_minutes);
-                    break;
-                default:
-                    // Keep original order
-                    break;
-            }
-        }
+        // Sort by created_at (newest first)
+        services.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
         return {
             success: true,
             data: services,
-            total: services.length,
-            categories: SERVICE_CATEGORIES
-        };
-    },
-
-    // Get service by ID
-    async getServiceById(serviceId) {
-        await delay(200);
-
-        const service = MOCK_SERVICES.find(s => s.id === serviceId);
-
-        if (!service) {
-            throw new Error('Không tìm thấy dịch vụ');
-        }
-
-        return { success: true, data: service };
-    },
-
-    // Get service categories
-    async getServiceCategories() {
-        await delay(150);
-
-        return { success: true, data: SERVICE_CATEGORIES };
-    },
-
-    // Get popular services
-    async getPopularServices(limit = 6) {
-        await delay(250);
-
-        const popularServices = MOCK_SERVICES.slice(0, limit);
-
-        return { success: true, data: popularServices };
-    },
-
-    // Get services by category
-    async getServicesByCategory(category) {
-        await delay(200);
-
-        const services = MOCK_SERVICES.filter(service =>
-            service.service_type === category
-        );
-
-        const categoryInfo = SERVICE_CATEGORIES.find(cat => cat.id === category);
-
-        return {
-            success: true,
-            data: services,
-            category: categoryInfo
-        };
-    },
-
-    // Search services
-    async searchServices(searchTerm, filters = {}) {
-        await delay(400);
-
-        if (!searchTerm || searchTerm.trim().length < 2) {
-            throw new Error('Từ khóa tìm kiếm phải có ít nhất 2 ký tự');
-        }
-
-        const term = searchTerm.toLowerCase().trim();
-
-        let services = MOCK_SERVICES.filter(service => {
-            return (
-                service.name.toLowerCase().includes(term) ||
-                service.description.toLowerCase().includes(term) ||
-                service.service_type.toLowerCase().includes(term)
-            );
-        });
-
-        // Apply additional filters
-        if (filters.category && filters.category !== 'all') {
-            services = services.filter(service => service.service_type === filters.category);
-        }
-
-        if (filters.priceRange) {
-            const [min, max] = filters.priceRange;
-            services = services.filter(service => service.base_price >= min && service.base_price <= max);
-        }
-
-        // Sort by relevance (can be enhanced with better scoring algorithm)
-        services.sort((a, b) => {
-            const aScore = (
-                (a.name.toLowerCase().includes(term) ? 3 : 0) +
-                (a.description.toLowerCase().includes(term) ? 2 : 0)
-            );
-            const bScore = (
-                (b.name.toLowerCase().includes(term) ? 3 : 0) +
-                (b.description.toLowerCase().includes(term) ? 2 : 0)
-            );
-            return bScore - aScore;
-        });
-
-        return {
-            success: true,
-            data: services,
-            searchTerm,
             total: services.length
         };
     },
 
-    // Get service reviews
-    async getServiceReviews(serviceId, page = 1, limit = 10) {
+    /**
+     * Get available services (for customers - only enabled)
+     * @param {Object} filters 
+     * @returns {Promise<Object>}
+     */
+    async getAvailableServices(filters = {}) {
         await delay(300);
 
-        const service = MOCK_SERVICES.find(s => s.id === serviceId);
-        if (!service) {
-            throw new Error('Không tìm thấy dịch vụ');
+        let services = MOCK_SERVICES.filter(s => s.status === SERVICE_STATUS.ENABLED);
+
+        // Apply filters
+        if (filters.task_type) {
+            services = services.filter(s => s.task_type === filters.task_type);
         }
 
-        // Mock reviews data
-        const allReviews = [
-            {
-                id: 'review-001',
-                serviceId: serviceId,
-                customerId: 'user-007',
-                customerName: 'Nguyễn Thị Lan Anh',
-                rating: 5,
-                comment: 'Dịch vụ rất tốt, nhân viên thân thiện và chuyên nghiệp',
-                photos: [],
-                createdAt: '2024-01-27T12:00:00'
-            },
-            {
-                id: 'review-002',
-                serviceId: serviceId,
-                customerId: 'user-008',
-                customerName: 'Trần Văn Hùng',
-                rating: 4,
-                comment: 'Chất lượng ok, giá hợp lý',
-                photos: [],
-                createdAt: '2024-01-26T15:30:00'
-            }
-        ];
+        if (filters.search) {
+            const searchLower = filters.search.toLowerCase();
+            services = services.filter(s =>
+                s.name.toLowerCase().includes(searchLower) ||
+                s.description.toLowerCase().includes(searchLower)
+            );
+        }
 
-        const startIndex = (page - 1) * limit;
-        const reviews = allReviews.slice(startIndex, startIndex + limit);
+        if (filters.min_price !== undefined) {
+            services = services.filter(s => s.price >= filters.min_price);
+        }
+
+        if (filters.max_price !== undefined) {
+            services = services.filter(s => s.price <= filters.max_price);
+        }
+
+        // Sort by price (ascending) by default
+        services.sort((a, b) => a.price - b.price);
 
         return {
             success: true,
-            data: {
-                reviews,
-                pagination: {
-                    page,
-                    limit,
-                    total: allReviews.length,
-                    totalPages: Math.ceil(allReviews.length / limit)
-                }
-            }
+            data: services,
+            total: services.length
         };
     },
 
-    // Calculate dynamic pricing
-    async calculateDynamicPrice(serviceId, dateTime) {
+    /**
+     * Get service by ID
+     * @param {string} serviceId 
+     * @returns {Promise<Object>}
+     */
+    async getServiceById(serviceId) {
         await delay(200);
+        const currentUser = getCurrentUser();
+
+        if (!checkPermission(currentUser, 'view_services')) {
+            throw new Error('Không có quyền xem dịch vụ');
+        }
 
         const service = MOCK_SERVICES.find(s => s.id === serviceId);
+
         if (!service) {
             throw new Error('Không tìm thấy dịch vụ');
         }
 
-        let finalPrice = service.base_price;
-        const date = new Date(dateTime);
-        const dayOfWeek = date.getDay();
-        const hour = date.getHours();
-
-        // Weekend surcharge (Saturday = 6, Sunday = 0)
-        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-        if (isWeekend) {
-            finalPrice += Math.floor(service.base_price * 0.1); // 10% weekend surcharge
+        // If customer, only show enabled services
+        if (currentUser && currentUser.role === 'customer' && service.status !== SERVICE_STATUS.ENABLED) {
+            throw new Error('Dịch vụ không khả dụng');
         }
 
-        // Evening surcharge (after 5 PM)
-        const isEvening = hour >= 17;
-        if (isEvening) {
-            finalPrice += 50000; // 50k evening surcharge
-        }
-
-        // Holiday surcharge (can be enhanced with actual holiday data)
-        const isHoliday = false; // Placeholder
-        if (isHoliday) {
-            finalPrice += Math.floor(service.base_price * 0.15); // 15% holiday surcharge
-        }
-
-        // Peak hours surcharge (10 AM - 2 PM on weekends)
-        const isPeakHours = isWeekend && hour >= 10 && hour < 14;
-        if (isPeakHours) {
-            finalPrice += 30000; // 30k peak hours surcharge
-        }
-
-        const pricing = {
-            basePrice: service.base_price,
-            finalPrice,
-            surcharges: [
-                ...(isWeekend ? [{ type: 'weekend', amount: Math.floor(service.base_price * 0.1), description: 'Phụ phí cuối tuần (10%)' }] : []),
-                ...(isEvening ? [{ type: 'evening', amount: 50000, description: 'Phụ phí buổi tối (sau 17h)' }] : []),
-                ...(isPeakHours ? [{ type: 'peak', amount: 30000, description: 'Phụ phí giờ cao điểm' }] : []),
-                ...(isHoliday ? [{ type: 'holiday', amount: Math.floor(service.base_price * 0.15), description: 'Phụ phí ngày lễ (15%)' }] : [])
-            ],
-            discount: 0, // Can be enhanced with promotional discounts
-            dateTime
+        return {
+            success: true,
+            data: service
         };
-
-        return { success: true, data: pricing };
     },
 
-    // ============ MANAGER APIs ============
-
-    // Get all services (for manager)
-    async getAllServices() {
-        await delay(500);
+    /**
+     * Get service by task ID
+     * @param {string} taskId 
+     * @returns {Promise<Object>}
+     */
+    async getServiceByTaskId(taskId) {
+        await delay(200);
         const currentUser = getCurrentUser();
 
         if (!checkPermission(currentUser, 'service_management')) {
-            throw new Error('Không có quyền truy cập');
+            throw new Error('Không có quyền xem dịch vụ');
+        }
+
+        const service = MOCK_SERVICES.find(s => s.task_id === taskId);
+
+        if (!service) {
+            return {
+                success: true,
+                data: null,
+                message: 'Task này chưa có dịch vụ'
+            };
         }
 
         return {
             success: true,
-            data: MOCK_SERVICES
+            data: service
         };
     },
 
-    // Create new service
+    /**
+     * Create service from task
+     * @param {Object} serviceData 
+     * @returns {Promise<Object>}
+     */
     async createService(serviceData) {
-        await delay(700);
+        await delay(500);
         const currentUser = getCurrentUser();
 
         if (!checkPermission(currentUser, 'service_management')) {
             throw new Error('Không có quyền tạo dịch vụ');
         }
 
-        // Validate required fields
+        // ========== VALIDATION ==========
+
+        // 1. Task ID (Required, Unique)
+        if (!serviceData.task_id) {
+            throw new Error('Task ID là bắt buộc');
+        }
+
+        // Check if service already exists for this task (1:1 relationship)
+        const existingService = MOCK_SERVICES.find(s => s.task_id === serviceData.task_id);
+        if (existingService) {
+            throw new Error('Task này đã có dịch vụ. 1 Task chỉ có thể tạo 1 Service.');
+        }
+
+        // 2. Task Type (Required)
+        if (!serviceData.task_type) {
+            throw new Error('Task Type là bắt buộc');
+        }
+
+        // 3. Name (Required)
         if (!serviceData.name || !serviceData.name.trim()) {
             throw new Error('Tên dịch vụ là bắt buộc');
         }
 
-        // Transform to backend format for validation
-        const backendFormat = transformToBackendFormat(serviceData);
-
-        if (!backendFormat.duration_minutes || backendFormat.duration_minutes <= 0) {
-            throw new Error('Thời gian dịch vụ phải lớn hơn 0');
+        // 4. Description (Required)
+        if (!serviceData.description || !serviceData.description.trim()) {
+            throw new Error('Mô tả dịch vụ là bắt buộc');
         }
 
-        if (!backendFormat.base_price || backendFormat.base_price < 0) {
-            throw new Error('Giá dịch vụ không hợp lệ');
+        // 5. Estimate Duration (Required)
+        if (!serviceData.estimate_duration || serviceData.estimate_duration <= 0) {
+            throw new Error('Thời gian ước tính phải lớn hơn 0');
         }
 
-        if (!backendFormat.service_type) {
-            throw new Error('Loại dịch vụ là bắt buộc');
+        // 6. Price (Required)
+        if (serviceData.price === undefined || serviceData.price === null || serviceData.price < 0) {
+            throw new Error('Giá dịch vụ là bắt buộc và không được âm');
         }
 
-        // Create new service (matching official API format)
+        // ========== CREATE SERVICE ==========
+
         const newService = {
             id: generateId('service'),
-            name: backendFormat.name,
-            description: backendFormat.description,
-            duration_minutes: backendFormat.duration_minutes,
-            base_price: backendFormat.base_price,
-            service_type: backendFormat.service_type,
-            requires_area: backendFormat.requires_area,
-            image_url: backendFormat.image_url,
-            thumbnails: backendFormat.thumbnails
+            task_id: serviceData.task_id,
+            task_type: serviceData.task_type,
+            image: serviceData.image || '',
+            name: serviceData.name.trim(),
+            description: serviceData.description.trim(),
+            estimate_duration: parseInt(serviceData.estimate_duration),
+            price: parseFloat(serviceData.price),
+            status: SERVICE_STATUS.DISABLED, // Default status
+            created_at: new Date().toISOString(),
+            created_by: currentUser.id,
+            updated_at: new Date().toISOString(),
+            updated_by: null
         };
 
         MOCK_SERVICES.push(newService);
@@ -633,13 +317,18 @@ const serviceApi = {
         return {
             success: true,
             data: newService,
-            message: 'Tạo dịch vụ thành công'
+            message: 'Tạo dịch vụ thành công. Status mặc định là Disabled.'
         };
     },
 
-    // Update service
-    async updateService(serviceId, updateData) {
-        await delay(500);
+    /**
+     * Update service
+     * @param {string} serviceId 
+     * @param {Object} updates 
+     * @returns {Promise<Object>}
+     */
+    async updateService(serviceId, updates) {
+        await delay(400);
         const currentUser = getCurrentUser();
 
         if (!checkPermission(currentUser, 'service_management')) {
@@ -647,57 +336,104 @@ const serviceApi = {
         }
 
         const serviceIndex = MOCK_SERVICES.findIndex(s => s.id === serviceId);
+
         if (serviceIndex === -1) {
             throw new Error('Không tìm thấy dịch vụ');
         }
 
-        // Transform to backend format for validation
-        const backendFormat = transformToBackendFormat(updateData);
+        // ========== VALIDATION ==========
 
-        // Validate if fields are provided
-        if (updateData.name !== undefined && (!updateData.name || !updateData.name.trim())) {
+        // Cannot change task_id (1:1 relationship)
+        if (updates.task_id && updates.task_id !== MOCK_SERVICES[serviceIndex].task_id) {
+            throw new Error('Không thể thay đổi Task ID của dịch vụ');
+        }
+
+        // Name validation
+        if (updates.name !== undefined && (!updates.name || !updates.name.trim())) {
             throw new Error('Tên dịch vụ không được để trống');
         }
 
-        if (updateData.duration_minutes !== undefined) {
-            if (backendFormat.duration_minutes <= 0) {
-                throw new Error('Thời gian dịch vụ phải lớn hơn 0');
-            }
+        // Description validation
+        if (updates.description !== undefined && (!updates.description || !updates.description.trim())) {
+            throw new Error('Mô tả dịch vụ không được để trống');
         }
 
-        if (updateData.base_price !== undefined) {
-            if (backendFormat.base_price < 0) {
-                throw new Error('Giá dịch vụ không hợp lệ');
-            }
+        // Duration validation
+        if (updates.estimate_duration !== undefined && updates.estimate_duration <= 0) {
+            throw new Error('Thời gian ước tính phải lớn hơn 0');
         }
 
-        // Merge update data with existing service (official API fields only)
-        const updatedFields = {};
+        // Price validation
+        if (updates.price !== undefined && updates.price < 0) {
+            throw new Error('Giá dịch vụ không được âm');
+        }
 
-        if (updateData.name !== undefined) updatedFields.name = updateData.name;
-        if (updateData.description !== undefined) updatedFields.description = updateData.description;
-        if (updateData.duration_minutes !== undefined) updatedFields.duration_minutes = backendFormat.duration_minutes;
-        if (updateData.base_price !== undefined) updatedFields.base_price = backendFormat.base_price;
-        if (updateData.service_type !== undefined) updatedFields.service_type = backendFormat.service_type;
-        if (updateData.requires_area !== undefined) updatedFields.requires_area = backendFormat.requires_area;
-        if (updateData.image_url !== undefined) updatedFields.image_url = backendFormat.image_url;
-        if (updateData.thumbnails !== undefined) updatedFields.thumbnails = backendFormat.thumbnails;
+        // Status validation
+        if (updates.status && !Object.values(SERVICE_STATUS).includes(updates.status)) {
+            throw new Error('Status không hợp lệ');
+        }
+
+        // ========== UPDATE SERVICE ==========
+
+        const updatedService = {
+            ...MOCK_SERVICES[serviceIndex],
+            ...updates,
+            updated_at: new Date().toISOString(),
+            updated_by: currentUser.id
+        };
+
+        MOCK_SERVICES[serviceIndex] = updatedService;
+
+        return {
+            success: true,
+            data: updatedService,
+            message: 'Cập nhật dịch vụ thành công'
+        };
+    },
+
+    /**
+     * Toggle service status (enable/disable)
+     * @param {string} serviceId 
+     * @returns {Promise<Object>}
+     */
+    async toggleServiceStatus(serviceId) {
+        await delay(400);
+        const currentUser = getCurrentUser();
+
+        if (!checkPermission(currentUser, 'service_management')) {
+            throw new Error('Không có quyền thay đổi trạng thái dịch vụ');
+        }
+
+        const serviceIndex = MOCK_SERVICES.findIndex(s => s.id === serviceId);
+
+        if (serviceIndex === -1) {
+            throw new Error('Không tìm thấy dịch vụ');
+        }
+
+        const currentStatus = MOCK_SERVICES[serviceIndex].status;
+        const newStatus = currentStatus === SERVICE_STATUS.ENABLED ? SERVICE_STATUS.DISABLED : SERVICE_STATUS.ENABLED;
 
         MOCK_SERVICES[serviceIndex] = {
             ...MOCK_SERVICES[serviceIndex],
-            ...updatedFields
+            status: newStatus,
+            updated_at: new Date().toISOString(),
+            updated_by: currentUser.id
         };
 
         return {
             success: true,
             data: MOCK_SERVICES[serviceIndex],
-            message: 'Cập nhật dịch vụ thành công'
+            message: `Dịch vụ đã được ${newStatus === SERVICE_STATUS.ENABLED ? 'kích hoạt' : 'vô hiệu hóa'}`
         };
     },
 
-    // Delete service (hard delete)
+    /**
+     * Delete service
+     * @param {string} serviceId 
+     * @returns {Promise<Object>}
+     */
     async deleteService(serviceId) {
-        await delay(500);
+        await delay(400);
         const currentUser = getCurrentUser();
 
         if (!checkPermission(currentUser, 'service_management')) {
@@ -705,26 +441,54 @@ const serviceApi = {
         }
 
         const serviceIndex = MOCK_SERVICES.findIndex(s => s.id === serviceId);
+
         if (serviceIndex === -1) {
             throw new Error('Không tìm thấy dịch vụ');
         }
 
-        // Hard delete
+        const service = MOCK_SERVICES[serviceIndex];
+
+        // Prevent deleting enabled services
+        if (service.status === SERVICE_STATUS.ENABLED) {
+            throw new Error('Không thể xóa dịch vụ đang hoạt động. Vui lòng vô hiệu hóa trước.');
+        }
+
+        // TODO: Check if service has active slots/bookings
+
         MOCK_SERVICES.splice(serviceIndex, 1);
 
         return {
             success: true,
             message: 'Xóa dịch vụ thành công'
         };
+    },
+
+    /**
+     * Get statistics
+     * @returns {Promise<Object>}
+     */
+    async getStatistics() {
+        await delay(200);
+        const currentUser = getCurrentUser();
+
+        if (!checkPermission(currentUser, 'service_management')) {
+            throw new Error('Không có quyền xem thống kê');
+        }
+
+        const stats = {
+            total: MOCK_SERVICES.length,
+            enabled: MOCK_SERVICES.filter(s => s.status === SERVICE_STATUS.ENABLED).length,
+            disabled: MOCK_SERVICES.filter(s => s.status === SERVICE_STATUS.DISABLED).length,
+            average_price: MOCK_SERVICES.reduce((sum, s) => sum + s.price, 0) / MOCK_SERVICES.length || 0
+        };
+
+        return {
+            success: true,
+            data: stats
+        };
     }
 };
 
-// Service types for manager (matches backend enum)
-export const SERVICE_TYPES = ['Chăm sóc & Làm đẹp', 'Huấn luyện', 'Giữ thú cưng', 'Dịch vụ Cafe'];
-
-// Export transformer functions for external use
-export { transformToBackendFormat, transformFromBackendFormat };
-
-// Export both named and default
-export { serviceApi };
+// Export
+export { MOCK_SERVICES };
 export default serviceApi;

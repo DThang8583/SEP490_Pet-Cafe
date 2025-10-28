@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Grid, FormControl, InputLabel, Select, MenuItem, Box, Typography, Avatar, alpha, CircularProgress, Chip, Stack } from '@mui/material';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Grid, FormControl, InputLabel, Select, MenuItem, Box, Typography, Avatar, alpha, CircularProgress, Chip, Stack, IconButton, FormHelperText } from '@mui/material';
 import { COLORS } from '../../constants/colors';
-import { Pets } from '@mui/icons-material';
+import { Pets, CloudUpload as CloudUploadIcon, Delete as DeleteIcon } from '@mui/icons-material';
 
 const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData = null, isLoading = false, breeds = [], species = [], groups = [] }) => {
     const [formData, setFormData] = useState({
@@ -13,7 +13,7 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
         weight: '',
         gender: '',
         color: '',
-        image_url: '',
+        image: '',
         preferences: '',
         special_notes: '',
         arrival_date: ''
@@ -21,6 +21,7 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
 
     const [errors, setErrors] = useState({});
     const [touched, setTouched] = useState({});
+    const [imagePreview, setImagePreview] = useState(null);
 
     // Get available breeds for selected species
     const availableBreeds = useMemo(() => {
@@ -46,19 +47,20 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
         if (isOpen) {
             if (editMode && initialData) {
                 setFormData({
-                    name: initialData.name || '',
-                    species_id: initialData.species_id || '',
-                    breed_id: initialData.breed_id || '',
-                    pet_group_id: initialData.pet_group_id || '',
-                    age: initialData.age || '',
-                    weight: initialData.weight || '',
-                    gender: initialData.gender || '',
-                    color: initialData.color || '',
-                    image_url: initialData.image_url || '',
-                    preferences: initialData.preferences || '',
-                    special_notes: initialData.special_notes || '',
+                    name: String(initialData.name || ''),
+                    species_id: String(initialData.species_id || ''),
+                    breed_id: String(initialData.breed_id || ''),
+                    pet_group_id: String(initialData.pet_group_id || ''),
+                    age: String(initialData.age || ''),
+                    weight: String(initialData.weight || ''),
+                    gender: String(initialData.gender || ''),
+                    color: String(initialData.color || ''),
+                    image: String(initialData.image || initialData.image_url || ''),
+                    preferences: String(initialData.preferences || ''),
+                    special_notes: String(initialData.special_notes || ''),
                     arrival_date: initialData.arrival_date ? initialData.arrival_date.split('T')[0] : ''
                 });
+                setImagePreview(initialData.image || initialData.image_url || null);
             } else {
                 setFormData({
                     name: '',
@@ -69,11 +71,12 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
                     weight: '',
                     gender: '',
                     color: '',
-                    image_url: '',
+                    image: '',
                     preferences: '',
                     special_notes: '',
                     arrival_date: ''
                 });
+                setImagePreview(null);
             }
             setErrors({});
             setTouched({});
@@ -102,7 +105,7 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
 
     // Validation functions
     const validateName = (name) => {
-        if (!name || !name.trim()) {
+        if (!name || typeof name !== 'string' || !name.trim()) {
             return 'Tên thú cưng là bắt buộc';
         }
         if (name.trim().length < 2) {
@@ -153,7 +156,7 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
     };
 
     const validateColor = (color) => {
-        if (!color || !color.trim()) {
+        if (!color || typeof color !== 'string' || !color.trim()) {
             return ''; // Optional field
         }
         if (color.trim().length > 50) {
@@ -167,7 +170,7 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
     };
 
     const validatePreferences = (preferences) => {
-        if (!preferences || !preferences.trim()) {
+        if (!preferences || typeof preferences !== 'string' || !preferences.trim()) {
             return ''; // Optional field
         }
         if (preferences.trim().length > 500) {
@@ -177,7 +180,7 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
     };
 
     const validateSpecialNotes = (notes) => {
-        if (!notes || !notes.trim()) {
+        if (!notes || typeof notes !== 'string' || !notes.trim()) {
             return ''; // Optional field
         }
         if (notes.trim().length > 500) {
@@ -186,16 +189,56 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
         return '';
     };
 
-    const validateImageUrl = (url) => {
-        if (!url || !url.trim()) {
-            return ''; // Optional field
+    // Handle image upload
+    const handleImageUpload = (event) => {
+        const file = event.target.files[0];
+        if (file) {
+            // Check file type
+            if (!file.type.startsWith('image/')) {
+                setErrors(prev => ({
+                    ...prev,
+                    image: 'Vui lòng chọn file hình ảnh'
+                }));
+                event.target.value = ''; // Reset input
+                return;
+            }
+
+            // Check file size (max 5MB)
+            if (file.size > 5 * 1024 * 1024) {
+                setErrors(prev => ({
+                    ...prev,
+                    image: 'Kích thước file không được vượt quá 5MB'
+                }));
+                event.target.value = ''; // Reset input
+                return;
+            }
+
+            // Clear any previous errors
+            setErrors(prev => ({
+                ...prev,
+                image: ''
+            }));
+
+            // Create preview
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setImagePreview(reader.result);
+                handleChange('image', reader.result);
+                event.target.value = ''; // Reset input after successful read
+            };
+            reader.readAsDataURL(file);
         }
-        // Basic URL validation
-        const urlRegex = /^https?:\/\/.+/;
-        if (!urlRegex.test(url.trim())) {
-            return 'URL hình ảnh không hợp lệ (phải bắt đầu bằng http:// hoặc https://)';
-        }
-        return '';
+    };
+
+    // Handle remove image
+    const handleRemoveImage = () => {
+        setImagePreview(null);
+        handleChange('image', '');
+        // Clear error
+        setErrors(prev => ({
+            ...prev,
+            image: ''
+        }));
     };
 
     const validateArrivalDate = (date) => {
@@ -224,19 +267,18 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
         const newErrors = {};
 
         // Required fields
-        newErrors.name = validateName(formData.name);
+        newErrors.name = validateName(formData.name || '');
         if (!formData.species_id) newErrors.species_id = 'Vui lòng chọn loài';
         if (!formData.breed_id) newErrors.breed_id = 'Vui lòng chọn giống';
-        newErrors.age = validateAge(formData.age);
-        newErrors.weight = validateWeight(formData.weight);
+        newErrors.age = validateAge(formData.age || '');
+        newErrors.weight = validateWeight(formData.weight || '');
         if (!formData.gender) newErrors.gender = 'Vui lòng chọn giới tính';
 
         // Optional fields with validation
-        newErrors.color = validateColor(formData.color);
-        newErrors.image_url = validateImageUrl(formData.image_url);
-        newErrors.arrival_date = validateArrivalDate(formData.arrival_date);
-        newErrors.preferences = validatePreferences(formData.preferences);
-        newErrors.special_notes = validateSpecialNotes(formData.special_notes);
+        newErrors.color = validateColor(formData.color || '');
+        newErrors.arrival_date = validateArrivalDate(formData.arrival_date || '');
+        newErrors.preferences = validatePreferences(formData.preferences || '');
+        newErrors.special_notes = validateSpecialNotes(formData.special_notes || '');
 
         // Remove empty errors
         Object.keys(newErrors).forEach(key => {
@@ -260,28 +302,25 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
             let error = '';
             switch (field) {
                 case 'name':
-                    error = validateName(value);
+                    error = validateName(value || '');
                     break;
                 case 'age':
-                    error = validateAge(value);
+                    error = validateAge(value || '');
                     break;
                 case 'weight':
-                    error = validateWeight(value);
+                    error = validateWeight(value || '');
                     break;
                 case 'color':
-                    error = validateColor(value);
-                    break;
-                case 'image_url':
-                    error = validateImageUrl(value);
+                    error = validateColor(value || '');
                     break;
                 case 'arrival_date':
-                    error = validateArrivalDate(value);
+                    error = validateArrivalDate(value || '');
                     break;
                 case 'preferences':
-                    error = validatePreferences(value);
+                    error = validatePreferences(value || '');
                     break;
                 case 'special_notes':
-                    error = validateSpecialNotes(value);
+                    error = validateSpecialNotes(value || '');
                     break;
                 case 'species_id':
                     error = value ? '' : 'Vui lòng chọn loài';
@@ -291,6 +330,10 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
                     break;
                 case 'gender':
                     error = value ? '' : 'Vui lòng chọn giới tính';
+                    break;
+                case 'image':
+                    // No validation for image field
+                    error = '';
                     break;
                 default:
                     break;
@@ -306,28 +349,25 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
         let error = '';
         switch (field) {
             case 'name':
-                error = validateName(formData[field]);
+                error = validateName(formData[field] || '');
                 break;
             case 'age':
-                error = validateAge(formData[field]);
+                error = validateAge(formData[field] || '');
                 break;
             case 'weight':
-                error = validateWeight(formData[field]);
+                error = validateWeight(formData[field] || '');
                 break;
             case 'color':
-                error = validateColor(formData[field]);
-                break;
-            case 'image_url':
-                error = validateImageUrl(formData[field]);
+                error = validateColor(formData[field] || '');
                 break;
             case 'arrival_date':
-                error = validateArrivalDate(formData[field]);
+                error = validateArrivalDate(formData[field] || '');
                 break;
             case 'preferences':
-                error = validatePreferences(formData[field]);
+                error = validatePreferences(formData[field] || '');
                 break;
             case 'special_notes':
-                error = validateSpecialNotes(formData[field]);
+                error = validateSpecialNotes(formData[field] || '');
                 break;
             case 'species_id':
                 error = formData[field] ? '' : 'Vui lòng chọn loài';
@@ -338,6 +378,10 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
             case 'gender':
                 error = formData[field] ? '' : 'Vui lòng chọn giới tính';
                 break;
+            case 'image':
+                // No validation for image field
+                error = '';
+                break;
             default:
                 break;
         }
@@ -345,8 +389,8 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
     };
 
     const handleSubmit = () => {
-        // Mark all fields as touched
-        const allFields = ['name', 'species_id', 'breed_id', 'pet_group_id', 'age', 'weight', 'gender', 'color', 'image_url', 'arrival_date', 'preferences', 'special_notes'];
+        // Mark all fields as touched (except image and pet_group_id - optional fields)
+        const allFields = ['name', 'species_id', 'breed_id', 'age', 'weight', 'gender', 'color', 'arrival_date', 'preferences', 'special_notes'];
         const newTouched = {};
         allFields.forEach(field => {
             newTouched[field] = true;
@@ -420,17 +464,18 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
                             label="Tên thú cưng"
                             sx={{ flex: 1 }}
                             required
-                            value={formData.name}
+                            value={formData.name || ''}
                             onChange={(e) => handleChange('name', e.target.value)}
                             onBlur={() => handleBlur('name')}
                             error={touched.name && Boolean(errors.name)}
+                            helperText={touched.name && errors.name}
                             disabled={isLoading}
                         />
                         <FormControl sx={{ flex: 1 }} required error={touched.species_id && Boolean(errors.species_id)} disabled={isLoading}>
                             <InputLabel>Loài</InputLabel>
                             <Select
                                 label="Loài"
-                                value={formData.species_id}
+                                value={formData.species_id || ''}
                                 onChange={(e) => handleChange('species_id', e.target.value)}
                                 onBlur={() => handleBlur('species_id')}
                             >
@@ -451,6 +496,9 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
                                     </MenuItem>
                                 ))}
                             </Select>
+                            {touched.species_id && errors.species_id && (
+                                <FormHelperText>{errors.species_id}</FormHelperText>
+                            )}
                         </FormControl>
                     </Stack>
 
@@ -460,7 +508,7 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
                             <InputLabel>Giống</InputLabel>
                             <Select
                                 label="Giống"
-                                value={formData.breed_id}
+                                value={formData.breed_id || ''}
                                 onChange={(e) => handleChange('breed_id', e.target.value)}
                                 onBlur={() => handleBlur('breed_id')}
                             >
@@ -468,14 +516,26 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
                                     <MenuItem key={b.id} value={b.id}>{b.name}</MenuItem>
                                 ))}
                             </Select>
+                            {touched.breed_id && errors.breed_id && (
+                                <FormHelperText>{errors.breed_id}</FormHelperText>
+                            )}
                         </FormControl>
                         <FormControl sx={{ flex: 1 }} disabled={!formData.species_id || isLoading} error={touched.pet_group_id && Boolean(errors.pet_group_id)}>
-                            <InputLabel>Nhóm thú cưng</InputLabel>
+                            <InputLabel shrink>Nhóm thú cưng</InputLabel>
                             <Select
                                 label="Nhóm thú cưng"
-                                value={formData.pet_group_id}
+                                value={formData.pet_group_id || ''}
                                 onChange={(e) => handleChange('pet_group_id', e.target.value)}
                                 onBlur={() => handleBlur('pet_group_id')}
+                                displayEmpty
+                                notched
+                                renderValue={(selected) => {
+                                    if (!selected) {
+                                        return <em>Không chọn nhóm</em>;
+                                    }
+                                    const group = availableGroups.find(g => g.id === selected);
+                                    return group ? group.name : '';
+                                }}
                             >
                                 <MenuItem value="">
                                     <em>Không chọn nhóm</em>
@@ -507,10 +567,11 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
                             sx={{ flex: 1 }}
                             required
                             type="number"
-                            value={formData.age}
+                            value={formData.age || ''}
                             onChange={(e) => handleChange('age', e.target.value)}
                             onBlur={() => handleBlur('age')}
                             error={touched.age && Boolean(errors.age)}
+                            helperText={touched.age && errors.age}
                             inputProps={{ min: 0, max: 30, step: 1 }}
                             disabled={isLoading}
                         />
@@ -519,10 +580,11 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
                             sx={{ flex: 1 }}
                             required
                             type="number"
-                            value={formData.weight}
+                            value={formData.weight || ''}
                             onChange={(e) => handleChange('weight', e.target.value)}
                             onBlur={() => handleBlur('weight')}
                             error={touched.weight && Boolean(errors.weight)}
+                            helperText={touched.weight && errors.weight}
                             inputProps={{ min: 0, max: 100, step: 0.1 }}
                             disabled={isLoading}
                         />
@@ -534,21 +596,25 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
                             <InputLabel>Giới tính</InputLabel>
                             <Select
                                 label="Giới tính"
-                                value={formData.gender}
+                                value={formData.gender || ''}
                                 onChange={(e) => handleChange('gender', e.target.value)}
                                 onBlur={() => handleBlur('gender')}
                             >
                                 <MenuItem value="male">♂ Đực</MenuItem>
                                 <MenuItem value="female">♀ Cái</MenuItem>
                             </Select>
+                            {touched.gender && errors.gender && (
+                                <FormHelperText>{errors.gender}</FormHelperText>
+                            )}
                         </FormControl>
                         <TextField
                             label="Màu sắc"
                             sx={{ flex: 1 }}
-                            value={formData.color}
+                            value={formData.color || ''}
                             onChange={(e) => handleChange('color', e.target.value)}
                             onBlur={() => handleBlur('color')}
                             error={touched.color && Boolean(errors.color)}
+                            helperText={touched.color && errors.color}
                             disabled={isLoading}
                             placeholder="Nhập màu sắc..."
                         />
@@ -560,10 +626,11 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
                         fullWidth
                         required
                         type="date"
-                        value={formData.arrival_date}
+                        value={formData.arrival_date || ''}
                         onChange={(e) => handleChange('arrival_date', e.target.value)}
                         onBlur={() => handleBlur('arrival_date')}
                         error={touched.arrival_date && Boolean(errors.arrival_date)}
+                        helperText={touched.arrival_date && errors.arrival_date}
                         InputLabelProps={{ shrink: true }}
                         inputProps={{
                             placeholder: 'dd/mm/yyyy',
@@ -572,32 +639,73 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
                         disabled={isLoading}
                     />
 
-                    {/* Row 6: Image URL */}
+                    {/* Row 6: Image Upload */}
                     <Box>
-                        <TextField
-                            label="URL hình ảnh"
-                            fullWidth
-                            value={formData.image_url}
-                            onChange={(e) => handleChange('image_url', e.target.value)}
-                            onBlur={() => handleBlur('image_url')}
-                            error={touched.image_url && Boolean(errors.image_url)}
-                            placeholder="https://example.com/pet.jpg"
-                            disabled={isLoading}
-                        />
-                        {/* Image Preview - directly below URL field */}
-                        {formData.image_url && !errors.image_url && (
-                            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
-                                <Avatar
-                                    src={formData.image_url}
-                                    alt={formData.name || 'Pet'}
-                                    sx={{
-                                        width: 100,
-                                        height: 100,
-                                        border: `3px solid ${COLORS.ERROR[300]}`,
-                                        boxShadow: `0 4px 12px ${alpha(COLORS.ERROR[500], 0.2)}`
-                                    }}
+                        <Typography variant="body2" fontWeight={500} gutterBottom>
+                            Hình ảnh (Tùy chọn)
+                        </Typography>
+
+                        <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
+                            {/* Preview */}
+                            {(imagePreview || formData.image) && (
+                                <Box sx={{ position: 'relative' }}>
+                                    <Avatar
+                                        src={imagePreview || formData.image}
+                                        variant="rounded"
+                                        sx={{
+                                            width: 100,
+                                            height: 100,
+                                            border: `3px solid ${COLORS.ERROR[300]}`,
+                                            boxShadow: `0 4px 12px ${alpha(COLORS.ERROR[500], 0.2)}`
+                                        }}
+                                    />
+                                    <IconButton
+                                        size="small"
+                                        onClick={handleRemoveImage}
+                                        disabled={isLoading}
+                                        sx={{
+                                            position: 'absolute',
+                                            top: -8,
+                                            right: -8,
+                                            bgcolor: 'error.main',
+                                            color: 'white',
+                                            '&:hover': {
+                                                bgcolor: 'error.dark'
+                                            }
+                                        }}
+                                    >
+                                        <DeleteIcon fontSize="small" />
+                                    </IconButton>
+                                </Box>
+                            )}
+
+                            {/* Upload Button */}
+                            <Button
+                                component="label"
+                                variant="outlined"
+                                startIcon={<CloudUploadIcon />}
+                                disabled={isLoading}
+                                sx={{ height: 'fit-content' }}
+                            >
+                                {imagePreview || formData.image ? 'Thay đổi ảnh' : 'Tải ảnh lên'}
+                                <input
+                                    type="file"
+                                    hidden
+                                    accept="image/*"
+                                    onChange={handleImageUpload}
                                 />
-                            </Box>
+                            </Button>
+                        </Box>
+
+                        {errors.image && (
+                            <Typography variant="caption" color="error" sx={{ mt: 1, display: 'block' }}>
+                                {errors.image}
+                            </Typography>
+                        )}
+                        {!errors.image && (
+                            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                                Chọn hình ảnh từ thiết bị (tối đa 5MB)
+                            </Typography>
                         )}
                     </Box>
 
@@ -607,10 +715,11 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
                         fullWidth
                         multiline
                         rows={3}
-                        value={formData.preferences}
+                        value={formData.preferences || ''}
                         onChange={(e) => handleChange('preferences', e.target.value)}
                         onBlur={() => handleBlur('preferences')}
                         error={touched.preferences && Boolean(errors.preferences)}
+                        helperText={touched.preferences && errors.preferences}
                         placeholder="VD: Thích chơi bóng tennis, thức ăn yêu thích là Royal Canin, dị ứng với gà..."
                         disabled={isLoading}
                     />
@@ -621,10 +730,11 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
                         fullWidth
                         multiline
                         rows={3}
-                        value={formData.special_notes}
+                        value={formData.special_notes || ''}
                         onChange={(e) => handleChange('special_notes', e.target.value)}
                         onBlur={() => handleBlur('special_notes')}
                         error={touched.special_notes && Boolean(errors.special_notes)}
+                        helperText={touched.special_notes && errors.special_notes}
                         placeholder="VD: Thông tin y tế, hành vi đặc biệt, cần chăm sóc đặc biệt..."
                         disabled={isLoading}
                     />

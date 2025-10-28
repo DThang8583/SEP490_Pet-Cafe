@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Container, Typography, Grid, Card, CardContent, CardHeader, Avatar, Chip, Stack, Button, LinearProgress, IconButton, useTheme, alpha, Fade, Slide, Grow } from '@mui/material';
+import { Box, Container, Typography, Grid, Card, CardContent, CardHeader, Avatar, Chip, Stack, Button, LinearProgress, IconButton, useTheme, alpha, Fade, Slide, Grow, Paper } from '@mui/material';
 import { Dashboard as DashboardIcon, Pets, People, Assignment, Build, Inventory, TrendingUp, TrendingDown, AttachMoney, Schedule, Notifications, Refresh, MoreVert, Star, CheckCircle, Warning, Error as ErrorIcon } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 
@@ -180,55 +180,23 @@ const DashboardPage = () => {
                     {stats.map((stat, index) => (
                         <Grid item xs={12} sm={6} md={3} key={index}>
                             <Grow in timeout={1000 + index * 200}>
-                                <Card sx={{
-                                    height: '100%',
-                                    borderRadius: 4,
-                                    background: `linear-gradient(145deg, ${alpha(COLORS.BACKGROUND.DEFAULT, 0.95)}, ${alpha(COLORS.SECONDARY[50], 0.9)})`,
-                                    backdropFilter: 'blur(20px)',
-                                    border: `2px solid ${alpha(stat.color, 0.2)}`,
-                                    boxShadow: `0 15px 35px ${alpha(stat.color, 0.15)}`,
-                                    transition: 'all 0.3s ease',
-                                    '&:hover': {
-                                        transform: 'translateY(-5px)',
-                                        boxShadow: `0 20px 45px ${alpha(stat.color, 0.25)}`,
-                                        border: `2px solid ${alpha(stat.color, 0.4)}`
-                                    }
-                                }}>
-                                    <CardContent sx={{ p: 3 }}>
-                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                                            <Avatar sx={{
-                                                bgcolor: alpha(stat.color, 0.1),
-                                                color: stat.color,
-                                                width: 60,
-                                                height: 60
-                                            }}>
-                                                {stat.icon}
-                                            </Avatar>
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                                {getTrendIcon(stat.trend)}
-                                                <Typography variant="body2" sx={{
-                                                    color: stat.trend === 'up' ? COLORS.SUCCESS[500] : COLORS.ERROR[500],
-                                                    fontWeight: 'bold'
-                                                }}>
-                                                    {stat.change}
-                                                </Typography>
-                                            </Box>
-                                        </Box>
-                                        <Typography variant="h4" sx={{
-                                            fontWeight: 'bold',
-                                            color: COLORS.TEXT.PRIMARY,
-                                            mb: 1
-                                        }}>
-                                            {stat.value}
-                                        </Typography>
-                                        <Typography variant="body2" sx={{
-                                            color: COLORS.TEXT.SECONDARY,
-                                            fontSize: '0.9rem'
-                                        }}>
-                                            {stat.title}
-                                        </Typography>
-                                    </CardContent>
-                                </Card>
+                                <Paper sx={{ p: 2.5, borderTop: `4px solid ${stat.color}` }}>
+                                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                                        {stat.title}
+                                    </Typography>
+                                    <Typography variant="h4" fontWeight={600} sx={{ color: stat.color, mb: 0.5 }}>
+                                        {stat.value}
+                                    </Typography>
+                                    <Typography variant="caption" sx={{
+                                        color: stat.trend === 'up' ? COLORS.SUCCESS[600] : COLORS.ERROR[600],
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 0.5,
+                                        fontWeight: 600
+                                    }}>
+                                        {stat.trend === 'up' ? '↑' : '↓'} {stat.change}
+                                    </Typography>
+                                </Paper>
                             </Grow>
                         </Grid>
                     ))}

@@ -1039,9 +1039,9 @@ const WorkShiftPage = () => {
                     </TableCell>
                     <TableCell>
                         <Chip size="small" label={active ? 'Đang hoạt động' : 'Ngừng'} sx={{
-                            bgcolor: active ? alpha(COLORS.SUCCESS[100], 0.8) : alpha(COLORS.ERROR[100], 0.8),
+                            bgcolor: active ? alpha(COLORS.SUCCESS[600], 0.2) : alpha(COLORS.ERROR[600], 0.2),
                             color: active ? COLORS.SUCCESS[700] : COLORS.ERROR[700],
-                            fontWeight: 700
+                            fontWeight: 600
                         }} />
                     </TableCell>
                     <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
@@ -1151,11 +1151,9 @@ const WorkShiftPage = () => {
                                                                 label={`${totalMembers} người`}
                                                                 size="small"
                                                                 sx={{
-                                                                    bgcolor: alpha(COLORS.INFO[100], 0.8),
-                                                                    color: COLORS.INFO[800],
-                                                                    fontWeight: 700,
-                                                                    height: 20,
-                                                                    fontSize: '0.7rem'
+                                                                    bgcolor: alpha(COLORS.INFO[600], 0.2),
+                                                                    color: COLORS.INFO[700],
+                                                                    fontWeight: 600
                                                                 }}
                                                             />
                                                         </Stack>
@@ -1253,14 +1251,12 @@ const WorkShiftPage = () => {
                                                                     size="small"
                                                                     sx={{
                                                                         bgcolor: day === currentDay
-                                                                            ? alpha(COLORS.PRIMARY[200], 0.6)
-                                                                            : alpha(COLORS.GRAY[200], 0.5),
+                                                                            ? alpha(COLORS.PRIMARY[600], 0.2)
+                                                                            : alpha(COLORS.GRAY[600], 0.2),
                                                                         color: day === currentDay
-                                                                            ? COLORS.PRIMARY[800]
-                                                                            : COLORS.TEXT.SECONDARY,
-                                                                        fontWeight: day === currentDay ? 700 : 600,
-                                                                        fontSize: '0.7rem',
-                                                                        height: 22
+                                                                            ? COLORS.PRIMARY[700]
+                                                                            : COLORS.GRAY[700],
+                                                                        fontWeight: 600
                                                                     }}
                                                                 />
                                                             ))}
@@ -1286,10 +1282,10 @@ const WorkShiftPage = () => {
                                                                         avatar={<Avatar src={m?.avatar_url} sx={{ width: 24, height: 24 }} />}
                                                                         sx={{
                                                                             bgcolor: isMatched
-                                                                                ? alpha(COLORS.WARNING[200], 0.5)
-                                                                                : alpha(COLORS.GRAY[100], 0.8),
-                                                                            fontWeight: isMatched ? 700 : 600,
-                                                                            color: isMatched ? COLORS.WARNING[900] : 'inherit',
+                                                                                ? alpha(COLORS.WARNING[600], 0.2)
+                                                                                : alpha(COLORS.GRAY[600], 0.2),
+                                                                            fontWeight: 600,
+                                                                            color: isMatched ? COLORS.WARNING[700] : COLORS.GRAY[700],
                                                                             border: isMatched ? `1px solid ${COLORS.WARNING[400]}` : 'none'
                                                                         }}
                                                                     />
@@ -1358,139 +1354,47 @@ const WorkShiftPage = () => {
                 {/* Statistics Cards */}
                 <Grid container spacing={2} sx={{ mb: 4 }}>
                     <Grid item xs={12} sm={6} md={3}>
-                        <Card sx={{
-                            borderRadius: 3,
-                            border: `2px solid ${alpha(COLORS.PRIMARY[200], 0.3)}`,
-                            boxShadow: `0 4px 12px ${alpha(COLORS.PRIMARY[100], 0.2)}`,
-                            transition: 'all 0.3s ease',
-                            '&:hover': {
-                                transform: 'translateY(-4px)',
-                                boxShadow: `0 8px 20px ${alpha(COLORS.PRIMARY[200], 0.3)}`
-                            }
-                        }}>
-                            <CardContent>
-                                <Stack direction="row" spacing={2} alignItems="center">
-                                    <Box sx={{
-                                        bgcolor: alpha(COLORS.PRIMARY[500], 0.1),
-                                        borderRadius: 2,
-                                        p: 1.5,
-                                        display: 'flex'
-                                    }}>
-                                        <Schedule sx={{ fontSize: 32, color: COLORS.PRIMARY[600] }} />
-                                    </Box>
-                                    <Box sx={{ flex: 1 }}>
-                                        <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.PRIMARY[700] }}>
-                                            {statistics.totalShifts}
-                                        </Typography>
-                                        <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, fontWeight: 600 }}>
-                                            Tổng số ca
-                                        </Typography>
-                                    </Box>
-                                </Stack>
-                            </CardContent>
-                        </Card>
+                        <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.PRIMARY[500]}` }}>
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                                Tổng số ca
+                            </Typography>
+                            <Typography variant="h4" fontWeight={600} color={COLORS.PRIMARY[700]}>
+                                {statistics.totalShifts}
+                            </Typography>
+                        </Paper>
                     </Grid>
 
                     <Grid item xs={12} sm={6} md={3}>
-                        <Card sx={{
-                            borderRadius: 3,
-                            border: `2px solid ${alpha(COLORS.SUCCESS[200], 0.3)}`,
-                            boxShadow: `0 4px 12px ${alpha(COLORS.SUCCESS[100], 0.2)}`,
-                            transition: 'all 0.3s ease',
-                            '&:hover': {
-                                transform: 'translateY(-4px)',
-                                boxShadow: `0 8px 20px ${alpha(COLORS.SUCCESS[200], 0.3)}`
-                            }
-                        }}>
-                            <CardContent>
-                                <Stack direction="row" spacing={2} alignItems="center">
-                                    <Box sx={{
-                                        bgcolor: alpha(COLORS.SUCCESS[500], 0.1),
-                                        borderRadius: 2,
-                                        p: 1.5,
-                                        display: 'flex'
-                                    }}>
-                                        <CheckCircle sx={{ fontSize: 32, color: COLORS.SUCCESS[600] }} />
-                                    </Box>
-                                    <Box sx={{ flex: 1 }}>
-                                        <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.SUCCESS[700] }}>
-                                            {statistics.activeShifts}
-                                        </Typography>
-                                        <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, fontWeight: 600 }}>
-                                            Ca đang hoạt động
-                                        </Typography>
-                                    </Box>
-                                </Stack>
-                            </CardContent>
-                        </Card>
+                        <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.SUCCESS[500]}` }}>
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                                Ca đang hoạt động
+                            </Typography>
+                            <Typography variant="h4" fontWeight={600} color={COLORS.SUCCESS[700]}>
+                                {statistics.activeShifts}
+                            </Typography>
+                        </Paper>
                     </Grid>
 
                     <Grid item xs={12} sm={6} md={3}>
-                        <Card sx={{
-                            borderRadius: 3,
-                            border: `2px solid ${alpha(COLORS.INFO[200], 0.3)}`,
-                            boxShadow: `0 4px 12px ${alpha(COLORS.INFO[100], 0.2)}`,
-                            transition: 'all 0.3s ease',
-                            '&:hover': {
-                                transform: 'translateY(-4px)',
-                                boxShadow: `0 8px 20px ${alpha(COLORS.INFO[200], 0.3)}`
-                            }
-                        }}>
-                            <CardContent>
-                                <Stack direction="row" spacing={2} alignItems="center">
-                                    <Box sx={{
-                                        bgcolor: alpha(COLORS.INFO[500], 0.1),
-                                        borderRadius: 2,
-                                        p: 1.5,
-                                        display: 'flex'
-                                    }}>
-                                        <Groups sx={{ fontSize: 32, color: COLORS.INFO[600] }} />
-                                    </Box>
-                                    <Box sx={{ flex: 1 }}>
-                                        <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.INFO[700] }}>
-                                            {statistics.totalTeams}
-                                        </Typography>
-                                        <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, fontWeight: 600 }}>
-                                            Tổng số nhóm
-                                        </Typography>
-                                    </Box>
-                                </Stack>
-                            </CardContent>
-                        </Card>
+                        <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.INFO[500]}` }}>
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                                Tổng số nhóm
+                            </Typography>
+                            <Typography variant="h4" fontWeight={600} color={COLORS.INFO[700]}>
+                                {statistics.totalTeams}
+                            </Typography>
+                        </Paper>
                     </Grid>
 
                     <Grid item xs={12} sm={6} md={3}>
-                        <Card sx={{
-                            borderRadius: 3,
-                            border: `2px solid ${alpha(COLORS.WARNING[200], 0.3)}`,
-                            boxShadow: `0 4px 12px ${alpha(COLORS.WARNING[100], 0.2)}`,
-                            transition: 'all 0.3s ease',
-                            '&:hover': {
-                                transform: 'translateY(-4px)',
-                                boxShadow: `0 8px 20px ${alpha(COLORS.WARNING[200], 0.3)}`
-                            }
-                        }}>
-                            <CardContent>
-                                <Stack direction="row" spacing={2} alignItems="center">
-                                    <Box sx={{
-                                        bgcolor: alpha(COLORS.WARNING[500], 0.1),
-                                        borderRadius: 2,
-                                        p: 1.5,
-                                        display: 'flex'
-                                    }}>
-                                        <People sx={{ fontSize: 32, color: COLORS.WARNING[600] }} />
-                                    </Box>
-                                    <Box sx={{ flex: 1 }}>
-                                        <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.WARNING[700] }}>
-                                            {statistics.totalAssignedStaff}
-                                        </Typography>
-                                        <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, fontWeight: 600 }}>
-                                            Nhân viên phân công
-                                        </Typography>
-                                    </Box>
-                                </Stack>
-                            </CardContent>
-                        </Card>
+                        <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.WARNING[500]}` }}>
+                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                                Nhân viên phân công
+                            </Typography>
+                            <Typography variant="h4" fontWeight={600} color={COLORS.WARNING[700]}>
+                                {statistics.totalAssignedStaff}
+                            </Typography>
+                        </Paper>
                     </Grid>
                 </Grid>
 
@@ -1595,7 +1499,7 @@ const WorkShiftPage = () => {
                                             sx={{
                                                 bgcolor: 'white',
                                                 color: COLORS.PRIMARY[700],
-                                                fontWeight: 700
+                                                fontWeight: 600
                                             }}
                                         />
                                     </Box>
@@ -1659,7 +1563,7 @@ const WorkShiftPage = () => {
                                             sx={{
                                                 bgcolor: 'white',
                                                 color: COLORS.GRAY[700],
-                                                fontWeight: 700
+                                                fontWeight: 600
                                             }}
                                         />
                                     </Box>

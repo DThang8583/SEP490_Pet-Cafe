@@ -42,11 +42,11 @@ const AddGroupPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
         if (isOpen) {
             if (editMode && initialData) {
                 setFormData({
-                    name: initialData.name || '',
-                    pet_species_id: initialData.pet_species_id || '',
-                    pet_breed_id: initialData.pet_breed_id || '',
-                    description: initialData.description || '',
-                    max_capacity: initialData.max_capacity || ''
+                    name: String(initialData.name || ''),
+                    pet_species_id: String(initialData.pet_species_id || ''),
+                    pet_breed_id: String(initialData.pet_breed_id || ''),
+                    description: String(initialData.description || ''),
+                    max_capacity: String(initialData.max_capacity || '')
                 });
             } else {
                 setFormData({
@@ -74,7 +74,7 @@ const AddGroupPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
 
     // Validation functions
     const validateName = (name) => {
-        if (!name || !name.trim()) {
+        if (!name || typeof name !== 'string' || !name.trim()) {
             return 'Tên nhóm là bắt buộc';
         }
         if (name.trim().length < 2) {
@@ -106,7 +106,7 @@ const AddGroupPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
     };
 
     const validateDescription = (description) => {
-        if (!description || !description.trim()) {
+        if (!description || typeof description !== 'string' || !description.trim()) {
             return ''; // Optional field
         }
         if (description.trim().length > 500) {
@@ -119,12 +119,12 @@ const AddGroupPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
         const newErrors = {};
 
         // Required fields
-        newErrors.name = validateName(formData.name);
+        newErrors.name = validateName(formData.name || '');
         if (!formData.pet_species_id) newErrors.pet_species_id = 'Vui lòng chọn loài';
-        newErrors.max_capacity = validateMaxCapacity(formData.max_capacity);
+        newErrors.max_capacity = validateMaxCapacity(formData.max_capacity || '');
 
         // Optional fields with validation
-        newErrors.description = validateDescription(formData.description);
+        newErrors.description = validateDescription(formData.description || '');
 
         // Remove empty errors
         Object.keys(newErrors).forEach(key => {
@@ -148,13 +148,13 @@ const AddGroupPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
             let error = '';
             switch (field) {
                 case 'name':
-                    error = validateName(value);
+                    error = validateName(value || '');
                     break;
                 case 'max_capacity':
-                    error = validateMaxCapacity(value);
+                    error = validateMaxCapacity(value || '');
                     break;
                 case 'description':
-                    error = validateDescription(value);
+                    error = validateDescription(value || '');
                     break;
                 case 'pet_species_id':
                     error = value ? '' : 'Vui lòng chọn loài';
@@ -173,13 +173,13 @@ const AddGroupPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
         let error = '';
         switch (field) {
             case 'name':
-                error = validateName(formData[field]);
+                error = validateName(formData[field] || '');
                 break;
             case 'max_capacity':
-                error = validateMaxCapacity(formData[field]);
+                error = validateMaxCapacity(formData[field] || '');
                 break;
             case 'description':
-                error = validateDescription(formData[field]);
+                error = validateDescription(formData[field] || '');
                 break;
             case 'pet_species_id':
                 error = formData[field] ? '' : 'Vui lòng chọn loài';

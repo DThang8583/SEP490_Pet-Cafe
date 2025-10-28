@@ -13,7 +13,7 @@ import {
 } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 import { authApi, customerApi } from '../../api/authApi';
-import { serviceApi } from '../../api/serviceApi';
+import serviceApi from '../../api/serviceApi';
 import { bookingApi } from '../../api/bookingApi';
 import { notificationApi } from '../../api/notificationApi';
 import { feedbackApi } from '../../api/feedbackApi';

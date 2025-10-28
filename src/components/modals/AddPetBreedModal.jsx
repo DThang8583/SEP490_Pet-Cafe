@@ -26,11 +26,11 @@ const AddPetBreedModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
         if (isOpen) {
             if (editMode && initialData) {
                 setFormData({
-                    name: initialData.name || '',
-                    species_id: initialData.species_id || '',
-                    description: initialData.description || '',
-                    average_weight: initialData.average_weight || '',
-                    average_lifespan: initialData.average_lifespan || ''
+                    name: String(initialData.name || ''),
+                    species_id: String(initialData.species_id || ''),
+                    description: String(initialData.description || ''),
+                    average_weight: String(initialData.average_weight || ''),
+                    average_lifespan: String(initialData.average_lifespan || '')
                 });
             } else {
                 setFormData({
@@ -48,7 +48,7 @@ const AddPetBreedModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
 
     // Validation functions
     const validateName = (name) => {
-        if (!name || !name.trim()) {
+        if (!name || typeof name !== 'string' || !name.trim()) {
             return 'Tên giống là bắt buộc';
         }
         if (name.trim().length < 2) {
@@ -105,7 +105,7 @@ const AddPetBreedModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
     };
 
     const validateDescription = (description) => {
-        if (!description || !description.trim()) {
+        if (!description || typeof description !== 'string' || !description.trim()) {
             return ''; // Optional field
         }
         if (description.trim().length > 500) {
@@ -118,13 +118,13 @@ const AddPetBreedModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
         const newErrors = {};
 
         // Required fields
-        newErrors.name = validateName(formData.name);
+        newErrors.name = validateName(formData.name || '');
         if (!formData.species_id) newErrors.species_id = 'Vui lòng chọn loài';
-        newErrors.average_weight = validateAverageWeight(formData.average_weight);
-        newErrors.average_lifespan = validateAverageLifespan(formData.average_lifespan);
+        newErrors.average_weight = validateAverageWeight(formData.average_weight || '');
+        newErrors.average_lifespan = validateAverageLifespan(formData.average_lifespan || '');
 
         // Optional fields with validation
-        newErrors.description = validateDescription(formData.description);
+        newErrors.description = validateDescription(formData.description || '');
 
         // Remove empty errors
         Object.keys(newErrors).forEach(key => {
@@ -148,16 +148,16 @@ const AddPetBreedModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
             let error = '';
             switch (field) {
                 case 'name':
-                    error = validateName(value);
+                    error = validateName(value || '');
                     break;
                 case 'average_weight':
-                    error = validateAverageWeight(value);
+                    error = validateAverageWeight(value || '');
                     break;
                 case 'average_lifespan':
-                    error = validateAverageLifespan(value);
+                    error = validateAverageLifespan(value || '');
                     break;
                 case 'description':
-                    error = validateDescription(value);
+                    error = validateDescription(value || '');
                     break;
                 case 'species_id':
                     error = value ? '' : 'Vui lòng chọn loài';
@@ -176,16 +176,16 @@ const AddPetBreedModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
         let error = '';
         switch (field) {
             case 'name':
-                error = validateName(formData[field]);
+                error = validateName(formData[field] || '');
                 break;
             case 'average_weight':
-                error = validateAverageWeight(formData[field]);
+                error = validateAverageWeight(formData[field] || '');
                 break;
             case 'average_lifespan':
-                error = validateAverageLifespan(formData[field]);
+                error = validateAverageLifespan(formData[field] || '');
                 break;
             case 'description':
-                error = validateDescription(formData[field]);
+                error = validateDescription(formData[field] || '');
                 break;
             case 'species_id':
                 error = formData[field] ? '' : 'Vui lòng chọn loài';

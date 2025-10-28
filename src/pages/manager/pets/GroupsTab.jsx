@@ -329,9 +329,9 @@ const GroupsTab = ({ pets, species, breeds, groups, onDataChange }) => {
                         label={filteredGroups.length}
                         size="small"
                         sx={{
-                            background: alpha(COLORS.WARNING[100], 0.7),
-                            color: COLORS.WARNING[800],
-                            fontWeight: 700
+                            bgcolor: alpha(COLORS.WARNING[600], 0.2),
+                            color: COLORS.WARNING[700],
+                            fontWeight: 600
                         }}
                     />
                 </Stack>
@@ -378,9 +378,9 @@ const GroupsTab = ({ pets, species, breeds, groups, onDataChange }) => {
                                                 size="small"
                                                 label={getSpeciesName(group.pet_species_id)}
                                                 sx={{
-                                                    background: alpha(COLORS.WARNING[100], 0.7),
-                                                    color: COLORS.WARNING[800],
-                                                    fontWeight: 700
+                                                    bgcolor: alpha(COLORS.WARNING[600], 0.2),
+                                                    color: COLORS.WARNING[700],
+                                                    fontWeight: 600
                                                 }}
                                             />
                                         </TableCell>
@@ -616,7 +616,7 @@ const GroupsTab = ({ pets, species, breeds, groups, onDataChange }) => {
                                             >
                                                 <Stack direction="row" spacing={2} alignItems="center">
                                                     <Avatar
-                                                        src={pet.image_url}
+                                                        src={pet.image || pet.image_url}
                                                         alt={pet.name}
                                                         sx={{ width: 40, height: 40 }}
                                                     />
@@ -914,7 +914,7 @@ const AddPetsToGroupContent = ({ group, allPets, species, breeds, groups, onSubm
                                                 {selectedPets.includes(pet.id) && '✓'}
                                             </Box>
                                             <Avatar
-                                                src={pet.image_url}
+                                                src={pet.image || pet.image_url}
                                                 alt={pet.name}
                                                 sx={{ width: 40, height: 40 }}
                                             />
@@ -969,7 +969,7 @@ const AddPetsToGroupContent = ({ group, allPets, species, breeds, groups, onSubm
                                                 🔒
                                             </Box>
                                             <Avatar
-                                                src={pet.image_url}
+                                                src={pet.image || pet.image_url}
                                                 alt={pet.name}
                                                 sx={{ width: 40, height: 40, opacity: 0.7 }}
                                             />

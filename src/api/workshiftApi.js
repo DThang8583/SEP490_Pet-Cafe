@@ -1,31 +1,3 @@
-/**
- * WORK SHIFT API - Mock Implementation
- * 
- * ============================================
- * FIELD MAPPING: FRONTEND ↔ BACKEND
- * ============================================
- * 
- * | Frontend Field | Backend Field | Type   | Required | Description           |
- * |----------------|---------------|--------|----------|-----------------------|
- * | name           | name          | string | ✅ Yes   | Shift name            |
- * | startTime      | start_time    | string | ✅ Yes   | Shift start time      |
- * | endTime        | end_time      | string | ✅ Yes   | Shift end time        |
- * | description    | description   | string | ⚠️ Opt   | Shift description     |
- * 
- * ============================================
- * BACKEND SCHEMA (from Swagger API)
- * ============================================
- * {
- *   "name": "string",
- *   "start_time": "string",
- *   "end_time": "string",
- *   "description": "string"
- * }
- * 
- * @module workshiftApi
- * @lastUpdated 2025-10-10
- */
-
 import axios from 'axios';
 
 // Base configuration

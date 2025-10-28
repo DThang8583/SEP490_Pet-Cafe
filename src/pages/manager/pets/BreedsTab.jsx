@@ -203,9 +203,9 @@ const BreedsTab = ({ pets, species, breeds, onDataChange }) => {
                         label={filteredBreeds.length}
                         size="small"
                         sx={{
-                            background: alpha(COLORS.INFO[100], 0.7),
-                            color: COLORS.INFO[800],
-                            fontWeight: 700
+                            bgcolor: alpha(COLORS.INFO[600], 0.2),
+                            color: COLORS.INFO[700],
+                            fontWeight: 600
                         }}
                     />
                 </Stack>
@@ -244,9 +244,9 @@ const BreedsTab = ({ pets, species, breeds, onDataChange }) => {
                                             size="small"
                                             label={getSpeciesName(breed.species_id)}
                                             sx={{
-                                                background: alpha(COLORS.INFO[100], 0.7),
-                                                color: COLORS.INFO[800],
-                                                fontWeight: 700
+                                                bgcolor: alpha(COLORS.INFO[600], 0.2),
+                                                color: COLORS.INFO[700],
+                                                fontWeight: 600
                                             }}
                                         />
                                     </TableCell>
@@ -437,7 +437,7 @@ const BreedsTab = ({ pets, species, breeds, onDataChange }) => {
                                             >
                                                 <Stack direction="row" spacing={2} alignItems="center">
                                                     <Avatar
-                                                        src={pet.image_url}
+                                                        src={pet.image || pet.image_url}
                                                         alt={pet.name}
                                                         sx={{ width: 40, height: 40 }}
                                                     />
