@@ -220,7 +220,7 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
         }
     };
 
-    const selectedTaskType = TASK_TYPES.find(t => t.key === formData.task_type);
+    const selectedTaskType = TASK_TYPES.find(t => t.key === formData.task_type || t.name === formData.task_type);
 
     return (
         <Dialog
@@ -266,67 +266,6 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
                 )}
 
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-                    {/* Task Type (Editable) */}
-                    <FormControl fullWidth error={!!errors.task_type} required sx={{ mt: 1 }}>
-                        <InputLabel id="service-task-type-label">Loại nhiệm vụ</InputLabel>
-                        <Select
-                            labelId="service-task-type-label"
-                            value={formData.task_type}
-                            onChange={(e) => handleChange('task_type', e.target.value)}
-                            label="Loại nhiệm vụ"
-                            disabled={loading}
-                            MenuProps={{
-                                PaperProps: {
-                                    style: {
-                                        maxHeight: 300
-                                    }
-                                }
-                            }}
-                        >
-                            {TASK_TYPES.map(type => (
-                                <MenuItem key={type.key} value={type.key}>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                        <span>{type.name}</span>
-                                        <Box
-                                            sx={{
-                                                width: 10,
-                                                height: 10,
-                                                borderRadius: '50%',
-                                                bgcolor: type.color,
-                                                ml: 0.5
-                                            }}
-                                        />
-                                    </Box>
-                                </MenuItem>
-                            ))}
-                        </Select>
-                        {errors.task_type && (
-                            <FormHelperText>{errors.task_type}</FormHelperText>
-                        )}
-                        {!errors.task_type && (
-                            <FormHelperText>Có thể chỉnh sửa loại nhiệm vụ</FormHelperText>
-                        )}
-                    </FormControl>
-
-                    {/* Selected Task Type Preview */}
-                    {selectedTaskType && (
-                        <Paper
-                            elevation={0}
-                            sx={{
-                                p: 2,
-                                bgcolor: `${selectedTaskType.color}15`,
-                                borderRadius: 1,
-                                border: `1px solid ${selectedTaskType.color}40`
-                            }}
-                        >
-                            <Typography variant="body2" fontWeight={600}>
-                                {selectedTaskType.name}
-                            </Typography>
-                        </Paper>
-                    )}
-
-                    <Divider />
-
                     {/* Multiple Images Upload */}
                     <Box>
                         <Typography variant="body2" fontWeight={500} gutterBottom>

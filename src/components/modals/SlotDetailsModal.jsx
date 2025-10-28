@@ -22,6 +22,33 @@ const SlotDetailsModal = ({
         if (open && taskData && slots) {
             // Filter slots for this task
             const filtered = slots.filter(slot => slot.task_id === taskData.id);
+
+            // Sort by weekday order (Monday first)
+            const weekdayOrder = {
+                'MONDAY': 0,
+                'TUESDAY': 1,
+                'WEDNESDAY': 2,
+                'THURSDAY': 3,
+                'FRIDAY': 4,
+                'SATURDAY': 5,
+                'SUNDAY': 6
+            };
+
+            filtered.sort((a, b) => {
+                // Get first day of each slot for sorting
+                const dayA = a.applicable_days?.[0] || 'MONDAY';
+                const dayB = b.applicable_days?.[0] || 'MONDAY';
+                const orderA = weekdayOrder[dayA] !== undefined ? weekdayOrder[dayA] : 999;
+                const orderB = weekdayOrder[dayB] !== undefined ? weekdayOrder[dayB] : 999;
+
+                // Sort by day, then by start_time
+                if (orderA !== orderB) {
+                    return orderA - orderB;
+                }
+                return (a.start_time || '').localeCompare(b.start_time || '');
+            });
+
+            console.log('🔍 SlotDetailsModal - Sorted slots:', filtered);
             setTaskSlots(filtered);
         }
     }, [open, taskData, slots]);
@@ -175,22 +202,33 @@ const SlotDetailsModal = ({
 
                                         {/* Ngày áp dụng */}
                                         <TableCell>
-                                            <Stack direction="row" spacing={0.5} flexWrap="wrap">
-                                                {slot.applicable_days?.slice(0, 3).map(day => (
-                                                    <Chip
-                                                        key={day}
-                                                        label={WEEKDAY_LABELS[day]?.substring(0, 3)}
-                                                        size="small"
-                                                        variant="outlined"
-                                                        sx={{ mb: 0.5 }}
-                                                    />
-                                                ))}
-                                                {slot.applicable_days?.length > 3 && (
-                                                    <Chip
-                                                        label={`+${slot.applicable_days.length - 3}`}
-                                                        size="small"
-                                                        variant="outlined"
-                                                    />
+                                            <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+                                                {Array.isArray(slot.applicable_days) && slot.applicable_days.length > 0 ? (
+                                                    <>
+                                                        {slot.applicable_days.slice(0, 3).map(day => {
+                                                            const label = WEEKDAY_LABELS[day] || day;
+                                                            return (
+                                                                <Chip
+                                                                    key={day}
+                                                                    label={label}
+                                                                    size="small"
+                                                                    variant="outlined"
+                                                                    sx={{ mb: 0.5 }}
+                                                                />
+                                                            );
+                                                        })}
+                                                        {slot.applicable_days.length > 3 && (
+                                                            <Chip
+                                                                label={`+${slot.applicable_days.length - 3}`}
+                                                                size="small"
+                                                                variant="outlined"
+                                                            />
+                                                        )}
+                                                    </>
+                                                ) : (
+                                                    <Typography variant="body2" color="text.secondary">
+                                                        Chưa có ngày
+                                                    </Typography>
                                                 )}
                                             </Stack>
                                         </TableCell>
