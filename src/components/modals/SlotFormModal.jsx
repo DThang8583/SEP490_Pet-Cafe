@@ -365,7 +365,7 @@ const SlotFormModal = ({ open, onClose, onSubmit, taskData }) => {
                 pb: 2,
                 fontWeight: 600
             }}>
-                📅 Tạo Slot mới
+                📅 Tạo Ca mới
             </DialogTitle>
 
             <DialogContent sx={{ pt: 3 }}>
@@ -668,9 +668,9 @@ const SlotFormModal = ({ open, onClose, onSubmit, taskData }) => {
                     {/* Info Box */}
                     <Alert severity="info" variant="outlined">
                         <Typography variant="body2">
-                            💡 Hệ thống sẽ tạo <strong>{formData.applicable_days.length} slots riêng biệt</strong> (1 slot cho mỗi ngày).
-                            Mỗi slot sẽ có status <strong>Internal Only</strong>.
-                            Sau khi tạo, bạn có thể publish từng slot để công khai cho khách hàng.
+                            💡 Hệ thống sẽ tạo <strong>{formData.applicable_days.length} ca riêng biệt</strong> (1 ca cho mỗi ngày).
+                            Mỗi ca sẽ có status <strong>Internal Only</strong>.
+                            Sau khi tạo, bạn có thể publish từng ca để công khai cho khách hàng.
                         </Typography>
                     </Alert>
                 </Box>
@@ -696,7 +696,7 @@ const SlotFormModal = ({ open, onClose, onSubmit, taskData }) => {
                     variant="contained"
                     sx={{ minWidth: 100 }}
                 >
-                    {loading ? 'Đang tạo...' : `Tạo ${formData.applicable_days.length} Slot${formData.applicable_days.length > 1 ? 's' : ''}`}
+                    {loading ? 'Đang tạo...' : `Tạo ${formData.applicable_days.length} Ca`}
                 </Button>
             </DialogActions>
         </Dialog>

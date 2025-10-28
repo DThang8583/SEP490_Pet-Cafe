@@ -210,8 +210,11 @@ const taskTemplateApi = {
             throw new Error('Mô tả task là bắt buộc');
         }
 
-        if (!templateData.estimate_duration || templateData.estimate_duration <= 0) {
-            throw new Error('Thời gian ước tính phải lớn hơn 0');
+        // Only validate estimate_duration for "Làm service" type
+        if (templateData.task_type === 'Làm service' || templateData.task_type === 'service') {
+            if (!templateData.estimate_duration || templateData.estimate_duration <= 0) {
+                throw new Error('Thời gian ước tính phải lớn hơn 0');
+            }
         }
 
         // Create new template
@@ -221,7 +224,10 @@ const taskTemplateApi = {
             image: templateData.image || '',
             name: templateData.name.trim(),
             description: templateData.description.trim(),
-            estimate_duration: parseInt(templateData.estimate_duration),
+            // Only include estimate_duration for "Làm service" type, otherwise set to 0
+            estimate_duration: (templateData.task_type === 'Làm service' || templateData.task_type === 'service')
+                ? parseInt(templateData.estimate_duration)
+                : 0,
             created_at: new Date().toISOString(),
             created_by: currentUser.id,
             updated_at: new Date().toISOString(),
@@ -274,8 +280,13 @@ const taskTemplateApi = {
             throw new Error('Mô tả task không được để trống');
         }
 
-        if (updates.estimate_duration !== undefined && updates.estimate_duration <= 0) {
-            throw new Error('Thời gian ước tính phải lớn hơn 0');
+        // Only validate estimate_duration for "Làm service" type
+        const currentTemplate = MOCK_TASK_TEMPLATES[templateIndex];
+        const finalTaskType = updates.task_type || currentTemplate.task_type;
+        if (finalTaskType === 'Làm service' || finalTaskType === 'service') {
+            if (updates.estimate_duration !== undefined && updates.estimate_duration <= 0) {
+                throw new Error('Thời gian ước tính phải lớn hơn 0');
+            }
         }
 
         // Apply updates
@@ -285,6 +296,11 @@ const taskTemplateApi = {
             updated_at: new Date().toISOString(),
             updated_by: currentUser.id
         };
+
+        // If task_type changed to non-service, reset estimate_duration to 0
+        if (updates.task_type && updates.task_type !== 'Làm service' && updates.task_type !== 'service') {
+            updatedTemplate.estimate_duration = 0;
+        }
 
         MOCK_TASK_TEMPLATES[templateIndex] = updatedTemplate;
 

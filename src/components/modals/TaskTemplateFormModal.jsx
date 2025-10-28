@@ -147,7 +147,7 @@ const TaskTemplateFormModal = ({ open, onClose, onSubmit, initialData = null, mo
                 pb: 2,
                 fontWeight: 600
             }}>
-                {mode === 'edit' ? '✏️ Chỉnh sửa Task' : '➕ Tạo Task mới'}
+                {mode === 'edit' ? '✏️ Chỉnh sửa Nhiệm vụ' : '➕ Tạo Nhiệm vụ mới'}
             </DialogTitle>
 
             <DialogContent sx={{ pt: 3, maxHeight: '70vh', overflowY: 'auto' }}>
@@ -190,37 +190,6 @@ const TaskTemplateFormModal = ({ open, onClose, onSubmit, initialData = null, mo
                         sx={{ mt: 1 }}
                     />
 
-                    {/* Selected Task Type Preview */}
-                    {selectedTaskType && (
-                        <Box
-                            sx={{
-                                p: 2,
-                                bgcolor: `${selectedTaskType.color}15`,
-                                borderRadius: 1,
-                                border: `1px solid ${selectedTaskType.color}40`,
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: 1
-                            }}
-                        >
-                            <span style={{ fontSize: '1.5rem' }}>{selectedTaskType.icon}</span>
-                            <Typography variant="body2" fontWeight={600}>
-                                {selectedTaskType.name}
-                            </Typography>
-                        </Box>
-                    )}
-
-                    {/* Custom Task Type Notice */}
-                    {formData.task_type && !selectedTaskType && (
-                        <Alert severity="info" sx={{ mt: -1 }}>
-                            <Typography variant="body2">
-                                <strong>Loại nhiệm vụ mới:</strong> "{formData.task_type}"
-                            </Typography>
-                            <Typography variant="caption">
-                                Loại nhiệm vụ này sẽ được thêm vào hệ thống.
-                            </Typography>
-                        </Alert>
-                    )}
 
                     {/* Name */}
                     <TextField

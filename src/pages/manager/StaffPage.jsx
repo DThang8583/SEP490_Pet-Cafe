@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Stack, Toolbar, TextField, Select, MenuItem, InputLabel, FormControl, IconButton, Button, Avatar, Grid } from '@mui/material';
+import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Stack, Toolbar, TextField, Select, MenuItem, InputLabel, FormControl, IconButton, Button, Avatar, Grid, Menu, ListItemIcon, ListItemText } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import { COLORS } from '../../constants/colors';
 import Loading from '../../components/loading/Loading';
@@ -7,7 +7,7 @@ import Pagination from '../../components/common/Pagination';
 import ConfirmModal from '../../components/modals/ConfirmModal';
 import AddStaffModal from '../../components/modals/AddStaffModal';
 import AlertModal from '../../components/modals/AlertModal';
-import { Edit, Delete, People, PersonAdd, Person, EventBusy } from '@mui/icons-material';
+import { Edit, Delete, People, PersonAdd, Person, EventBusy, MoreVert } from '@mui/icons-material';
 import { managerApi } from '../../api/userApi';
 
 const formatSalary = (salary) => {
@@ -62,6 +62,10 @@ const StaffPage = () => {
 
     // Alert modal
     const [alert, setAlert] = useState({ open: false, message: '', type: 'info', title: 'Thông báo' });
+
+    // Menu state
+    const [menuAnchor, setMenuAnchor] = useState(null);
+    const [menuStaff, setMenuStaff] = useState(null);
 
     // Load staff data from API
     useEffect(() => {
@@ -310,7 +314,7 @@ const StaffPage = () => {
                                 <TableCell sx={{ fontWeight: 800, display: { xs: 'none', lg: 'table-cell' } }}>Địa chỉ</TableCell>
                                 <TableCell sx={{ fontWeight: 800 }}>Vai trò</TableCell>
                                 <TableCell sx={{ fontWeight: 800 }}>Trạng thái</TableCell>
-                                <TableCell sx={{ fontWeight: 800, textAlign: 'right' }}>Hành động</TableCell>
+                                <TableCell sx={{ fontWeight: 800, textAlign: 'right' }}>Thao tác</TableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>
@@ -337,24 +341,12 @@ const StaffPage = () => {
                                         <TableCell align="right">
                                             <IconButton
                                                 size="small"
-                                                color="primary"
-                                                onClick={() => {
-                                                    setEditMode(true);
-                                                    setSelectedStaff(s);
-                                                    setAddStaffModalOpen(true);
+                                                onClick={(e) => {
+                                                    setMenuAnchor(e.currentTarget);
+                                                    setMenuStaff(s);
                                                 }}
                                             >
-                                                <Edit fontSize="small" />
-                                            </IconButton>
-                                            <IconButton
-                                                size="small"
-                                                color="error"
-                                                onClick={() => {
-                                                    setPendingDeleteId(s.id);
-                                                    setConfirmDeleteOpen(true);
-                                                }}
-                                            >
-                                                <Delete fontSize="small" />
+                                                <MoreVert fontSize="small" />
                                             </IconButton>
                                         </TableCell>
                                     </TableRow>
@@ -439,6 +431,56 @@ const StaffPage = () => {
                     message={alert.message}
                     type={alert.type}
                 />
+
+                {/* Staff Actions Menu */}
+                <Menu
+                    anchorEl={menuAnchor}
+                    open={Boolean(menuAnchor)}
+                    onClose={() => {
+                        setMenuAnchor(null);
+                        setMenuStaff(null);
+                    }}
+                    anchorOrigin={{
+                        vertical: 'bottom',
+                        horizontal: 'right',
+                    }}
+                    transformOrigin={{
+                        vertical: 'top',
+                        horizontal: 'right',
+                    }}
+                >
+                    <MenuItem
+                        onClick={() => {
+                            if (menuStaff) {
+                                setEditMode(true);
+                                setSelectedStaff(menuStaff);
+                                setAddStaffModalOpen(true);
+                            }
+                            setMenuAnchor(null);
+                            setMenuStaff(null);
+                        }}
+                    >
+                        <ListItemIcon>
+                            <Edit fontSize="small" sx={{ color: COLORS.INFO[600] }} />
+                        </ListItemIcon>
+                        <ListItemText>Chỉnh sửa</ListItemText>
+                    </MenuItem>
+                    <MenuItem
+                        onClick={() => {
+                            if (menuStaff) {
+                                setPendingDeleteId(menuStaff.id);
+                                setConfirmDeleteOpen(true);
+                            }
+                            setMenuAnchor(null);
+                            setMenuStaff(null);
+                        }}
+                    >
+                        <ListItemIcon>
+                            <Delete fontSize="small" sx={{ color: COLORS.ERROR[600] }} />
+                        </ListItemIcon>
+                        <ListItemText>Xóa</ListItemText>
+                    </MenuItem>
+                </Menu>
             </Box>
         </Box>
     );

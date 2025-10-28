@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Stack, Toolbar, TextField, Select, MenuItem, InputLabel, FormControl, IconButton, Button, Avatar, alpha, Dialog, DialogTitle, DialogContent, DialogActions, Divider } from '@mui/material';
-import { Add, Edit, Delete, Groups, Pets as PetsIcon, Visibility, Close } from '@mui/icons-material';
+import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Stack, Toolbar, TextField, Select, MenuItem, InputLabel, FormControl, IconButton, Button, Avatar, alpha, Dialog, DialogTitle, DialogContent, DialogActions, Divider, Menu, ListItemIcon, ListItemText } from '@mui/material';
+import { Add, Edit, Delete, Groups, Pets as PetsIcon, Visibility, Close, MoreVert } from '@mui/icons-material';
 import { COLORS } from '../../../constants/colors';
 import Pagination from '../../../components/common/Pagination';
 import ConfirmModal from '../../../components/modals/ConfirmModal';
@@ -22,6 +22,10 @@ const GroupsTab = ({ pets, species, breeds, groups, onDataChange }) => {
     const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
     const [deleteTarget, setDeleteTarget] = useState(null);
     const [alert, setAlert] = useState({ open: false, message: '', type: 'info', title: 'Thông báo' });
+
+    // Menu state
+    const [menuAnchor, setMenuAnchor] = useState(null);
+    const [menuGroup, setMenuGroup] = useState(null);
 
     const [groupDetailDialog, setGroupDetailDialog] = useState({ open: false, group: null, pets: [] });
     const [addPetToGroupDialog, setAddPetToGroupDialog] = useState({ open: false, group: null });
@@ -351,7 +355,7 @@ const GroupsTab = ({ pets, species, breeds, groups, onDataChange }) => {
                                 <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.WARNING[50], 0.5), display: { xs: 'none', lg: 'table-cell' } }}>Sức chứa</TableCell>
                                 <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.WARNING[50], 0.5) }}>Số lượng</TableCell>
                                 <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.WARNING[50], 0.5) }}>Trạng thái</TableCell>
-                                <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.WARNING[50], 0.5), textAlign: 'right' }}>Hành động</TableCell>
+                                <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.WARNING[50], 0.5), textAlign: 'right' }}>Thao tác</TableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>
@@ -417,24 +421,12 @@ const GroupsTab = ({ pets, species, breeds, groups, onDataChange }) => {
                                         <TableCell align="right">
                                             <IconButton
                                                 size="small"
-                                                sx={{ color: COLORS.INFO[600] }}
-                                                onClick={() => handleViewGroupDetails(group)}
+                                                onClick={(e) => {
+                                                    setMenuAnchor(e.currentTarget);
+                                                    setMenuGroup(group);
+                                                }}
                                             >
-                                                <Visibility fontSize="small" />
-                                            </IconButton>
-                                            <IconButton
-                                                size="small"
-                                                color="primary"
-                                                onClick={() => handleOpenGroupDialog(group)}
-                                            >
-                                                <Edit fontSize="small" />
-                                            </IconButton>
-                                            <IconButton
-                                                size="small"
-                                                color="error"
-                                                onClick={() => handleDelete(group.id)}
-                                            >
-                                                <Delete fontSize="small" />
+                                                <MoreVert fontSize="small" />
                                             </IconButton>
                                         </TableCell>
                                     </TableRow>
@@ -756,6 +748,67 @@ const GroupsTab = ({ pets, species, breeds, groups, onDataChange }) => {
                 message={alert.message}
                 type={alert.type}
             />
+
+            {/* Group Actions Menu */}
+            <Menu
+                anchorEl={menuAnchor}
+                open={Boolean(menuAnchor)}
+                onClose={() => {
+                    setMenuAnchor(null);
+                    setMenuGroup(null);
+                }}
+                anchorOrigin={{
+                    vertical: 'bottom',
+                    horizontal: 'right',
+                }}
+                transformOrigin={{
+                    vertical: 'top',
+                    horizontal: 'right',
+                }}
+            >
+                <MenuItem
+                    onClick={() => {
+                        if (menuGroup) {
+                            handleViewGroupDetails(menuGroup);
+                        }
+                        setMenuAnchor(null);
+                        setMenuGroup(null);
+                    }}
+                >
+                    <ListItemIcon>
+                        <Visibility fontSize="small" sx={{ color: COLORS.INFO[600] }} />
+                    </ListItemIcon>
+                    <ListItemText>Xem chi tiết</ListItemText>
+                </MenuItem>
+                <MenuItem
+                    onClick={() => {
+                        if (menuGroup) {
+                            handleOpenGroupDialog(menuGroup);
+                        }
+                        setMenuAnchor(null);
+                        setMenuGroup(null);
+                    }}
+                >
+                    <ListItemIcon>
+                        <Edit fontSize="small" sx={{ color: COLORS.INFO[600] }} />
+                    </ListItemIcon>
+                    <ListItemText>Chỉnh sửa</ListItemText>
+                </MenuItem>
+                <MenuItem
+                    onClick={() => {
+                        if (menuGroup) {
+                            handleDelete(menuGroup.id);
+                        }
+                        setMenuAnchor(null);
+                        setMenuGroup(null);
+                    }}
+                >
+                    <ListItemIcon>
+                        <Delete fontSize="small" sx={{ color: COLORS.ERROR[600] }} />
+                    </ListItemIcon>
+                    <ListItemText>Xóa</ListItemText>
+                </MenuItem>
+            </Menu>
         </Box>
     );
 };

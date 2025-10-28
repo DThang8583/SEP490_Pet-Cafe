@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Box, Typography, Button, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, IconButton, TextField, Stack, Toolbar, Grid, FormControl, InputLabel, Select, MenuItem, Switch, Tooltip, Tabs, Tab } from '@mui/material';
+import { Box, Typography, Button, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, IconButton, TextField, Stack, Toolbar, Grid, FormControl, InputLabel, Select, MenuItem, Switch, Tooltip, Tabs, Tab, Menu, ListItemIcon, ListItemText } from '@mui/material';
 import { alpha } from '@mui/material/styles';
-import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, Refresh as RefreshIcon, Schedule as ScheduleIcon, Check as CheckIcon, Close as CloseIcon, MiscellaneousServices as ServicesIcon } from '@mui/icons-material';
+import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, Refresh as RefreshIcon, Schedule as ScheduleIcon, Check as CheckIcon, Close as CloseIcon, MiscellaneousServices as ServicesIcon, MoreVert as MoreVertIcon, Visibility as VisibilityIcon } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 import Loading from '../../components/loading/Loading';
 import Pagination from '../../components/common/Pagination';
@@ -42,11 +42,21 @@ const ServicesPage = () => {
     const [slotFormOpen, setSlotFormOpen] = useState(false);
     const [slotPublishOpen, setSlotPublishOpen] = useState(false);
     const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+    const [confirmDisableOpen, setConfirmDisableOpen] = useState(false);
+    const [confirmEnableOpen, setConfirmEnableOpen] = useState(false);
+    const [disableTarget, setDisableTarget] = useState(null);
+    const [enableTarget, setEnableTarget] = useState(null);
     const [alert, setAlert] = useState({ open: false, message: '', type: 'info', title: 'Thông báo' });
 
     // Modal data
     const [selectedTask, setSelectedTask] = useState(null);
     const [selectedSlot, setSelectedSlot] = useState(null);
+
+    // Menu state
+    const [taskMenuAnchor, setTaskMenuAnchor] = useState(null);
+    const [menuTask, setMenuTask] = useState(null);
+    const [serviceMenuAnchor, setServiceMenuAnchor] = useState(null);
+    const [menuService, setMenuService] = useState(null);
     const [editingService, setEditingService] = useState(null);
     const [deleteTarget, setDeleteTarget] = useState(null);
 
@@ -213,23 +223,67 @@ const ServicesPage = () => {
     };
 
     const handleToggleStatus = async (service) => {
+        // Nếu service đang enabled, hiển thị confirm modal trước khi disable
+        if (service.status === SERVICE_STATUS.ENABLED) {
+            setDisableTarget(service);
+            setConfirmDisableOpen(true);
+            return;
+        }
+
+        // Nếu service đang disabled, hiển thị confirm modal trước khi enable
+        setEnableTarget(service);
+        setConfirmEnableOpen(true);
+    };
+
+    const confirmDisableService = async () => {
+        if (!disableTarget) return;
+
         try {
-            await serviceApi.toggleServiceStatus(service.id);
+            await serviceApi.toggleServiceStatus(disableTarget.id);
             setAlert({
                 open: true,
                 title: 'Thành công',
-                message: `Service đã được ${service.status === SERVICE_STATUS.ENABLED ? 'vô hiệu hóa' : 'kích hoạt'}!`,
+                message: 'Service đã được vô hiệu hóa!',
                 type: 'success'
             });
             await loadServices();
         } catch (error) {
-            console.error('Error toggling service status:', error);
+            console.error('Error disabling service:', error);
             setAlert({
                 open: true,
                 title: 'Lỗi',
-                message: error.message || 'Không thể thay đổi trạng thái service',
+                message: error.message || 'Không thể vô hiệu hóa service',
                 type: 'error'
             });
+        } finally {
+            setConfirmDisableOpen(false);
+            setDisableTarget(null);
+        }
+    };
+
+    const confirmEnableService = async () => {
+        if (!enableTarget) return;
+
+        try {
+            await serviceApi.toggleServiceStatus(enableTarget.id);
+            setAlert({
+                open: true,
+                title: 'Thành công',
+                message: 'Service đã được kích hoạt!',
+                type: 'success'
+            });
+            await loadServices();
+        } catch (error) {
+            console.error('Error enabling service:', error);
+            setAlert({
+                open: true,
+                title: 'Lỗi',
+                message: error.message || 'Không thể kích hoạt service',
+                type: 'error'
+            });
+        } finally {
+            setConfirmEnableOpen(false);
+            setEnableTarget(null);
         }
     };
 
@@ -392,7 +446,7 @@ const ServicesPage = () => {
                     </Typography>
                 </Stack>
                 <Typography variant="body2" color="text.secondary">
-                    Tạo Service từ Task Template (1 Task = 1 Service)
+                    Tạo Service từ Nhiệm vụ (1 Nhiệm vụ = 1 Service)
                 </Typography>
             </Box>
 
@@ -401,7 +455,7 @@ const ServicesPage = () => {
                 <Grid item xs={12} sm={6} md={3}>
                     <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.PRIMARY[500]}` }}>
                         <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Tổng Task Templates
+                            Tổng Nhiệm vụ
                         </Typography>
                         <Typography variant="h4" fontWeight={600} color={COLORS.PRIMARY[700]}>
                             {stats.totalTasks}
@@ -411,7 +465,7 @@ const ServicesPage = () => {
                 <Grid item xs={12} sm={6} md={3}>
                     <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.WARNING[500]}` }}>
                         <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Tasks chưa có Service
+                            Nhiệm vụ chưa có Service
                         </Typography>
                         <Typography variant="h4" fontWeight={600} color={COLORS.WARNING[700]}>
                             {stats.availableTasks}
@@ -421,7 +475,7 @@ const ServicesPage = () => {
                 <Grid item xs={12} sm={6} md={3}>
                     <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.SUCCESS[500]}` }}>
                         <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Services Enabled
+                            Services Hoạt động
                         </Typography>
                         <Typography variant="h4" fontWeight={600} color={COLORS.SUCCESS[700]}>
                             {stats.enabledServices}
@@ -431,7 +485,7 @@ const ServicesPage = () => {
                 <Grid item xs={12} sm={6} md={3}>
                     <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.INFO[500]}` }}>
                         <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Tổng Services
+                            Tổng Dịch vụ
                         </Typography>
                         <Typography variant="h4" fontWeight={600} color={COLORS.INFO[700]}>
                             {stats.totalServices}
@@ -458,7 +512,7 @@ const ServicesPage = () => {
                     }}
                 >
                     <Tab label={`Services (${services.length})`} />
-                    <Tab label={`Tasks chưa có Service (${availableTasks.length})`} />
+                    <Tab label={`Nhiệm vụ chưa có Service (${availableTasks.length})`} />
                 </Tabs>
             </Paper>
 
@@ -565,12 +619,18 @@ const ServicesPage = () => {
                                                 </Typography>
                                             </TableCell>
                                             <TableCell align="center">
-                                                <Stack direction="row" alignItems="center" justifyContent="center" spacing={0.5}>
-                                                    <ScheduleIcon fontSize="small" color="action" />
-                                                    <Typography variant="body2">
-                                                        {task.estimate_duration}p
+                                                {task.estimate_duration > 0 ? (
+                                                    <Stack direction="row" alignItems="center" justifyContent="center" spacing={0.5}>
+                                                        <ScheduleIcon fontSize="small" color="action" />
+                                                        <Typography variant="body2">
+                                                            {task.estimate_duration}p
+                                                        </Typography>
+                                                    </Stack>
+                                                ) : (
+                                                    <Typography variant="body2" color="text.secondary">
+                                                        —
                                                     </Typography>
-                                                </Stack>
+                                                )}
                                             </TableCell>
                                             <TableCell align="center">
                                                 <Button
@@ -609,7 +669,7 @@ const ServicesPage = () => {
                                 <TableCell width="25%">Mô tả</TableCell>
                                 <TableCell width="7%" align="center">Thời gian</TableCell>
                                 <TableCell width="9%" align="right">Giá</TableCell>
-                                <TableCell width="8%" align="center">Slots</TableCell>
+                                <TableCell width="8%" align="center">Ca</TableCell>
                                 <TableCell width="12%" align="center">Trạng thái</TableCell>
                                 <TableCell width="9%" align="center">Thao tác</TableCell>
                             </TableRow>
@@ -674,12 +734,18 @@ const ServicesPage = () => {
 
                                             {/* Thời gian */}
                                             <TableCell align="center">
-                                                <Stack direction="row" alignItems="center" justifyContent="center" spacing={0.5}>
-                                                    <ScheduleIcon fontSize="small" color="action" />
-                                                    <Typography variant="body2">
-                                                        {service.estimate_duration}p
+                                                {service.estimate_duration > 0 ? (
+                                                    <Stack direction="row" alignItems="center" justifyContent="center" spacing={0.5}>
+                                                        <ScheduleIcon fontSize="small" color="action" />
+                                                        <Typography variant="body2">
+                                                            {service.estimate_duration}p
+                                                        </Typography>
+                                                    </Stack>
+                                                ) : (
+                                                    <Typography variant="body2" color="text.secondary">
+                                                        —
                                                     </Typography>
-                                                </Stack>
+                                                )}
                                             </TableCell>
 
                                             {/* Giá */}
@@ -695,7 +761,7 @@ const ServicesPage = () => {
                                                     const slotsCount = getSlotsCountForService(service.task_id);
                                                     return (
                                                         <Stack direction="row" spacing={0.5} justifyContent="center">
-                                                            <Tooltip title="Xem chi tiết slots">
+                                                            <Tooltip title="Xem chi tiết ca">
                                                                 <Chip
                                                                     label={slotsCount.total}
                                                                     size="small"
@@ -755,33 +821,15 @@ const ServicesPage = () => {
 
                                             {/* Thao tác */}
                                             <TableCell align="center">
-                                                <Stack direction="row" spacing={0.5} justifyContent="center">
-                                                    <Tooltip title="Chỉnh sửa">
-                                                        <IconButton
-                                                            size="small"
-                                                            onClick={() => handleEditService(service)}
-                                                            sx={{ color: COLORS.INFO[600] }}
-                                                        >
-                                                            <EditIcon fontSize="small" />
-                                                        </IconButton>
-                                                    </Tooltip>
-                                                    <Tooltip title={service.status === SERVICE_STATUS.ENABLED ? "Phải disabled trước khi xóa" : "Xóa"}>
-                                                        <span>
-                                                            <IconButton
-                                                                size="small"
-                                                                onClick={() => handleDeleteService(service)}
-                                                                disabled={service.status === SERVICE_STATUS.ENABLED}
-                                                                sx={{
-                                                                    color: service.status === SERVICE_STATUS.ENABLED
-                                                                        ? COLORS.GRAY[400]
-                                                                        : COLORS.ERROR[600]
-                                                                }}
-                                                            >
-                                                                <DeleteIcon fontSize="small" />
-                                                            </IconButton>
-                                                        </span>
-                                                    </Tooltip>
-                                                </Stack>
+                                                <IconButton
+                                                    size="small"
+                                                    onClick={(e) => {
+                                                        setServiceMenuAnchor(e.currentTarget);
+                                                        setMenuService(service);
+                                                    }}
+                                                >
+                                                    <MoreVertIcon fontSize="small" />
+                                                </IconButton>
                                             </TableCell>
                                         </TableRow>
                                     );
@@ -846,13 +894,39 @@ const ServicesPage = () => {
             />
 
             <ConfirmModal
-                open={confirmDeleteOpen}
+                isOpen={confirmDeleteOpen}
                 onClose={() => setConfirmDeleteOpen(false)}
                 onConfirm={handleConfirmDelete}
                 title="Xóa Service?"
                 message={`Bạn có chắc chắn muốn xóa service "${deleteTarget?.name}"?`}
                 confirmText="Xóa"
-                confirmColor="error"
+                type="error"
+            />
+
+            <ConfirmModal
+                isOpen={confirmDisableOpen}
+                onClose={() => {
+                    setConfirmDisableOpen(false);
+                    setDisableTarget(null);
+                }}
+                onConfirm={confirmDisableService}
+                title="Vô hiệu hóa Service?"
+                message={`Bạn có chắc chắn muốn vô hiệu hóa service "${disableTarget?.name}"? Service sẽ không còn khả dụng cho khách hàng đặt lịch.`}
+                confirmText="Vô hiệu hóa"
+                type="warning"
+            />
+
+            <ConfirmModal
+                isOpen={confirmEnableOpen}
+                onClose={() => {
+                    setConfirmEnableOpen(false);
+                    setEnableTarget(null);
+                }}
+                onConfirm={confirmEnableService}
+                title="Kích hoạt Service?"
+                message={`Bạn có chắc chắn muốn kích hoạt service "${enableTarget?.name}"? Service sẽ có sẵn cho khách hàng đặt lịch.`}
+                confirmText="Kích hoạt"
+                type="success"
             />
 
             <AlertModal
@@ -862,6 +936,63 @@ const ServicesPage = () => {
                 message={alert.message}
                 type={alert.type}
             />
+
+            {/* Service Actions Menu */}
+            <Menu
+                anchorEl={serviceMenuAnchor}
+                open={Boolean(serviceMenuAnchor)}
+                onClose={() => {
+                    setServiceMenuAnchor(null);
+                    setMenuService(null);
+                }}
+                anchorOrigin={{
+                    vertical: 'bottom',
+                    horizontal: 'right',
+                }}
+                transformOrigin={{
+                    vertical: 'top',
+                    horizontal: 'right',
+                }}
+            >
+                <MenuItem
+                    onClick={() => {
+                        if (menuService) {
+                            handleEditService(menuService);
+                        }
+                        setServiceMenuAnchor(null);
+                        setMenuService(null);
+                    }}
+                >
+                    <ListItemIcon>
+                        <EditIcon fontSize="small" sx={{ color: COLORS.INFO[600] }} />
+                    </ListItemIcon>
+                    <ListItemText>Chỉnh sửa</ListItemText>
+                </MenuItem>
+                <MenuItem
+                    onClick={() => {
+                        if (menuService && menuService.status !== SERVICE_STATUS.ENABLED) {
+                            handleDeleteService(menuService);
+                        }
+                        setServiceMenuAnchor(null);
+                        setMenuService(null);
+                    }}
+                    disabled={menuService?.status === SERVICE_STATUS.ENABLED}
+                >
+                    <ListItemIcon>
+                        <DeleteIcon
+                            fontSize="small"
+                            sx={{
+                                color: menuService?.status === SERVICE_STATUS.ENABLED
+                                    ? COLORS.GRAY[400]
+                                    : COLORS.ERROR[600]
+                            }}
+                        />
+                    </ListItemIcon>
+                    <ListItemText>
+                        {menuService?.status === SERVICE_STATUS.ENABLED ? "Phải disabled trước khi xóa" : "Xóa"}
+                    </ListItemText>
+                </MenuItem>
+            </Menu>
         </Box>
     );
 };
