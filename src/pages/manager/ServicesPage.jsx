@@ -73,7 +73,7 @@ const ServicesPage = () => {
     const availableTasks = useMemo(() => {
         const servicedTaskIds = services.map(s => s.task_id);
         return taskTemplates.filter(t =>
-            !servicedTaskIds.includes(t.id) && t.task_type === 'service'
+            !servicedTaskIds.includes(t.id) && (t.task_type === 'service' || t.task_type === 'Làm service')
         );
     }, [taskTemplates, services]);
 
@@ -357,9 +357,9 @@ const ServicesPage = () => {
         }
     };
 
-    // Get task type info
-    const getTaskTypeInfo = (typeKey) => {
-        return TASK_TYPES.find(t => t.key === typeKey);
+    // Get task type info (support both key and name)
+    const getTaskTypeInfo = (typeKeyOrName) => {
+        return TASK_TYPES.find(t => t.key === typeKeyOrName || t.name === typeKeyOrName);
     };
 
     // Get task for service

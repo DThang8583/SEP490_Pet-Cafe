@@ -232,15 +232,42 @@ const TasksPage = () => {
         setSlotFormOpen(true);
     };
 
-    const handleSlotFormSubmit = async (formData) => {
+    const handleSlotFormSubmit = async (slotsData) => {
         try {
-            await slotApi.createSlot(formData);
-            setAlert({
-                open: true,
-                title: 'Thành công',
-                message: 'Tạo slot thành công!',
-                type: 'success'
-            });
+            // Check if it's an array of slots (new format) or single slot (old format)
+            const slotsArray = Array.isArray(slotsData) ? slotsData : [slotsData];
+
+            // Create all slots
+            let successCount = 0;
+            let failCount = 0;
+
+            for (const slotData of slotsArray) {
+                try {
+                    await slotApi.createSlot(slotData);
+                    successCount++;
+                } catch (error) {
+                    console.error('Error creating slot:', error);
+                    failCount++;
+                }
+            }
+
+            // Show result message
+            if (failCount === 0) {
+                setAlert({
+                    open: true,
+                    title: 'Thành công',
+                    message: `Tạo thành công ${successCount} slot${successCount > 1 ? 's' : ''}!`,
+                    type: 'success'
+                });
+            } else {
+                setAlert({
+                    open: true,
+                    title: 'Cảnh báo',
+                    message: `Tạo thành công ${successCount} slots, thất bại ${failCount} slots`,
+                    type: 'warning'
+                });
+            }
+
             await loadSlots();
             setSlotFormOpen(false);
         } catch (error) {

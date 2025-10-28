@@ -196,7 +196,8 @@ const taskTemplateApi = {
             throw new Error('Task type là bắt buộc');
         }
 
-        const validTaskTypes = TASK_TYPES.map(t => t.key);
+        // Accept both key and name for task_type
+        const validTaskTypes = [...TASK_TYPES.map(t => t.key), ...TASK_TYPES.map(t => t.name)];
         if (!validTaskTypes.includes(templateData.task_type)) {
             throw new Error('Task type không hợp lệ');
         }
@@ -258,7 +259,8 @@ const taskTemplateApi = {
 
         // Validation
         if (updates.task_type) {
-            const validTaskTypes = TASK_TYPES.map(t => t.key);
+            // Accept both key and name for task_type
+            const validTaskTypes = [...TASK_TYPES.map(t => t.key), ...TASK_TYPES.map(t => t.name)];
             if (!validTaskTypes.includes(updates.task_type)) {
                 throw new Error('Task type không hợp lệ');
             }
