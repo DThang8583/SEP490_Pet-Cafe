@@ -89,8 +89,8 @@ export const getWorkShiftById = async (id) => {
 };
 
 /**
-* Create work shift
-* API: { name, start_time, end_time, description, is_active, applicable_days[] }
+ * Create work shift
+ * API: { name, start_time, end_time, description, is_active, applicable_days[] }
  */
 export const createWorkShift = async (shiftData) => {
     await delay(500);
@@ -187,7 +187,7 @@ export const updateWorkShift = async (id, shiftData) => {
 };
 
 /**
-* Delete work shift
+ * Delete work shift
  */
 export const deleteWorkShift = async (id) => {
     await delay(500);
