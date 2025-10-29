@@ -1,18 +1,36 @@
 import { useState, useEffect } from 'react';
-import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, FormControl, InputLabel, Select, MenuItem, Box, Alert, InputAdornment, Typography, Paper, Divider, FormHelperText, Avatar, IconButton } from '@mui/material';
-import { CloudUpload as CloudUploadIcon, Delete as DeleteIcon } from '@mui/icons-material';
-import { TASK_TYPES } from '../../api/taskTemplateApi';
+import {
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    Button,
+    TextField,
+    Box,
+    Alert,
+    InputAdornment,
+    Typography,
+    Paper,
+    Divider,
+    IconButton,
+    Stack
+} from '@mui/material';
+import {
+    CloudUpload as CloudUploadIcon,
+    Delete as DeleteIcon,
+    Image as ImageIcon
+} from '@mui/icons-material';
 import { formatPrice } from '../../utils/formatPrice';
 
 const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, mode = 'create' }) => {
     const [formData, setFormData] = useState({
         task_id: '',
-        task_type: '',
-        images: [],
         name: '',
         description: '',
-        estimate_duration: 30,
-        price: 0
+        duration_minutes: 0,
+        base_price: 0,
+        image_url: '',
+        thumbnails: []
     });
 
     const [errors, setErrors] = useState({});
@@ -26,24 +44,28 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
                 // Edit mode: load existing service data
                 setFormData({
                     task_id: initialData.task_id || '',
-                    task_type: initialData.task_type || '',
-                    images: initialData.images || [],
                     name: initialData.name || '',
                     description: initialData.description || '',
-                    estimate_duration: initialData.estimate_duration || 30,
-                    price: initialData.price || 0
+                    duration_minutes: initialData.duration_minutes || 0,
+                    base_price: initialData.base_price || 0,
+                    image_url: initialData.image_url || '',
+                    thumbnails: initialData.thumbnails || []
                 });
-                setImagePreviews(initialData.images || []);
+                // Set image previews from existing data
+                const previews = [];
+                if (initialData.image_url) previews.push(initialData.image_url);
+                if (initialData.thumbnails) previews.push(...initialData.thumbnails);
+                setImagePreviews(previews);
             } else if (mode === 'create' && taskData) {
                 // Create mode: auto-fill from task
                 setFormData({
                     task_id: taskData.id,
-                    task_type: taskData.task_type,
-                    images: [],
-                    name: taskData.name || '',
+                    name: taskData.title || taskData.name || '',
                     description: taskData.description || '',
-                    estimate_duration: taskData.estimate_duration || 30,
-                    price: 0
+                    duration_minutes: taskData.estimated_hours ? taskData.estimated_hours * 60 : 0,
+                    base_price: 0,
+                    image_url: '',
+                    thumbnails: []
                 });
                 setImagePreviews([]);
             } else {
@@ -56,12 +78,12 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
     const resetForm = () => {
         setFormData({
             task_id: '',
-            task_type: '',
-            images: [],
             name: '',
             description: '',
-            estimate_duration: 30,
-            price: 0
+            duration_minutes: 0,
+            base_price: 0,
+            image_url: '',
+            thumbnails: []
         });
         setImagePreviews([]);
         setErrors({});
@@ -87,13 +109,13 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
         const files = Array.from(event.target.files);
         if (files.length === 0) return;
 
-        // Limit to 5 images
+        // Limit to 5 images total
         if (imagePreviews.length + files.length > 5) {
             setErrors(prev => ({
                 ...prev,
                 images: 'Chỉ được tải tối đa 5 ảnh'
             }));
-            event.target.value = ''; // Reset input
+            event.target.value = '';
             return;
         }
 
@@ -105,7 +127,7 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
                     ...prev,
                     images: 'Vui lòng chọn file hình ảnh'
                 }));
-                event.target.value = ''; // Reset input
+                event.target.value = '';
                 return;
             }
 
@@ -115,7 +137,7 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
                     ...prev,
                     images: 'Kích thước file không được vượt quá 5MB'
                 }));
-                event.target.value = ''; // Reset input
+                event.target.value = '';
                 return;
             }
 
@@ -133,9 +155,13 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
 
         Promise.all(readPromises).then(results => {
             const newPreviews = [...imagePreviews, ...results];
-            const newImages = [...formData.images, ...results];
             setImagePreviews(newPreviews);
-            handleChange('images', newImages);
+
+            // Set first image as main image_url, rest as thumbnails
+            if (newPreviews.length > 0) {
+                handleChange('image_url', newPreviews[0]);
+                handleChange('thumbnails', newPreviews.slice(1));
+            }
 
             // Clear error
             setErrors(prev => ({
@@ -143,16 +169,23 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
                 images: ''
             }));
 
-            event.target.value = ''; // Reset input after successful upload
+            event.target.value = '';
         });
     };
 
     // Handle remove single image
     const handleRemoveImage = (index) => {
         const newPreviews = imagePreviews.filter((_, i) => i !== index);
-        const newImages = formData.images.filter((_, i) => i !== index);
         setImagePreviews(newPreviews);
-        handleChange('images', newImages);
+
+        // Update formData: first image is main, rest are thumbnails
+        if (newPreviews.length > 0) {
+            handleChange('image_url', newPreviews[0]);
+            handleChange('thumbnails', newPreviews.slice(1));
+        } else {
+            handleChange('image_url', '');
+            handleChange('thumbnails', []);
+        }
 
         // Clear error if any
         if (errors.images) {
@@ -170,10 +203,6 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
             newErrors.task_id = 'Task ID là bắt buộc';
         }
 
-        if (!formData.task_type) {
-            newErrors.task_type = 'Task Type là bắt buộc';
-        }
-
         if (!formData.name || !formData.name.trim()) {
             newErrors.name = 'Tên dịch vụ là bắt buộc';
         }
@@ -182,12 +211,12 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
             newErrors.description = 'Mô tả dịch vụ là bắt buộc';
         }
 
-        if (!formData.estimate_duration || formData.estimate_duration <= 0) {
-            newErrors.estimate_duration = 'Thời gian ước tính phải lớn hơn 0';
+        if (!formData.duration_minutes || formData.duration_minutes <= 0) {
+            newErrors.duration_minutes = 'Thời gian phải lớn hơn 0';
         }
 
-        if (formData.price === undefined || formData.price === null || formData.price < 0) {
-            newErrors.price = 'Giá dịch vụ là bắt buộc và không được âm';
+        if (formData.base_price === undefined || formData.base_price === null || formData.base_price < 0) {
+            newErrors.base_price = 'Giá dịch vụ là bắt buộc và không được âm';
         }
 
         setErrors(newErrors);
@@ -202,7 +231,24 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
         setLoading(true);
 
         try {
-            await onSubmit(formData);
+            // Prepare submit data according to API
+            const submitData = {
+                name: formData.name.trim(),
+                description: formData.description.trim(),
+                duration_minutes: parseInt(formData.duration_minutes),
+                base_price: parseFloat(formData.base_price),
+                task_id: formData.task_id
+            };
+
+            // Only include image fields if they have values
+            if (formData.image_url) {
+                submitData.image_url = formData.image_url;
+            }
+            if (formData.thumbnails && formData.thumbnails.length > 0) {
+                submitData.thumbnails = formData.thumbnails;
+            }
+
+            await onSubmit(submitData);
             handleClose();
         } catch (error) {
             setErrors({
@@ -220,8 +266,6 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
         }
     };
 
-    const selectedTaskType = TASK_TYPES.find(t => t.key === formData.task_type || t.name === formData.task_type);
-
     return (
         <Dialog
             open={open}
@@ -238,9 +282,13 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
             <DialogTitle sx={{
                 borderBottom: '1px solid #e0e0e0',
                 pb: 2,
-                fontWeight: 600
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1
             }}>
-                {mode === 'edit' ? '✏️ Chỉnh sửa Service' : '✨ Tạo Service từ Task'}
+                <ImageIcon color="primary" />
+                {mode === 'edit' ? 'Chỉnh sửa Dịch vụ' : 'Tạo Dịch vụ từ Nhiệm vụ'}
             </DialogTitle>
 
             <DialogContent sx={{ pt: 3, maxHeight: '70vh', overflowY: 'auto' }}>
@@ -254,18 +302,27 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
                 {mode === 'create' && taskData && (
                     <Paper elevation={0} sx={{ p: 2, mb: 3, bgcolor: '#e3f2fd', borderRadius: 1 }}>
                         <Typography variant="body2" color="text.secondary" gutterBottom>
-                            📋 Tạo từ Task
+                            📋 Tạo từ Nhiệm vụ
                         </Typography>
                         <Typography variant="h6" fontWeight={600}>
-                            {taskData.name}
+                            {taskData.title || taskData.name}
                         </Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                            ⏱️ {taskData.estimate_duration} phút • {selectedTaskType?.name}
-                        </Typography>
+                        <Stack direction="row" spacing={2} sx={{ mt: 1 }}>
+                            {taskData.work_type && (
+                                <Typography variant="body2" color="text.secondary">
+                                    🏷️ {taskData.work_type.name}
+                                </Typography>
+                            )}
+                            {taskData.estimated_hours > 0 && (
+                                <Typography variant="body2" color="text.secondary">
+                                    ⏱️ {taskData.estimated_hours} giờ
+                                </Typography>
+                            )}
+                        </Stack>
                     </Paper>
                 )}
 
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+                <Stack spacing={2.5}>
                     {/* Multiple Images Upload */}
                     <Box>
                         <Typography variant="body2" fontWeight={500} gutterBottom>
@@ -306,10 +363,28 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
                                             paddingTop: '100%',
                                             borderRadius: 1,
                                             overflow: 'hidden',
-                                            border: '1px solid',
-                                            borderColor: 'divider'
+                                            border: index === 0 ? '2px solid' : '1px solid',
+                                            borderColor: index === 0 ? 'primary.main' : 'divider'
                                         }}
                                     >
+                                        {index === 0 && (
+                                            <Box
+                                                sx={{
+                                                    position: 'absolute',
+                                                    top: 0,
+                                                    left: 0,
+                                                    bgcolor: 'primary.main',
+                                                    color: 'white',
+                                                    px: 1,
+                                                    py: 0.5,
+                                                    fontSize: '0.625rem',
+                                                    fontWeight: 600,
+                                                    zIndex: 1
+                                                }}
+                                            >
+                                                ẢNH CHÍNH
+                                            </Box>
+                                        )}
                                         <Box
                                             component="img"
                                             src={preview}
@@ -351,12 +426,12 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
                         )}
                         {!errors.images && (
                             <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                                Chọn nhiều ảnh từ thiết bị (mỗi ảnh tối đa 5MB, tổng tối đa 5 ảnh)
+                                📌 Ảnh đầu tiên sẽ là ảnh chính, các ảnh sau là ảnh phụ (thumbnails)
                             </Typography>
                         )}
                     </Box>
 
-                    {/* Name (Editable) */}
+                    {/* Name */}
                     <TextField
                         fullWidth
                         required
@@ -366,10 +441,10 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
                         disabled={loading}
                         error={!!errors.name}
                         helperText={errors.name || 'Có thể chỉnh sửa tên dịch vụ'}
-                        placeholder="Ví dụ: Tắm rửa thú cưng cơ bản"
+                        placeholder="Ví dụ: Combo Trải Nghiệm Thú Cưng"
                     />
 
-                    {/* Description (Editable) */}
+                    {/* Description */}
                     <TextField
                         fullWidth
                         required
@@ -384,17 +459,17 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
                         placeholder="Mô tả chi tiết về dịch vụ..."
                     />
 
-                    {/* Estimate Duration (Editable) */}
+                    {/* Duration Minutes */}
                     <TextField
                         fullWidth
                         required
                         type="number"
-                        label="Thời gian ước tính (phút)"
-                        value={formData.estimate_duration || ''}
-                        onChange={(e) => handleChange('estimate_duration', e.target.value === '' ? '' : parseInt(e.target.value))}
+                        label="Thời gian thực hiện"
+                        value={formData.duration_minutes || ''}
+                        onChange={(e) => handleChange('duration_minutes', e.target.value === '' ? '' : parseInt(e.target.value))}
                         disabled={loading}
-                        error={!!errors.estimate_duration}
-                        helperText={errors.estimate_duration || 'Có thể chỉnh sửa thời gian ước tính'}
+                        error={!!errors.duration_minutes}
+                        helperText={errors.duration_minutes || 'Thời gian thực hiện dịch vụ'}
                         placeholder="Nhập thời gian (phút)"
                         InputProps={{
                             endAdornment: <InputAdornment position="end">phút</InputAdornment>,
@@ -403,7 +478,7 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
                     />
 
                     {/* Duration Preview */}
-                    {formData.estimate_duration > 0 && (
+                    {formData.duration_minutes > 0 && (
                         <Box sx={{
                             p: 1.5,
                             bgcolor: '#f5f5f5',
@@ -413,9 +488,9 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
                             gap: 1
                         }}>
                             <Typography variant="body2" color="text.secondary">
-                                ⏱️ Thời gian: <strong>{formData.estimate_duration} phút</strong>
-                                {formData.estimate_duration >= 60 && (
-                                    <span> ({Math.floor(formData.estimate_duration / 60)}h {formData.estimate_duration % 60}m)</span>
+                                ⏱️ Thời gian: <strong>{formData.duration_minutes} phút</strong>
+                                {formData.duration_minutes >= 60 && (
+                                    <span> ({Math.floor(formData.duration_minutes / 60)}h {formData.duration_minutes % 60}m)</span>
                                 )}
                             </Typography>
                         </Box>
@@ -423,17 +498,17 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
 
                     <Divider />
 
-                    {/* Price (Required - NEW FIELD) */}
+                    {/* Base Price */}
                     <TextField
                         fullWidth
                         required
                         type="number"
                         label="Giá dịch vụ"
-                        value={formData.price || ''}
-                        onChange={(e) => handleChange('price', e.target.value === '' ? '' : parseFloat(e.target.value))}
+                        value={formData.base_price || ''}
+                        onChange={(e) => handleChange('base_price', e.target.value === '' ? '' : parseFloat(e.target.value))}
                         disabled={loading}
-                        error={!!errors.price}
-                        helperText={errors.price || 'Giá dịch vụ cho khách hàng'}
+                        error={!!errors.base_price}
+                        helperText={errors.base_price || 'Giá dịch vụ cho khách hàng'}
                         placeholder="Nhập giá (VNĐ)"
                         InputProps={{
                             endAdornment: <InputAdornment position="end">VNĐ</InputAdornment>,
@@ -442,7 +517,7 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
                     />
 
                     {/* Price Preview */}
-                    {formData.price > 0 && (
+                    {formData.base_price > 0 && (
                         <Paper
                             elevation={0}
                             sx={{
@@ -456,30 +531,24 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
                                 💰 Giá dịch vụ
                             </Typography>
                             <Typography variant="h5" fontWeight={600} color="success.main">
-                                {formatPrice(formData.price)}
+                                {formatPrice(formData.base_price)}
                             </Typography>
                         </Paper>
                     )}
 
                     {/* Status Info */}
-                    <Alert severity="warning" variant="outlined">
+                    <Alert severity="info" variant="outlined">
                         <Typography variant="body2">
-                            ⚠️ <strong>Status mặc định: Disabled</strong>
+                            💡 <strong>Lưu ý:</strong>
                             <br />
-                            Dịch vụ sẽ được tạo với trạng thái vô hiệu hóa. Bạn có thể kích hoạt sau khi tạo xong.
+                            • Dịch vụ sẽ được tạo với trạng thái <strong>Không hoạt động</strong> mặc định
+                            <br />
+                            • Bạn có thể kích hoạt dịch vụ sau khi tạo xong
+                            <br />
+                            {mode === 'create' && '• 1 Nhiệm vụ chỉ có thể tạo 1 Dịch vụ (quan hệ 1-1)'}
                         </Typography>
                     </Alert>
-
-                    {/* 1:1 Relationship Info */}
-                    {mode === 'create' && (
-                        <Alert severity="info" variant="outlined">
-                            <Typography variant="body2">
-                                💡 <strong>Lưu ý:</strong> 1 Task chỉ có thể tạo 1 Service.
-                                Sau khi tạo, bạn không thể thay đổi Task gốc.
-                            </Typography>
-                        </Alert>
-                    )}
-                </Box>
+                </Stack>
             </DialogContent>
 
             <DialogActions sx={{
@@ -502,7 +571,7 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
                     variant="contained"
                     sx={{ minWidth: 100 }}
                 >
-                    {loading ? 'Đang xử lý...' : (mode === 'edit' ? 'Cập nhật' : 'Tạo Service')}
+                    {loading ? 'Đang xử lý...' : (mode === 'edit' ? 'Cập nhật' : 'Tạo Dịch vụ')}
                 </Button>
             </DialogActions>
         </Dialog>
@@ -510,4 +579,3 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
 };
 
 export default ServiceFormModal;
-

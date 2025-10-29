@@ -1,230 +1,180 @@
-import axios from 'axios';
+import { MOCK_WORK_TYPES } from './mockData';
 
-// Resolve API base URL
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || window.__API_BASE_URL__ || '/api';
+// Delay to simulate API call
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-// Hardcoded demo data matching the official API schema
-const DEMO_WORK_TYPES = [
-    {
-        "name": "Tắm rửa thú cưng",
-        "description": "Dịch vụ tắm rửa bằng dầu gội chuyên dụng, sấy khô và chải lông cho chó mèo.",
-        "is_active": true,
-        "services": [],
-        "areas": [],
-        "teams": [],
-        "id": "b98f869b-5181-4353-9b6b-085c0db0c336",
-        "created_at": "2025-10-18T14:11:00.190903+00:00",
-        "created_by": "00000000-0000-0000-0000-000000000000",
-        "updated_at": "2025-10-18T14:11:00.190904+00:00",
-        "updated_by": null,
-        "is_deleted": false
-    },
-    {
-        "name": "Khám sức khỏe định kỳ",
-        "description": "Kiểm tra tổng quát sức khỏe, cân nặng, da, răng miệng và tiêm phòng cho thú cưng.",
-        "is_active": true,
-        "services": [],
-        "areas": [],
-        "teams": [],
-        "id": "16c769c7-44e5-4a47-a7b1-2f727799eb1c",
-        "created_at": "2025-10-18T14:11:36.096716+00:00",
-        "created_by": "00000000-0000-0000-0000-000000000000",
-        "updated_at": "2025-10-18T14:11:36.096717+00:00",
-        "updated_by": null,
-        "is_deleted": false
-    },
-    {
-        "name": "Nhân viên tại quầy",
-        "description": "Phụ trách tiếp đón khách hàng, tư vấn dịch vụ, xử lý thanh toán và hỗ trợ đặt lịch cho thú cưng tại quầy.",
-        "is_active": true,
-        "services": [],
-        "areas": [],
-        "teams": [],
-        "id": "5d824daf-06fd-4498-9885-12cd18e4fb2f",
-        "created_at": "2025-10-18T14:13:57.938457+00:00",
-        "created_by": "00000000-0000-0000-0000-000000000000",
-        "updated_at": "2025-10-18T14:13:57.938457+00:00",
-        "updated_by": null,
-        "is_deleted": false
-    },
-    {
-        "name": "Dịch Vụ Chăm Sóc Mèo",
-        "description": "Dành cho các dịch vụ đặc biệt như cắt móng, chải lông hoặc tắm khô cho mèo (nếu quán có cung cấp).",
-        "is_active": true,
-        "services": [],
-        "areas": [],
-        "teams": [],
-        "id": "73fbb178-773c-4cdd-a921-3e92dd1bbb00",
-        "created_at": "2025-10-19T06:30:42.769541+00:00",
-        "created_by": "00000000-0000-0000-0000-000000000000",
-        "updated_at": "2025-10-19T06:30:42.769541+00:00",
-        "updated_by": null,
-        "is_deleted": false
-    }
-];
+// Mock getCurrentUser
+const getCurrentUser = () => {
+    const user = localStorage.getItem('currentUser');
+    return user ? JSON.parse(user) : null;
+};
 
-/**
- * Get all work types
- * @param {Object} filters - Optional filters
- * @param {boolean} filters.is_active - Filter by active status
- * @param {number} filters.page_index - Page index (0-based)
- * @param {number} filters.page_size - Page size
- * @returns {Promise<Object>} { success: boolean, data: Array, pagination: Object }
- */
-const getAllWorkTypes = async (filters = {}) => {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 300));
+// Permission check
+const checkPermission = (user, permission) => {
+    if (!user) return false;
+    const role = user.role || user.account?.role;
+    if (role && role.toUpperCase() === 'MANAGER') return true;
+    return false;
+};
 
-    // Always return hardcoded data
-    const filteredData = DEMO_WORK_TYPES.filter(wt =>
-        filters.is_active === undefined || wt.is_active === filters.is_active
-    );
-
-    return {
-        success: true,
-        data: filteredData,
-        pagination: {
-            total_items_count: filteredData.length,
-            page_size: filters.page_size || 10,
-            total_pages_count: 1,
-            page_index: filters.page_index || 0,
-            has_next: false,
-            has_previous: false
-        }
-    };
-
-    /* Original API call - commented out for now
-    try {
-        const response = await axios.get(`${API_BASE_URL}/work-types`, {
-            params: {
-                IsActive: filters.is_active,
-                PageIndex: filters.page_index || 0,
-                PageSize: filters.page_size || 100
-            },
-            timeout: 10000
-        });
-
-        return {
-            success: true,
-            data: response.data?.data || [],
-            pagination: response.data?.pagination || {}
-        };
-    } catch (error) {
-        console.error('Error fetching work types:', error);
-        // Fallback to demo data
-        return {
-            success: true,
-            data: DEMO_WORK_TYPES.filter(wt => 
-                filters.is_active === undefined || wt.is_active === filters.is_active
-            ),
-            pagination: {
-                total_items_count: DEMO_WORK_TYPES.length,
-                page_size: 10,
-                total_pages_count: 1,
-                page_index: 0,
-                has_next: false,
-                has_previous: false
-            }
-        };
-    }
-    */
+// Generate ID
+const generateId = () => {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+        const r = Math.random() * 16 | 0;
+        const v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
 };
 
 /**
- * Get work type by ID
- * @param {string} id - Work type ID
- * @returns {Promise<Object>} { success: boolean, data: Object }
+ * Get all work types
  */
-const getWorkTypeById = async (id) => {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 200));
+export const getWorkTypes = async () => {
+    await delay(500);
+    const currentUser = getCurrentUser();
 
-    // Always return hardcoded data
-    const workType = DEMO_WORK_TYPES.find(wt => wt.id === id);
+    if (!checkPermission(currentUser, 'work_type_management')) {
+        throw new Error('Không có quyền truy cập');
+    }
+
     return {
-        success: !!workType,
-        data: workType || null
+        success: true,
+        data: MOCK_WORK_TYPES
+    };
+};
+
+/**
+ * Get work type by ID (detail)
+ */
+export const getWorkTypeById = async (id) => {
+    await delay(300);
+    const currentUser = getCurrentUser();
+
+    if (!checkPermission(currentUser, 'work_type_management')) {
+        throw new Error('Không có quyền truy cập');
+    }
+
+    const workType = MOCK_WORK_TYPES.find(wt => wt.id === id);
+    if (!workType) {
+        throw new Error('Không tìm thấy loại công việc');
+    }
+
+    return {
+        success: true,
+        data: workType
     };
 };
 
 /**
  * Create new work type
- * @param {Object} workType - Work type data
- * @returns {Promise<Object>} { success: boolean, data: Object }
+ * API: { name: string, description: string }
  */
-const createWorkType = async (workType) => {
-    try {
-        const response = await axios.post(`${API_BASE_URL}/work-types`, workType, {
-            timeout: 10000
-        });
+export const createWorkType = async (workTypeData) => {
+    await delay(700);
+    const currentUser = getCurrentUser();
 
-        return {
-            success: true,
-            data: response.data?.data || null
-        };
-    } catch (error) {
-        console.error('Error creating work type:', error);
-        return {
-            success: false,
-            error: error.response?.data?.message || 'Không thể tạo loại công việc'
-        };
+    if (!checkPermission(currentUser, 'work_type_management')) {
+        throw new Error('Không có quyền tạo loại công việc');
     }
+
+    // Validation
+    if (!workTypeData.name) throw new Error('Tên loại công việc là bắt buộc');
+    if (!workTypeData.description) throw new Error('Mô tả là bắt buộc');
+
+    const newWorkType = {
+        id: generateId(),
+        name: workTypeData.name,
+        description: workTypeData.description,
+        is_active: true, // Default active when created
+        tasks: [],
+        area_work_types: [],
+        team_work_types: [],
+        created_at: new Date().toISOString(),
+        created_by: currentUser?.id || '00000000-0000-0000-0000-000000000000',
+        updated_at: new Date().toISOString(),
+        updated_by: null,
+        is_deleted: false
+    };
+
+    // Add to mock database
+    MOCK_WORK_TYPES.push(newWorkType);
+
+    return {
+        success: true,
+        data: newWorkType,
+        message: 'Tạo loại công việc thành công'
+    };
 };
 
 /**
  * Update work type
- * @param {string} id - Work type ID
- * @param {Object} workType - Updated work type data
- * @returns {Promise<Object>} { success: boolean, data: Object }
+ * API: { name: string, description: string, is_active: boolean }
  */
-const updateWorkType = async (id, workType) => {
-    try {
-        const response = await axios.put(`${API_BASE_URL}/work-types/${id}`, workType, {
-            timeout: 10000
-        });
+export const updateWorkType = async (id, workTypeData) => {
+    await delay(700);
+    const currentUser = getCurrentUser();
 
-        return {
-            success: true,
-            data: response.data?.data || null
-        };
-    } catch (error) {
-        console.error('Error updating work type:', error);
-        return {
-            success: false,
-            error: error.response?.data?.message || 'Không thể cập nhật loại công việc'
-        };
+    if (!checkPermission(currentUser, 'work_type_management')) {
+        throw new Error('Không có quyền cập nhật loại công việc');
     }
+
+    const workTypeIndex = MOCK_WORK_TYPES.findIndex(wt => wt.id === id);
+    if (workTypeIndex === -1) {
+        throw new Error('Không tìm thấy loại công việc');
+    }
+
+    const workType = MOCK_WORK_TYPES[workTypeIndex];
+
+    // Update work type data
+    const updatedWorkType = {
+        ...workType,
+        name: workTypeData.name !== undefined ? workTypeData.name : workType.name,
+        description: workTypeData.description !== undefined ? workTypeData.description : workType.description,
+        is_active: workTypeData.is_active !== undefined ? workTypeData.is_active : workType.is_active,
+        updated_at: new Date().toISOString(),
+        updated_by: currentUser?.id || '00000000-0000-0000-0000-000000000000'
+    };
+
+    MOCK_WORK_TYPES[workTypeIndex] = updatedWorkType;
+
+    return {
+        success: true,
+        data: updatedWorkType,
+        message: 'Cập nhật loại công việc thành công'
+    };
 };
 
 /**
- * Delete work type
- * @param {string} id - Work type ID
- * @returns {Promise<Object>} { success: boolean }
+ * Delete work type (soft delete)
  */
-const deleteWorkType = async (id) => {
-    try {
-        await axios.delete(`${API_BASE_URL}/work-types/${id}`, {
-            timeout: 10000
-        });
+export const deleteWorkType = async (id) => {
+    await delay(500);
+    const currentUser = getCurrentUser();
 
-        return { success: true };
-    } catch (error) {
-        console.error('Error deleting work type:', error);
-        return {
-            success: false,
-            error: error.response?.data?.message || 'Không thể xóa loại công việc'
-        };
+    if (!checkPermission(currentUser, 'work_type_management')) {
+        throw new Error('Không có quyền xóa loại công việc');
     }
+
+    const workTypeIndex = MOCK_WORK_TYPES.findIndex(wt => wt.id === id);
+    if (workTypeIndex === -1) {
+        throw new Error('Không tìm thấy loại công việc');
+    }
+
+    // Soft delete
+    MOCK_WORK_TYPES[workTypeIndex].is_deleted = true;
+    MOCK_WORK_TYPES[workTypeIndex].updated_at = new Date().toISOString();
+    MOCK_WORK_TYPES[workTypeIndex].updated_by = currentUser?.id || '00000000-0000-0000-0000-000000000000';
+
+    return {
+        success: true,
+        message: 'Xóa loại công việc thành công'
+    };
 };
 
-const workTypeApi = {
-    getAllWorkTypes,
+export default {
+    getWorkTypes,
     getWorkTypeById,
     createWorkType,
     updateWorkType,
     deleteWorkType
 };
-
-export default workTypeApi;
-export { DEMO_WORK_TYPES };
-

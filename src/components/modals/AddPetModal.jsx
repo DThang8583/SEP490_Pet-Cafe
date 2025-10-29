@@ -8,7 +8,7 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
         name: '',
         species_id: '',
         breed_id: '',
-        pet_group_id: '',
+        group_id: '',
         age: '',
         weight: '',
         gender: '',
@@ -50,7 +50,7 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
                     name: String(initialData.name || ''),
                     species_id: String(initialData.species_id || ''),
                     breed_id: String(initialData.breed_id || ''),
-                    pet_group_id: String(initialData.pet_group_id || ''),
+                    group_id: String(initialData.group_id || ''),
                     age: String(initialData.age || ''),
                     weight: String(initialData.weight || ''),
                     gender: String(initialData.gender || ''),
@@ -66,7 +66,7 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
                     name: '',
                     species_id: '',
                     breed_id: '',
-                    pet_group_id: '',
+                    group_id: '',
                     age: '',
                     weight: '',
                     gender: '',
@@ -83,25 +83,25 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
         }
     }, [isOpen, editMode, initialData]);
 
-    // Clear breed_id and pet_group_id when species changes
+    // Clear breed_id and group_id when species changes
     useEffect(() => {
         if (touched.species_id && formData.breed_id) {
             const currentBreedBelongsToSpecies = availableBreeds.some(b => b.id === formData.breed_id);
             if (!currentBreedBelongsToSpecies) {
-                setFormData(prev => ({ ...prev, breed_id: '', pet_group_id: '' }));
+                setFormData(prev => ({ ...prev, breed_id: '', group_id: '' }));
             }
         }
     }, [formData.species_id, formData.breed_id, availableBreeds, touched.species_id]);
 
-    // Clear pet_group_id when it's no longer valid (e.g., species changed)
+    // Clear group_id when it's no longer valid (e.g., species changed)
     useEffect(() => {
-        if ((touched.breed_id || touched.species_id) && formData.pet_group_id) {
-            const currentGroupStillValid = availableGroups.some(g => g.id === formData.pet_group_id);
+        if ((touched.breed_id || touched.species_id) && formData.group_id) {
+            const currentGroupStillValid = availableGroups.some(g => g.id === formData.group_id);
             if (!currentGroupStillValid) {
-                setFormData(prev => ({ ...prev, pet_group_id: '' }));
+                setFormData(prev => ({ ...prev, group_id: '' }));
             }
         }
-    }, [formData.breed_id, formData.pet_group_id, availableGroups, touched.breed_id, touched.species_id]);
+    }, [formData.breed_id, formData.group_id, availableGroups, touched.breed_id, touched.species_id]);
 
     // Validation functions
     const validateName = (name) => {
@@ -389,7 +389,7 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
     };
 
     const handleSubmit = () => {
-        // Mark all fields as touched (except image and pet_group_id - optional fields)
+        // Mark all fields as touched (except image and group_id - optional fields)
         const allFields = ['name', 'species_id', 'breed_id', 'age', 'weight', 'gender', 'color', 'arrival_date', 'preferences', 'special_notes'];
         const newTouched = {};
         allFields.forEach(field => {
@@ -520,44 +520,36 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
                                 <FormHelperText>{errors.breed_id}</FormHelperText>
                             )}
                         </FormControl>
-                        <FormControl sx={{ flex: 1 }} disabled={!formData.species_id || isLoading} error={touched.pet_group_id && Boolean(errors.pet_group_id)}>
-                            <InputLabel shrink>Nhóm thú cưng</InputLabel>
-                            <Select
-                                label="Nhóm thú cưng"
-                                value={formData.pet_group_id || ''}
-                                onChange={(e) => handleChange('pet_group_id', e.target.value)}
-                                onBlur={() => handleBlur('pet_group_id')}
-                                displayEmpty
-                                notched
-                                renderValue={(selected) => {
-                                    if (!selected) {
-                                        return <em>Không chọn nhóm</em>;
-                                    }
-                                    const group = availableGroups.find(g => g.id === selected);
-                                    return group ? group.name : '';
-                                }}
-                            >
-                                <MenuItem value="">
-                                    <em>Không chọn nhóm</em>
-                                </MenuItem>
-                                {availableGroups.map(g => (
-                                    <MenuItem key={g.id} value={g.id}>
-                                        <Stack direction="row" alignItems="center" spacing={1}>
-                                            <Typography>{g.name}</Typography>
-                                            <Chip
-                                                label={`${g.current_count || 0}/${g.max_capacity}`}
-                                                size="small"
-                                                sx={{
-                                                    height: 20,
-                                                    fontSize: '0.7rem',
-                                                    background: alpha(COLORS.WARNING[100], 0.5)
-                                                }}
-                                            />
-                                        </Stack>
+                        {/* Only show Group field in Edit mode (API: group_id is only in edit) */}
+                        {editMode && (
+                            <FormControl sx={{ flex: 1 }} disabled={!formData.species_id || isLoading} error={touched.group_id && Boolean(errors.group_id)}>
+                                <InputLabel shrink>Nhóm thú cưng (Tùy chọn)</InputLabel>
+                                <Select
+                                    label="Nhóm thú cưng (Tùy chọn)"
+                                    value={formData.group_id || ''}
+                                    onChange={(e) => handleChange('group_id', e.target.value)}
+                                    onBlur={() => handleBlur('group_id')}
+                                    displayEmpty
+                                    notched
+                                    renderValue={(selected) => {
+                                        if (!selected) {
+                                            return <em>Không chọn nhóm</em>;
+                                        }
+                                        const group = availableGroups.find(g => g.id === selected);
+                                        return group ? group.name : '';
+                                    }}
+                                >
+                                    <MenuItem value="">
+                                        <em>Không chọn nhóm</em>
                                     </MenuItem>
-                                ))}
-                            </Select>
-                        </FormControl>
+                                    {availableGroups.map(g => (
+                                        <MenuItem key={g.id} value={g.id}>
+                                            <Typography>{g.name}</Typography>
+                                        </MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+                        )}
                     </Stack>
 
                     {/* Row 3 */}
@@ -822,16 +814,16 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
                                             </Box>
                                         )}
                                     </Stack>
-                                    {(formData.pet_group_id || formData.color || formData.arrival_date) && (
+                                    {(formData.group_id || formData.color || formData.arrival_date) && (
                                         <Stack direction="row" spacing={2}>
-                                            {formData.pet_group_id && (
+                                            {formData.group_id && (
                                                 <Box sx={{ flex: 1 }}>
                                                     <Stack direction="row" spacing={1}>
                                                         <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, minWidth: '100px' }}>
                                                             Nhóm:
                                                         </Typography>
                                                         <Typography variant="body2" sx={{ fontWeight: 600, flex: 1 }}>
-                                                            {getGroupName(formData.pet_group_id)}
+                                                            {getGroupName(formData.group_id)}
                                                         </Typography>
                                                     </Stack>
                                                 </Box>

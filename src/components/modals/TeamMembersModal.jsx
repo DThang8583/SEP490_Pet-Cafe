@@ -6,16 +6,16 @@ import { COLORS } from '../../constants/colors';
 
 const roleLabel = (r) => {
     switch (r) {
-        case 'sales_staff': return 'Sale staff';
-        case 'working_staff': return 'Working staff';
+        case 'SALE_STAFF': return 'Sale Staff';
+        case 'WORKING_STAFF': return 'Working Staff';
         default: return r;
     }
 };
 
 const roleColor = (r) => {
     switch (r) {
-        case 'sales_staff': return { bg: alpha(COLORS.INFO[100], 0.8), color: COLORS.INFO[700] };
-        case 'working_staff': return { bg: alpha(COLORS.WARNING[100], 0.8), color: COLORS.WARNING[700] };
+        case 'SALE_STAFF': return { bg: alpha(COLORS.INFO[100], 0.8), color: COLORS.INFO[700] };
+        case 'WORKING_STAFF': return { bg: alpha(COLORS.WARNING[100], 0.8), color: COLORS.WARNING[700] };
         default: return { bg: alpha(COLORS.GRAY[200], 0.6), color: COLORS.TEXT.SECONDARY };
     }
 };
@@ -35,15 +35,19 @@ const TeamMembersModal = ({
     onRoleFilterChange,
     onAddMember,
     onRemoveMember,
-    onSetLeader,
+    onToggleMemberStatus,
     onSave
 }) => {
-    const addedCount = teamMembers.filter(m => !originalTeamMembers.some(om => om.id === m.id)).length;
-    const removedCount = originalTeamMembers.filter(om => !teamMembers.some(m => m.id === om.id)).length;
-    const hasChanges = addedCount > 0 || removedCount > 0;
+    const addedCount = teamMembers.filter(m => !originalTeamMembers.some(om => om.employee_id === m.employee_id)).length;
+    const removedCount = originalTeamMembers.filter(om => !teamMembers.some(m => m.employee_id === om.employee_id)).length;
+    const changedStatusCount = teamMembers.filter(m => {
+        const original = originalTeamMembers.find(om => om.employee_id === m.employee_id);
+        return original && original.is_active !== m.is_active;
+    }).length;
+    const hasChanges = addedCount > 0 || removedCount > 0 || changedStatusCount > 0;
 
-    const memberIds = teamMembers.map(m => m.id);
-    const leaderId = team?.leader?.id;
+    const memberEmployeeIds = teamMembers.map(m => m.employee?.id || m.employee_id);
+    const leaderId = team?.leader_id;
 
     // Get staff IDs already assigned to OTHER teams in the SAME shift
     const staffInOtherTeams = React.useMemo(() => {
@@ -68,27 +72,19 @@ const TeamMembersModal = ({
         return assignedStaffIds;
     }, [currentShift, team?.id]);
 
-    // Sort members to always show leader first
-    const sortedMembers = [...teamMembers].sort((a, b) => {
-        const aIsLeader = a.id === leaderId;
-        const bIsLeader = b.id === leaderId;
-        if (aIsLeader) return -1;
-        if (bIsLeader) return 1;
-        return 0;
-    });
-
     const filteredStaff = allStaff.filter(s => {
-        const inTeam = memberIds.includes(s.id);
-        const isLeader = s.id === leaderId;
-        const isManager = s.role === 'manager';
-        const inOtherTeam = staffInOtherTeams.has(s.id);
+        const employeeId = s.id;
+        const inTeam = memberEmployeeIds.includes(employeeId);
+        const isLeader = employeeId === leaderId;
+        const isManager = s.account?.role === 'MANAGER';
+        const inOtherTeam = staffInOtherTeams.has(employeeId);
 
         // Exclude if: already in this team, is leader, is manager, or already in another team
         if (inTeam || isLeader || isManager || inOtherTeam) return false;
 
-        const matchSearch = s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        const matchSearch = s.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
             s.email?.toLowerCase().includes(searchQuery.toLowerCase());
-        const matchRole = roleFilter === 'all' || s.role === roleFilter;
+        const matchRole = roleFilter === 'all' || s.sub_role === roleFilter;
 
         return matchSearch && matchRole;
     });
@@ -174,8 +170,8 @@ const TeamMembersModal = ({
                                         sx={{ bgcolor: 'white', height: 48 }}
                                     >
                                         <MenuItem value="all">Tất cả</MenuItem>
-                                        <MenuItem value="working_staff">Working Staff</MenuItem>
-                                        <MenuItem value="sales_staff">Sales Staff</MenuItem>
+                                        <MenuItem value="WORKING_STAFF">Working Staff</MenuItem>
+                                        <MenuItem value="SALE_STAFF">Sale Staff</MenuItem>
                                     </Select>
                                 </FormControl>
                             </Stack>
@@ -210,7 +206,7 @@ const TeamMembersModal = ({
                                                 <Stack direction="row" spacing={2} alignItems="center">
                                                     <Checkbox checked={false} sx={{ '& .MuiSvgIcon-root': { fontSize: 22 } }} />
                                                     <Avatar
-                                                        src={staffMember.avatar}
+                                                        src={staffMember.avatar_url}
                                                         sx={{ width: 48, height: 48 }}
                                                     >
                                                         <Person sx={{ fontSize: 24 }} />
@@ -220,18 +216,18 @@ const TeamMembersModal = ({
                                             <ListItemText
                                                 primary={
                                                     <Typography variant="body1" sx={{ fontWeight: 600, fontSize: '1rem', mb: 0.5 }}>
-                                                        {staffMember.name}
+                                                        {staffMember.full_name}
                                                     </Typography>
                                                 }
                                                 secondary={
                                                     <Chip
-                                                        label={roleLabel(staffMember.role)}
+                                                        label={roleLabel(staffMember.sub_role)}
                                                         size="small"
                                                         sx={{
                                                             height: 22,
                                                             fontSize: '0.75rem',
                                                             mt: 0.5,
-                                                            ...roleColor(staffMember.role)
+                                                            ...roleColor(staffMember.sub_role)
                                                         }}
                                                     />
                                                 }
@@ -270,12 +266,15 @@ const TeamMembersModal = ({
                                     </Typography>
                                 </Box>
                             ) : (
-                                sortedMembers.map((member, index) => {
-                                    const isNew = !originalTeamMembers.some(om => om.id === member.id);
-                                    const isLeader = team?.leader?.id === member.id;
+                                teamMembers.map((member, index) => {
+                                    const employeeId = member.employee?.id || member.employee_id;
+                                    const isNew = !originalTeamMembers.some(om => (om.employee?.id || om.employee_id) === employeeId);
+                                    const isLeader = employeeId === leaderId;
+                                    const original = originalTeamMembers.find(om => (om.employee?.id || om.employee_id) === employeeId);
+                                    const statusChanged = original && original.is_active !== member.is_active;
 
                                     return (
-                                        <React.Fragment key={member.id}>
+                                        <React.Fragment key={employeeId}>
                                             {index > 0 && <Divider sx={{ my: 0.5 }} />}
                                             <ListItem
                                                 sx={{
@@ -283,25 +282,29 @@ const TeamMembersModal = ({
                                                     px: 2.5,
                                                     borderRadius: 1.5,
                                                     mb: 0.5,
-                                                    bgcolor: isNew ? alpha(COLORS.SUCCESS[50], 0.6) : 'transparent',
-                                                    borderLeft: isNew ? `5px solid ${COLORS.SUCCESS[500]}` : isLeader ? `5px solid ${COLORS.WARNING[500]}` : '5px solid transparent'
+                                                    bgcolor: isNew ? alpha(COLORS.SUCCESS[50], 0.6) :
+                                                        !member.is_active ? alpha(COLORS.GRAY[100], 0.5) : 'transparent',
+                                                    borderLeft: isNew ? `5px solid ${COLORS.SUCCESS[500]}` :
+                                                        isLeader ? `5px solid ${COLORS.WARNING[500]}` :
+                                                            statusChanged ? `5px solid ${COLORS.INFO[500]}` :
+                                                                '5px solid transparent',
+                                                    opacity: member.is_active ? 1 : 0.6
                                                 }}
                                             >
                                                 <ListItemAvatar sx={{ minWidth: 0, mr: 2.5 }}>
                                                     <Stack direction="row" spacing={2} alignItems="center">
-                                                        <Checkbox
-                                                            checked={true}
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                if (!isLeader) {
-                                                                    onRemoveMember(member.id);
-                                                                }
-                                                            }}
-                                                            disabled={isLeader}
-                                                            sx={{ '& .MuiSvgIcon-root': { fontSize: 22 } }}
-                                                        />
+                                                        {!isLeader && (
+                                                            <Checkbox
+                                                                checked={member.is_active ?? true}
+                                                                onChange={(e) => {
+                                                                    e.stopPropagation();
+                                                                    onToggleMemberStatus(employeeId);
+                                                                }}
+                                                                sx={{ '& .MuiSvgIcon-root': { fontSize: 22 } }}
+                                                            />
+                                                        )}
                                                         <Avatar
-                                                            src={member.avatar_url}
+                                                            src={member.employee?.avatar_url || member.avatar_url}
                                                             sx={{ width: 48, height: 48 }}
                                                         >
                                                             <Person sx={{ fontSize: 24 }} />
@@ -310,9 +313,9 @@ const TeamMembersModal = ({
                                                 </ListItemAvatar>
                                                 <ListItemText
                                                     primary={
-                                                        <Stack direction="row" spacing={1.5} alignItems="center">
+                                                        <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap">
                                                             <Typography variant="body1" sx={{ fontWeight: 600, fontSize: '1rem' }}>
-                                                                {member.full_name || member.name}
+                                                                {member.employee?.full_name || member.full_name}
                                                             </Typography>
                                                             {isLeader && (
                                                                 <Chip
@@ -341,22 +344,48 @@ const TeamMembersModal = ({
                                                                     }}
                                                                 />
                                                             )}
+                                                            {!member.is_active && (
+                                                                <Chip
+                                                                    label="Không hoạt động"
+                                                                    size="small"
+                                                                    sx={{
+                                                                        height: 22,
+                                                                        fontSize: '0.75rem',
+                                                                        bgcolor: COLORS.GRAY[400],
+                                                                        color: 'white',
+                                                                        fontWeight: 700
+                                                                    }}
+                                                                />
+                                                            )}
+                                                            {statusChanged && (
+                                                                <Chip
+                                                                    label="Đã thay đổi"
+                                                                    size="small"
+                                                                    sx={{
+                                                                        height: 22,
+                                                                        fontSize: '0.75rem',
+                                                                        bgcolor: COLORS.INFO[500],
+                                                                        color: 'white',
+                                                                        fontWeight: 700
+                                                                    }}
+                                                                />
+                                                            )}
                                                         </Stack>
                                                     }
                                                 />
-                                                {!isLeader && onSetLeader && (
+                                                {!isLeader && (
                                                     <IconButton
                                                         size="small"
-                                                        onClick={() => onSetLeader(member)}
+                                                        onClick={() => onRemoveMember(employeeId)}
                                                         sx={{
                                                             ml: 1,
-                                                            bgcolor: alpha(COLORS.WARNING[100], 0.5),
+                                                            bgcolor: alpha(COLORS.ERROR[100], 0.5),
                                                             '&:hover': {
-                                                                bgcolor: alpha(COLORS.WARNING[200], 0.8)
+                                                                bgcolor: alpha(COLORS.ERROR[200], 0.8)
                                                             }
                                                         }}
                                                     >
-                                                        <StarBorder sx={{ fontSize: 20, color: COLORS.WARNING[700] }} />
+                                                        <Close sx={{ fontSize: 20, color: COLORS.ERROR[700] }} />
                                                     </IconButton>
                                                 )}
                                             </ListItem>
@@ -372,7 +401,7 @@ const TeamMembersModal = ({
             <DialogActions sx={{ px: 3, py: 3, bgcolor: alpha(COLORS.GRAY[50], 0.3), gap: 2, borderTop: `1px solid ${COLORS.BORDER.MAIN}` }}>
                 <Box sx={{ flex: 1 }}>
                     <Typography variant="body1" sx={{ color: COLORS.TEXT.SECONDARY, fontWeight: 600 }}>
-                        💡 Click vào nhân viên để thêm/xóa
+                        💡 Click checkbox để kích hoạt/vô hiệu hóa thành viên
                     </Typography>
                     {staffInOtherTeams.size > 0 && (
                         <Typography variant="caption" sx={{ color: COLORS.WARNING[700], display: 'block', mt: 0.5 }}>

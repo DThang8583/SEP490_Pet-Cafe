@@ -62,10 +62,10 @@ const Navbar = () => {
         { label: 'Thú cưng', icon: <Pets />, path: '/manager/pets' },
         { label: 'Tiêm phòng', icon: <Vaccines />, path: '/manager/vaccinations' },
         { label: 'Khu vực', icon: <LocationOn />, path: '/manager/areas' },
-        { label: 'Dịch vụ', icon: <DesignServices />, path: '/manager/services' },
         { label: 'Nhân viên', icon: <People />, path: '/manager/staff' },
         { label: 'Ca làm việc', icon: <Schedule />, path: '/manager/work-shifts' },
         { label: 'Nhiệm vụ', icon: <Assignment />, path: '/manager/tasks' },
+        { label: 'Dịch vụ', icon: <DesignServices />, path: '/manager/services' },
         { label: 'Sản phẩm', icon: <ShoppingCart />, path: '/manager/products' },
         { label: 'Tài khoản', icon: <AccountCircle />, path: '/profile' }
     ]), []);

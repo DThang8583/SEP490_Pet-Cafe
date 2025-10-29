@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogActions, Box, Typography, Button, IconButton, TextField, FormControl, InputLabel, Select, MenuItem, Avatar, Stack, InputAdornment, Alert, alpha } from '@mui/material';
-import { Close, Person, Email, Phone, Home, AttachMoney, PhotoCamera, Visibility, VisibilityOff } from '@mui/icons-material';
+import { Dialog, DialogContent, DialogActions, Box, Typography, Button, IconButton, TextField, FormControl, InputLabel, Select, MenuItem, Avatar, Stack, InputAdornment, Alert, alpha, Chip } from '@mui/material';
+import { Close, Person, Email, Phone, Home, AttachMoney, PhotoCamera, Visibility, VisibilityOff, WorkOutline } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 
 const AddStaffModal = ({
@@ -17,7 +17,8 @@ const AddStaffModal = ({
         phone: '',
         address: '',
         salary: '',
-        role: '',
+        sub_role: '',
+        skills: [],
         avatar_url: '',
         password: ''
     });
@@ -25,6 +26,7 @@ const AddStaffModal = ({
     const [errors, setErrors] = useState({});
     const [showPassword, setShowPassword] = useState(false);
     const [previewAvatar, setPreviewAvatar] = useState('');
+    const [skillInput, setSkillInput] = useState('');
 
     // Load initial data when editing
     useEffect(() => {
@@ -36,11 +38,13 @@ const AddStaffModal = ({
                     phone: initialData.phone || '',
                     address: initialData.address || '',
                     salary: initialData.salary || '',
-                    role: initialData.role || '',
+                    sub_role: initialData.sub_role || '',
+                    skills: initialData.skills || [],
                     avatar_url: initialData.avatar_url || '',
-                    password: '' // Password không load khi edit
+                    password: ''
                 });
                 setPreviewAvatar(initialData.avatar_url || '');
+                setSkillInput(initialData.skills ? initialData.skills.join(', ') : '');
             } else {
                 // Reset form khi thêm mới
                 setFormData({
@@ -49,161 +53,87 @@ const AddStaffModal = ({
                     phone: '',
                     address: '',
                     salary: '',
-                    role: '',
+                    sub_role: '',
+                    skills: [],
                     avatar_url: '',
                     password: ''
                 });
                 setPreviewAvatar('');
+                setSkillInput('');
             }
             setErrors({});
         }
     }, [isOpen, editMode, initialData]);
 
-    // Role options - Manager chỉ được thêm nhân viên cấp dưới
+    // Role options
     const roleOptions = [
-        { value: 'sale_staff', label: 'Nhân viên bán hàng', color: COLORS.INFO[500] },
-        { value: 'working_staff', label: 'Nhân viên chăm sóc', color: COLORS.WARNING[500] }
+        { value: 'SALE_STAFF', label: 'Nhân viên bán hàng', color: COLORS.INFO[500] },
+        { value: 'WORKING_STAFF', label: 'Nhân viên chăm sóc', color: COLORS.WARNING[500] }
     ];
 
-    // Validation rules - Theo chuẩn doanh nghiệp
+    // Validation
     const validate = () => {
         const newErrors = {};
 
-        // 1. Full name - Chuẩn doanh nghiệp
+        // Full name
         if (!formData.full_name.trim()) {
             newErrors.full_name = 'Họ và tên là bắt buộc';
-        } else {
-            const nameParts = formData.full_name.trim().split(/\s+/);
-
-            // Phải có ít nhất 2 từ (họ và tên)
-            if (nameParts.length < 2) {
-                newErrors.full_name = 'Vui lòng nhập đầy đủ họ và tên (ít nhất 2 từ)';
-            }
-            // Kiểm tra độ dài
-            else if (formData.full_name.trim().length < 5 || formData.full_name.trim().length > 50) {
-                newErrors.full_name = 'Họ và tên phải từ 5-50 ký tự';
-            }
-            // Chỉ chứa chữ cái và khoảng trắng (có dấu tiếng Việt)
-            else if (!/^[a-zA-ZÀÁÂÃÈÉÊÌÍÒÓÔÕÙÚĂĐĨŨƠàáâãèéêìíòóôõùúăđĩũơƯĂẠẢẤẦẨẪẬẮẰẲẴẶẸẺẼỀỀỂẾưăạảấầẩẫậắằẳẵặẹẻẽềềểếỄỆỈỊỌỎỐỒỔỖỘỚỜỞỠỢỤỦỨỪễệỉịọỏốồổỗộớờởỡợụủứừỬỮỰỲỴÝỶỸửữựỳỵỷỹ\s]+$/.test(formData.full_name)) {
-                newErrors.full_name = 'Họ và tên chỉ được chứa chữ cái';
-            }
-            // Mỗi từ phải viết hoa chữ cái đầu
-            else {
-                const hasInvalidCapitalization = nameParts.some(part => {
-                    return part.length > 0 && part[0] !== part[0].toUpperCase();
-                });
-                if (hasInvalidCapitalization) {
-                    newErrors.full_name = 'Mỗi từ trong họ tên phải viết hoa chữ cái đầu';
-                }
-            }
+        } else if (formData.full_name.trim().length < 5) {
+            newErrors.full_name = 'Họ và tên phải có ít nhất 5 ký tự';
         }
 
-        // 2. Email - Chuẩn doanh nghiệp
+        // Email
         if (!formData.email.trim()) {
             newErrors.email = 'Email là bắt buộc';
         } else if (!/^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/.test(formData.email)) {
             newErrors.email = 'Email không đúng định dạng';
-        } else if (formData.email.length > 100) {
-            newErrors.email = 'Email không được vượt quá 100 ký tự';
-        } else {
-            // Kiểm tra domain email hợp lệ
-            const domain = formData.email.split('@')[1];
-            const invalidDomains = ['test.com', 'example.com', 'temp.com'];
-            if (invalidDomains.includes(domain)) {
-                newErrors.email = 'Vui lòng sử dụng email thật, không dùng email test';
-            }
         }
 
-        // 3. Phone - Chuẩn Việt Nam
+        // Phone
         if (!formData.phone.trim()) {
             newErrors.phone = 'Số điện thoại là bắt buộc';
         } else {
             const phoneClean = formData.phone.replace(/[\s.-]/g, '');
-
-            // Kiểm tra format
             if (!/^(0|\+84)[0-9]{9,10}$/.test(phoneClean)) {
                 newErrors.phone = 'Số điện thoại không đúng định dạng';
-            } else {
-                // Kiểm tra đầu số hợp lệ tại Việt Nam
-                const validPrefixes = ['03', '05', '07', '08', '09'];
-                const prefix = phoneClean.startsWith('0') ? phoneClean.substring(0, 2) : phoneClean.substring(3, 5);
-
-                if (!validPrefixes.includes(prefix)) {
-                    newErrors.phone = 'Đầu số điện thoại không hợp lệ (phải là 03, 05, 07, 08, 09)';
-                }
-
-                // Kiểm tra độ dài chính xác
-                const expectedLength = phoneClean.startsWith('+84') ? 12 : 10;
-                if (phoneClean.length !== expectedLength) {
-                    newErrors.phone = `Số điện thoại phải có đúng ${expectedLength === 12 ? '12' : '10'} chữ số`;
-                }
             }
         }
 
-        // 4. Address - Đầy đủ thông tin
+        // Address
         if (!formData.address.trim()) {
             newErrors.address = 'Địa chỉ là bắt buộc';
         } else if (formData.address.trim().length < 10) {
-            newErrors.address = 'Địa chỉ phải đầy đủ: số nhà, đường, phường/xã, quận/huyện, tỉnh/thành phố (tối thiểu 20 ký tự)';
-        } else if (formData.address.trim().length > 200) {
-            newErrors.address = 'Địa chỉ không được vượt quá 200 ký tự';
+            newErrors.address = 'Địa chỉ phải đầy đủ (tối thiểu 10 ký tự)';
         }
 
-        // 5. Salary - Theo quy định lương Việt Nam
+        // Salary
         if (!formData.salary) {
             newErrors.salary = 'Lương là bắt buộc';
         } else {
             const salaryNum = parseFloat(formData.salary);
+            if (salaryNum < 0) {
+                newErrors.salary = 'Lương phải lớn hơn 0';
+            }
         }
 
-        // 6. Role
-        if (!formData.role) {
-            newErrors.role = 'Vui lòng chọn chức vụ';
-        } else if (!['sale_staff', 'working_staff'].includes(formData.role)) {
-            newErrors.role = 'Chức vụ không hợp lệ';
+        // Sub Role
+        if (!formData.sub_role) {
+            newErrors.sub_role = 'Vui lòng chọn chức vụ';
+        } else if (!['SALE_STAFF', 'WORKING_STAFF'].includes(formData.sub_role)) {
+            newErrors.sub_role = 'Chức vụ không hợp lệ';
         }
 
-        // 7. Password - Bảo mật cao
+        // Password
         if (!editMode) {
             if (!formData.password) {
                 newErrors.password = 'Mật khẩu là bắt buộc';
-            } else {
-                // Độ dài tối thiểu
-                if (formData.password.length < 8) {
-                    newErrors.password = 'Mật khẩu phải có ít nhất 8 ký tự';
-                }
-                // Phải có chữ hoa
-                else if (!/[A-Z]/.test(formData.password)) {
-                    newErrors.password = 'Mật khẩu phải có ít nhất 1 chữ hoa';
-                }
-                // Phải có chữ thường
-                else if (!/[a-z]/.test(formData.password)) {
-                    newErrors.password = 'Mật khẩu phải có ít nhất 1 chữ thường';
-                }
-                // Phải có số
-                else if (!/[0-9]/.test(formData.password)) {
-                    newErrors.password = 'Mật khẩu phải có ít nhất 1 chữ số';
-                }
+            } else if (formData.password.length < 6) {
+                newErrors.password = 'Mật khẩu phải có ít nhất 6 ký tự';
             }
         } else {
-            // Khi edit, nếu có nhập password mới thì validate
-            if (formData.password && formData.password.length > 0) {
-                if (formData.password.length < 8) {
-                    newErrors.password = 'Mật khẩu mới phải có ít nhất 8 ký tự';
-                } else if (!/[A-Z]/.test(formData.password)) {
-                    newErrors.password = 'Mật khẩu mới phải có ít nhất 1 chữ hoa';
-                } else if (!/[a-z]/.test(formData.password)) {
-                    newErrors.password = 'Mật khẩu mới phải có ít nhất 1 chữ thường';
-                } else if (!/[0-9]/.test(formData.password)) {
-                    newErrors.password = 'Mật khẩu mới phải có ít nhất 1 chữ số';
-                }
+            if (formData.password && formData.password.length > 0 && formData.password.length < 6) {
+                newErrors.password = 'Mật khẩu mới phải có ít nhất 6 ký tự';
             }
-        }
-
-        // 8. Avatar - Khuyến khích có ảnh đại diện
-        if (!editMode && !formData.avatar_url) {
-            // Warning nhẹ, không block submit
-            console.warn('Khuyến khích upload ảnh đại diện cho nhân viên');
         }
 
         setErrors(newErrors);
@@ -216,7 +146,6 @@ const AddStaffModal = ({
             ...prev,
             [field]: value
         }));
-        // Clear error when user types
         if (errors[field]) {
             setErrors(prev => ({
                 ...prev,
@@ -225,11 +154,17 @@ const AddStaffModal = ({
         }
     };
 
-    // Handle avatar upload - Theo chuẩn doanh nghiệp
+    // Handle skills input
+    const handleSkillsChange = (value) => {
+        setSkillInput(value);
+        const skillsArray = value.split(',').map(s => s.trim()).filter(s => s);
+        handleChange('skills', skillsArray);
+    };
+
+    // Handle avatar upload
     const handleAvatarChange = (event) => {
         const file = event.target.files[0];
         if (file) {
-            // 1. Validate file type - Chỉ chấp nhận ảnh chuẩn
             const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
             if (!allowedTypes.includes(file.type)) {
                 setErrors(prev => ({
@@ -239,41 +174,15 @@ const AddStaffModal = ({
                 return;
             }
 
-            // 4. Create preview và validate dimension
             const reader = new FileReader();
             reader.onloadend = () => {
                 const img = new Image();
                 img.onload = () => {
-                    // Validate kích thước ảnh (min 200x200, max 2000x2000)
-                    if (img.width < 200 || img.height < 200) {
-                        setErrors(prev => ({
-                            ...prev,
-                            avatar_url: 'Ảnh phải có kích thước tối thiểu 200x200 pixels'
-                        }));
-                        return;
-                    }
-                    if (img.width > 2000 || img.height > 2000) {
-                        setErrors(prev => ({
-                            ...prev,
-                            avatar_url: 'Ảnh không được vượt quá 2000x2000 pixels'
-                        }));
-                        return;
-                    }
-
-                    // Khuyến nghị ảnh vuông hoặc gần vuông
-                    const ratio = img.width / img.height;
-                    if (ratio < 0.8 || ratio > 1.2) {
-                        console.warn('Khuyến nghị sử dụng ảnh vuông (tỷ lệ 1:1) để hiển thị tốt nhất');
-                    }
-
-                    // All validations passed
                     setPreviewAvatar(reader.result);
                     setFormData(prev => ({
                         ...prev,
                         avatar_url: reader.result
                     }));
-
-                    // Clear error
                     setErrors(prev => ({
                         ...prev,
                         avatar_url: ''
@@ -311,20 +220,10 @@ const AddStaffModal = ({
         }
     };
 
-    // Handle keyboard events
-    const handleKeyDown = (event) => {
-        if (event.key === 'Enter' && !isLoading) {
-            handleSubmit();
-        } else if (event.key === 'Escape' && !isLoading) {
-            handleClose();
-        }
-    };
-
     return (
         <Dialog
             open={isOpen}
             onClose={handleClose}
-            onKeyDown={handleKeyDown}
             maxWidth="md"
             fullWidth
             PaperProps={{
@@ -339,8 +238,7 @@ const AddStaffModal = ({
             BackdropProps={{
                 sx: {
                     backgroundColor: 'rgba(0, 0, 0, 0.4)',
-                    backdropFilter: 'blur(8px)',
-                    WebkitBackdropFilter: 'blur(8px)'
+                    backdropFilter: 'blur(8px)'
                 }
             }}
         >
@@ -366,13 +264,7 @@ const AddStaffModal = ({
                     borderBottom: `1px solid ${COLORS.GRAY[200]}`
                 }}
             >
-                <Typography
-                    variant="h5"
-                    sx={{
-                        fontWeight: 700,
-                        color: COLORS.TEXT.PRIMARY
-                    }}
-                >
+                <Typography variant="h5" sx={{ fontWeight: 700, color: COLORS.TEXT.PRIMARY }}>
                     {editMode ? 'Chỉnh sửa nhân viên' : 'Thêm nhân viên mới'}
                 </Typography>
 
@@ -381,9 +273,7 @@ const AddStaffModal = ({
                     disabled={isLoading}
                     sx={{
                         color: COLORS.GRAY[600],
-                        '&:hover': {
-                            backgroundColor: alpha(COLORS.GRAY[100], 0.8)
-                        }
+                        '&:hover': { backgroundColor: alpha(COLORS.GRAY[100], 0.8) }
                     }}
                 >
                     <Close />
@@ -417,9 +307,7 @@ const AddStaffModal = ({
                                     color: COLORS.COMMON.WHITE,
                                     width: 40,
                                     height: 40,
-                                    '&:hover': {
-                                        backgroundColor: COLORS.PRIMARY[600]
-                                    }
+                                    '&:hover': { backgroundColor: COLORS.PRIMARY[600] }
                                 }}
                             >
                                 <PhotoCamera sx={{ fontSize: 20 }} />
@@ -434,9 +322,7 @@ const AddStaffModal = ({
                         </Box>
                     </Box>
                     {errors.avatar_url && (
-                        <Alert severity="error" sx={{ mt: 1 }}>
-                            {errors.avatar_url}
-                        </Alert>
+                        <Alert severity="error" sx={{ mt: 1 }}>{errors.avatar_url}</Alert>
                     )}
 
                     {/* Full Name & Email */}
@@ -448,7 +334,7 @@ const AddStaffModal = ({
                             value={formData.full_name}
                             onChange={(e) => handleChange('full_name', e.target.value)}
                             error={!!errors.full_name}
-                            helperText={errors.full_name || 'VD: Nguyễn Văn An (viết hoa chữ cái đầu)'}
+                            helperText={errors.full_name || 'VD: Nguyễn Văn An'}
                             disabled={isLoading}
                             placeholder="Nguyễn Văn An"
                             InputProps={{
@@ -481,7 +367,7 @@ const AddStaffModal = ({
                         />
                     </Stack>
 
-                    {/* Phone & Role */}
+                    {/* Phone & Sub Role */}
                     <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
                         <TextField
                             label="Số điện thoại"
@@ -502,13 +388,18 @@ const AddStaffModal = ({
                             }}
                         />
 
-                        <FormControl fullWidth required error={!!errors.role}>
+                        <FormControl fullWidth required error={!!errors.sub_role}>
                             <InputLabel>Chức vụ</InputLabel>
                             <Select
-                                value={formData.role}
-                                onChange={(e) => handleChange('role', e.target.value)}
+                                value={formData.sub_role}
+                                onChange={(e) => handleChange('sub_role', e.target.value)}
                                 label="Chức vụ"
                                 disabled={isLoading}
+                                startAdornment={
+                                    <InputAdornment position="start">
+                                        <WorkOutline sx={{ color: COLORS.GRAY[400] }} />
+                                    </InputAdornment>
+                                }
                             >
                                 {roleOptions.map((option) => (
                                     <MenuItem key={option.value} value={option.value}>
@@ -526,9 +417,9 @@ const AddStaffModal = ({
                                     </MenuItem>
                                 ))}
                             </Select>
-                            {errors.role && (
+                            {errors.sub_role && (
                                 <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 1.75 }}>
-                                    {errors.role}
+                                    {errors.sub_role}
                                 </Typography>
                             )}
                         </FormControl>
@@ -556,6 +447,31 @@ const AddStaffModal = ({
                         }}
                     />
 
+                    {/* Skills */}
+                    <TextField
+                        label="Kỹ năng"
+                        fullWidth
+                        multiline
+                        rows={2}
+                        value={skillInput}
+                        onChange={(e) => handleSkillsChange(e.target.value)}
+                        helperText="Nhập các kỹ năng, cách nhau bằng dấu phẩy"
+                        disabled={isLoading}
+                        placeholder="Pha chế cà phê, Chăm sóc mèo, Giao tiếp tốt"
+                    />
+                    {formData.skills.length > 0 && (
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                            {formData.skills.map((skill, index) => (
+                                <Chip
+                                    key={index}
+                                    label={skill}
+                                    size="small"
+                                    sx={{ bgcolor: alpha(COLORS.PRIMARY[100], 0.5) }}
+                                />
+                            ))}
+                        </Box>
+                    )}
+
                     {/* Salary & Password */}
                     <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
                         <TextField
@@ -565,7 +481,7 @@ const AddStaffModal = ({
                             value={formatSalary(formData.salary)}
                             onChange={(e) => handleSalaryChange(e.target.value)}
                             error={!!errors.salary}
-                            helperText={errors.salary || 'Tối thiểu 4,960,000đ, bội số của 100,000đ'}
+                            helperText={errors.salary || 'Lương cơ bản'}
                             disabled={isLoading}
                             placeholder="5,000,000"
                             InputProps={{
@@ -585,9 +501,9 @@ const AddStaffModal = ({
                             value={formData.password}
                             onChange={(e) => handleChange('password', e.target.value)}
                             error={!!errors.password}
-                            helperText={errors.password || (editMode ? 'Để trống nếu không đổi' : '8+ ký tự, có chữ hoa, chữ thường, số')}
+                            helperText={errors.password || (editMode ? 'Để trống nếu không đổi' : 'Tối thiểu 6 ký tự')}
                             disabled={isLoading}
-                            placeholder={editMode ? '' : 'Abc123xyz'}
+                            placeholder={editMode ? '' : '******'}
                             InputProps={{
                                 endAdornment: (
                                     <InputAdornment position="end">
@@ -607,7 +523,7 @@ const AddStaffModal = ({
                     {/* Info Alert */}
                     {!editMode && (
                         <Alert severity="info" sx={{ mt: 2 }}>
-                            Nhân viên sẽ nhận email thông báo tài khoản và mật khẩu sau khi được tạo.
+                            Nhân viên sẽ nhận thông báo tài khoản và mật khẩu sau khi được tạo.
                         </Alert>
                     )}
                 </Stack>
@@ -630,9 +546,7 @@ const AddStaffModal = ({
                         px: 3,
                         py: 1,
                         color: COLORS.GRAY[700],
-                        '&:hover': {
-                            backgroundColor: alpha(COLORS.GRAY[100], 0.8)
-                        }
+                        '&:hover': { backgroundColor: alpha(COLORS.GRAY[100], 0.8) }
                     }}
                 >
                     Hủy
@@ -646,9 +560,7 @@ const AddStaffModal = ({
                         px: 4,
                         py: 1,
                         backgroundColor: COLORS.PRIMARY[500],
-                        '&:hover': {
-                            backgroundColor: COLORS.PRIMARY[600]
-                        }
+                        '&:hover': { backgroundColor: COLORS.PRIMARY[600] }
                     }}
                 >
                     {isLoading ? 'Đang xử lý...' : (editMode ? 'Cập nhật' : 'Thêm nhân viên')}
@@ -659,4 +571,3 @@ const AddStaffModal = ({
 };
 
 export default AddStaffModal;
-

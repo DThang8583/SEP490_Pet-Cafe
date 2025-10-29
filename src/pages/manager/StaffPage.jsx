@@ -8,7 +8,7 @@ import ConfirmModal from '../../components/modals/ConfirmModal';
 import AddStaffModal from '../../components/modals/AddStaffModal';
 import AlertModal from '../../components/modals/AlertModal';
 import { Edit, Delete, People, PersonAdd, Person, EventBusy, MoreVert } from '@mui/icons-material';
-import { managerApi } from '../../api/userApi';
+import employeeApi from '../../api/employeeApi';
 
 const formatSalary = (salary) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(salary);
@@ -16,25 +16,25 @@ const formatSalary = (salary) => {
 
 const roleLabel = (r) => {
     switch (r) {
-        case 'sales_staff': return 'Sale staff';
-        case 'working_staff': return 'Working staff';
+        case 'SALE_STAFF': return 'Sale Staff';
+        case 'WORKING_STAFF': return 'Working Staff';
         default: return r;
     }
 };
 
 const roleColor = (r) => {
     switch (r) {
-        case 'sales_staff': return { bg: alpha(COLORS.INFO[100], 0.8), color: COLORS.INFO[700] };
-        case 'working_staff': return { bg: alpha(COLORS.WARNING[100], 0.8), color: COLORS.WARNING[700] };
+        case 'SALE_STAFF': return { bg: alpha(COLORS.INFO[100], 0.8), color: COLORS.INFO[700] };
+        case 'WORKING_STAFF': return { bg: alpha(COLORS.WARNING[100], 0.8), color: COLORS.WARNING[700] };
         default: return { bg: alpha(COLORS.GRAY[200], 0.6), color: COLORS.TEXT.SECONDARY };
     }
 };
 
-const statusColor = (s) => {
-    switch (s) {
-        case 'active': return { bg: alpha(COLORS.SUCCESS[100], 0.8), color: COLORS.SUCCESS[700], label: 'Đang làm' };
-        case 'on_leave': return { bg: alpha(COLORS.WARNING[100], 0.8), color: COLORS.WARNING[700], label: 'Nghỉ phép' };
-        default: return { bg: alpha(COLORS.GRAY[200], 0.6), color: COLORS.TEXT.SECONDARY, label: s || '—' };
+const statusColor = (isActive) => {
+    if (isActive) {
+        return { bg: alpha(COLORS.SUCCESS[100], 0.8), color: COLORS.SUCCESS[700], label: 'Hoạt động' };
+    } else {
+        return { bg: alpha(COLORS.ERROR[100], 0.8), color: COLORS.ERROR[700], label: 'Không hoạt động' };
     }
 };
 
@@ -73,7 +73,7 @@ const StaffPage = () => {
             try {
                 setIsLoading(true);
                 setError('');
-                const response = await managerApi.getStaff();
+                const response = await employeeApi.getEmployees();
                 if (response.success) {
                     setStaff(response.data);
                 }
@@ -94,8 +94,12 @@ const StaffPage = () => {
 
     const filtered = useMemo(() => {
         return staff.filter(s => {
-            if (filterRole !== 'all' && s.role !== filterRole) return false;
-            if (filterStatus !== 'all' && s.status !== filterStatus) return false;
+            if (filterRole !== 'all' && s.sub_role !== filterRole) return false;
+            if (filterStatus !== 'all') {
+                const isActive = s.account?.is_active;
+                if (filterStatus === 'active' && !isActive) return false;
+                if (filterStatus === 'inactive' && isActive) return false;
+            }
             const text = `${s.full_name} ${s.email} ${s.phone}`.toLowerCase();
             return text.includes(q.toLowerCase());
         });
@@ -105,10 +109,10 @@ const StaffPage = () => {
     const stats = useMemo(() => {
         return {
             total: staff.length,
-            saleStaff: staff.filter(s => s.role === 'sales_staff').length,
-            workingStaff: staff.filter(s => s.role === 'working_staff').length,
-            active: staff.filter(s => s.status === 'active').length,
-            onLeave: staff.filter(s => s.status === 'on_leave').length
+            saleStaff: staff.filter(s => s.sub_role === 'SALE_STAFF').length,
+            workingStaff: staff.filter(s => s.sub_role === 'WORKING_STAFF').length,
+            active: staff.filter(s => s.account?.is_active === true).length,
+            inactive: staff.filter(s => s.account?.is_active === false).length
         };
     }, [staff]);
 
@@ -126,14 +130,16 @@ const StaffPage = () => {
 
             if (editMode) {
                 // Update existing staff
-                const response = await managerApi.updateStaff(selectedStaff.id, {
+                const response = await employeeApi.updateEmployee(selectedStaff.id, {
                     full_name: staffData.full_name,
                     email: staffData.email,
                     phone: staffData.phone,
                     address: staffData.address,
                     salary: parseFloat(staffData.salary),
-                    role: staffData.role,
-                    avatar_url: staffData.avatar_url || selectedStaff.avatar_url || ''
+                    sub_role: staffData.sub_role,
+                    skills: staffData.skills || [],
+                    avatar_url: staffData.avatar_url || selectedStaff.avatar_url || '',
+                    password: staffData.password || undefined
                 });
 
                 if (response.success) {
@@ -151,13 +157,14 @@ const StaffPage = () => {
                 }
             } else {
                 // Add new staff
-                const response = await managerApi.createStaff({
+                const response = await employeeApi.createEmployee({
                     full_name: staffData.full_name,
                     email: staffData.email,
                     phone: staffData.phone,
                     address: staffData.address,
                     salary: parseFloat(staffData.salary),
-                    role: staffData.role,
+                    sub_role: staffData.sub_role,
+                    skills: staffData.skills || [],
                     avatar_url: staffData.avatar_url || '',
                     password: staffData.password
                 });
@@ -245,7 +252,7 @@ const StaffPage = () => {
                     <Grid item xs={6} sm={6} md={2.4}>
                         <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.SUCCESS[500]}` }}>
                             <Typography variant="body2" color="text.secondary" gutterBottom>
-                                Đang làm việc
+                                Hoạt động
                             </Typography>
                             <Typography variant="h4" fontWeight={600} color={COLORS.SUCCESS[700]}>
                                 {stats.active}
@@ -256,10 +263,10 @@ const StaffPage = () => {
                     <Grid item xs={6} sm={6} md={2.4}>
                         <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.ERROR[500]}` }}>
                             <Typography variant="body2" color="text.secondary" gutterBottom>
-                                Nghỉ phép
+                                Không hoạt động
                             </Typography>
                             <Typography variant="h4" fontWeight={600} color={COLORS.ERROR[700]}>
-                                {stats.onLeave}
+                                {stats.inactive}
                             </Typography>
                         </Paper>
                     </Grid>
@@ -277,16 +284,16 @@ const StaffPage = () => {
                         <InputLabel>Vai trò</InputLabel>
                         <Select label="Vai trò" value={filterRole} onChange={(e) => setFilterRole(e.target.value)}>
                             <MenuItem value="all">Tất cả</MenuItem>
-                            <MenuItem value="sales_staff">Sale staff</MenuItem>
-                            <MenuItem value="working_staff">Working staff</MenuItem>
+                            <MenuItem value="SALE_STAFF">Sale Staff</MenuItem>
+                            <MenuItem value="WORKING_STAFF">Working Staff</MenuItem>
                         </Select>
                     </FormControl>
                     <FormControl size="small" sx={{ minWidth: 160 }}>
                         <InputLabel>Trạng thái</InputLabel>
                         <Select label="Trạng thái" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
                             <MenuItem value="all">Tất cả</MenuItem>
-                            <MenuItem value="active">Đang làm</MenuItem>
-                            <MenuItem value="on_leave">Nghỉ phép</MenuItem>
+                            <MenuItem value="active">Hoạt động</MenuItem>
+                            <MenuItem value="inactive">Không hoạt động</MenuItem>
                         </Select>
                     </FormControl>
                     <Box sx={{ flexGrow: 1 }} />
@@ -312,6 +319,8 @@ const StaffPage = () => {
                                 <TableCell sx={{ fontWeight: 800, display: { xs: 'none', md: 'table-cell' } }}>Email</TableCell>
                                 <TableCell sx={{ fontWeight: 800, display: { xs: 'none', sm: 'table-cell' } }}>SĐT</TableCell>
                                 <TableCell sx={{ fontWeight: 800, display: { xs: 'none', lg: 'table-cell' } }}>Địa chỉ</TableCell>
+                                <TableCell sx={{ fontWeight: 800, display: { xs: 'none', xl: 'table-cell' } }}>Kỹ năng</TableCell>
+                                <TableCell sx={{ fontWeight: 800, display: { xs: 'none', lg: 'table-cell' } }}>Lương</TableCell>
                                 <TableCell sx={{ fontWeight: 800 }}>Vai trò</TableCell>
                                 <TableCell sx={{ fontWeight: 800 }}>Trạng thái</TableCell>
                                 <TableCell sx={{ fontWeight: 800, textAlign: 'right' }}>Thao tác</TableCell>
@@ -319,8 +328,8 @@ const StaffPage = () => {
                         </TableHead>
                         <TableBody>
                             {currentPageStaff.map((s) => {
-                                const rColor = roleColor(s.role);
-                                const st = statusColor(s.status);
+                                const rColor = roleColor(s.sub_role);
+                                const st = statusColor(s.account?.is_active);
                                 return (
                                     <TableRow key={s.id} hover>
                                         <TableCell>
@@ -332,8 +341,35 @@ const StaffPage = () => {
                                         <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>{s.email}</TableCell>
                                         <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>{s.phone}</TableCell>
                                         <TableCell sx={{ display: { xs: 'none', lg: 'table-cell' } }}>{s.address || '—'}</TableCell>
+                                        <TableCell sx={{ display: { xs: 'none', xl: 'table-cell' } }}>
+                                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, maxWidth: 400 }}>
+                                                {s.skills && s.skills.length > 0 ? (
+                                                    s.skills.map((skill, idx) => (
+                                                        <Chip
+                                                            key={idx}
+                                                            label={skill}
+                                                            size="small"
+                                                            sx={{
+                                                                fontSize: '0.7rem',
+                                                                height: 22,
+                                                                bgcolor: alpha(COLORS.INFO[100], 0.7),
+                                                                color: COLORS.INFO[800],
+                                                                fontWeight: 500
+                                                            }}
+                                                        />
+                                                    ))
+                                                ) : (
+                                                    <Typography variant="body2" color="text.secondary">—</Typography>
+                                                )}
+                                            </Box>
+                                        </TableCell>
+                                        <TableCell sx={{ display: { xs: 'none', lg: 'table-cell' } }}>
+                                            <Typography variant="body2" fontWeight={600} color={COLORS.SUCCESS[700]}>
+                                                {formatSalary(s.salary)}
+                                            </Typography>
+                                        </TableCell>
                                         <TableCell>
-                                            <Chip size="small" label={roleLabel(s.role)} sx={{ background: rColor.bg, color: rColor.color, fontWeight: 700 }} />
+                                            <Chip size="small" label={roleLabel(s.sub_role)} sx={{ background: rColor.bg, color: rColor.color, fontWeight: 700 }} />
                                         </TableCell>
                                         <TableCell>
                                             <Chip size="small" label={st.label} sx={{ background: st.bg, color: st.color, fontWeight: 700 }} />
@@ -394,7 +430,7 @@ const StaffPage = () => {
                     }}
                     onConfirm={async () => {
                         try {
-                            const response = await managerApi.deleteStaff(pendingDeleteId);
+                            const response = await employeeApi.deleteEmployee(pendingDeleteId);
                             if (response.success) {
                                 setStaff(prev => prev.filter(s => s.id !== pendingDeleteId));
                                 setAlert({
