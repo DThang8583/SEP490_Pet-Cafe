@@ -26,7 +26,9 @@ const generateId = () => {
     });
 };
 
-// Weekday labels
+// Weekday constants
+export const WEEKDAYS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
+
 export const WEEKDAY_LABELS = {
     MONDAY: 'Thứ 2',
     TUESDAY: 'Thứ 3',
@@ -36,8 +38,6 @@ export const WEEKDAY_LABELS = {
     SATURDAY: 'Thứ 7',
     SUNDAY: 'Chủ nhật'
 };
-
-export const WEEKDAYS = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'];
 
 /**
  * Get all work shifts
@@ -50,11 +50,13 @@ export const getWorkShifts = async () => {
         throw new Error('Không có quyền truy cập');
     }
 
+    const shifts = MOCK_WORK_SHIFTS.filter(ws => !ws.is_deleted);
+
     return {
         success: true,
-        data: MOCK_WORK_SHIFTS.filter(ws => !ws.is_deleted),
+        data: shifts,
         pagination: {
-            total_items_count: MOCK_WORK_SHIFTS.filter(ws => !ws.is_deleted).length,
+            total_items_count: shifts.length,
             page_size: 10,
             total_pages_count: 1,
             page_index: 0,
@@ -75,45 +77,49 @@ export const getWorkShiftById = async (id) => {
         throw new Error('Không có quyền truy cập');
     }
 
-    const workShift = MOCK_WORK_SHIFTS.find(ws => ws.id === id && !ws.is_deleted);
-    if (!workShift) {
+    const shift = MOCK_WORK_SHIFTS.find(ws => ws.id === id && !ws.is_deleted);
+    if (!shift) {
         throw new Error('Không tìm thấy ca làm việc');
     }
 
     return {
         success: true,
-        data: workShift
+        data: shift
     };
 };
 
 /**
  * Create work shift
- * API: { name, start_time, end_time, description, applicable_days[] }
+ * API: { name, start_time, end_time, description, is_active, applicable_days[] }
  */
 export const createWorkShift = async (shiftData) => {
-    await delay(700);
+    await delay(500);
     const currentUser = getCurrentUser();
 
     if (!checkPermission(currentUser, 'work_shift_management')) {
-        throw new Error('Không có quyền tạo ca làm việc');
+        throw new Error('Không có quyền truy cập');
     }
 
     // Validation
-    if (!shiftData.name) throw new Error('Tên ca làm việc là bắt buộc');
-    if (!shiftData.start_time) throw new Error('Giờ bắt đầu là bắt buộc');
-    if (!shiftData.end_time) throw new Error('Giờ kết thúc là bắt buộc');
-    if (!shiftData.description) throw new Error('Mô tả là bắt buộc');
-    if (!shiftData.applicable_days || shiftData.applicable_days.length === 0) {
-        throw new Error('Phải chọn ít nhất một ngày áp dụng');
+    if (!shiftData.name || !shiftData.start_time || !shiftData.end_time) {
+        throw new Error('Vui lòng điền đầy đủ thông tin bắt buộc');
     }
 
-    const newWorkShift = {
+    if (shiftData.start_time >= shiftData.end_time) {
+        throw new Error('Giờ kết thúc phải sau giờ bắt đầu');
+    }
+
+    if (!shiftData.applicable_days || shiftData.applicable_days.length === 0) {
+        throw new Error('Vui lòng chọn ít nhất một ngày áp dụng');
+    }
+
+    const newShift = {
         id: generateId(),
         name: shiftData.name,
         start_time: shiftData.start_time,
         end_time: shiftData.end_time,
-        description: shiftData.description,
-        is_active: true, // Default active when created
+        description: shiftData.description || '',
+        is_active: shiftData.is_active !== undefined ? shiftData.is_active : true,
         applicable_days: shiftData.applicable_days,
         team_work_shifts: [],
         daily_schedules: [],
@@ -124,25 +130,25 @@ export const createWorkShift = async (shiftData) => {
         is_deleted: false
     };
 
-    MOCK_WORK_SHIFTS.push(newWorkShift);
+    MOCK_WORK_SHIFTS.push(newShift);
 
     return {
         success: true,
-        data: newWorkShift,
+        data: newShift,
         message: 'Tạo ca làm việc thành công'
     };
 };
 
 /**
  * Update work shift
- * API: { name, start_time, end_time, description, applicable_days[], is_active }
+ * API: { name, start_time, end_time, description, is_active, applicable_days[] }
  */
 export const updateWorkShift = async (id, shiftData) => {
-    await delay(700);
+    await delay(500);
     const currentUser = getCurrentUser();
 
     if (!checkPermission(currentUser, 'work_shift_management')) {
-        throw new Error('Không có quyền cập nhật ca làm việc');
+        throw new Error('Không có quyền truy cập');
     }
 
     const shiftIndex = MOCK_WORK_SHIFTS.findIndex(ws => ws.id === id && !ws.is_deleted);
@@ -150,39 +156,45 @@ export const updateWorkShift = async (id, shiftData) => {
         throw new Error('Không tìm thấy ca làm việc');
     }
 
-    const workShift = MOCK_WORK_SHIFTS[shiftIndex];
+    // Validation
+    if (shiftData.start_time && shiftData.end_time && shiftData.start_time >= shiftData.end_time) {
+        throw new Error('Giờ kết thúc phải sau giờ bắt đầu');
+    }
 
-    // Update work shift data
-    const updatedWorkShift = {
-        ...workShift,
-        name: shiftData.name !== undefined ? shiftData.name : workShift.name,
-        start_time: shiftData.start_time !== undefined ? shiftData.start_time : workShift.start_time,
-        end_time: shiftData.end_time !== undefined ? shiftData.end_time : workShift.end_time,
-        description: shiftData.description !== undefined ? shiftData.description : workShift.description,
-        applicable_days: shiftData.applicable_days !== undefined ? shiftData.applicable_days : workShift.applicable_days,
-        is_active: shiftData.is_active !== undefined ? shiftData.is_active : workShift.is_active,
+    if (shiftData.applicable_days && shiftData.applicable_days.length === 0) {
+        throw new Error('Vui lòng chọn ít nhất một ngày áp dụng');
+    }
+
+    const updatedShift = {
+        ...MOCK_WORK_SHIFTS[shiftIndex],
+        name: shiftData.name || MOCK_WORK_SHIFTS[shiftIndex].name,
+        start_time: shiftData.start_time || MOCK_WORK_SHIFTS[shiftIndex].start_time,
+        end_time: shiftData.end_time || MOCK_WORK_SHIFTS[shiftIndex].end_time,
+        description: shiftData.description !== undefined ? shiftData.description : MOCK_WORK_SHIFTS[shiftIndex].description,
+        is_active: shiftData.is_active !== undefined ? shiftData.is_active : MOCK_WORK_SHIFTS[shiftIndex].is_active,
+        applicable_days: shiftData.applicable_days || MOCK_WORK_SHIFTS[shiftIndex].applicable_days,
         updated_at: new Date().toISOString(),
         updated_by: currentUser?.id || '00000000-0000-0000-0000-000000000000'
     };
 
-    MOCK_WORK_SHIFTS[shiftIndex] = updatedWorkShift;
+    MOCK_WORK_SHIFTS[shiftIndex] = updatedShift;
 
     return {
         success: true,
-        data: updatedWorkShift,
+        data: updatedShift,
         message: 'Cập nhật ca làm việc thành công'
     };
 };
 
 /**
- * Delete work shift (soft delete)
+ * Delete work shift
  */
 export const deleteWorkShift = async (id) => {
     await delay(500);
     const currentUser = getCurrentUser();
 
     if (!checkPermission(currentUser, 'work_shift_management')) {
-        throw new Error('Không có quyền xóa ca làm việc');
+        throw new Error('Không có quyền truy cập');
     }
 
     const shiftIndex = MOCK_WORK_SHIFTS.findIndex(ws => ws.id === id && !ws.is_deleted);
@@ -206,5 +218,7 @@ export default {
     getWorkShiftById,
     createWorkShift,
     updateWorkShift,
-    deleteWorkShift
+    deleteWorkShift,
+    WEEKDAYS,
+    WEEKDAY_LABELS
 };
