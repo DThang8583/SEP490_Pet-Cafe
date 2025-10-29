@@ -11,8 +11,14 @@ import TaskTemplateFormModal from '../../../components/modals/TaskTemplateFormMo
 import SlotFormModal from '../../../components/modals/SlotFormModal';
 import SlotPublishModal from '../../../components/modals/SlotPublishModal';
 import SlotDetailsModal from '../../../components/modals/SlotDetailsModal';
-import taskTemplateApi, { TASK_TYPES } from '../../../api/taskTemplateApi';
+import taskTemplateApi from '../../../api/taskTemplateApi';
 import slotApi, { SLOT_STATUS, WEEKDAY_LABELS } from '../../../api/slotApi';
+import serviceApi from '../../../api/serviceApi';
+import * as areasApi from '../../../api/areasApi';
+import petApi from '../../../api/petApi';
+import * as teamApi from '../../../api/teamApi';
+import DailyTasksTab from './DailyTasksTab';
+import WorkTypeTab from './WorkTypeTab';
 
 const TasksPage = () => {
     // Tab state
@@ -24,6 +30,11 @@ const TasksPage = () => {
     // Data
     const [taskTemplates, setTaskTemplates] = useState([]);
     const [slots, setSlots] = useState([]);
+    const [workTypes, setWorkTypes] = useState([]);
+    const [services, setServices] = useState([]);
+    const [areas, setAreas] = useState([]);
+    const [petGroups, setPetGroups] = useState([]);
+    const [teams, setTeams] = useState([]);
 
     // Search and filters
     const [searchQuery, setSearchQuery] = useState('');
@@ -38,6 +49,8 @@ const TasksPage = () => {
     // Modals
     const [taskFormOpen, setTaskFormOpen] = useState(false);
     const [slotFormOpen, setSlotFormOpen] = useState(false);
+    const [slotFormMode, setSlotFormMode] = useState('create');
+    const [editingSlot, setEditingSlot] = useState(null);
     const [slotPublishOpen, setSlotPublishOpen] = useState(false);
     const [slotDetailsOpen, setSlotDetailsOpen] = useState(false);
     const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
@@ -66,16 +79,16 @@ const TasksPage = () => {
     const stats = useMemo(() => {
         const slotsByStatus = {
             total: slots.length,
-            public: slots.filter(s => s.status === SLOT_STATUS.PUBLIC).length,
-            internal: slots.filter(s => s.status === SLOT_STATUS.INTERNAL_ONLY).length,
-            draft: slots.filter(s => s.status === SLOT_STATUS.DRAFT).length
+            available: slots.filter(s => s.service_status === 'AVAILABLE').length,
+            unavailable: slots.filter(s => s.service_status === 'UNAVAILABLE').length,
+            booked: slots.filter(s => s.service_status === 'BOOKED').length,
+            cancelled: slots.filter(s => s.service_status === 'CANCELLED').length
         };
 
-        const tasksByType = {};
-        TASK_TYPES.forEach(type => {
-            // Count tasks that match either by key (old) or name (new)
-            tasksByType[type.key] = taskTemplates.filter(t =>
-                t.task_type === type.key || t.task_type === type.name
+        const tasksByWorkType = {};
+        workTypes.forEach(workType => {
+            tasksByWorkType[workType.id] = taskTemplates.filter(t =>
+                t.work_type_id === workType.id
             ).length;
         });
 
@@ -83,9 +96,9 @@ const TasksPage = () => {
             totalTasks: taskTemplates.length,
             totalSlots: slots.length,
             slotsByStatus,
-            tasksByType
+            tasksByWorkType
         };
-    }, [taskTemplates, slots]);
+    }, [taskTemplates, slots, workTypes]);
 
     // Filter task templates
     const filteredTemplates = useMemo(() => {
@@ -93,21 +106,14 @@ const TasksPage = () => {
             // Search filter
             if (searchQuery) {
                 const searchLower = searchQuery.toLowerCase();
-                const matchSearch = t.name.toLowerCase().includes(searchLower) ||
+                const matchSearch = (t.title || t.name || '').toLowerCase().includes(searchLower) ||
                     t.description.toLowerCase().includes(searchLower);
                 if (!matchSearch) return false;
             }
 
-            // Task type filter - support both key and name
+            // Work type filter
             if (filterTaskType !== 'all') {
-                const taskTypeInfo = TASK_TYPES.find(type => type.key === filterTaskType);
-                if (taskTypeInfo) {
-                    // Check if task matches by key or name
-                    if (t.task_type !== taskTypeInfo.key && t.task_type !== taskTypeInfo.name) {
-                        return false;
-                    }
-                } else if (t.task_type !== filterTaskType) {
-                    // For custom types or direct comparison
+                if (t.work_type_id !== filterTaskType) {
                     return false;
                 }
             }
@@ -159,7 +165,12 @@ const TasksPage = () => {
             setLoading(true);
             await Promise.all([
                 loadTaskTemplates(),
-                loadSlots()
+                loadSlots(),
+                loadWorkTypes(),
+                loadServices(),
+                loadAreas(),
+                loadPetGroups(),
+                loadTeams()
             ]);
         } catch (error) {
             console.error('Error loading data:', error);
@@ -183,12 +194,61 @@ const TasksPage = () => {
         }
     };
 
+    const loadWorkTypes = async () => {
+        try {
+            const response = await taskTemplateApi.getWorkTypes();
+            setWorkTypes(response.data || []);
+        } catch (error) {
+            console.error('Error loading work types:', error);
+            setWorkTypes([]);
+        }
+    };
+
+    const loadServices = async () => {
+        try {
+            const response = await serviceApi.getAllServices();
+            setServices(response.data || []);
+        } catch (error) {
+            console.error('Error loading services:', error);
+            setServices([]);
+        }
+    };
+
     const loadSlots = async () => {
         try {
             const response = await slotApi.getAllSlots();
             setSlots(response.data || []);
         } catch (error) {
             throw error;
+        }
+    };
+
+    const loadAreas = async () => {
+        try {
+            const response = await areasApi.getAllAreas();
+            setAreas(response.data || []);
+        } catch (error) {
+            console.error('Error loading areas:', error);
+        }
+    };
+
+    const loadPetGroups = async () => {
+        try {
+            const response = await petApi.getPetGroups();
+            setPetGroups(response.data || []);
+        } catch (error) {
+            console.error('Error loading pet groups:', error);
+        }
+    };
+
+    const loadTeams = async () => {
+        try {
+            const response = await teamApi.getTeams();
+            if (response.success) {
+                setTeams(response.data || []);
+            }
+        } catch (error) {
+            console.error('Error loading teams:', error);
         }
     };
 
@@ -237,47 +297,73 @@ const TasksPage = () => {
     // Slot handlers
     const handleCreateSlot = (task) => {
         setSelectedTask(task);
+        setSlotFormMode('create');
+        setEditingSlot(null);
+        setSlotFormOpen(true);
+    };
+
+    const handleEditSlot = (slot) => {
+        setSlotFormMode('edit');
+        setEditingSlot(slot);
         setSlotFormOpen(true);
     };
 
     const handleSlotFormSubmit = async (slotsData) => {
         try {
-            // Check if it's an array of slots (new format) or single slot (old format)
-            const slotsArray = Array.isArray(slotsData) ? slotsData : [slotsData];
+            if (slotFormMode === 'edit' && editingSlot) {
+                // Edit mode - single slot update
+                await slotApi.updateSlot(editingSlot.id, slotsData);
 
-            // Create all slots
-            let successCount = 0;
-            let failCount = 0;
+                // Reload slots to get updated data with populated nested objects
+                await loadSlots();
 
-            for (const slotData of slotsArray) {
-                try {
-                    await slotApi.createSlot(slotData);
-                    successCount++;
-                } catch (error) {
-                    console.error('Error creating slot:', error);
-                    failCount++;
-                }
-            }
-
-            // Show result message
-            if (failCount === 0) {
                 setAlert({
                     open: true,
                     title: 'Thành công',
-                    message: `Tạo thành công ${successCount} ca!`,
+                    message: 'Cập nhật ca thành công!',
                     type: 'success'
                 });
             } else {
-                setAlert({
-                    open: true,
-                    title: 'Cảnh báo',
-                    message: `Tạo thành công ${successCount} ca, thất bại ${failCount} ca`,
-                    type: 'warning'
-                });
+                // Create mode - can be array or single slot
+                const slotsArray = Array.isArray(slotsData) ? slotsData : [slotsData];
+
+                let successCount = 0;
+                let failCount = 0;
+
+                for (const slotData of slotsArray) {
+                    try {
+                        await slotApi.createSlot(slotData);
+                        successCount++;
+                    } catch (error) {
+                        console.error('Error creating slot:', error);
+                        failCount++;
+                    }
+                }
+
+                // Reload slots after creation
+                await loadSlots();
+
+                // Show result message
+                if (failCount === 0) {
+                    setAlert({
+                        open: true,
+                        title: 'Thành công',
+                        message: `Tạo thành công ${successCount} ca!`,
+                        type: 'success'
+                    });
+                } else {
+                    setAlert({
+                        open: true,
+                        title: 'Cảnh báo',
+                        message: `Tạo thành công ${successCount} ca, thất bại ${failCount} ca`,
+                        type: 'warning'
+                    });
+                }
             }
 
-            await loadSlots();
             setSlotFormOpen(false);
+            setEditingSlot(null);
+            setSlotFormMode('create');
         } catch (error) {
             throw error;
         }
@@ -381,27 +467,14 @@ const TasksPage = () => {
         }
     };
 
-    // Get task type info - supports both key (old) and name (new), plus custom types
-    const getTaskTypeInfo = (typeValue) => {
-        // Try to find by key first (backward compatibility)
-        let taskType = TASK_TYPES.find(t => t.key === typeValue);
-
-        // If not found, try by name
-        if (!taskType) {
-            taskType = TASK_TYPES.find(t => t.name === typeValue);
-        }
-
-        // If still not found, it's a custom task type
-        if (!taskType && typeValue) {
-            return {
-                key: typeValue,
-                name: typeValue,
-                icon: '📋',
-                color: '#757575' // Gray color for custom types
-            };
-        }
-
-        return taskType;
+    // Get work type color (simple color assignment based on work type name)
+    const getWorkTypeColor = (workTypeName) => {
+        const colorMap = {
+            'Cat Zone Management ': COLORS.PRIMARY[500],
+            'Dog Zone Management ': COLORS.SUCCESS[500],
+            'Food & Beverage ': COLORS.INFO[500],
+        };
+        return colorMap[workTypeName] || COLORS.GRAY[500];
     };
 
     // Get task for slot
@@ -430,57 +503,13 @@ const TasksPage = () => {
                 <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 1 }}>
                     <AssignmentIcon sx={{ fontSize: 32, color: COLORS.PRIMARY[600] }} />
                     <Typography variant="h4" fontWeight={600}>
-                        Quản lý Nhiệm vụ & Ca
+                        Quản lý Nhiệm vụ & Tiến độ
                     </Typography>
                 </Stack>
                 <Typography variant="body2" color="text.secondary">
-                    Tạo Nhiệm vụ → Tạo Ca → Publish cho khách hàng
+                    Quản lý nhiệm vụ và theo dõi tiến độ hoàn thành hằng ngày của team
                 </Typography>
             </Box>
-
-            {/* Statistics */}
-            <Grid container spacing={2} sx={{ mb: 3 }}>
-                <Grid item xs={12} sm={6} md={3}>
-                    <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.PRIMARY[500]}` }}>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Tổng Nhiệm vụ
-                        </Typography>
-                        <Typography variant="h4" fontWeight={600} color={COLORS.PRIMARY[700]}>
-                            {stats.totalTasks}
-                        </Typography>
-                    </Paper>
-                </Grid>
-                <Grid item xs={12} sm={6} md={3}>
-                    <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.SUCCESS[500]}` }}>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Ca Công khai
-                        </Typography>
-                        <Typography variant="h4" fontWeight={600} color={COLORS.SUCCESS[700]}>
-                            {stats.slotsByStatus.public}
-                        </Typography>
-                    </Paper>
-                </Grid>
-                <Grid item xs={12} sm={6} md={3}>
-                    <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.INFO[500]}` }}>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Ca Nội bộ
-                        </Typography>
-                        <Typography variant="h4" fontWeight={600} color={COLORS.INFO[700]}>
-                            {stats.slotsByStatus.internal}
-                        </Typography>
-                    </Paper>
-                </Grid>
-                <Grid item xs={12} sm={6} md={3}>
-                    <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.WARNING[500]}` }}>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Tổng Ca
-                        </Typography>
-                        <Typography variant="h4" fontWeight={600} color={COLORS.WARNING[700]}>
-                            {stats.totalSlots}
-                        </Typography>
-                    </Paper>
-                </Grid>
-            </Grid>
 
             {/* Tabs */}
             <Paper sx={{ mb: 2 }}>
@@ -500,380 +529,279 @@ const TasksPage = () => {
                     }}
                 >
                     <Tab label={`Nhiệm vụ (${taskTemplates.length})`} />
-                    <Tab label={`Ca (${slots.length})`} />
+                    <Tab label="Loại công việc" />
+                    <Tab label="Nhiệm vụ hằng ngày" />
                 </Tabs>
             </Paper>
 
-            {/* Toolbar */}
-            <Paper sx={{ mb: 2 }}>
-                <Toolbar sx={{ gap: 2, flexWrap: 'wrap' }}>
-                    <TextField
-                        placeholder={currentTab === 0 ? "Tìm nhiệm vụ..." : "Tìm ca..."}
-                        value={searchQuery}
-                        onChange={(e) => {
-                            setSearchQuery(e.target.value);
-                            setPage(1);
-                        }}
-                        size="small"
-                        sx={{ minWidth: 250 }}
-                    />
-
-                    {currentTab === 0 && (
-                        <FormControl size="small" sx={{ minWidth: 150 }}>
-                            <InputLabel>Loại nhiệm vụ</InputLabel>
-                            <Select
-                                value={filterTaskType}
+            {/* Task Templates Tab */}
+            {currentTab === 0 && (
+                <>
+                    {/* Toolbar */}
+                    <Paper sx={{ mb: 2 }}>
+                        <Toolbar sx={{ gap: 2, flexWrap: 'wrap' }}>
+                            <TextField
+                                placeholder="Tìm nhiệm vụ..."
+                                value={searchQuery}
                                 onChange={(e) => {
-                                    setFilterTaskType(e.target.value);
+                                    setSearchQuery(e.target.value);
                                     setPage(1);
                                 }}
-                                label="Loại nhiệm vụ"
-                            >
-                                <MenuItem value="all">Tất cả</MenuItem>
-                                {TASK_TYPES.map(type => (
-                                    <MenuItem key={type.key} value={type.key}>
-                                        {type.name}
-                                    </MenuItem>
-                                ))}
-                            </Select>
-                        </FormControl>
-                    )}
-
-                    {currentTab === 1 && (
-                        <>
-                            <FormControl size="small" sx={{ minWidth: 150 }}>
-                                <InputLabel>Trạng thái</InputLabel>
-                                <Select
-                                    value={filterSlotStatus}
-                                    onChange={(e) => {
-                                        setFilterSlotStatus(e.target.value);
-                                        setPage(1);
-                                    }}
-                                    label="Trạng thái"
-                                >
-                                    <MenuItem value="all">Tất cả</MenuItem>
-                                    <MenuItem value={SLOT_STATUS.PUBLIC}>Công khai</MenuItem>
-                                    <MenuItem value={SLOT_STATUS.INTERNAL_ONLY}>Nội bộ</MenuItem>
-                                </Select>
-                            </FormControl>
+                                size="small"
+                                sx={{ minWidth: 250 }}
+                            />
 
                             <FormControl size="small" sx={{ minWidth: 200 }}>
-                                <InputLabel>Nhiệm vụ</InputLabel>
+                                <InputLabel>Loại nhiệm vụ</InputLabel>
                                 <Select
-                                    value={filterSlotTask}
+                                    value={filterTaskType}
                                     onChange={(e) => {
-                                        setFilterSlotTask(e.target.value);
+                                        setFilterTaskType(e.target.value);
                                         setPage(1);
                                     }}
-                                    label="Nhiệm vụ"
+                                    label="Loại nhiệm vụ"
                                 >
-                                    <MenuItem value="all">Tất cả nhiệm vụ</MenuItem>
-                                    {taskTemplates.map(task => (
-                                        <MenuItem key={task.id} value={task.id}>
-                                            {task.name}
+                                    <MenuItem value="all">Tất cả</MenuItem>
+                                    {workTypes.map(workType => (
+                                        <MenuItem key={workType.id} value={workType.id}>
+                                            <Box>
+                                                <Typography variant="body2" fontWeight={500}>
+                                                    {workType.name}
+                                                </Typography>
+                                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                                                    {workType.description}
+                                                </Typography>
+                                            </Box>
                                         </MenuItem>
                                     ))}
                                 </Select>
                             </FormControl>
-                        </>
-                    )}
 
-                    <Box sx={{ flexGrow: 1 }} />
+                            <Box sx={{ flexGrow: 1 }} />
 
-                    <IconButton onClick={loadData} size="small">
-                        <RefreshIcon />
-                    </IconButton>
+                            <IconButton onClick={loadData} size="small">
+                                <RefreshIcon />
+                            </IconButton>
 
-                    {currentTab === 0 && (
-                        <Button
-                            variant="contained"
-                            startIcon={<AddIcon />}
-                            onClick={handleCreateTask}
-                        >
-                            Tạo nhiệm vụ
-                        </Button>
-                    )}
-                </Toolbar>
-            </Paper>
+                            <Button
+                                variant="contained"
+                                startIcon={<AddIcon />}
+                                onClick={handleCreateTask}
+                            >
+                                Tạo nhiệm vụ
+                            </Button>
+                        </Toolbar>
+                    </Paper>
 
-            {/* Table - Task Templates */}
-            {currentTab === 0 && (
-                <TableContainer component={Paper}>
-                    <Table>
-                        <TableHead sx={{ bgcolor: alpha(COLORS.GRAY[100], 0.5) }}>
-                            <TableRow>
-                                <TableCell width="5%">STT</TableCell>
-                                <TableCell width="10%">Loại</TableCell>
-                                <TableCell width="25%">Tên nhiệm vụ</TableCell>
-                                <TableCell width="35%">Mô tả</TableCell>
-                                <TableCell width="10%" align="center">Thời gian</TableCell>
-                                <TableCell width="10%" align="center">Ca</TableCell>
-                                <TableCell width="5%" align="center">Thao tác</TableCell>
-                            </TableRow>
-                        </TableHead>
-                        <TableBody>
-                            {currentPageItems.length === 0 ? (
+                    {/* Statistics */}
+                    <Grid container spacing={2} sx={{ mb: 3 }}>
+                        <Grid item xs={12} sm={6} md={3}>
+                            <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.PRIMARY[500]}` }}>
+                                <Typography variant="body2" color="text.secondary" gutterBottom>
+                                    Tổng Nhiệm vụ
+                                </Typography>
+                                <Typography variant="h4" fontWeight={600} color={COLORS.PRIMARY[700]}>
+                                    {stats.totalTasks}
+                                </Typography>
+                            </Paper>
+                        </Grid>
+                        <Grid item xs={12} sm={6} md={3}>
+                            <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.SUCCESS[500]}` }}>
+                                <Typography variant="body2" color="text.secondary" gutterBottom>
+                                    Đang hoạt động
+                                </Typography>
+                                <Typography variant="h4" fontWeight={600} color={COLORS.SUCCESS[700]}>
+                                    {taskTemplates.filter(t => t.status === 'ACTIVE').length}
+                                </Typography>
+                            </Paper>
+                        </Grid>
+                        <Grid item xs={12} sm={6} md={3}>
+                            <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.WARNING[500]}` }}>
+                                <Typography variant="body2" color="text.secondary" gutterBottom>
+                                    Không hoạt động
+                                </Typography>
+                                <Typography variant="h4" fontWeight={600} color={COLORS.WARNING[700]}>
+                                    {taskTemplates.filter(t => t.status === 'INACTIVE').length}
+                                </Typography>
+                            </Paper>
+                        </Grid>
+                        <Grid item xs={12} sm={6} md={3}>
+                            <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.INFO[500]}` }}>
+                                <Typography variant="body2" color="text.secondary" gutterBottom>
+                                    Tổng Ca
+                                </Typography>
+                                <Typography variant="h4" fontWeight={600} color={COLORS.INFO[700]}>
+                                    {stats.totalSlots}
+                                </Typography>
+                            </Paper>
+                        </Grid>
+                    </Grid>
+
+                    {/* Table */}
+                    <TableContainer component={Paper}>
+                        <Table>
+                            <TableHead sx={{ bgcolor: alpha(COLORS.GRAY[100], 0.5) }}>
                                 <TableRow>
-                                    <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
-                                        <Typography color="text.secondary">
-                                            Không có task template nào
-                                        </Typography>
-                                    </TableCell>
+                                    <TableCell width="5%">STT</TableCell>
+                                    <TableCell width="10%">Loại</TableCell>
+                                    <TableCell width="25%">Tên nhiệm vụ</TableCell>
+                                    <TableCell width="35%">Mô tả</TableCell>
+                                    <TableCell width="10%" align="center">Thời gian</TableCell>
+                                    <TableCell width="10%" align="center">Ca</TableCell>
+                                    <TableCell width="5%" align="center">Thao tác</TableCell>
                                 </TableRow>
-                            ) : (
-                                currentPageItems.map((task, index) => {
-                                    const taskType = getTaskTypeInfo(task.task_type);
-                                    const slotsCount = getSlotsCountForTask(task.id);
+                            </TableHead>
+                            <TableBody>
+                                {currentPageItems.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                                            <Typography color="text.secondary">
+                                                Không có task template nào
+                                            </Typography>
+                                        </TableCell>
+                                    </TableRow>
+                                ) : (
+                                    currentPageItems.map((task, index) => {
+                                        const slotsCount = getSlotsCountForTask(task.id);
+                                        const workType = task.work_type;
+                                        const workTypeColor = workType ? getWorkTypeColor(workType.name) : COLORS.GRAY[500];
 
-                                    return (
-                                        <TableRow key={task.id} hover>
-                                            <TableCell>
-                                                {(page - 1) * itemsPerPage + index + 1}
-                                            </TableCell>
-                                            <TableCell>
-                                                {taskType && (
-                                                    <Chip
-                                                        label={taskType.name}
-                                                        size="small"
-                                                        sx={{
-                                                            bgcolor: `${taskType.color}20`,
-                                                            color: taskType.color,
-                                                            fontWeight: 600
-                                                        }}
-                                                    />
-                                                )}
-                                            </TableCell>
-                                            <TableCell>
-                                                <Typography variant="body2" fontWeight={500}>
-                                                    {task.name}
-                                                </Typography>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Typography variant="body2" color="text.secondary" noWrap>
-                                                    {task.description.length > 80
-                                                        ? `${task.description.substring(0, 80)}...`
-                                                        : task.description
-                                                    }
-                                                </Typography>
-                                            </TableCell>
-                                            <TableCell align="center">
-                                                {task.estimate_duration > 0 ? (
-                                                    <Stack direction="row" alignItems="center" justifyContent="center" spacing={0.5}>
-                                                        <ScheduleIcon fontSize="small" color="action" />
-                                                        <Typography variant="body2">
-                                                            {task.estimate_duration}p
+                                        return (
+                                            <TableRow key={task.id} hover>
+                                                <TableCell>
+                                                    {(page - 1) * itemsPerPage + index + 1}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {workType ? (
+                                                        <Tooltip title={workType.description || ''} arrow>
+                                                            <Chip
+                                                                label={workType.name}
+                                                                size="small"
+                                                                sx={{
+                                                                    bgcolor: alpha(workTypeColor, 0.15),
+                                                                    color: workTypeColor,
+                                                                    fontWeight: 600,
+                                                                    cursor: 'pointer'
+                                                                }}
+                                                            />
+                                                        </Tooltip>
+                                                    ) : (
+                                                        <Typography variant="body2" color="text.secondary">
+                                                            —
                                                         </Typography>
+                                                    )}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Typography variant="body2" fontWeight={500}>
+                                                        {task.title || task.name}
+                                                    </Typography>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Typography variant="body2" color="text.secondary" noWrap>
+                                                        {task.description.length > 80
+                                                            ? `${task.description.substring(0, 80)}...`
+                                                            : task.description
+                                                        }
+                                                    </Typography>
+                                                </TableCell>
+                                                <TableCell align="center">
+                                                    {task.estimated_hours > 0 ? (
+                                                        <Stack direction="row" alignItems="center" justifyContent="center" spacing={0.5}>
+                                                            <ScheduleIcon fontSize="small" color="action" />
+                                                            <Typography variant="body2">
+                                                                {task.estimated_hours} giờ
+                                                            </Typography>
+                                                        </Stack>
+                                                    ) : (
+                                                        <Typography variant="body2" color="text.secondary">
+                                                            —
+                                                        </Typography>
+                                                    )}
+                                                </TableCell>
+                                                <TableCell align="center">
+                                                    <Stack direction="row" spacing={0.5} justifyContent="center">
+                                                        <Tooltip title="Xem chi tiết ca">
+                                                            <Chip
+                                                                label={slotsCount.total}
+                                                                size="small"
+                                                                variant="outlined"
+                                                                onClick={() => handleViewSlots(task)}
+                                                                sx={{
+                                                                    cursor: 'pointer',
+                                                                    '&:hover': {
+                                                                        bgcolor: alpha(COLORS.PRIMARY[100], 0.5)
+                                                                    }
+                                                                }}
+                                                            />
+                                                        </Tooltip>
+                                                        <Tooltip title="Ca công khai">
+                                                            <Chip
+                                                                label={`${slotsCount.public}P`}
+                                                                size="small"
+                                                                color="success"
+                                                                onClick={() => handleViewSlots(task)}
+                                                                sx={{
+                                                                    cursor: 'pointer',
+                                                                    '&:hover': {
+                                                                        opacity: 0.8
+                                                                    }
+                                                                }}
+                                                            />
+                                                        </Tooltip>
                                                     </Stack>
-                                                ) : (
-                                                    <Typography variant="body2" color="text.secondary">
-                                                        —
-                                                    </Typography>
-                                                )}
-                                            </TableCell>
-                                            <TableCell align="center">
-                                                <Stack direction="row" spacing={0.5} justifyContent="center">
-                                                    <Tooltip title="Xem chi tiết ca">
-                                                        <Chip
-                                                            label={slotsCount.total}
-                                                            size="small"
-                                                            variant="outlined"
-                                                            onClick={() => handleViewSlots(task)}
-                                                            sx={{
-                                                                cursor: 'pointer',
-                                                                '&:hover': {
-                                                                    bgcolor: alpha(COLORS.PRIMARY[100], 0.5)
-                                                                }
-                                                            }}
-                                                        />
-                                                    </Tooltip>
-                                                    <Tooltip title="Ca công khai">
-                                                        <Chip
-                                                            label={`${slotsCount.public}P`}
-                                                            size="small"
-                                                            color="success"
-                                                            onClick={() => handleViewSlots(task)}
-                                                            sx={{
-                                                                cursor: 'pointer',
-                                                                '&:hover': {
-                                                                    opacity: 0.8
-                                                                }
-                                                            }}
-                                                        />
-                                                    </Tooltip>
-                                                </Stack>
-                                            </TableCell>
+                                                </TableCell>
 
-                                            {/* Thao tác */}
-                                            <TableCell align="center">
-                                                <IconButton
-                                                    size="small"
-                                                    onClick={(e) => {
-                                                        setMenuAnchor(e.currentTarget);
-                                                        setMenuTask(task);
-                                                    }}
-                                                >
-                                                    <MoreVertIcon fontSize="small" />
-                                                </IconButton>
-                                            </TableCell>
-                                        </TableRow>
-                                    );
-                                })
-                            )}
-                        </TableBody>
-                    </Table>
-                </TableContainer>
+                                                {/* Thao tác */}
+                                                <TableCell align="center">
+                                                    <IconButton
+                                                        size="small"
+                                                        onClick={(e) => {
+                                                            setMenuAnchor(e.currentTarget);
+                                                            setMenuTask(task);
+                                                        }}
+                                                    >
+                                                        <MoreVertIcon fontSize="small" />
+                                                    </IconButton>
+                                                </TableCell>
+                                            </TableRow>
+                                        );
+                                    })
+                                )}
+                            </TableBody>
+                        </Table>
+                    </TableContainer>
+
+                    {/* Pagination */}
+                    <Box sx={{ mt: 2 }}>
+                        <Pagination
+                            page={page}
+                            totalPages={totalPages}
+                            onPageChange={setPage}
+                            itemsPerPage={itemsPerPage}
+                            onItemsPerPageChange={(value) => {
+                                setItemsPerPage(value);
+                                setPage(1);
+                            }}
+                            totalItems={filteredTemplates.length}
+                        />
+                    </Box>
+                </>
             )}
 
-            {/* Table - Slots */}
+            {/* Work Type Tab */}
             {currentTab === 1 && (
-                <TableContainer component={Paper}>
-                    <Table>
-                        <TableHead sx={{ bgcolor: alpha(COLORS.GRAY[100], 0.5) }}>
-                            <TableRow>
-                                <TableCell width="5%">STT</TableCell>
-                                <TableCell width="20%">Nhiệm vụ</TableCell>
-                                <TableCell width="12%">Thời gian</TableCell>
-                                <TableCell width="18%">Ngày áp dụng</TableCell>
-                                <TableCell width="10%" align="center">Chỗ ngồi</TableCell>
-                                <TableCell width="12%" align="right">Giá</TableCell>
-                                <TableCell width="13%" align="center">Trạng thái</TableCell>
-                                <TableCell width="10%" align="center">Thao tác</TableCell>
-                            </TableRow>
-                        </TableHead>
-                        <TableBody>
-                            {currentPageItems.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
-                                        <Typography color="text.secondary">
-                                            Không có slot nào
-                                        </Typography>
-                                    </TableCell>
-                                </TableRow>
-                            ) : (
-                                currentPageItems.map((slot, index) => {
-                                    const task = getTaskForSlot(slot.task_id);
-                                    const taskType = task ? getTaskTypeInfo(task.task_type) : null;
-
-                                    return (
-                                        <TableRow key={slot.id} hover>
-                                            {/* STT */}
-                                            <TableCell>
-                                                {(page - 1) * itemsPerPage + index + 1}
-                                            </TableCell>
-
-                                            {/* Task */}
-                                            <TableCell>
-                                                {task && (
-                                                    <Typography variant="body2" fontWeight={500}>
-                                                        {task.name}
-                                                    </Typography>
-                                                )}
-                                            </TableCell>
-
-                                            {/* Thời gian */}
-                                            <TableCell>
-                                                <Typography variant="body2" fontWeight={500}>
-                                                    {slot.start_time} - {slot.end_time}
-                                                </Typography>
-                                            </TableCell>
-
-                                            {/* Ngày áp dụng */}
-                                            <TableCell>
-                                                <Stack direction="row" spacing={0.5} flexWrap="wrap">
-                                                    {slot.applicable_days && Array.isArray(slot.applicable_days) && slot.applicable_days.map(day => (
-                                                        <Chip
-                                                            key={day}
-                                                            label={WEEKDAY_LABELS[day]}
-                                                            size="small"
-                                                            variant="outlined"
-                                                        />
-                                                    ))}
-                                                </Stack>
-                                            </TableCell>
-
-                                            {/* Capacity */}
-                                            <TableCell align="center">
-                                                {slot.capacity ? (
-                                                    <Typography variant="body2" fontWeight={500}>
-                                                        {slot.capacity}
-                                                    </Typography>
-                                                ) : (
-                                                    <Typography variant="body2" color="text.secondary">
-                                                        —
-                                                    </Typography>
-                                                )}
-                                            </TableCell>
-
-                                            {/* Giá */}
-                                            <TableCell align="right">
-                                                {slot.price ? (
-                                                    <Typography variant="body2" fontWeight={500} color={COLORS.SUCCESS[700]}>
-                                                        {new Intl.NumberFormat('vi-VN', {
-                                                            style: 'currency',
-                                                            currency: 'VND'
-                                                        }).format(slot.price)}
-                                                    </Typography>
-                                                ) : (
-                                                    <Typography variant="body2" color="text.secondary">
-                                                        —
-                                                    </Typography>
-                                                )}
-                                            </TableCell>
-
-                                            {/* Trạng thái */}
-                                            <TableCell align="center">
-                                                <Chip
-                                                    label={slot.status === SLOT_STATUS.PUBLIC ? 'Công khai' : 'Nội bộ'}
-                                                    size="small"
-                                                    icon={slot.status === SLOT_STATUS.PUBLIC ? <PublicIcon /> : <LockIcon />}
-                                                    color={slot.status === SLOT_STATUS.PUBLIC ? 'success' : 'default'}
-                                                    sx={{
-                                                        bgcolor: slot.status === SLOT_STATUS.PUBLIC
-                                                            ? alpha(COLORS.SUCCESS[100], 0.8)
-                                                            : alpha(COLORS.GRAY[200], 0.6),
-                                                        color: slot.status === SLOT_STATUS.PUBLIC
-                                                            ? COLORS.SUCCESS[700]
-                                                            : COLORS.TEXT.SECONDARY
-                                                    }}
-                                                />
-                                            </TableCell>
-
-                                            {/* Thao tác */}
-                                            <TableCell align="center">
-                                                <IconButton
-                                                    size="small"
-                                                    onClick={(e) => {
-                                                        setSlotMenuAnchor(e.currentTarget);
-                                                        setMenuSlot(slot);
-                                                    }}
-                                                >
-                                                    <MoreVertIcon fontSize="small" />
-                                                </IconButton>
-                                            </TableCell>
-                                        </TableRow>
-                                    );
-                                })
-                            )}
-                        </TableBody>
-                    </Table>
-                </TableContainer>
+                <WorkTypeTab
+                    onAlert={(alert) => setAlert({ ...alert, open: true })}
+                />
             )}
 
-            {/* Pagination */}
-            {totalPages > 1 && (
-                <Box sx={{ mt: 2 }}>
-                    <Pagination
-                        page={page}
-                        totalPages={totalPages}
-                        onPageChange={setPage}
-                        itemsPerPage={itemsPerPage}
-                        onItemsPerPageChange={(value) => {
-                            setItemsPerPage(value);
-                            setPage(1);
-                        }}
-                        totalItems={currentTab === 0 ? filteredTemplates.length : filteredSlots.length}
-                    />
-                </Box>
+            {/* Daily Tasks Tab */}
+            {currentTab === 2 && (
+                <DailyTasksTab
+                    taskTemplates={taskTemplates}
+                    slots={slots}
+                    onRefresh={loadData}
+                />
             )}
 
             {/* Modals */}
@@ -883,13 +811,24 @@ const TasksPage = () => {
                 onSubmit={handleTaskFormSubmit}
                 initialData={editingTask}
                 mode={editingTask ? 'edit' : 'create'}
+                workTypes={workTypes}
+                services={services}
             />
 
             <SlotFormModal
                 open={slotFormOpen}
-                onClose={() => setSlotFormOpen(false)}
+                onClose={() => {
+                    setSlotFormOpen(false);
+                    setEditingSlot(null);
+                    setSlotFormMode('create');
+                }}
                 onSubmit={handleSlotFormSubmit}
                 taskData={selectedTask}
+                initialData={editingSlot}
+                mode={slotFormMode}
+                areas={areas}
+                petGroups={petGroups}
+                teams={teams}
             />
 
             <SlotPublishModal
@@ -905,8 +844,7 @@ const TasksPage = () => {
                 taskData={selectedTask}
                 slots={slots}
                 onCreateSlot={handleCreateSlot}
-                onPublishSlot={handlePublishSlot}
-                onUnpublishSlot={handleUnpublishSlot}
+                onEditSlot={handleEditSlot}
                 onDeleteSlot={handleDeleteSlot}
                 onRefresh={loadData}
             />

@@ -9,7 +9,8 @@ import VaccinationCalendar from '../../components/vaccination/VaccinationCalenda
 import VaccineTypesTab from './VaccineTypesTab';
 import VaccinationScheduleModal from '../../components/modals/VaccinationScheduleModal';
 import { vaccinationApi } from '../../api/vaccinationApi';
-import { petApi, MOCK_PET_SPECIES, MOCK_PET_BREEDS } from '../../api/petApi';
+import { petApi } from '../../api/petApi';
+import { MOCK_PET_SPECIES, MOCK_PET_BREEDS } from '../../api/mockData';
 
 const VaccinationsPage = () => {
     const [isLoading, setIsLoading] = useState(true);

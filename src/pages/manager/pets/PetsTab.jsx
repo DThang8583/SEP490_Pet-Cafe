@@ -106,26 +106,32 @@ const PetsTab = ({ pets, species, breeds, groups, onDataChange }) => {
         try {
             setIsSubmitting(true);
 
-            const petData = {
+            // Base data for both create and edit
+            const baseData = {
                 name: (petFormData.name || '').trim(),
+                age: parseInt(petFormData.age || 0),
                 species_id: petFormData.species_id,
                 breed_id: petFormData.breed_id,
-                pet_group_id: petFormData.pet_group_id || null,
-                age: parseInt(petFormData.age || 0),
-                weight: parseFloat(petFormData.weight || 0),
-                gender: petFormData.gender,
                 color: (petFormData.color || '').trim(),
-                image_url: (petFormData.image || petFormData.image_url || '').trim(),
+                weight: parseFloat(petFormData.weight || 0),
                 preferences: (petFormData.preferences || '').trim(),
                 special_notes: (petFormData.special_notes || '').trim(),
-                arrival_date: new Date(petFormData.arrival_date).toISOString()
+                image_url: (petFormData.image || petFormData.image_url || '').trim(),
+                arrival_date: new Date(petFormData.arrival_date).toISOString(),
+                gender: petFormData.gender
             };
 
             let response;
             if (editMode && selectedPet) {
-                response = await petApi.updatePet(selectedPet.id, petData);
+                // Edit: include group_id
+                const editData = {
+                    ...baseData,
+                    group_id: petFormData.group_id || null
+                };
+                response = await petApi.updatePet(selectedPet.id, editData);
             } else {
-                response = await petApi.addPet(petData);
+                // Create: NO group_id (match API)
+                response = await petApi.addPet(baseData);
             }
 
             if (response.success) {
@@ -338,7 +344,7 @@ const PetsTab = ({ pets, species, breeds, groups, onDataChange }) => {
                                     <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>{pet.age} tuổi</TableCell>
                                     <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>{pet.weight} kg</TableCell>
                                     <TableCell sx={{ display: { xs: 'none', lg: 'table-cell' } }}>
-                                        {pet.gender === 'male' ? 'Đực' : 'Cái'}
+                                        {pet.gender === 'Male' || pet.gender === 'male' ? 'Đực' : 'Cái'}
                                     </TableCell>
                                     <TableCell sx={{ display: { xs: 'none', xl: 'table-cell' } }}>{pet.color}</TableCell>
                                     <TableCell sx={{ display: { xs: 'none', lg: 'table-cell' } }}>
@@ -503,12 +509,40 @@ const PetsTab = ({ pets, species, breeds, groups, onDataChange }) => {
                                             </Stack>
                                             <Stack direction="row" spacing={2}>
                                                 <Typography sx={{ width: '140px', color: COLORS.TEXT.SECONDARY, fontWeight: 600 }}>Giới tính:</Typography>
-                                                <Typography sx={{ flex: 1 }}>{petDetailDialog.pet.gender === 'male' ? '♂️ Đực' : '♀️ Cái'}</Typography>
+                                                <Typography sx={{ flex: 1 }}>
+                                                    {petDetailDialog.pet.gender === 'Male' || petDetailDialog.pet.gender === 'male' ? '♂️ Đực' : '♀️ Cái'}
+                                                </Typography>
                                             </Stack>
                                             <Stack direction="row" spacing={2}>
                                                 <Typography sx={{ width: '140px', color: COLORS.TEXT.SECONDARY, fontWeight: 600 }}>Màu sắc:</Typography>
                                                 <Typography sx={{ flex: 1 }}>{petDetailDialog.pet.color}</Typography>
                                             </Stack>
+                                            <Stack direction="row" spacing={2}>
+                                                <Typography sx={{ width: '140px', color: COLORS.TEXT.SECONDARY, fontWeight: 600 }}>Ngày đến quán:</Typography>
+                                                <Typography sx={{ flex: 1 }}>
+                                                    {petDetailDialog.pet.arrival_date ? new Date(petDetailDialog.pet.arrival_date).toLocaleDateString('vi-VN') : '—'}
+                                                </Typography>
+                                            </Stack>
+                                            {petDetailDialog.pet.group_id && (
+                                                <Stack direction="row" spacing={2}>
+                                                    <Typography sx={{ width: '140px', color: COLORS.TEXT.SECONDARY, fontWeight: 600 }}>Nhóm:</Typography>
+                                                    <Typography sx={{ flex: 1 }}>
+                                                        {groups.find(g => g.id === petDetailDialog.pet.group_id)?.name || '—'}
+                                                    </Typography>
+                                                </Stack>
+                                            )}
+                                            {petDetailDialog.pet.preferences && (
+                                                <Stack direction="row" spacing={2}>
+                                                    <Typography sx={{ width: '140px', color: COLORS.TEXT.SECONDARY, fontWeight: 600 }}>Sở thích:</Typography>
+                                                    <Typography sx={{ flex: 1 }}>{petDetailDialog.pet.preferences}</Typography>
+                                                </Stack>
+                                            )}
+                                            {petDetailDialog.pet.special_notes && (
+                                                <Stack direction="row" spacing={2}>
+                                                    <Typography sx={{ width: '140px', color: COLORS.TEXT.SECONDARY, fontWeight: 600 }}>Ghi chú đặc biệt:</Typography>
+                                                    <Typography sx={{ flex: 1 }}>{petDetailDialog.pet.special_notes}</Typography>
+                                                </Stack>
+                                            )}
                                         </Stack>
                                     </Grid>
                                 </Grid>

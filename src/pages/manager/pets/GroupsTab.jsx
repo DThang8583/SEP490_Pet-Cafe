@@ -53,21 +53,6 @@ const GroupsTab = ({ pets, species, breeds, groups, onDataChange }) => {
         return { label: 'Khỏe mạnh', color: COLORS.SUCCESS, bg: COLORS.SUCCESS[100] };
     };
 
-    // Get group capacity status
-    const getGroupCapacityStatus = (currentCount, maxCapacity) => {
-        const percent = (currentCount / maxCapacity) * 100;
-        if (percent >= 100) {
-            return { label: 'Đầy', color: COLORS.ERROR, bg: COLORS.ERROR[100] };
-        }
-        if (percent >= 90) {
-            return { label: 'Sắp đầy', color: COLORS.WARNING, bg: COLORS.WARNING[100] };
-        }
-        if (percent >= 70) {
-            return { label: 'Còn chỗ', color: COLORS.INFO, bg: COLORS.INFO[100] };
-        }
-        return { label: 'Trống', color: COLORS.SUCCESS, bg: COLORS.SUCCESS[100] };
-    };
-
     // Filtered groups
     const filteredGroups = useMemo(() => {
         return groups.filter(group => {
@@ -102,11 +87,9 @@ const GroupsTab = ({ pets, species, breeds, groups, onDataChange }) => {
 
             const groupData = {
                 name: groupFormData.name.trim(),
-                pet_species_id: groupFormData.pet_species_id,
-                pet_breed_id: groupFormData.pet_breed_id || null,
                 description: groupFormData.description.trim(),
-                max_capacity: parseInt(groupFormData.max_capacity),
-                current_count: parseInt(groupFormData.current_count || 0)
+                pet_species_id: groupFormData.pet_species_id,
+                pet_breed_id: groupFormData.pet_breed_id || null
             };
 
             let response;
@@ -171,8 +154,8 @@ const GroupsTab = ({ pets, species, breeds, groups, onDataChange }) => {
 
     // Handle view group details
     const handleViewGroupDetails = (group) => {
-        // Only show pets that are ACTUALLY in this group (pet_group_id matches)
-        const groupPets = pets.filter(p => p.pet_group_id === group.id);
+        // Only show pets that are ACTUALLY in this group (group_id matches)
+        const groupPets = pets.filter(p => p.group_id === group.id);
         setGroupDetailDialog({ open: true, group, pets: groupPets });
     };
 
@@ -185,7 +168,7 @@ const GroupsTab = ({ pets, species, breeds, groups, onDataChange }) => {
         try {
             // Update pets with group_id
             const updatePromises = selectedPetIds.map(petId =>
-                petApi.updatePet(petId, { pet_group_id: addPetToGroupDialog.group.id })
+                petApi.updatePet(petId, { group_id: addPetToGroupDialog.group.id })
             );
 
             await Promise.all(updatePromises);
@@ -216,7 +199,7 @@ const GroupsTab = ({ pets, species, breeds, groups, onDataChange }) => {
                         ]);
 
                         if (petsResponse.success && groupsResponse.success) {
-                            const freshGroupPets = petsResponse.data.filter(p => p.pet_group_id === currentGroupId);
+                            const freshGroupPets = petsResponse.data.filter(p => p.group_id === currentGroupId);
                             const updatedGroup = groupsResponse.data.find(g => g.id === currentGroupId);
 
                             if (updatedGroup) {
@@ -241,8 +224,8 @@ const GroupsTab = ({ pets, species, breeds, groups, onDataChange }) => {
     // Handle remove pet from group
     const handleRemovePetFromGroup = async (pet, group) => {
         try {
-            // Set pet_group_id to null
-            await petApi.updatePet(pet.id, { pet_group_id: null });
+            // Set group_id to null
+            await petApi.updatePet(pet.id, { group_id: null });
 
             // Wait for data to refresh
             await onDataChange();
@@ -263,7 +246,7 @@ const GroupsTab = ({ pets, species, breeds, groups, onDataChange }) => {
                     ]);
 
                     if (petsResponse.success && groupsResponse.success) {
-                        const freshGroupPets = petsResponse.data.filter(p => p.pet_group_id === group.id);
+                        const freshGroupPets = petsResponse.data.filter(p => p.group_id === group.id);
                         const updatedGroup = groupsResponse.data.find(g => g.id === group.id);
 
                         if (updatedGroup) {
@@ -351,87 +334,55 @@ const GroupsTab = ({ pets, species, breeds, groups, onDataChange }) => {
                             <TableRow>
                                 <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.WARNING[50], 0.5) }}>Tên nhóm</TableCell>
                                 <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.WARNING[50], 0.5) }}>Loài</TableCell>
-                                <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.WARNING[50], 0.5), display: { xs: 'none', md: 'table-cell' } }}>Mô tả</TableCell>
-                                <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.WARNING[50], 0.5), display: { xs: 'none', lg: 'table-cell' } }}>Sức chứa</TableCell>
-                                <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.WARNING[50], 0.5) }}>Số lượng</TableCell>
-                                <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.WARNING[50], 0.5) }}>Trạng thái</TableCell>
+                                <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.WARNING[50], 0.5), display: { xs: 'none', md: 'table-cell' } }}>Giống</TableCell>
+                                <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.WARNING[50], 0.5), display: { xs: 'none', lg: 'table-cell' } }}>Mô tả</TableCell>
                                 <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.WARNING[50], 0.5), textAlign: 'right' }}>Thao tác</TableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {currentPageGroups.map((group) => {
-                                const capacityPercent = (group.current_count / group.max_capacity) * 100;
-                                const capacityColor = capacityPercent >= 90 ? COLORS.ERROR[700] :
-                                    capacityPercent >= 70 ? COLORS.WARNING[700] :
-                                        COLORS.SUCCESS[700];
-                                const capacityStatus = getGroupCapacityStatus(group.current_count, group.max_capacity);
-
-                                return (
-                                    <TableRow
-                                        key={group.id}
-                                        hover
-                                        sx={{
-                                            '&:hover': {
-                                                background: alpha(COLORS.WARNING[50], 0.3)
-                                            }
-                                        }}
-                                    >
-                                        <TableCell sx={{ fontWeight: 600 }}>{group.name}</TableCell>
-                                        <TableCell>
-                                            <Chip
-                                                size="small"
-                                                label={getSpeciesName(group.pet_species_id)}
-                                                sx={{
-                                                    bgcolor: alpha(COLORS.WARNING[600], 0.2),
-                                                    color: COLORS.WARNING[700],
-                                                    fontWeight: 600
-                                                }}
-                                            />
-                                        </TableCell>
-                                        <TableCell sx={{ display: { xs: 'none', md: 'table-cell' }, maxWidth: 300 }}>
-                                            <Typography variant="body2" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                {group.description || '—'}
-                                            </Typography>
-                                        </TableCell>
-                                        <TableCell sx={{ display: { xs: 'none', lg: 'table-cell' } }}>
-                                            {group.max_capacity}
-                                        </TableCell>
-                                        <TableCell>
-                                            <Typography sx={{ fontWeight: 700, color: capacityColor, fontSize: '0.95rem' }}>
-                                                {group.current_count}/{group.max_capacity}
-                                            </Typography>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Chip
-                                                size="small"
-                                                label={capacityStatus.label}
-                                                icon={
-                                                    capacityPercent >= 100 ? <span>🔴</span> :
-                                                        capacityPercent >= 90 ? <span>🟡</span> :
-                                                            capacityPercent >= 70 ? <span>🔵</span> : <span>🟢</span>
-                                                }
-                                                sx={{
-                                                    background: alpha(capacityStatus.bg, 0.7),
-                                                    color: capacityStatus.color[800],
-                                                    fontWeight: 700,
-                                                    fontSize: '0.75rem'
-                                                }}
-                                            />
-                                        </TableCell>
-                                        <TableCell align="right">
-                                            <IconButton
-                                                size="small"
-                                                onClick={(e) => {
-                                                    setMenuAnchor(e.currentTarget);
-                                                    setMenuGroup(group);
-                                                }}
-                                            >
-                                                <MoreVert fontSize="small" />
-                                            </IconButton>
-                                        </TableCell>
-                                    </TableRow>
-                                );
-                            })}
+                            {currentPageGroups.map((group) => (
+                                <TableRow
+                                    key={group.id}
+                                    hover
+                                    sx={{
+                                        '&:hover': {
+                                            background: alpha(COLORS.WARNING[50], 0.3)
+                                        }
+                                    }}
+                                >
+                                    <TableCell sx={{ fontWeight: 600 }}>{group.name}</TableCell>
+                                    <TableCell>
+                                        <Chip
+                                            size="small"
+                                            label={getSpeciesName(group.pet_species_id)}
+                                            sx={{
+                                                bgcolor: alpha(COLORS.WARNING[600], 0.2),
+                                                color: COLORS.WARNING[700],
+                                                fontWeight: 600
+                                            }}
+                                        />
+                                    </TableCell>
+                                    <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
+                                        {group.pet_breed_id ? getBreedName(group.pet_breed_id) : 'Tất cả'}
+                                    </TableCell>
+                                    <TableCell sx={{ display: { xs: 'none', lg: 'table-cell' }, maxWidth: 300 }}>
+                                        <Typography variant="body2" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                            {group.description || '—'}
+                                        </Typography>
+                                    </TableCell>
+                                    <TableCell align="right">
+                                        <IconButton
+                                            size="small"
+                                            onClick={(e) => {
+                                                setMenuAnchor(e.currentTarget);
+                                                setMenuGroup(group);
+                                            }}
+                                        >
+                                            <MoreVert fontSize="small" />
+                                        </IconButton>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
                         </TableBody>
                     </Table>
                 </TableContainer>
@@ -534,14 +485,6 @@ const GroupsTab = ({ pets, species, breeds, groups, onDataChange }) => {
                                         <Typography sx={{ flex: 1 }}>
                                             {groupDetailDialog.group.pet_breed_id ? getBreedName(groupDetailDialog.group.pet_breed_id) : 'Tất cả'}
                                         </Typography>
-                                    </Stack>
-                                    <Stack direction="row" spacing={2}>
-                                        <Typography sx={{ width: '180px', color: COLORS.TEXT.SECONDARY, fontWeight: 600 }}>Sức chứa tối đa:</Typography>
-                                        <Typography sx={{ flex: 1 }}>{groupDetailDialog.group.max_capacity}</Typography>
-                                    </Stack>
-                                    <Stack direction="row" spacing={2}>
-                                        <Typography sx={{ width: '180px', color: COLORS.TEXT.SECONDARY, fontWeight: 600 }}>Số lượng hiện tại:</Typography>
-                                        <Typography sx={{ flex: 1 }}>{groupDetailDialog.group.current_count}</Typography>
                                     </Stack>
                                     <Stack direction="row" spacing={2}>
                                         <Typography sx={{ width: '180px', color: COLORS.TEXT.SECONDARY, fontWeight: 600 }}>Mô tả:</Typography>
@@ -850,13 +793,13 @@ const AddPetsToGroupContent = ({ group, allPets, species, breeds, groups, onSubm
 
         eligiblePets.forEach(pet => {
             // Pet is in another group
-            if (pet.pet_group_id && pet.pet_group_id !== group?.id) {
+            if (pet.group_id && pet.group_id !== group?.id) {
                 inOtherGroups.push(pet);
             }
             // Pet is not in any group (can be added)
-            else if (!pet.pet_group_id || pet.pet_group_id === null || pet.pet_group_id === group?.id) {
+            else if (!pet.group_id || pet.group_id === null || pet.group_id === group?.id) {
                 // Don't show pets already in current group
-                if (pet.pet_group_id !== group?.id) {
+                if (pet.group_id !== group?.id) {
                     available.push(pet);
                 }
             }
@@ -868,7 +811,7 @@ const AddPetsToGroupContent = ({ group, allPets, species, breeds, groups, onSubm
     const handleTogglePet = (petId) => {
         // Check if pet is already in another group
         const pet = allPets.find(p => p.id === petId);
-        if (pet?.pet_group_id && pet.pet_group_id !== group?.id) {
+        if (pet?.group_id && pet.group_id !== group?.id) {
             // Don't allow selection of pets already in other groups
             return;
         }
@@ -1032,7 +975,7 @@ const AddPetsToGroupContent = ({ group, allPets, species, breeds, groups, onSubm
                                                     {getBreedName(pet.breed_id)} • {pet.age} tuổi • {pet.weight} kg
                                                 </Typography>
                                                 <Typography variant="caption" sx={{ display: 'block', color: COLORS.WARNING[700], fontWeight: 600, mt: 0.5 }}>
-                                                    📍 Đang ở: {getGroupName(pet.pet_group_id)}
+                                                    📍 Đang ở: {getGroupName(pet.group_id)}
                                                 </Typography>
                                             </Box>
                                             <Chip

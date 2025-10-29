@@ -1,461 +1,309 @@
-import axios from 'axios';
+import { MOCK_SERVICES } from './mockServices';
+import { MOCK_SLOTS } from './mockSlots';
 
-// ========== CONSTANTS ==========
-
-export const SERVICE_STATUS = {
-    ENABLED: 'enabled',
-    DISABLED: 'disabled'
-};
-
-// ========== UTILITY FUNCTIONS ==========
-
+// Delay helper
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-const generateId = (prefix = 'service') => {
-    return `${prefix}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-};
-
-const getCurrentUser = () => {
-    const userStr = localStorage.getItem('currentUser');
-    return userStr ? JSON.parse(userStr) : null;
-};
-
-const checkPermission = (user, permission) => {
-    if (!user) return false;
-
-    const rolePermissions = {
-        'customer': ['view_services'],
-        'working_staff': ['view_services'],
-        'sales_staff': ['view_services'],
-        'manager': ['service_management', 'view_services', 'full_access'],
-        'admin': ['full_access']
-    };
-
-    const userPermissions = rolePermissions[user.role] || [];
-    return userPermissions.includes(permission) || userPermissions.includes('full_access');
-};
-
-// ========== MOCK DATABASE ==========
-
-let MOCK_SERVICES = [
-    {
-        id: 'service-001',
-        task_id: 'task-template-001',
-        task_type: 'service',
-        images: [
-            'https://images.unsplash.com/photo-1601758228041-f3b2795255f1?w=400',
-            'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=400'
-        ],
-        name: 'Tắm rửa thú cưng cơ bản',
-        description: 'Dịch vụ tắm gội với sữa tắm chuyên dụng, sấy khô và chải lông cơ bản cho chó và mèo',
-        estimate_duration: 60,
-        price: 150000,
-        status: 'enabled',
-        created_at: '2024-01-15T10:30:00Z',
-        created_by: 'user-001',
-        updated_at: '2024-01-20T14:00:00Z',
-        updated_by: 'user-001'
-    },
-    {
-        id: 'service-002',
-        task_id: 'task-template-002',
-        task_type: 'service',
-        images: [
-            'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=400',
-            'https://images.unsplash.com/photo-1601758228041-f3b2795255f1?w=400',
-            'https://images.unsplash.com/photo-1551717743-49959800b1f6?w=400'
-        ],
-        name: 'Grooming cao cấp',
-        description: 'Dịch vụ grooming cao cấp bao gồm spa, massage thư giãn, và tạo kiểu lông theo yêu cầu',
-        estimate_duration: 120,
-        price: 350000,
-        status: 'enabled',
-        created_at: '2024-01-16T14:30:00Z',
-        created_by: 'user-001',
-        updated_at: '2024-01-16T14:30:00Z',
-        updated_by: null
-    },
-    {
-        id: 'service-003',
-        task_id: 'task-template-006',
-        task_type: 'service',
-        images: [
-            'https://images.unsplash.com/photo-1551717743-49959800b1f6?w=400'
-        ],
-        name: 'Huấn luyện cơ bản',
-        description: 'Huấn luyện các lệnh cơ bản và kỹ năng xã hội cho chó: ngồi, nằm, ở lại, đến',
-        estimate_duration: 90,
-        price: 250000,
-        status: 'disabled',
-        created_at: '2024-01-20T10:30:00Z',
-        created_by: 'user-001',
-        updated_at: '2024-01-20T10:30:00Z',
-        updated_by: null
-    }
-];
-
-// ========== API FUNCTIONS ==========
-
+// Service API matching official structure
 const serviceApi = {
     /**
-     * Get all services (for management)
-     * @param {Object} filters 
+     * Get all services with pagination
+     * @param {Object} params - { page_index, page_size, search, is_active }
      * @returns {Promise<Object>}
      */
-    async getAllServices(filters = {}) {
+    async getAllServices(params = {}) {
         await delay(300);
-        const currentUser = getCurrentUser();
 
-        if (!checkPermission(currentUser, 'service_management')) {
-            throw new Error('Không có quyền xem danh sách dịch vụ');
-        }
+        const {
+            page_index = 0,
+            page_size = 10,
+            search = '',
+            is_active = null
+        } = params;
 
         let services = [...MOCK_SERVICES];
 
-        // Apply filters
-        if (filters.status) {
-            services = services.filter(s => s.status === filters.status);
-        }
-
-        if (filters.task_type) {
-            services = services.filter(s => s.task_type === filters.task_type);
-        }
-
-        if (filters.task_id) {
-            services = services.filter(s => s.task_id === filters.task_id);
-        }
-
-        if (filters.search) {
-            const searchLower = filters.search.toLowerCase();
+        // Filter by search
+        if (search) {
+            const searchLower = search.toLowerCase();
             services = services.filter(s =>
                 s.name.toLowerCase().includes(searchLower) ||
                 s.description.toLowerCase().includes(searchLower)
             );
         }
 
-        // Sort by created_at (newest first)
-        services.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        // Filter by is_active
+        if (is_active !== null) {
+            services = services.filter(s => s.is_active === is_active);
+        }
+
+        // Filter out deleted
+        services = services.filter(s => !s.is_deleted);
+
+        // Calculate pagination
+        const total_items_count = services.length;
+        const total_pages_count = Math.ceil(total_items_count / page_size);
+        const start = page_index * page_size;
+        const end = start + page_size;
+        const paginatedServices = services.slice(start, end);
+
+        // For each service, populate slots from MOCK_SLOTS
+        const servicesWithSlots = paginatedServices.map(service => {
+            const serviceSlots = MOCK_SLOTS.filter(slot => slot.service_id === service.id);
+            return {
+                ...service,
+                slots: serviceSlots
+            };
+        });
 
         return {
-            success: true,
-            data: services,
-            total: services.length
+            data: servicesWithSlots,
+            pagination: {
+                total_items_count,
+                page_size,
+                total_pages_count,
+                page_index,
+                has_next: page_index < total_pages_count - 1,
+                has_previous: page_index > 0
+            }
         };
     },
 
     /**
-     * Get available services (for customers - only enabled)
-     * @param {Object} filters 
-     * @returns {Promise<Object>}
-     */
-    async getAvailableServices(filters = {}) {
-        await delay(300);
-
-        let services = MOCK_SERVICES.filter(s => s.status === SERVICE_STATUS.ENABLED);
-
-        // Apply filters
-        if (filters.task_type) {
-            services = services.filter(s => s.task_type === filters.task_type);
-        }
-
-        if (filters.search) {
-            const searchLower = filters.search.toLowerCase();
-            services = services.filter(s =>
-                s.name.toLowerCase().includes(searchLower) ||
-                s.description.toLowerCase().includes(searchLower)
-            );
-        }
-
-        if (filters.min_price !== undefined) {
-            services = services.filter(s => s.price >= filters.min_price);
-        }
-
-        if (filters.max_price !== undefined) {
-            services = services.filter(s => s.price <= filters.max_price);
-        }
-
-        // Sort by price (ascending) by default
-        services.sort((a, b) => a.price - b.price);
-
-        return {
-            success: true,
-            data: services,
-            total: services.length
-        };
-    },
-
-    /**
-     * Get service by ID
-     * @param {string} serviceId 
+     * Get service by ID with detailed information
+     * @param {string} serviceId
      * @returns {Promise<Object>}
      */
     async getServiceById(serviceId) {
         await delay(200);
-        const currentUser = getCurrentUser();
 
-        if (!checkPermission(currentUser, 'view_services')) {
-            throw new Error('Không có quyền xem dịch vụ');
-        }
-
-        const service = MOCK_SERVICES.find(s => s.id === serviceId);
+        const service = MOCK_SERVICES.find(s => s.id === serviceId && !s.is_deleted);
 
         if (!service) {
             throw new Error('Không tìm thấy dịch vụ');
         }
 
-        // If customer, only show enabled services
-        if (currentUser && currentUser.role === 'customer' && service.status !== SERVICE_STATUS.ENABLED) {
-            throw new Error('Dịch vụ không khả dụng');
-        }
+        // Populate slots
+        const serviceSlots = MOCK_SLOTS.filter(slot => slot.service_id === serviceId);
 
         return {
-            success: true,
-            data: service
+            ...service,
+            slots: serviceSlots
         };
     },
 
     /**
-     * Get service by task ID
-     * @param {string} taskId 
+     * Get slots of a service
+     * @param {string} serviceId
+     * @param {Object} params - { page_index, page_size }
      * @returns {Promise<Object>}
      */
-    async getServiceByTaskId(taskId) {
+    async getSlotsByServiceId(serviceId, params = {}) {
         await delay(200);
-        const currentUser = getCurrentUser();
 
-        if (!checkPermission(currentUser, 'service_management')) {
-            throw new Error('Không có quyền xem dịch vụ');
-        }
+        const {
+            page_index = 0,
+            page_size = 10
+        } = params;
 
-        const service = MOCK_SERVICES.find(s => s.task_id === taskId);
-
+        // Check if service exists
+        const service = MOCK_SERVICES.find(s => s.id === serviceId && !s.is_deleted);
         if (!service) {
-            return {
-                success: true,
-                data: null,
-                message: 'Task này chưa có dịch vụ'
-            };
+            throw new Error('Không tìm thấy dịch vụ');
         }
+
+        // Get slots for this service
+        let slots = MOCK_SLOTS.filter(slot => slot.service_id === serviceId);
+
+        // Calculate pagination
+        const total_items_count = slots.length;
+        const total_pages_count = Math.ceil(total_items_count / page_size);
+        const start = page_index * page_size;
+        const end = start + page_size;
+        const paginatedSlots = slots.slice(start, end);
 
         return {
-            success: true,
-            data: service
+            data: paginatedSlots,
+            pagination: {
+                total_items_count,
+                page_size,
+                total_pages_count,
+                page_index,
+                has_next: page_index < total_pages_count - 1,
+                has_previous: page_index > 0
+            }
         };
     },
 
     /**
-     * Create service from task
-     * @param {Object} serviceData 
+     * Create a new service
+     * @param {Object} serviceData
      * @returns {Promise<Object>}
      */
     async createService(serviceData) {
         await delay(500);
-        const currentUser = getCurrentUser();
 
-        if (!checkPermission(currentUser, 'service_management')) {
-            throw new Error('Không có quyền tạo dịch vụ');
-        }
-
-        // ========== VALIDATION ==========
-
-        // 1. Task ID (Required, Unique)
-        if (!serviceData.task_id) {
-            throw new Error('Task ID là bắt buộc');
-        }
-
-        // Check if service already exists for this task (1:1 relationship)
-        const existingService = MOCK_SERVICES.find(s => s.task_id === serviceData.task_id);
-        if (existingService) {
-            throw new Error('Task này đã có dịch vụ. 1 Task chỉ có thể tạo 1 Service.');
-        }
-
-        // 2. Task Type (Required)
-        if (!serviceData.task_type) {
-            throw new Error('Task Type là bắt buộc');
-        }
-
-        // 3. Name (Required)
+        // Validation
         if (!serviceData.name || !serviceData.name.trim()) {
             throw new Error('Tên dịch vụ là bắt buộc');
         }
 
-        // 4. Description (Required)
         if (!serviceData.description || !serviceData.description.trim()) {
             throw new Error('Mô tả dịch vụ là bắt buộc');
         }
 
-        // 5. Estimate Duration (Required)
-        if (!serviceData.estimate_duration || serviceData.estimate_duration <= 0) {
-            throw new Error('Thời gian ước tính phải lớn hơn 0');
+        if (!serviceData.duration_minutes || serviceData.duration_minutes <= 0) {
+            throw new Error('Thời lượng phải lớn hơn 0');
         }
 
-        // 6. Price (Required)
-        if (serviceData.price === undefined || serviceData.price === null || serviceData.price < 0) {
-            throw new Error('Giá dịch vụ là bắt buộc và không được âm');
+        if (serviceData.base_price === undefined || serviceData.base_price < 0) {
+            throw new Error('Giá cơ bản không được âm');
         }
 
-        // ========== CREATE SERVICE ==========
+        // Check if service already exists for this task (if task_id provided)
+        if (serviceData.task_id) {
+            const existingService = MOCK_SERVICES.find(
+                s => s.task_id === serviceData.task_id && !s.is_deleted
+            );
+            if (existingService) {
+                throw new Error('Task này đã có dịch vụ');
+            }
+        }
+
+        // Generate ID
+        const id = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
         const newService = {
-            id: generateId('service'),
-            task_id: serviceData.task_id,
-            task_type: serviceData.task_type,
-            image: serviceData.image || '',
+            id,
             name: serviceData.name.trim(),
             description: serviceData.description.trim(),
-            estimate_duration: parseInt(serviceData.estimate_duration),
-            price: parseFloat(serviceData.price),
-            status: SERVICE_STATUS.DISABLED, // Default status
+            duration_minutes: serviceData.duration_minutes,
+            base_price: serviceData.base_price,
+            image_url: serviceData.image_url || null,
+            thumbnails: serviceData.thumbnails || [],
+            is_active: serviceData.is_active !== undefined ? serviceData.is_active : false,
+            task_id: serviceData.task_id || null,
+            task: null,
+            slots: [],
+            order_details: [],
+            bookings: [],
             created_at: new Date().toISOString(),
-            created_by: currentUser.id,
+            created_by: '00000000-0000-0000-0000-000000000000',
             updated_at: new Date().toISOString(),
-            updated_by: null
+            updated_by: null,
+            is_deleted: false
         };
 
         MOCK_SERVICES.push(newService);
 
-        return {
-            success: true,
-            data: newService,
-            message: 'Tạo dịch vụ thành công. Status mặc định là Disabled.'
-        };
+        return newService;
     },
 
     /**
-     * Update service
-     * @param {string} serviceId 
-     * @param {Object} updates 
+     * Update a service
+     * @param {string} serviceId
+     * @param {Object} updates
      * @returns {Promise<Object>}
      */
     async updateService(serviceId, updates) {
         await delay(400);
-        const currentUser = getCurrentUser();
 
-        if (!checkPermission(currentUser, 'service_management')) {
-            throw new Error('Không có quyền cập nhật dịch vụ');
-        }
-
-        const serviceIndex = MOCK_SERVICES.findIndex(s => s.id === serviceId);
+        const serviceIndex = MOCK_SERVICES.findIndex(
+            s => s.id === serviceId && !s.is_deleted
+        );
 
         if (serviceIndex === -1) {
             throw new Error('Không tìm thấy dịch vụ');
         }
 
-        // ========== VALIDATION ==========
-
-        // Cannot change task_id (1:1 relationship)
-        if (updates.task_id && updates.task_id !== MOCK_SERVICES[serviceIndex].task_id) {
-            throw new Error('Không thể thay đổi Task ID của dịch vụ');
-        }
-
-        // Name validation
+        // Validation
         if (updates.name !== undefined && (!updates.name || !updates.name.trim())) {
             throw new Error('Tên dịch vụ không được để trống');
         }
 
-        // Description validation
         if (updates.description !== undefined && (!updates.description || !updates.description.trim())) {
             throw new Error('Mô tả dịch vụ không được để trống');
         }
 
-        // Duration validation
-        if (updates.estimate_duration !== undefined && updates.estimate_duration <= 0) {
-            throw new Error('Thời gian ước tính phải lớn hơn 0');
+        if (updates.duration_minutes !== undefined && updates.duration_minutes <= 0) {
+            throw new Error('Thời lượng phải lớn hơn 0');
         }
 
-        // Price validation
-        if (updates.price !== undefined && updates.price < 0) {
-            throw new Error('Giá dịch vụ không được âm');
+        if (updates.base_price !== undefined && updates.base_price < 0) {
+            throw new Error('Giá cơ bản không được âm');
         }
 
-        // Status validation
-        if (updates.status && !Object.values(SERVICE_STATUS).includes(updates.status)) {
-            throw new Error('Status không hợp lệ');
+        // Cannot change task_id if service already linked to a task
+        if (updates.task_id && MOCK_SERVICES[serviceIndex].task_id &&
+            updates.task_id !== MOCK_SERVICES[serviceIndex].task_id) {
+            throw new Error('Không thể thay đổi Task ID của dịch vụ đã liên kết');
         }
 
-        // ========== UPDATE SERVICE ==========
-
-        const updatedService = {
+        // Update service
+        MOCK_SERVICES[serviceIndex] = {
             ...MOCK_SERVICES[serviceIndex],
             ...updates,
             updated_at: new Date().toISOString(),
-            updated_by: currentUser.id
+            updated_by: '00000000-0000-0000-0000-000000000000'
         };
 
-        MOCK_SERVICES[serviceIndex] = updatedService;
-
-        return {
-            success: true,
-            data: updatedService,
-            message: 'Cập nhật dịch vụ thành công'
-        };
+        return MOCK_SERVICES[serviceIndex];
     },
 
     /**
-     * Toggle service status (enable/disable)
-     * @param {string} serviceId 
+     * Toggle service active status
+     * @param {string} serviceId
      * @returns {Promise<Object>}
      */
     async toggleServiceStatus(serviceId) {
-        await delay(400);
-        const currentUser = getCurrentUser();
+        await delay(300);
 
-        if (!checkPermission(currentUser, 'service_management')) {
-            throw new Error('Không có quyền thay đổi trạng thái dịch vụ');
-        }
-
-        const serviceIndex = MOCK_SERVICES.findIndex(s => s.id === serviceId);
+        const serviceIndex = MOCK_SERVICES.findIndex(
+            s => s.id === serviceId && !s.is_deleted
+        );
 
         if (serviceIndex === -1) {
             throw new Error('Không tìm thấy dịch vụ');
         }
 
-        const currentStatus = MOCK_SERVICES[serviceIndex].status;
-        const newStatus = currentStatus === SERVICE_STATUS.ENABLED ? SERVICE_STATUS.DISABLED : SERVICE_STATUS.ENABLED;
-
         MOCK_SERVICES[serviceIndex] = {
             ...MOCK_SERVICES[serviceIndex],
-            status: newStatus,
+            is_active: !MOCK_SERVICES[serviceIndex].is_active,
             updated_at: new Date().toISOString(),
-            updated_by: currentUser.id
+            updated_by: '00000000-0000-0000-0000-000000000000'
         };
 
-        return {
-            success: true,
-            data: MOCK_SERVICES[serviceIndex],
-            message: `Dịch vụ đã được ${newStatus === SERVICE_STATUS.ENABLED ? 'kích hoạt' : 'vô hiệu hóa'}`
-        };
+        return MOCK_SERVICES[serviceIndex];
     },
 
     /**
-     * Delete service
-     * @param {string} serviceId 
+     * Delete a service (soft delete)
+     * @param {string} serviceId
      * @returns {Promise<Object>}
      */
     async deleteService(serviceId) {
         await delay(400);
-        const currentUser = getCurrentUser();
 
-        if (!checkPermission(currentUser, 'service_management')) {
-            throw new Error('Không có quyền xóa dịch vụ');
-        }
-
-        const serviceIndex = MOCK_SERVICES.findIndex(s => s.id === serviceId);
+        const serviceIndex = MOCK_SERVICES.findIndex(
+            s => s.id === serviceId && !s.is_deleted
+        );
 
         if (serviceIndex === -1) {
             throw new Error('Không tìm thấy dịch vụ');
         }
 
-        const service = MOCK_SERVICES[serviceIndex];
-
-        // Prevent deleting enabled services
-        if (service.status === SERVICE_STATUS.ENABLED) {
+        // Prevent deleting active services
+        if (MOCK_SERVICES[serviceIndex].is_active) {
             throw new Error('Không thể xóa dịch vụ đang hoạt động. Vui lòng vô hiệu hóa trước.');
         }
 
-        // TODO: Check if service has active slots/bookings
-
-        MOCK_SERVICES.splice(serviceIndex, 1);
+        // Soft delete
+        MOCK_SERVICES[serviceIndex] = {
+            ...MOCK_SERVICES[serviceIndex],
+            is_deleted: true,
+            updated_at: new Date().toISOString(),
+            updated_by: '00000000-0000-0000-0000-000000000000'
+        };
 
         return {
             success: true,
@@ -469,26 +317,22 @@ const serviceApi = {
      */
     async getStatistics() {
         await delay(200);
-        const currentUser = getCurrentUser();
 
-        if (!checkPermission(currentUser, 'service_management')) {
-            throw new Error('Không có quyền xem thống kê');
-        }
+        const activeServices = MOCK_SERVICES.filter(s => !s.is_deleted);
 
         const stats = {
-            total: MOCK_SERVICES.length,
-            enabled: MOCK_SERVICES.filter(s => s.status === SERVICE_STATUS.ENABLED).length,
-            disabled: MOCK_SERVICES.filter(s => s.status === SERVICE_STATUS.DISABLED).length,
-            average_price: MOCK_SERVICES.reduce((sum, s) => sum + s.price, 0) / MOCK_SERVICES.length || 0
+            total: activeServices.length,
+            active: activeServices.filter(s => s.is_active).length,
+            inactive: activeServices.filter(s => !s.is_active).length,
+            average_price: activeServices.length > 0
+                ? activeServices.reduce((sum, s) => sum + s.base_price, 0) / activeServices.length
+                : 0
         };
 
         return {
-            success: true,
             data: stats
         };
     }
 };
 
-// Export
-export { MOCK_SERVICES };
 export default serviceApi;

@@ -12,8 +12,7 @@ const AddGroupPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
         name: '',
         pet_species_id: '',
         pet_breed_id: '',
-        description: '',
-        max_capacity: ''
+        description: ''
     });
 
     const [errors, setErrors] = useState({});
@@ -45,16 +44,14 @@ const AddGroupPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
                     name: String(initialData.name || ''),
                     pet_species_id: String(initialData.pet_species_id || ''),
                     pet_breed_id: String(initialData.pet_breed_id || ''),
-                    description: String(initialData.description || ''),
-                    max_capacity: String(initialData.max_capacity || '')
+                    description: String(initialData.description || '')
                 });
             } else {
                 setFormData({
                     name: '',
                     pet_species_id: '',
                     pet_breed_id: '',
-                    description: '',
-                    max_capacity: ''
+                    description: ''
                 });
             }
             setErrors({});
@@ -91,20 +88,6 @@ const AddGroupPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
         return '';
     };
 
-    const validateMaxCapacity = (capacity) => {
-        if (!capacity || capacity === '') {
-            return 'Sức chứa tối đa là bắt buộc';
-        }
-        const capacityNum = parseInt(capacity);
-        if (isNaN(capacityNum) || capacityNum <= 0) {
-            return 'Sức chứa tối đa phải lớn hơn 0';
-        }
-        if (capacityNum > 100) {
-            return 'Sức chứa tối đa không hợp lệ (tối đa 100 thú cưng)';
-        }
-        return '';
-    };
-
     const validateDescription = (description) => {
         if (!description || typeof description !== 'string' || !description.trim()) {
             return ''; // Optional field
@@ -121,7 +104,6 @@ const AddGroupPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
         // Required fields
         newErrors.name = validateName(formData.name || '');
         if (!formData.pet_species_id) newErrors.pet_species_id = 'Vui lòng chọn loài';
-        newErrors.max_capacity = validateMaxCapacity(formData.max_capacity || '');
 
         // Optional fields with validation
         newErrors.description = validateDescription(formData.description || '');
@@ -150,9 +132,6 @@ const AddGroupPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
                 case 'name':
                     error = validateName(value || '');
                     break;
-                case 'max_capacity':
-                    error = validateMaxCapacity(value || '');
-                    break;
                 case 'description':
                     error = validateDescription(value || '');
                     break;
@@ -175,9 +154,6 @@ const AddGroupPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
             case 'name':
                 error = validateName(formData[field] || '');
                 break;
-            case 'max_capacity':
-                error = validateMaxCapacity(formData[field] || '');
-                break;
             case 'description':
                 error = validateDescription(formData[field] || '');
                 break;
@@ -192,7 +168,7 @@ const AddGroupPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
 
     const handleSubmit = () => {
         // Mark all fields as touched
-        const allFields = ['name', 'pet_species_id', 'max_capacity', 'description'];
+        const allFields = ['name', 'pet_species_id', 'description'];
         const newTouched = {};
         allFields.forEach(field => {
             newTouched[field] = true;
@@ -295,19 +271,6 @@ const AddGroupPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
                                 ))}
                             </Select>
                         </FormControl>
-                        <TextField
-                            label="Sức chứa tối đa"
-                            sx={{ flex: 1 }}
-                            required
-                            type="number"
-                            value={formData.max_capacity}
-                            onChange={(e) => handleChange('max_capacity', e.target.value)}
-                            onBlur={() => handleBlur('max_capacity')}
-                            error={touched.max_capacity && Boolean(errors.max_capacity)}
-                            inputProps={{ min: 1, max: 100, step: 1 }}
-                            disabled={isLoading}
-                            placeholder="1 - 100"
-                        />
                     </Stack>
 
                     {/* Description */}
@@ -325,7 +288,7 @@ const AddGroupPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
                     />
 
                     {/* Preview Info */}
-                    {formData.name && formData.pet_species_id && formData.max_capacity && (
+                    {formData.name && formData.pet_species_id && (
                         <Box>
                             <Box
                                 sx={{
@@ -372,22 +335,7 @@ const AddGroupPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
                                                 </Typography>
                                             </Stack>
                                         </Box>
-                                        <Box sx={{ flex: 1 }}>
-                                            <Stack direction="row" spacing={1}>
-                                                <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, minWidth: '100px' }}>
-                                                    Sức chứa tối đa:
-                                                </Typography>
-                                                <Typography variant="body2" sx={{ fontWeight: 600, flex: 1 }}>
-                                                    {formData.max_capacity} thú cưng
-                                                </Typography>
-                                            </Stack>
-                                        </Box>
                                     </Stack>
-                                    <Box sx={{ mt: 1, p: 1.5, borderRadius: 1, background: alpha(COLORS.INFO[50], 0.5), border: `1px solid ${alpha(COLORS.INFO[200], 0.3)}` }}>
-                                        <Typography variant="caption" sx={{ color: COLORS.INFO[700], fontWeight: 600, display: 'block' }}>
-                                            💡 Số lượng hiện tại sẽ được tự động tính toán dựa trên số thú cưng matching với nhóm
-                                        </Typography>
-                                    </Box>
                                 </Stack>
                             </Box>
                         </Box>

@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, IconButton, Stack, Paper, Tooltip, Alert, Menu, MenuItem, ListItemIcon, ListItemText } from '@mui/material';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, IconButton, Stack, Paper, Tooltip, Alert, Divider } from '@mui/material';
 import { alpha } from '@mui/material/styles';
-import { Close as CloseIcon, Add as AddIcon, Public as PublicIcon, Lock as LockIcon, Delete as DeleteIcon, Refresh as RefreshIcon, MoreVert as MoreVertIcon } from '@mui/icons-material';
+import { Close as CloseIcon, Add as AddIcon, Refresh as RefreshIcon, Edit as EditIcon, Delete as DeleteIcon, Info as InfoIcon } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
-import { SLOT_STATUS, WEEKDAY_LABELS } from '../../api/slotApi';
-import ConfirmModal from './ConfirmModal';
+import { WEEKDAY_LABELS } from '../../api/slotApi';
 
 const SlotDetailsModal = ({
     open,
@@ -12,16 +11,11 @@ const SlotDetailsModal = ({
     taskData,
     slots = [],
     onCreateSlot,
-    onPublishSlot,
-    onUnpublishSlot,
+    onEditSlot,
     onDeleteSlot,
     onRefresh
 }) => {
     const [taskSlots, setTaskSlots] = useState([]);
-    const [menuAnchor, setMenuAnchor] = useState(null);
-    const [menuSlot, setMenuSlot] = useState(null);
-    const [confirmUnpublishOpen, setConfirmUnpublishOpen] = useState(false);
-    const [unpublishTarget, setUnpublishTarget] = useState(null);
 
     useEffect(() => {
         if (open && taskData && slots) {
@@ -40,381 +34,343 @@ const SlotDetailsModal = ({
             };
 
             filtered.sort((a, b) => {
-                // Get first day of each slot for sorting
-                const dayA = a.applicable_days?.[0] || 'MONDAY';
-                const dayB = b.applicable_days?.[0] || 'MONDAY';
+                const dayA = a.day_of_week || 'MONDAY';
+                const dayB = b.day_of_week || 'MONDAY';
                 const orderA = weekdayOrder[dayA] !== undefined ? weekdayOrder[dayA] : 999;
                 const orderB = weekdayOrder[dayB] !== undefined ? weekdayOrder[dayB] : 999;
 
-                // Sort by day, then by start_time
                 if (orderA !== orderB) {
                     return orderA - orderB;
                 }
                 return (a.start_time || '').localeCompare(b.start_time || '');
             });
 
-            console.log('🔍 SlotDetailsModal - Sorted slots:', filtered);
             setTaskSlots(filtered);
         }
     }, [open, taskData, slots]);
-
-    const confirmUnpublish = async () => {
-        if (!unpublishTarget) return;
-
-        setConfirmUnpublishOpen(false);
-        setUnpublishTarget(null);
-
-        try {
-            await onUnpublishSlot(unpublishTarget);
-        } catch (error) {
-            console.error('Error unpublishing slot:', error);
-        }
-    };
 
     if (!taskData) return null;
 
     const stats = {
         total: taskSlots.length,
-        public: taskSlots.filter(s => s.status === SLOT_STATUS.PUBLIC).length,
-        internal: taskSlots.filter(s => s.status === SLOT_STATUS.INTERNAL_ONLY).length,
-        draft: taskSlots.filter(s => s.status === SLOT_STATUS.DRAFT).length
+        available: taskSlots.filter(s => s.service_status === 'AVAILABLE').length,
+        unavailable: taskSlots.filter(s => s.service_status === 'UNAVAILABLE').length,
+        booked: taskSlots.filter(s => s.service_status === 'BOOKED').length
+    };
+
+    const getStatusChip = (status) => {
+        const statusMap = {
+            'AVAILABLE': { label: 'Có sẵn', color: COLORS.SUCCESS[700], bg: COLORS.SUCCESS[50] },
+            'UNAVAILABLE': { label: 'Không khả dụng', color: COLORS.WARNING[700], bg: COLORS.WARNING[50] },
+            'BOOKED': { label: 'Đã đặt', color: COLORS.INFO[700], bg: COLORS.INFO[50] },
+            'CANCELLED': { label: 'Đã hủy', color: COLORS.ERROR[700], bg: COLORS.ERROR[50] }
+        };
+        const config = statusMap[status] || statusMap['AVAILABLE'];
+        return (
+            <Chip
+                label={config.label}
+                size="small"
+                sx={{
+                    bgcolor: alpha(config.bg, 0.8),
+                    color: config.color,
+                    fontWeight: 600
+                }}
+            />
+        );
     };
 
     return (
-        <>
-            <Dialog
-                open={open}
-                onClose={onClose}
-                maxWidth="lg"
-                fullWidth
-                PaperProps={{
-                    sx: {
-                        borderRadius: 3,
-                        maxHeight: '90vh'
-                    }
-                }}
-            >
-                {/* Header */}
-                <DialogTitle sx={{
-                    borderBottom: `2px solid ${COLORS.PRIMARY[100]}`,
-                    pb: 2,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between'
-                }}>
-                    <Box>
-                        <Typography variant="h6" fontWeight={600} color={COLORS.PRIMARY[700]}>
-                            📋 Ca của Nhiệm vụ: {taskData.name}
+        <Dialog
+            open={open}
+            onClose={onClose}
+            maxWidth="xl"
+            fullWidth
+            PaperProps={{
+                sx: {
+                    borderRadius: 3,
+                    maxHeight: '90vh'
+                }
+            }}
+        >
+            <DialogTitle sx={{
+                borderBottom: `2px solid ${COLORS.PRIMARY[100]}`,
+                pb: 2,
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+            }}>
+                <Box>
+                    <Typography variant="h5" fontWeight={700} color={COLORS.PRIMARY[700]}>
+                        Chi tiết Ca làm việc
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                        {taskData?.title || taskData?.name}
+                    </Typography>
+                </Box>
+                <IconButton onClick={onClose} size="small">
+                    <CloseIcon />
+                </IconButton>
+            </DialogTitle>
+
+            <DialogContent sx={{ pt: 3 }}>
+                {/* Statistics */}
+                <Stack direction="row" spacing={2} sx={{ mb: 3 }}>
+                    <Paper sx={{
+                        p: 2,
+                        flex: 1,
+                        bgcolor: alpha(COLORS.PRIMARY[50], 0.5),
+                        border: `1px solid ${COLORS.PRIMARY[200]}`
+                    }}>
+                        <Typography variant="h4" fontWeight={700} color={COLORS.PRIMARY[700]}>
+                            {stats.total}
                         </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                            Quản lý tất cả ca cho nhiệm vụ này
+                        <Typography variant="body2" color="text.secondary">
+                            Tổng Ca
                         </Typography>
-                    </Box>
-                    <IconButton onClick={onClose} size="small">
-                        <CloseIcon />
-                    </IconButton>
-                </DialogTitle>
+                    </Paper>
+                    <Paper sx={{
+                        p: 2,
+                        flex: 1,
+                        bgcolor: alpha(COLORS.SUCCESS[50], 0.5),
+                        border: `1px solid ${COLORS.SUCCESS[200]}`
+                    }}>
+                        <Typography variant="h4" fontWeight={700} color={COLORS.SUCCESS[700]}>
+                            {stats.available}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                            Có sẵn
+                        </Typography>
+                    </Paper>
+                    <Paper sx={{
+                        p: 2,
+                        flex: 1,
+                        bgcolor: alpha(COLORS.WARNING[50], 0.5),
+                        border: `1px solid ${COLORS.WARNING[200]}`
+                    }}>
+                        <Typography variant="h4" fontWeight={700} color={COLORS.WARNING[700]}>
+                            {stats.unavailable}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                            Không khả dụng
+                        </Typography>
+                    </Paper>
+                    <Paper sx={{
+                        p: 2,
+                        flex: 1,
+                        bgcolor: alpha(COLORS.INFO[50], 0.5),
+                        border: `1px solid ${COLORS.INFO[200]}`
+                    }}>
+                        <Typography variant="h4" fontWeight={700} color={COLORS.INFO[700]}>
+                            {stats.booked}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                            Đã đặt
+                        </Typography>
+                    </Paper>
+                </Stack>
 
-                <DialogContent sx={{ pt: 3 }}>
-                    {/* Statistics */}
-                    <Stack direction="row" spacing={2} sx={{ mb: 3 }}>
-                        <Paper sx={{
-                            p: 2,
-                            flex: 1,
-                            bgcolor: alpha(COLORS.PRIMARY[50], 0.5),
-                            border: `1px solid ${COLORS.PRIMARY[200]}`
-                        }}>
-                            <Typography variant="h4" fontWeight={700} color={COLORS.PRIMARY[700]}>
-                                {stats.total}
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary">
-                                Tổng Ca
-                            </Typography>
-                        </Paper>
-                        <Paper sx={{
-                            p: 2,
-                            flex: 1,
-                            bgcolor: alpha(COLORS.SUCCESS[50], 0.5),
-                            border: `1px solid ${COLORS.SUCCESS[200]}`
-                        }}>
-                            <Typography variant="h4" fontWeight={700} color={COLORS.SUCCESS[700]}>
-                                {stats.public}
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary">
-                                Công khai
-                            </Typography>
-                        </Paper>
-                        <Paper sx={{
-                            p: 2,
-                            flex: 1,
-                            bgcolor: alpha(COLORS.INFO[50], 0.5),
-                            border: `1px solid ${COLORS.INFO[200]}`
-                        }}>
-                            <Typography variant="h4" fontWeight={700} color={COLORS.INFO[700]}>
-                                {stats.internal}
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary">
-                                Nội bộ
-                            </Typography>
-                        </Paper>
-                    </Stack>
-
-                    {/* Action Buttons */}
-                    <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
-                        <Button
-                            variant="contained"
-                            startIcon={<AddIcon />}
-                            onClick={() => {
-                                onCreateSlot(taskData);
-                                onClose();
-                            }}
-                            sx={{
-                                bgcolor: COLORS.SUCCESS[600],
-                                '&:hover': {
-                                    bgcolor: COLORS.SUCCESS[700]
-                                }
-                            }}
-                        >
-                            Tạo Ca mới
-                        </Button>
-                        <Button
-                            variant="outlined"
-                            startIcon={<RefreshIcon />}
-                            onClick={onRefresh}
-                        >
-                            Làm mới
-                        </Button>
-                    </Stack>
-
-                    {/* Slots Table */}
-                    {taskSlots.length === 0 ? (
-                        <Alert severity="info" sx={{ mt: 2 }}>
-                            <Typography variant="body2">
-                                Chưa có slot nào cho task này. Hãy tạo slot đầu tiên!
-                            </Typography>
-                        </Alert>
-                    ) : (
-                        <TableContainer component={Paper} variant="outlined">
-                            <Table size="small">
-                                <TableHead sx={{ bgcolor: alpha(COLORS.GRAY[100], 0.5) }}>
-                                    <TableRow>
-                                        <TableCell width="5%">STT</TableCell>
-                                        <TableCell width="20%">Thời gian</TableCell>
-                                        <TableCell width="25%">Ngày áp dụng</TableCell>
-                                        <TableCell width="10%" align="center">Chỗ ngồi</TableCell>
-                                        <TableCell width="15%" align="right">Giá</TableCell>
-                                        <TableCell width="15%" align="center">Trạng thái</TableCell>
-                                        <TableCell width="10%" align="center">Thao tác</TableCell>
-                                    </TableRow>
-                                </TableHead>
-                                <TableBody>
-                                    {taskSlots.map((slot, index) => (
-                                        <TableRow key={slot.id} hover>
-                                            <TableCell>{index + 1}</TableCell>
-
-                                            {/* Thời gian */}
-                                            <TableCell>
-                                                <Typography variant="body2" fontWeight={500}>
-                                                    {slot.start_time} - {slot.end_time}
-                                                </Typography>
-                                            </TableCell>
-
-                                            {/* Ngày áp dụng */}
-                                            <TableCell>
-                                                <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
-                                                    {Array.isArray(slot.applicable_days) && slot.applicable_days.length > 0 ? (
-                                                        <>
-                                                            {slot.applicable_days.slice(0, 3).map(day => {
-                                                                const label = WEEKDAY_LABELS[day] || day;
-                                                                return (
-                                                                    <Chip
-                                                                        key={day}
-                                                                        label={label}
-                                                                        size="small"
-                                                                        variant="outlined"
-                                                                        sx={{ mb: 0.5 }}
-                                                                    />
-                                                                );
-                                                            })}
-                                                            {slot.applicable_days.length > 3 && (
-                                                                <Chip
-                                                                    label={`+${slot.applicable_days.length - 3}`}
-                                                                    size="small"
-                                                                    variant="outlined"
-                                                                />
-                                                            )}
-                                                        </>
-                                                    ) : (
-                                                        <Typography variant="body2" color="text.secondary">
-                                                            Chưa có ngày
-                                                        </Typography>
-                                                    )}
-                                                </Stack>
-                                            </TableCell>
-
-                                            {/* Capacity */}
-                                            <TableCell align="center">
-                                                {slot.capacity ? (
-                                                    <Typography variant="body2" fontWeight={500}>
-                                                        {slot.capacity}
-                                                    </Typography>
-                                                ) : (
-                                                    <Typography variant="body2" color="text.secondary">
-                                                        —
-                                                    </Typography>
-                                                )}
-                                            </TableCell>
-
-                                            {/* Giá */}
-                                            <TableCell align="right">
-                                                {slot.price ? (
-                                                    <Typography variant="body2" fontWeight={500} color={COLORS.SUCCESS[700]}>
-                                                        {new Intl.NumberFormat('vi-VN', {
-                                                            style: 'currency',
-                                                            currency: 'VND'
-                                                        }).format(slot.price)}
-                                                    </Typography>
-                                                ) : (
-                                                    <Typography variant="body2" color="text.secondary">
-                                                        —
-                                                    </Typography>
-                                                )}
-                                            </TableCell>
-
-                                            {/* Trạng thái */}
-                                            <TableCell align="center">
-                                                <Chip
-                                                    label={slot.status === SLOT_STATUS.PUBLIC ? 'Công khai' : 'Nội bộ'}
-                                                    size="small"
-                                                    icon={slot.status === SLOT_STATUS.PUBLIC ? <PublicIcon /> : <LockIcon />}
-                                                    sx={{
-                                                        bgcolor: slot.status === SLOT_STATUS.PUBLIC
-                                                            ? alpha(COLORS.SUCCESS[100], 0.8)
-                                                            : alpha(COLORS.GRAY[200], 0.6),
-                                                        color: slot.status === SLOT_STATUS.PUBLIC
-                                                            ? COLORS.SUCCESS[700]
-                                                            : COLORS.TEXT.SECONDARY
-                                                    }}
-                                                />
-                                            </TableCell>
-
-                                            {/* Thao tác */}
-                                            <TableCell align="center">
-                                                <IconButton
-                                                    size="small"
-                                                    onClick={(e) => {
-                                                        setMenuAnchor(e.currentTarget);
-                                                        setMenuSlot(slot);
-                                                    }}
-                                                >
-                                                    <MoreVertIcon fontSize="small" />
-                                                </IconButton>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </TableContainer>
-                    )}
-                </DialogContent>
-
-                <DialogActions sx={{
-                    borderTop: `1px solid ${COLORS.GRAY[200]}`,
-                    px: 3,
-                    py: 2
-                }}>
-                    <Button onClick={onClose} variant="outlined">
-                        Đóng
+                {/* Action Buttons */}
+                <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
+                    <Button
+                        variant="contained"
+                        startIcon={<AddIcon />}
+                        onClick={() => {
+                            onCreateSlot(taskData);
+                            onClose();
+                        }}
+                        sx={{
+                            bgcolor: COLORS.SUCCESS[600],
+                            '&:hover': {
+                                bgcolor: COLORS.SUCCESS[700]
+                            }
+                        }}
+                    >
+                        Tạo Ca mới
                     </Button>
-                </DialogActions>
+                    <Button
+                        variant="outlined"
+                        startIcon={<RefreshIcon />}
+                        onClick={onRefresh}
+                    >
+                        Làm mới
+                    </Button>
+                </Stack>
 
-                {/* Slot Actions Menu */}
-                <Menu
-                    anchorEl={menuAnchor}
-                    open={Boolean(menuAnchor)}
-                    onClose={() => {
-                        setMenuAnchor(null);
-                        setMenuSlot(null);
-                    }}
-                    anchorOrigin={{
-                        vertical: 'bottom',
-                        horizontal: 'right',
-                    }}
-                    transformOrigin={{
-                        vertical: 'top',
-                        horizontal: 'right',
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    {menuSlot?.status === SLOT_STATUS.PUBLIC ? (
-                        <MenuItem
-                            onClick={() => {
-                                if (menuSlot) {
-                                    setUnpublishTarget(menuSlot);
-                                    setConfirmUnpublishOpen(true);
-                                }
-                                setMenuAnchor(null);
-                                setMenuSlot(null);
-                            }}
-                        >
-                            <ListItemIcon>
-                                <LockIcon fontSize="small" sx={{ color: COLORS.WARNING[600] }} />
-                            </ListItemIcon>
-                            <ListItemText>Hủy công khai</ListItemText>
-                        </MenuItem>
-                    ) : (
-                        <>
-                            <MenuItem
-                                onClick={() => {
-                                    if (menuSlot) {
-                                        onPublishSlot(menuSlot);
-                                        onClose();
-                                    }
-                                    setMenuAnchor(null);
-                                    setMenuSlot(null);
-                                }}
-                            >
-                                <ListItemIcon>
-                                    <PublicIcon fontSize="small" sx={{ color: COLORS.SUCCESS[600] }} />
-                                </ListItemIcon>
-                                <ListItemText>Công khai</ListItemText>
-                            </MenuItem>
-                            <MenuItem
-                                onClick={() => {
-                                    if (menuSlot) {
-                                        onDeleteSlot(menuSlot);
-                                        onClose();
-                                    }
-                                    setMenuAnchor(null);
-                                    setMenuSlot(null);
-                                }}
-                            >
-                                <ListItemIcon>
-                                    <DeleteIcon fontSize="small" sx={{ color: COLORS.ERROR[600] }} />
-                                </ListItemIcon>
-                                <ListItemText>Xóa</ListItemText>
-                            </MenuItem>
-                        </>
-                    )}
-                </Menu>
-            </Dialog>
+                {/* Slots Table */}
+                {taskSlots.length === 0 ? (
+                    <Alert severity="info" sx={{ mt: 2 }}>
+                        <Typography variant="body2">
+                            Chưa có slot nào cho task này. Hãy tạo slot đầu tiên!
+                        </Typography>
+                    </Alert>
+                ) : (
+                    <TableContainer component={Paper} variant="outlined">
+                        <Table size="small">
+                            <TableHead sx={{ bgcolor: alpha(COLORS.GRAY[100], 0.5) }}>
+                                <TableRow>
+                                    <TableCell width="3%">STT</TableCell>
+                                    <TableCell width="8%">Ngày</TableCell>
+                                    <TableCell width="10%">Thời gian</TableCell>
+                                    <TableCell width="12%">Team</TableCell>
+                                    <TableCell width="12%">Khu vực</TableCell>
+                                    <TableCell width="12%">Pet Group</TableCell>
+                                    <TableCell width="10%" align="center">Sức chứa</TableCell>
+                                    <TableCell width="10%" align="right">Giá</TableCell>
+                                    <TableCell width="10%" align="center">Trạng thái</TableCell>
+                                    <TableCell width="8%" align="center">Ghi chú</TableCell>
+                                    <TableCell width="8%" align="center">Thao tác</TableCell>
+                                </TableRow>
+                            </TableHead>
+                            <TableBody>
+                                {taskSlots.map((slot, index) => (
+                                    <TableRow key={slot.id} hover>
+                                        <TableCell>{index + 1}</TableCell>
 
-            {/* Confirm Unpublish Modal - Outside parent Dialog */}
-            <ConfirmModal
-                isOpen={confirmUnpublishOpen}
-                onClose={() => {
-                    setConfirmUnpublishOpen(false);
-                    setUnpublishTarget(null);
-                }}
-                onConfirm={confirmUnpublish}
-                title="Hủy công khai Ca?"
-                message={`Bạn có chắc chắn muốn hủy công khai ca này? Ca sẽ không còn hiển thị cho khách hàng.`}
-                confirmText="Hủy công khai"
-                type="warning"
-            />
-        </>
+                                        {/* Ngày */}
+                                        <TableCell>
+                                            <Chip
+                                                label={WEEKDAY_LABELS[slot.day_of_week] || slot.day_of_week}
+                                                size="small"
+                                                variant="outlined"
+                                                color="primary"
+                                            />
+                                        </TableCell>
+
+                                        {/* Thời gian */}
+                                        <TableCell>
+                                            <Typography variant="body2" fontWeight={500}>
+                                                {slot.start_time} - {slot.end_time}
+                                            </Typography>
+                                        </TableCell>
+
+                                        {/* Team */}
+                                        <TableCell>
+                                            {slot.team ? (
+                                                <Tooltip title={slot.team.description || ''}>
+                                                    <Typography variant="body2" noWrap>
+                                                        {slot.team.name}
+                                                    </Typography>
+                                                </Tooltip>
+                                            ) : (
+                                                <Typography variant="body2" color="text.secondary">—</Typography>
+                                            )}
+                                        </TableCell>
+
+                                        {/* Khu vực */}
+                                        <TableCell>
+                                            {slot.area ? (
+                                                <Tooltip title={`${slot.area.location || ''}`}>
+                                                    <Typography variant="body2" noWrap>
+                                                        {slot.area.name}
+                                                    </Typography>
+                                                </Tooltip>
+                                            ) : (
+                                                <Typography variant="body2" color="text.secondary">—</Typography>
+                                            )}
+                                        </TableCell>
+
+                                        {/* Pet Group */}
+                                        <TableCell>
+                                            {slot.pet_group ? (
+                                                <Tooltip title={slot.pet_group.description || ''}>
+                                                    <Typography variant="body2" noWrap>
+                                                        {slot.pet_group.name}
+                                                    </Typography>
+                                                </Tooltip>
+                                            ) : (
+                                                <Typography variant="body2" color="text.secondary">—</Typography>
+                                            )}
+                                        </TableCell>
+
+                                        {/* Sức chứa */}
+                                        <TableCell align="center">
+                                            <Typography variant="body2" fontWeight={500}>
+                                                {slot.max_capacity || 0}
+                                            </Typography>
+                                        </TableCell>
+
+                                        {/* Giá */}
+                                        <TableCell align="right">
+                                            {slot.price > 0 ? (
+                                                <Typography variant="body2" fontWeight={500} color={COLORS.SUCCESS[700]}>
+                                                    {new Intl.NumberFormat('vi-VN', {
+                                                        style: 'currency',
+                                                        currency: 'VND'
+                                                    }).format(slot.price)}
+                                                </Typography>
+                                            ) : (
+                                                <Typography variant="body2" color="text.secondary">
+                                                    Miễn phí
+                                                </Typography>
+                                            )}
+                                        </TableCell>
+
+                                        {/* Trạng thái */}
+                                        <TableCell align="center">
+                                            {getStatusChip(slot.service_status)}
+                                        </TableCell>
+
+                                        {/* Ghi chú */}
+                                        <TableCell align="center">
+                                            {slot.special_notes ? (
+                                                <Tooltip title={slot.special_notes}>
+                                                    <IconButton size="small" color="info">
+                                                        <InfoIcon fontSize="small" />
+                                                    </IconButton>
+                                                </Tooltip>
+                                            ) : (
+                                                <Typography variant="body2" color="text.secondary">—</Typography>
+                                            )}
+                                        </TableCell>
+
+                                        {/* Thao tác */}
+                                        <TableCell align="center">
+                                            <Stack direction="row" spacing={0.5} justifyContent="center">
+                                                <Tooltip title="Sửa">
+                                                    <IconButton
+                                                        size="small"
+                                                        onClick={() => onEditSlot(slot)}
+                                                        sx={{
+                                                            color: COLORS.PRIMARY[500],
+                                                            '&:hover': {
+                                                                bgcolor: alpha(COLORS.PRIMARY[50], 0.5)
+                                                            }
+                                                        }}
+                                                    >
+                                                        <EditIcon fontSize="small" />
+                                                    </IconButton>
+                                                </Tooltip>
+                                                <Tooltip title="Xóa">
+                                                    <IconButton
+                                                        size="small"
+                                                        onClick={() => onDeleteSlot(slot.id)}
+                                                        sx={{
+                                                            color: COLORS.ERROR[500],
+                                                            '&:hover': {
+                                                                bgcolor: alpha(COLORS.ERROR[50], 0.5)
+                                                            }
+                                                        }}
+                                                    >
+                                                        <DeleteIcon fontSize="small" />
+                                                    </IconButton>
+                                                </Tooltip>
+                                            </Stack>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </TableContainer>
+                )}
+            </DialogContent>
+
+            <DialogActions sx={{ px: 3, py: 2 }}>
+                <Button onClick={onClose} variant="outlined">
+                    Đóng
+                </Button>
+            </DialogActions>
+        </Dialog>
     );
 };
 
 export default SlotDetailsModal;
-

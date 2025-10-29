@@ -1,13 +1,18 @@
 import { useState, useEffect } from 'react';
-import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, FormControl, InputLabel, Select, MenuItem, Box, Alert, InputAdornment, Typography, FormHelperText, Autocomplete, Chip } from '@mui/material';
-import { TASK_TYPES } from '../../api/taskTemplateApi';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, FormControl, InputLabel, Select, MenuItem, Box, Alert, Typography, Switch, FormControlLabel, Stack } from '@mui/material';
 
-const TaskTemplateFormModal = ({ open, onClose, onSubmit, initialData = null, mode = 'create' }) => {
+const TaskTemplateFormModal = ({ open, onClose, onSubmit, initialData = null, mode = 'create', workTypes = [], services = [] }) => {
     const [formData, setFormData] = useState({
-        task_type: '',
-        name: '',
+        title: '',
         description: '',
-        estimate_duration: 0 // Default to 0, will be set to 30 when "Làm service" is selected
+        work_type_id: '',
+        service_id: '',
+        priority: 'MEDIUM',
+        status: 'ACTIVE',
+        is_public: false,
+        is_recurring: true,
+        estimated_hours: 1,
+        image_url: null
     });
 
     const [errors, setErrors] = useState({});
@@ -17,21 +22,31 @@ const TaskTemplateFormModal = ({ open, onClose, onSubmit, initialData = null, mo
     useEffect(() => {
         if (open) {
             if (mode === 'edit' && initialData) {
-                const taskType = initialData.task_type || '';
                 setFormData({
-                    task_type: taskType,
-                    name: initialData.name || '',
+                    title: initialData.title || initialData.name || '',
                     description: initialData.description || '',
-                    // Only set estimate_duration if task type is "Làm service"
-                    estimate_duration: taskType === 'Làm service' ? (initialData.estimate_duration || 30) : 0
+                    work_type_id: initialData.work_type_id || '',
+                    service_id: initialData.service_id || '',
+                    priority: initialData.priority || 'MEDIUM',
+                    status: initialData.status || 'ACTIVE',
+                    is_public: initialData.is_public || false,
+                    is_recurring: initialData.is_recurring !== undefined ? initialData.is_recurring : true,
+                    estimated_hours: initialData.estimated_hours || 1,
+                    image_url: initialData.image_url || null
                 });
             } else {
                 // Reset form for create mode
                 setFormData({
-                    task_type: '',
-                    name: '',
+                    title: '',
                     description: '',
-                    estimate_duration: 0
+                    work_type_id: '',
+                    service_id: '',
+                    priority: 'MEDIUM',
+                    status: 'ACTIVE',
+                    is_public: false,
+                    is_recurring: true,
+                    estimated_hours: 1,
+                    image_url: null
                 });
             }
             setErrors({});
@@ -40,21 +55,10 @@ const TaskTemplateFormModal = ({ open, onClose, onSubmit, initialData = null, mo
 
     // Handle input change
     const handleChange = (field, value) => {
-        const newFormData = {
-            ...formData,
+        setFormData(prev => ({
+            ...prev,
             [field]: value
-        };
-
-        // If task_type changed and it's not "Làm service", set estimate_duration to 0
-        if (field === 'task_type' && value !== 'Làm service') {
-            newFormData.estimate_duration = 0;
-        }
-        // If task_type changed to "Làm service" and estimate_duration is 0, set default
-        else if (field === 'task_type' && value === 'Làm service' && (!formData.estimate_duration || formData.estimate_duration === 0)) {
-            newFormData.estimate_duration = 30;
-        }
-
-        setFormData(newFormData);
+        }));
 
         // Clear error for this field
         if (errors[field]) {
@@ -69,23 +73,20 @@ const TaskTemplateFormModal = ({ open, onClose, onSubmit, initialData = null, mo
     const validateForm = () => {
         const newErrors = {};
 
-        if (!formData.task_type) {
-            newErrors.task_type = 'Task Type là bắt buộc';
-        }
-
-        if (!formData.name || !formData.name.trim()) {
-            newErrors.name = 'Tên task là bắt buộc';
+        if (!formData.title || !formData.title.trim()) {
+            newErrors.title = 'Tên nhiệm vụ là bắt buộc';
         }
 
         if (!formData.description || !formData.description.trim()) {
-            newErrors.description = 'Mô tả task là bắt buộc';
+            newErrors.description = 'Mô tả là bắt buộc';
         }
 
-        // Only validate estimate_duration for "Làm service" type
-        if (formData.task_type === 'Làm service') {
-            if (!formData.estimate_duration || formData.estimate_duration <= 0) {
-                newErrors.estimate_duration = 'Thời gian ước tính phải lớn hơn 0';
-            }
+        if (!formData.work_type_id) {
+            newErrors.work_type_id = 'Loại công việc là bắt buộc';
+        }
+
+        if (!formData.estimated_hours || formData.estimated_hours <= 0) {
+            newErrors.estimated_hours = 'Thời gian ước tính phải lớn hơn 0';
         }
 
         setErrors(newErrors);
@@ -101,7 +102,19 @@ const TaskTemplateFormModal = ({ open, onClose, onSubmit, initialData = null, mo
         setLoading(true);
 
         try {
-            await onSubmit(formData);
+            // Submit data matching official API structure
+            const submitData = {
+                title: formData.title,
+                description: formData.description,
+                priority: formData.priority,
+                status: formData.status,
+                estimated_hours: formData.estimated_hours,
+                is_recurring: formData.is_recurring,
+                is_public: formData.is_public,
+                work_type_id: formData.work_type_id
+            };
+
+            await onSubmit(submitData);
             handleClose();
         } catch (error) {
             setErrors({
@@ -116,18 +129,21 @@ const TaskTemplateFormModal = ({ open, onClose, onSubmit, initialData = null, mo
     const handleClose = () => {
         if (!loading) {
             setFormData({
-                task_type: '',
-                name: '',
+                title: '',
                 description: '',
-                estimate_duration: 0
+                work_type_id: '',
+                service_id: '',
+                priority: 'MEDIUM',
+                status: 'ACTIVE',
+                is_public: false,
+                is_recurring: true,
+                estimated_hours: 1,
+                image_url: null
             });
             setErrors({});
             onClose();
         }
     };
-
-    // Get task type info - match by name instead of key
-    const selectedTaskType = TASK_TYPES.find(t => t.name === formData.task_type);
 
     return (
         <Dialog
@@ -142,145 +158,191 @@ const TaskTemplateFormModal = ({ open, onClose, onSubmit, initialData = null, mo
                 }
             }}
         >
-            <DialogTitle sx={{
-                borderBottom: '1px solid #e0e0e0',
-                pb: 2,
-                fontWeight: 600
-            }}>
-                {mode === 'edit' ? '✏️ Chỉnh sửa Nhiệm vụ' : '➕ Tạo Nhiệm vụ mới'}
+            <DialogTitle sx={{ pb: 1 }}>
+                <Typography variant="h6" fontWeight={600}>
+                    {mode === 'edit' ? 'Chỉnh sửa nhiệm vụ' : 'Tạo nhiệm vụ mới'}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                    {mode === 'edit' ? 'Cập nhật thông tin nhiệm vụ' : 'Nhập thông tin nhiệm vụ mới'}
+                </Typography>
             </DialogTitle>
 
-            <DialogContent sx={{ pt: 3, maxHeight: '70vh', overflowY: 'auto' }}>
+            <DialogContent dividers>
+                <Stack spacing={3}>
                 {errors.submit && (
-                    <Alert severity="error" sx={{ mb: 2 }}>
+                        <Alert severity="error" onClose={() => setErrors(prev => ({ ...prev, submit: '' }))}>
                         {errors.submit}
                     </Alert>
                 )}
 
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-                    {/* Task Type - Autocomplete with freeSolo */}
-                    <Autocomplete
-                        freeSolo
-                        options={TASK_TYPES.map(type => type.name)}
-                        value={formData.task_type}
-                        onChange={(event, newValue) => {
-                            handleChange('task_type', newValue || '');
-                        }}
-                        onInputChange={(event, newInputValue) => {
-                            handleChange('task_type', newInputValue);
-                        }}
-                        disabled={loading}
-                        renderInput={(params) => (
+                    {/* Title */}
                             <TextField
-                                {...params}
-                                label="Loại nhiệm vụ"
-                                required
-                                error={!!errors.task_type}
-                                helperText={errors.task_type || 'Chọn từ gợi ý hoặc nhập loại nhiệm vụ mới'}
-                                placeholder="Ví dụ: Dọn dẹp, Cho pet ăn, Thu ngân..."
-                            />
-                        )}
-                        renderOption={(props, option) => {
-                            return (
-                                <Box component="li" {...props}>
-                                    <span>{option}</span>
-                                </Box>
-                            );
-                        }}
-                        sx={{ mt: 1 }}
-                    />
-
-
-                    {/* Name */}
-                    <TextField
+                        label="Tên nhiệm vụ"
                         fullWidth
                         required
-                        label="Tên nhiệm vụ"
-                        value={formData.name}
-                        onChange={(e) => handleChange('name', e.target.value)}
-                        disabled={loading}
-                        error={!!errors.name}
-                        helperText={errors.name || 'Tên hiển thị của nhiệm vụ'}
-                        placeholder="Ví dụ: Tắm rửa thú cưng cơ bản"
+                        value={formData.title}
+                        onChange={(e) => handleChange('title', e.target.value)}
+                        error={!!errors.title}
+                        helperText={errors.title}
+                        placeholder="VD: Chăm sóc mèo buổi sáng"
                     />
 
                     {/* Description */}
                     <TextField
+                        label="Mô tả"
                         fullWidth
                         required
                         multiline
-                        rows={4}
-                        label="Mô tả chi tiết"
+                        rows={3}
                         value={formData.description}
                         onChange={(e) => handleChange('description', e.target.value)}
-                        disabled={loading}
                         error={!!errors.description}
-                        helperText={errors.description || 'Mô tả chi tiết về nhiệm vụ'}
-                        placeholder="Mô tả chi tiết về công việc này..."
+                        helperText={errors.description}
+                        placeholder="Mô tả chi tiết về nhiệm vụ..."
                     />
 
-                    {/* Estimate Duration - Only for "Làm service" type */}
-                    {formData.task_type === 'Làm service' && (
-                        <>
+                    {/* Work Type & Service */}
+                    <Stack direction="row" spacing={2}>
+                        <FormControl fullWidth required error={!!errors.work_type_id}>
+                            <InputLabel>Loại công việc</InputLabel>
+                            <Select
+                                value={formData.work_type_id}
+                                onChange={(e) => handleChange('work_type_id', e.target.value)}
+                                label="Loại công việc"
+                            >
+                                <MenuItem value="">
+                                    <em>Chọn loại công việc</em>
+                                </MenuItem>
+                                {workTypes.map(workType => (
+                                    <MenuItem key={workType.id} value={workType.id}>
+                                        <Box>
+                                            <Typography variant="body2" fontWeight={500}>
+                                                {workType.name}
+                                            </Typography>
+                                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                                                {workType.description}
+                                            </Typography>
+                                        </Box>
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                            {errors.work_type_id && (
+                                <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 2 }}>
+                                    {errors.work_type_id}
+                                </Typography>
+                            )}
+                        </FormControl>
+
+                        <FormControl fullWidth>
+                            <InputLabel>Dịch vụ (Tùy chọn)</InputLabel>
+                            <Select
+                                value={formData.service_id}
+                                onChange={(e) => handleChange('service_id', e.target.value)}
+                                label="Dịch vụ (Tùy chọn)"
+                            >
+                                <MenuItem value="">
+                                    <em>Không liên quan</em>
+                                </MenuItem>
+                                {services.map(service => (
+                                    <MenuItem key={service.id} value={service.id}>
+                                        {service.name}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
+                    </Stack>
+
+                    {/* Priority & Estimated Hours */}
+                    <Stack direction="row" spacing={2}>
+                        <FormControl fullWidth>
+                            <InputLabel>Độ ưu tiên</InputLabel>
+                            <Select
+                                value={formData.priority}
+                                onChange={(e) => handleChange('priority', e.target.value)}
+                                label="Độ ưu tiên"
+                            >
+                                <MenuItem value="LOW">Thấp</MenuItem>
+                                <MenuItem value="MEDIUM">Trung bình</MenuItem>
+                                <MenuItem value="HIGH">Cao</MenuItem>
+                                <MenuItem value="URGENT">Khẩn cấp</MenuItem>
+                            </Select>
+                        </FormControl>
+
                             <TextField
+                            label="Thời gian ước tính (giờ)"
                                 fullWidth
                                 required
                                 type="number"
-                                label="Thời gian ước tính (phút)"
-                                value={formData.estimate_duration || ''}
-                                onChange={(e) => handleChange('estimate_duration', e.target.value === '' ? '' : parseInt(e.target.value))}
-                                disabled={loading}
-                                error={!!errors.estimate_duration}
-                                helperText={errors.estimate_duration || 'Thời gian dự kiến hoàn thành'}
-                                placeholder="Nhập thời gian (phút)"
-                                InputProps={{
-                                    endAdornment: <InputAdornment position="end">phút</InputAdornment>,
-                                    inputProps: { min: 1, step: 5 }
-                                }}
-                            />
+                            inputProps={{ min: 0.5, step: 0.5 }}
+                            value={formData.estimated_hours}
+                            onChange={(e) => handleChange('estimated_hours', parseFloat(e.target.value) || 0)}
+                            error={!!errors.estimated_hours}
+                            helperText={errors.estimated_hours}
+                        />
+                    </Stack>
 
-                            {/* Duration Preview */}
-                            {formData.estimate_duration > 0 && (
-                                <Box sx={{
-                                    p: 1.5,
-                                    bgcolor: '#f5f5f5',
+                    {/* Status & Flags */}
+                    <Stack direction="row" spacing={2} alignItems="center">
+                        <FormControl fullWidth>
+                            <InputLabel>Trạng thái</InputLabel>
+                            <Select
+                                value={formData.status}
+                                onChange={(e) => handleChange('status', e.target.value)}
+                                label="Trạng thái"
+                            >
+                                <MenuItem value="ACTIVE">Hoạt động</MenuItem>
+                                <MenuItem value="INACTIVE">Không hoạt động</MenuItem>
+                            </Select>
+                        </FormControl>
+
+                        <Box>
+                            <FormControlLabel
+                                control={
+                                    <Switch
+                                        checked={formData.is_public}
+                                        onChange={(e) => handleChange('is_public', e.target.checked)}
+                                    />
+                                }
+                                label="Công khai"
+                            />
+                            <FormControlLabel
+                                control={
+                                    <Switch
+                                        checked={formData.is_recurring}
+                                        onChange={(e) => handleChange('is_recurring', e.target.checked)}
+                                    />
+                                }
+                                label="Lặp lại"
+                            />
+                        </Box>
+                    </Stack>
+
+                    {/* Info box */}
+                    <Box
+                        sx={{
+                            p: 2,
+                            bgcolor: 'info.lighter',
                                     borderRadius: 1,
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: 1
-                                }}>
-                                    <Typography variant="body2" color="text.secondary">
-                                        ⏱️ Thời gian: <strong>{formData.estimate_duration} phút</strong>
-                                        {formData.estimate_duration >= 60 && (
-                                            <span> ({Math.floor(formData.estimate_duration / 60)}h {formData.estimate_duration % 60}m)</span>
-                                        )}
+                            border: '1px dashed',
+                            borderColor: 'info.main'
+                        }}
+                    >
+                        <Typography variant="body2" color="info.dark">
+                            💡 <strong>Lưu ý:</strong> Nhiệm vụ "Lặp lại" sẽ được tự động tạo daily task hàng tuần.
+                            Nhiệm vụ "Công khai" có thể được khách hàng xem trong booking.
                                     </Typography>
                                 </Box>
-                            )}
-                        </>
-                    )}
-                </Box>
+                </Stack>
             </DialogContent>
 
-            <DialogActions sx={{
-                borderTop: '1px solid #e0e0e0',
-                px: 3,
-                py: 2,
-                gap: 1
-            }}>
-                <Button
-                    onClick={handleClose}
-                    disabled={loading}
-                    variant="outlined"
-                    sx={{ minWidth: 100 }}
-                >
+            <DialogActions sx={{ px: 3, py: 2 }}>
+                <Button onClick={handleClose} disabled={loading}>
                     Hủy
                 </Button>
                 <Button
                     onClick={handleSubmit}
-                    disabled={loading}
                     variant="contained"
-                    sx={{ minWidth: 100 }}
+                    disabled={loading}
                 >
                     {loading ? 'Đang xử lý...' : (mode === 'edit' ? 'Cập nhật' : 'Tạo mới')}
                 </Button>
@@ -290,4 +352,3 @@ const TaskTemplateFormModal = ({ open, onClose, onSubmit, initialData = null, mo
 };
 
 export default TaskTemplateFormModal;
-
