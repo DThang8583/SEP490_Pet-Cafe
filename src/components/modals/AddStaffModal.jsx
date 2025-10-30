@@ -107,12 +107,14 @@ const AddStaffModal = ({
         }
 
         // Salary
-        if (!formData.salary) {
+        if (!formData.salary || formData.salary === '' || formData.salary === '0') {
             newErrors.salary = 'Lương là bắt buộc';
         } else {
-            const salaryNum = parseFloat(formData.salary);
-            if (salaryNum < 0) {
+            const salaryNum = parseInt(formData.salary, 10);
+            if (isNaN(salaryNum) || salaryNum <= 0) {
                 newErrors.salary = 'Lương phải lớn hơn 0';
+            } else if (salaryNum > 10000000000) {
+                newErrors.salary = 'Lương không hợp lệ (vượt quá 10 tỷ VNĐ)';
             }
         }
 
@@ -194,14 +196,17 @@ const AddStaffModal = ({
         }
     };
 
-    // Format salary display
-    const formatSalary = (value) => {
+    // Format salary for display (preview only)
+    const formatSalaryDisplay = (value) => {
         if (!value) return '';
-        return new Intl.NumberFormat('vi-VN').format(value);
+        const cleanValue = String(value).replace(/[^\d]/g, '');
+        if (!cleanValue) return '';
+        return new Intl.NumberFormat('vi-VN').format(cleanValue);
     };
 
-    // Parse salary input
+    // Handle salary input - only allow digits
     const handleSalaryChange = (value) => {
+        // Only keep digits
         const numericValue = value.replace(/[^\d]/g, '');
         handleChange('salary', numericValue);
     };
@@ -478,16 +483,23 @@ const AddStaffModal = ({
                             label="Lương (VNĐ)"
                             fullWidth
                             required
-                            value={formatSalary(formData.salary)}
+                            value={formData.salary}
                             onChange={(e) => handleSalaryChange(e.target.value)}
                             error={!!errors.salary}
-                            helperText={errors.salary || 'Lương cơ bản'}
+                            helperText={
+                                errors.salary ||
+                                (formData.salary ? `Lương cơ bản: ${formatSalaryDisplay(formData.salary)} VNĐ` : 'VD: 5000000 → 5.000.000 VNĐ')
+                            }
                             disabled={isLoading}
-                            placeholder="5,000,000"
+                            placeholder="5000000"
+                            inputProps={{
+                                inputMode: 'numeric',
+                                pattern: '[0-9]*'
+                            }}
                             InputProps={{
                                 startAdornment: (
                                     <InputAdornment position="start">
-                                        <AttachMoney sx={{ color: COLORS.GRAY[400] }} />
+                                        <Typography sx={{ color: COLORS.GRAY[600], fontWeight: 600 }}>₫</Typography>
                                     </InputAdornment>
                                 )
                             }}

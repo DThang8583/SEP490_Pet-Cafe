@@ -592,8 +592,8 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
                                 onChange={(e) => handleChange('gender', e.target.value)}
                                 onBlur={() => handleBlur('gender')}
                             >
-                                <MenuItem value="male">♂ Đực</MenuItem>
-                                <MenuItem value="female">♀ Cái</MenuItem>
+                                <MenuItem value="Male">♂ Đực</MenuItem>
+                                <MenuItem value="Female">♀ Cái</MenuItem>
                             </Select>
                             {touched.gender && errors.gender && (
                                 <FormHelperText>{errors.gender}</FormHelperText>
@@ -808,7 +808,7 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
                                                         Giới tính:
                                                     </Typography>
                                                     <Typography variant="body2" sx={{ fontWeight: 600, flex: 1 }}>
-                                                        {formData.gender === 'male' ? 'Đực' : 'Cái'}
+                                                        {formData.gender === 'Male' ? 'Đực' : 'Cái'}
                                                     </Typography>
                                                 </Stack>
                                             </Box>

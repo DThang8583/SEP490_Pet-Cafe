@@ -170,11 +170,23 @@ const WorkShiftPage = () => {
 
     // Helper: Get teams for a shift based on slots
     const getTeamsForShift = (shift, day) => {
+        // Normalize time format (HH:MM:SS or HH:MM to HH:MM)
+        const normalizeTime = (time) => {
+            if (!time) return '';
+            return time.substring(0, 5); // Get HH:MM part only
+        };
+
+        const shiftStartTime = normalizeTime(shift.start_time);
+        const shiftEndTime = normalizeTime(shift.end_time);
+
         // Filter slots that match this shift's day and time
         const matchingSlots = slots.filter(slot => {
+            const slotStartTime = normalizeTime(slot.start_time);
+            const slotEndTime = normalizeTime(slot.end_time);
+
             return slot.day_of_week === day &&
-                slot.start_time === shift.start_time &&
-                slot.end_time === shift.end_time;
+                slotStartTime === shiftStartTime &&
+                slotEndTime === shiftEndTime;
         });
 
         // Get unique team IDs
@@ -253,7 +265,8 @@ const WorkShiftPage = () => {
                 }
             }
             setOpenShiftDialog(false);
-            loadShifts();
+            await loadShifts();
+            await loadSlots();
         } catch (error) {
             console.error('Error saving shift:', error);
             setAlert({
@@ -281,7 +294,8 @@ const WorkShiftPage = () => {
                     title: 'Thành công',
                     message: 'Xóa ca làm việc thành công!'
                 });
-                loadShifts();
+                await loadShifts();
+                await loadSlots();
             }
         } catch (error) {
             console.error('Error deleting shift:', error);
@@ -336,10 +350,15 @@ const WorkShiftPage = () => {
                         title: 'Thành công',
                         message: 'Cập nhật nhóm thành công!'
                     });
+                    setOpenTeamDialog(false);
+                    await loadTeams();
+                    await loadSlots();
+                    return;
                 }
             } else {
                 // Create team first
                 const response = await teamApi.createTeam(teamFormData);
+
                 if (response.success) {
                     const newTeamId = response.data.id;
 
@@ -347,7 +366,7 @@ const WorkShiftPage = () => {
                     if (teamFormData.work_shift_ids && teamFormData.work_shift_ids.length > 0) {
                         try {
                             await teamApi.assignTeamWorkShifts(newTeamId, {
-                                work_shift_id: teamFormData.work_shift_ids
+                                work_shift_ids: teamFormData.work_shift_ids
                             });
                         } catch (shiftError) {
                             console.error('Error assigning work shifts:', shiftError);
@@ -359,7 +378,8 @@ const WorkShiftPage = () => {
                                 message: 'Tạo nhóm thành công nhưng không thể phân công ca làm việc. Vui lòng thử lại sau.'
                             });
                             setOpenTeamDialog(false);
-                            loadTeams();
+                            await loadTeams();
+                            await loadSlots();
                             return;
                         }
                     }
@@ -373,7 +393,8 @@ const WorkShiftPage = () => {
                 }
             }
             setOpenTeamDialog(false);
-            loadTeams();
+            await loadTeams();
+            await loadSlots();
         } catch (error) {
             console.error('Error saving team:', error);
             setAlert({
@@ -492,7 +513,8 @@ const WorkShiftPage = () => {
             });
 
             setOpenTeamMembersModal(false);
-            loadTeams(); // Reload to get updated data
+            await loadTeams(); // Reload to get updated data
+            await loadSlots(); // Reload slots to reflect changes
         } catch (error) {
             console.error('Error saving team members:', error);
             setAlert({
@@ -837,7 +859,7 @@ const WorkShiftPage = () => {
                                                                                 </Typography>
                                                                                 <Stack direction="row" spacing={0.5} alignItems="center">
                                                                                     <Chip
-                                                                                        label={`${team.team_members?.length || 0} người`}
+                                                                                        label={`${(team.team_members?.length || 0) + 1} người`}
                                                                                         size="small"
                                                                                         sx={{
                                                                                             height: 20,
@@ -892,29 +914,58 @@ const WorkShiftPage = () => {
                                                                             </Box>
 
                                                                             {/* Team Members */}
-                                                                            {team.team_members && team.team_members.length > 0 && (
-                                                                                <Box>
-                                                                                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                                                                                        Thành viên ({team.team_members.length}):
-                                                                                    </Typography>
-                                                                                    <Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ gap: 0.5 }}>
-                                                                                        {team.team_members.map((member, idx) => (
-                                                                                            <Chip
-                                                                                                key={idx}
-                                                                                                avatar={<Avatar src={member.employee?.avatar_url} sx={{ width: 20, height: 20 }} />}
-                                                                                                label={member.employee?.full_name}
-                                                                                                size="small"
-                                                                                                sx={{
-                                                                                                    height: 24,
-                                                                                                    fontSize: '0.7rem',
-                                                                                                    bgcolor: alpha(COLORS.GRAY[100], 0.8),
-                                                                                                    mb: 0.5
-                                                                                                }}
-                                                                                            />
-                                                                                        ))}
-                                                                                    </Stack>
-                                                                                </Box>
-                                                                            )}
+                                                                            <Box>
+                                                                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                                                                                    Thành viên ({(team.team_members?.length || 0) + 1}):
+                                                                                </Typography>
+                                                                                <Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ gap: 0.5 }}>
+                                                                                    {/* Leader */}
+                                                                                    {team.leader && (
+                                                                                        <Chip
+                                                                                            avatar={
+                                                                                                <Avatar
+                                                                                                    src={team.leader.avatar_url || undefined}
+                                                                                                    sx={{ width: 20, height: 20, bgcolor: COLORS.PRIMARY[500] }}
+                                                                                                >
+                                                                                                    {!team.leader.avatar_url && team.leader.full_name?.charAt(0)}
+                                                                                                </Avatar>
+                                                                                            }
+                                                                                            label={team.leader.full_name}
+                                                                                            size="small"
+                                                                                            sx={{
+                                                                                                height: 24,
+                                                                                                fontSize: '0.7rem',
+                                                                                                bgcolor: alpha(COLORS.PRIMARY[100], 0.8),
+                                                                                                color: COLORS.PRIMARY[700],
+                                                                                                fontWeight: 600,
+                                                                                                mb: 0.5
+                                                                                            }}
+                                                                                        />
+                                                                                    )}
+                                                                                    {/* Other Members */}
+                                                                                    {team.team_members?.map((member, idx) => (
+                                                                                        <Chip
+                                                                                            key={idx}
+                                                                                            avatar={
+                                                                                                <Avatar
+                                                                                                    src={member.employee?.avatar_url || undefined}
+                                                                                                    sx={{ width: 20, height: 20, bgcolor: COLORS.GRAY[400] }}
+                                                                                                >
+                                                                                                    {!member.employee?.avatar_url && member.employee?.full_name?.charAt(0)}
+                                                                                                </Avatar>
+                                                                                            }
+                                                                                            label={member.employee?.full_name}
+                                                                                            size="small"
+                                                                                            sx={{
+                                                                                                height: 24,
+                                                                                                fontSize: '0.7rem',
+                                                                                                bgcolor: alpha(COLORS.GRAY[100], 0.8),
+                                                                                                mb: 0.5
+                                                                                            }}
+                                                                                        />
+                                                                                    ))}
+                                                                                </Stack>
+                                                                            </Box>
                                                                         </CardContent>
                                                                     </Card>
                                                                 </Grid>
