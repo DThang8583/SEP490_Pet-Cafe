@@ -114,18 +114,18 @@ const getPets = async (params = {}) => {
  * @returns {Promise<Object>}
  */
 const getPetById = async (petId) => {
-    await delay(200);
-    const currentUser = getCurrentUser();
+        await delay(200);
+        const currentUser = getCurrentUser();
 
-    if (!checkPermission(currentUser, 'pet_view_all')) {
+        if (!checkPermission(currentUser, 'pet_view_all')) {
         throw new Error('Không có quyền xem thông tin thú cưng');
-    }
+        }
 
     const pet = MOCK_PETS.find(p => p.id === petId && !p.is_deleted);
 
-    if (!pet) {
-        throw new Error('Không tìm thấy thú cưng');
-    }
+        if (!pet) {
+            throw new Error('Không tìm thấy thú cưng');
+        }
 
     return {
         success: true,
@@ -139,25 +139,25 @@ const getPetById = async (petId) => {
  * @returns {Promise<Object>}
  */
 const addPet = async (petData) => {
-    await delay(500);
-    const currentUser = getCurrentUser();
+        await delay(500);
+        const currentUser = getCurrentUser();
 
-    if (!checkPermission(currentUser, 'pet_management')) {
-        throw new Error('Không có quyền thêm thú cưng');
-    }
+        if (!checkPermission(currentUser, 'pet_management')) {
+            throw new Error('Không có quyền thêm thú cưng');
+        }
 
-    const newPet = {
+        const newPet = {
         id: generateId(),
         name: petData.name,
         age: petData.age,
-        species_id: petData.species_id,
-        breed_id: petData.breed_id,
+            species_id: petData.species_id,
+            breed_id: petData.breed_id,
         color: petData.color,
         weight: petData.weight,
-        preferences: petData.preferences || '',
-        special_notes: petData.special_notes || '',
+            preferences: petData.preferences || '',
+            special_notes: petData.special_notes || '',
         image_url: petData.image_url || '',
-        arrival_date: petData.arrival_date || new Date().toISOString(),
+            arrival_date: petData.arrival_date || new Date().toISOString(),
         gender: petData.gender,
         // group_id is NOT in create API - will be null
         group_id: null,
@@ -174,9 +174,9 @@ const addPet = async (petData) => {
         updated_at: new Date().toISOString(),
         updated_by: null,
         is_deleted: false
-    };
+        };
 
-    MOCK_PETS.push(newPet);
+        MOCK_PETS.push(newPet);
 
     return {
         success: true,
@@ -192,16 +192,16 @@ const addPet = async (petData) => {
  * @returns {Promise<Object>}
  */
 const updatePet = async (petId, updates) => {
-    await delay(400);
-    const currentUser = getCurrentUser();
+        await delay(400);
+        const currentUser = getCurrentUser();
 
-    if (!checkPermission(currentUser, 'pet_management')) {
-        throw new Error('Không có quyền cập nhật thú cưng');
-    }
+        if (!checkPermission(currentUser, 'pet_management')) {
+            throw new Error('Không có quyền cập nhật thú cưng');
+        }
 
     const petIndex = MOCK_PETS.findIndex(p => p.id === petId && !p.is_deleted);
 
-    if (petIndex === -1) {
+        if (petIndex === -1) {
         throw new Error('Không tìm thấy thú cưng');
     }
 
@@ -220,8 +220,8 @@ const updatePet = async (petId, updates) => {
 
     MOCK_PETS[petIndex] = updatedPet;
 
-    return {
-        success: true,
+        return {
+            success: true,
         data: updatedPet,
         message: 'Cập nhật thú cưng thành công'
     };
@@ -234,24 +234,24 @@ const updatePet = async (petId, updates) => {
  */
 const deletePet = async (petId) => {
     await delay(400);
-    const currentUser = getCurrentUser();
+        const currentUser = getCurrentUser();
 
-    if (!checkPermission(currentUser, 'pet_management')) {
-        throw new Error('Không có quyền xóa thú cưng');
-    }
+        if (!checkPermission(currentUser, 'pet_management')) {
+            throw new Error('Không có quyền xóa thú cưng');
+        }
 
     const petIndex = MOCK_PETS.findIndex(p => p.id === petId && !p.is_deleted);
 
-    if (petIndex === -1) {
-        throw new Error('Không tìm thấy thú cưng');
-    }
+        if (petIndex === -1) {
+            throw new Error('Không tìm thấy thú cưng');
+        }
 
     MOCK_PETS[petIndex].is_deleted = true;
     MOCK_PETS[petIndex].updated_at = new Date().toISOString();
     MOCK_PETS[petIndex].updated_by = currentUser?.id || '00000000-0000-0000-0000-000000000000';
 
-    return {
-        success: true,
+        return {
+            success: true,
         message: 'Xóa thú cưng thành công'
     };
 };
@@ -265,8 +265,8 @@ const deletePet = async (petId) => {
 const getPetSpecies = async () => {
     await delay(200);
 
-    return {
-        success: true,
+        return {
+            success: true,
         data: MOCK_PET_SPECIES.filter(s => !s.is_deleted),
         pagination: {
             total_items_count: MOCK_PET_SPECIES.length,
@@ -291,9 +291,9 @@ const getPetBreeds = async (speciesId = null) => {
 
     let breeds = [...MOCK_PET_BREEDS].filter(b => !b.is_deleted);
 
-    if (speciesId) {
-        breeds = breeds.filter(b => b.species_id === speciesId);
-    }
+        if (speciesId) {
+            breeds = breeds.filter(b => b.species_id === speciesId);
+        }
 
     // Populate species for list view (detail view has species = null)
     const breedsWithSpecies = breeds.map(breed => ({
@@ -321,18 +321,18 @@ const getPetBreeds = async (speciesId = null) => {
  * @returns {Promise<Object>}
  */
 const createPetBreed = async (breedData) => {
-    await delay(400);
-    const currentUser = getCurrentUser();
+        await delay(400);
+        const currentUser = getCurrentUser();
 
-    if (!checkPermission(currentUser, 'pet_management')) {
+        if (!checkPermission(currentUser, 'pet_management')) {
         throw new Error('Không có quyền tạo giống');
-    }
+        }
 
-    const newBreed = {
+        const newBreed = {
         id: generateId(),
         name: breedData.name,
-        species_id: breedData.species_id,
-        description: breedData.description || '',
+            species_id: breedData.species_id,
+            description: breedData.description || '',
         average_weight: breedData.average_weight,
         average_lifespan: breedData.average_lifespan,
         species: null, // Match API: species is null in detail response
@@ -342,9 +342,9 @@ const createPetBreed = async (breedData) => {
         updated_at: new Date().toISOString(),
         updated_by: null,
         is_deleted: false
-    };
+        };
 
-    MOCK_PET_BREEDS.push(newBreed);
+        MOCK_PET_BREEDS.push(newBreed);
 
     return {
         success: true,
@@ -360,16 +360,16 @@ const createPetBreed = async (breedData) => {
  * @returns {Promise<Object>}
  */
 const updatePetBreed = async (breedId, updates) => {
-    await delay(400);
-    const currentUser = getCurrentUser();
+        await delay(400);
+        const currentUser = getCurrentUser();
 
-    if (!checkPermission(currentUser, 'pet_management')) {
+        if (!checkPermission(currentUser, 'pet_management')) {
         throw new Error('Không có quyền cập nhật giống');
-    }
+        }
 
     const breedIndex = MOCK_PET_BREEDS.findIndex(b => b.id === breedId && !b.is_deleted);
 
-    if (breedIndex === -1) {
+        if (breedIndex === -1) {
         throw new Error('Không tìm thấy giống');
     }
 
@@ -383,8 +383,8 @@ const updatePetBreed = async (breedId, updates) => {
 
     MOCK_PET_BREEDS[breedIndex] = updatedBreed;
 
-    return {
-        success: true,
+        return {
+            success: true,
         data: updatedBreed,
         message: 'Cập nhật giống thành công'
     };
@@ -397,24 +397,24 @@ const updatePetBreed = async (breedId, updates) => {
  */
 const deletePetBreed = async (breedId) => {
     await delay(400);
-    const currentUser = getCurrentUser();
+        const currentUser = getCurrentUser();
 
-    if (!checkPermission(currentUser, 'pet_management')) {
+        if (!checkPermission(currentUser, 'pet_management')) {
         throw new Error('Không có quyền xóa giống');
     }
 
     const breedIndex = MOCK_PET_BREEDS.findIndex(b => b.id === breedId && !b.is_deleted);
 
-    if (breedIndex === -1) {
+        if (breedIndex === -1) {
         throw new Error('Không tìm thấy giống');
-    }
+        }
 
     MOCK_PET_BREEDS[breedIndex].is_deleted = true;
     MOCK_PET_BREEDS[breedIndex].updated_at = new Date().toISOString();
     MOCK_PET_BREEDS[breedIndex].updated_by = currentUser?.id || '00000000-0000-0000-0000-000000000000';
 
-    return {
-        success: true,
+        return {
+            success: true,
         message: 'Xóa giống thành công'
     };
 };
@@ -426,7 +426,7 @@ const deletePetBreed = async (breedId) => {
  * @returns {Promise<Object>}
  */
 const getPetGroups = async () => {
-    await delay(200);
+        await delay(200);
 
     const groups = MOCK_PET_GROUPS.filter(g => !g.is_deleted);
 
@@ -437,7 +437,7 @@ const getPetGroups = async () => {
         pet_breed: group.pet_breed_id ? MOCK_PET_BREEDS.find(b => b.id === group.pet_breed_id) || null : null
     }));
 
-    return {
+            return {
         success: true,
         data: groupsWithNested,
         pagination: {
@@ -457,10 +457,10 @@ const getPetGroups = async () => {
  * @returns {Promise<Object>}
  */
 const createPetGroup = async (groupData) => {
-    await delay(400);
-    const currentUser = getCurrentUser();
+        await delay(400);
+        const currentUser = getCurrentUser();
 
-    if (!checkPermission(currentUser, 'pet_management')) {
+        if (!checkPermission(currentUser, 'pet_management')) {
         throw new Error('Không có quyền tạo nhóm');
     }
 
@@ -468,11 +468,11 @@ const createPetGroup = async (groupData) => {
     const species = MOCK_PET_SPECIES.find(s => s.id === groupData.pet_species_id);
     const breed = groupData.pet_breed_id ? MOCK_PET_BREEDS.find(b => b.id === groupData.pet_breed_id) : null;
 
-    const newGroup = {
+        const newGroup = {
         id: generateId(),
         name: groupData.name,
-        description: groupData.description || '',
-        pet_species_id: groupData.pet_species_id,
+            description: groupData.description || '',
+            pet_species_id: groupData.pet_species_id,
         pet_species: species ? {
             ...species,
             pet_breeds: [],
@@ -492,9 +492,9 @@ const createPetGroup = async (groupData) => {
         updated_at: new Date().toISOString(),
         updated_by: null,
         is_deleted: false
-    };
+        };
 
-    MOCK_PET_GROUPS.push(newGroup);
+        MOCK_PET_GROUPS.push(newGroup);
 
     return {
         success: true,
@@ -510,21 +510,21 @@ const createPetGroup = async (groupData) => {
  * @returns {Promise<Object>}
  */
 const updatePetGroup = async (groupId, updates) => {
-    await delay(400);
-    const currentUser = getCurrentUser();
+        await delay(400);
+        const currentUser = getCurrentUser();
 
-    if (!checkPermission(currentUser, 'pet_management')) {
+        if (!checkPermission(currentUser, 'pet_management')) {
         throw new Error('Không có quyền cập nhật nhóm');
-    }
+        }
 
     const groupIndex = MOCK_PET_GROUPS.findIndex(g => g.id === groupId && !g.is_deleted);
 
-    if (groupIndex === -1) {
+        if (groupIndex === -1) {
         throw new Error('Không tìm thấy nhóm');
     }
 
-    const updatedGroup = {
-        ...MOCK_PET_GROUPS[groupIndex],
+        const updatedGroup = {
+            ...MOCK_PET_GROUPS[groupIndex],
         ...updates,
         updated_at: new Date().toISOString(),
         updated_by: currentUser?.id || '00000000-0000-0000-0000-000000000000'
@@ -551,9 +551,9 @@ const updatePetGroup = async (groupId, updates) => {
 
     MOCK_PET_GROUPS[groupIndex] = updatedGroup;
 
-    return {
-        success: true,
-        data: updatedGroup,
+        return {
+            success: true,
+            data: updatedGroup,
         message: 'Cập nhật nhóm thành công'
     };
 };
@@ -565,15 +565,15 @@ const updatePetGroup = async (groupId, updates) => {
  */
 const deletePetGroup = async (groupId) => {
     await delay(400);
-    const currentUser = getCurrentUser();
+        const currentUser = getCurrentUser();
 
-    if (!checkPermission(currentUser, 'pet_management')) {
+        if (!checkPermission(currentUser, 'pet_management')) {
         throw new Error('Không có quyền xóa nhóm');
-    }
+        }
 
     const groupIndex = MOCK_PET_GROUPS.findIndex(g => g.id === groupId && !g.is_deleted);
 
-    if (groupIndex === -1) {
+        if (groupIndex === -1) {
         throw new Error('Không tìm thấy nhóm');
     }
 
@@ -581,8 +581,8 @@ const deletePetGroup = async (groupId) => {
     MOCK_PET_GROUPS[groupIndex].updated_at = new Date().toISOString();
     MOCK_PET_GROUPS[groupIndex].updated_by = currentUser?.id || '00000000-0000-0000-0000-000000000000';
 
-    return {
-        success: true,
+        return {
+            success: true,
         message: 'Xóa nhóm thành công'
     };
 };

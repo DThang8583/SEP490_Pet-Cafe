@@ -12,7 +12,6 @@ const VaccineTypeModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
         description: '',
         species_id: '',
         interval_months: '',
-        required_doses: 0,
         is_required: true
     });
 
@@ -21,12 +20,17 @@ const VaccineTypeModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
     useEffect(() => {
         if (isOpen) {
             if (editMode && initialData) {
+                // Safeguard: ensure species_id is a string, not an object
+                let speciesId = initialData.species_id || '';
+                if (typeof speciesId === 'object' && speciesId.id) {
+                    speciesId = speciesId.id;
+                }
+
                 setFormData({
                     name: initialData.name || '',
                     description: initialData.description || '',
-                    species_id: initialData.species_id || '',
+                    species_id: String(speciesId),
                     interval_months: initialData.interval_months || '',
-                    required_doses: initialData.required_doses || 0,
                     is_required: initialData.is_required !== undefined ? initialData.is_required : true
                 });
             } else {
@@ -35,7 +39,6 @@ const VaccineTypeModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
                     description: '',
                     species_id: '',
                     interval_months: '',
-                    required_doses: 0,
                     is_required: true
                 });
             }
@@ -74,7 +77,6 @@ const VaccineTypeModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
             description: '',
             species_id: '',
             interval_months: '',
-            required_doses: 0,
             is_required: true
         });
         setErrors({});
@@ -96,7 +98,7 @@ const VaccineTypeModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
         >
             <DialogTitle
                 sx={{
-                    background: `linear-gradient(135deg, ${COLORS.PRIMARY[500]} 0%, ${COLORS.PRIMARY[700]} 100%)`,
+                    background: COLORS.PRIMARY[500],
                     color: '#fff',
                     fontWeight: 800,
                     py: 2.5
@@ -121,7 +123,7 @@ const VaccineTypeModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
                 </Stack>
             </DialogTitle>
             <DialogContent sx={{ p: 3, mt: 2 }}>
-                <Stack spacing={3}>
+                <Stack spacing={3} sx={{ mt: 2 }}>
                     <TextField
                         label="Tên vaccine"
                         value={formData.name}
@@ -148,9 +150,9 @@ const VaccineTypeModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
                             onChange={(e) => setFormData({ ...formData, species_id: e.target.value })}
                             label="Loài thú cưng"
                         >
-                            {species.map(s => (
+                            {Array.isArray(species) && species.map(s => (
                                 <MenuItem key={s.id} value={s.id}>
-                                    {s.name}
+                                    {s.name || '—'}
                                 </MenuItem>
                             ))}
                         </Select>
@@ -170,14 +172,6 @@ const VaccineTypeModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
                         inputProps={{ min: 1 }}
                         error={Boolean(errors.interval_months)}
                         helperText={errors.interval_months}
-                    />
-                    <TextField
-                        label="Số mũi tiêm yêu cầu"
-                        value={formData.required_doses}
-                        onChange={(e) => setFormData({ ...formData, required_doses: e.target.value })}
-                        fullWidth
-                        type="number"
-                        inputProps={{ min: 0 }}
                     />
                     <FormControlLabel
                         control={
@@ -217,12 +211,12 @@ const VaccineTypeModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
                     variant="contained"
                     disabled={isLoading}
                     sx={{
-                        background: `linear-gradient(135deg, ${COLORS.PRIMARY[500]} 0%, ${COLORS.PRIMARY[700]} 100%)`,
+                        bgcolor: COLORS.PRIMARY[500],
                         color: '#fff',
                         fontWeight: 700,
                         px: 3,
                         '&:hover': {
-                            background: `linear-gradient(135deg, ${COLORS.PRIMARY[600]} 0%, ${COLORS.PRIMARY[800]} 100%)`
+                            bgcolor: COLORS.PRIMARY[600]
                         }
                     }}
                 >

@@ -383,9 +383,9 @@ const ServicesPage = () => {
             return;
         }
 
-        setSelectedTask(task);
+            setSelectedTask(task);
         setSelectedService(service);
-        setSlotDetailsOpen(true);
+            setSlotDetailsOpen(true);
     };
 
     const handleCreateSlot = (task) => {
@@ -406,21 +406,21 @@ const ServicesPage = () => {
             if (slotFormMode === 'edit' && editingSlot) {
                 // Edit mode
                 await slotApi.updateSlot(editingSlot.id, formData);
-                setAlert({
-                    open: true,
-                    title: 'Thành công',
+            setAlert({
+                open: true,
+                title: 'Thành công',
                     message: 'Cập nhật ca thành công!',
-                    type: 'success'
-                });
+                type: 'success'
+            });
             } else {
                 // Create mode
                 await slotApi.createSlot(formData);
-                setAlert({
-                    open: true,
-                    title: 'Thành công',
+            setAlert({
+                open: true,
+                title: 'Thành công',
                     message: 'Tạo ca thành công!',
-                    type: 'success'
-                });
+                type: 'success'
+            });
             }
 
             await loadSlots();
@@ -566,82 +566,82 @@ const ServicesPage = () => {
             {/* Tab Content */}
             {currentTab === 0 && (
                 <>
-                    {/* Toolbar */}
-                    <Paper sx={{ mb: 2 }}>
-                        <Toolbar sx={{ gap: 2, flexWrap: 'wrap' }}>
-                            <TextField
+            {/* Toolbar */}
+            <Paper sx={{ mb: 2 }}>
+                <Toolbar sx={{ gap: 2, flexWrap: 'wrap' }}>
+                    <TextField
                                 placeholder="Tìm dịch vụ..."
-                                value={searchQuery}
+                        value={searchQuery}
+                        onChange={(e) => {
+                            setSearchQuery(e.target.value);
+                            setPage(1);
+                        }}
+                        size="small"
+                        sx={{ minWidth: 250 }}
+                    />
+
+                        <FormControl size="small" sx={{ minWidth: 150 }}>
+                                <InputLabel>Trạng thái</InputLabel>
+                            <Select
+                                value={filterServiceStatus}
                                 onChange={(e) => {
-                                    setSearchQuery(e.target.value);
+                                    setFilterServiceStatus(e.target.value);
                                     setPage(1);
                                 }}
-                                size="small"
-                                sx={{ minWidth: 250 }}
-                            />
-
-                            <FormControl size="small" sx={{ minWidth: 150 }}>
-                                <InputLabel>Trạng thái</InputLabel>
-                                <Select
-                                    value={filterServiceStatus}
-                                    onChange={(e) => {
-                                        setFilterServiceStatus(e.target.value);
-                                        setPage(1);
-                                    }}
                                     label="Trạng thái"
-                                >
-                                    <MenuItem value="all">Tất cả</MenuItem>
+                            >
+                                <MenuItem value="all">Tất cả</MenuItem>
                                     <MenuItem value="active">Hoạt động</MenuItem>
                                     <MenuItem value="inactive">Không hoạt động</MenuItem>
-                                </Select>
-                            </FormControl>
+                            </Select>
+                        </FormControl>
 
-                            <Box sx={{ flexGrow: 1 }} />
+                    <Box sx={{ flexGrow: 1 }} />
 
-                            <IconButton onClick={loadData} size="small">
-                                <RefreshIcon />
-                            </IconButton>
-                        </Toolbar>
-                    </Paper>
+                    <IconButton onClick={loadData} size="small">
+                        <RefreshIcon />
+                    </IconButton>
+                </Toolbar>
+            </Paper>
 
                     {/* Services Table */}
-                    <TableContainer component={Paper}>
-                        <Table>
-                            <TableHead sx={{ bgcolor: alpha(COLORS.GRAY[100], 0.5) }}>
-                                <TableRow>
-                                    <TableCell width="4%">STT</TableCell>
+                <TableContainer component={Paper}>
+                    <Table>
+                        <TableHead sx={{ bgcolor: alpha(COLORS.GRAY[100], 0.5) }}>
+                            <TableRow>
+                                <TableCell width="4%">STT</TableCell>
                                     <TableCell width="6%">Ảnh</TableCell>
                                     <TableCell width="9%">Loại</TableCell>
                                     <TableCell width="16%">Tên Dịch vụ</TableCell>
                                     <TableCell width="23%">Mô tả</TableCell>
                                     <TableCell width="8%" align="center">Thời gian</TableCell>
-                                    <TableCell width="9%" align="right">Giá</TableCell>
-                                    <TableCell width="8%" align="center">Ca</TableCell>
+                                <TableCell width="9%" align="right">Giá</TableCell>
+                                <TableCell width="8%" align="center">Ca</TableCell>
                                     <TableCell width="10%" align="center">Trạng thái</TableCell>
                                     <TableCell width="7%" align="center">Thao tác</TableCell>
-                                </TableRow>
-                            </TableHead>
-                            <TableBody>
-                                {currentPageItems.length === 0 ? (
-                                    <TableRow>
+                            </TableRow>
+                        </TableHead>
+                        <TableBody>
+                            {currentPageItems.length === 0 ? (
+                                <TableRow>
                                         <TableCell colSpan={10} align="center" sx={{ py: 4 }}>
-                                            <Typography color="text.secondary">
+                                        <Typography color="text.secondary">
                                                 Không có dịch vụ nào
-                                            </Typography>
-                                        </TableCell>
-                                    </TableRow>
-                                ) : (
-                                    currentPageItems.map((service, index) => {
-                                        const task = getTaskForService(service.task_id);
+                                        </Typography>
+                                    </TableCell>
+                                </TableRow>
+                            ) : (
+                                currentPageItems.map((service, index) => {
+                                    const task = getTaskForService(service.task_id);
                                         const workType = task?.work_type;
                                         const workTypeColor = workType ? getWorkTypeColor(workType.name) : COLORS.GRAY[500];
 
-                                        return (
-                                            <TableRow key={service.id} hover>
-                                                {/* STT */}
-                                                <TableCell>
-                                                    {(page - 1) * itemsPerPage + index + 1}
-                                                </TableCell>
+                                    return (
+                                        <TableRow key={service.id} hover>
+                                            {/* STT */}
+                                            <TableCell>
+                                                {(page - 1) * itemsPerPage + index + 1}
+                                            </TableCell>
 
                                                 {/* Ảnh */}
                                                 <TableCell>
@@ -654,13 +654,13 @@ const ServicesPage = () => {
                                                     </Avatar>
                                                 </TableCell>
 
-                                                {/* Loại */}
-                                                <TableCell>
+                                            {/* Loại */}
+                                            <TableCell>
                                                     <Tooltip title={workType?.description || ''} arrow>
-                                                        <Chip
+                                                    <Chip
                                                             label={workType?.name || 'N/A'}
-                                                            size="small"
-                                                            sx={{
+                                                        size="small"
+                                                        sx={{
                                                                 bgcolor: alpha(workTypeColor, 0.15),
                                                                 color: workTypeColor,
                                                                 fontWeight: 600,
@@ -668,137 +668,137 @@ const ServicesPage = () => {
                                                             }}
                                                         />
                                                     </Tooltip>
-                                                </TableCell>
+                                            </TableCell>
 
-                                                {/* Tên Service */}
-                                                <TableCell>
-                                                    <Typography variant="body2" fontWeight={500}>
-                                                        {service.name}
-                                                    </Typography>
-                                                    {task && (
-                                                        <Typography variant="caption" color="text.secondary">
+                                            {/* Tên Service */}
+                                            <TableCell>
+                                                <Typography variant="body2" fontWeight={500}>
+                                                    {service.name}
+                                                </Typography>
+                                                {task && (
+                                                    <Typography variant="caption" color="text.secondary">
                                                             Nhiệm vụ: {task.title || task.name}
-                                                        </Typography>
-                                                    )}
-                                                </TableCell>
-
-                                                {/* Mô tả */}
-                                                <TableCell>
-                                                    <Typography variant="body2" color="text.secondary" noWrap>
-                                                        {service.description.length > 80
-                                                            ? `${service.description.substring(0, 80)}...`
-                                                            : service.description
-                                                        }
                                                     </Typography>
-                                                </TableCell>
+                                                )}
+                                            </TableCell>
 
-                                                {/* Thời gian */}
-                                                <TableCell align="center">
+                                            {/* Mô tả */}
+                                            <TableCell>
+                                                <Typography variant="body2" color="text.secondary" noWrap>
+                                                    {service.description.length > 80
+                                                        ? `${service.description.substring(0, 80)}...`
+                                                        : service.description
+                                                    }
+                                                </Typography>
+                                            </TableCell>
+
+                                            {/* Thời gian */}
+                                            <TableCell align="center">
                                                     {service.duration_minutes > 0 ? (
-                                                        <Stack direction="row" alignItems="center" justifyContent="center" spacing={0.5}>
-                                                            <ScheduleIcon fontSize="small" color="action" />
-                                                            <Typography variant="body2">
+                                                    <Stack direction="row" alignItems="center" justifyContent="center" spacing={0.5}>
+                                                        <ScheduleIcon fontSize="small" color="action" />
+                                                        <Typography variant="body2">
                                                                 {service.duration_minutes}p
-                                                            </Typography>
-                                                        </Stack>
-                                                    ) : (
-                                                        <Typography variant="body2" color="text.secondary">
-                                                            —
                                                         </Typography>
-                                                    )}
-                                                </TableCell>
-
-                                                {/* Giá */}
-                                                <TableCell align="right">
-                                                    <Typography variant="body2" fontWeight={600} color={COLORS.SUCCESS[700]}>
-                                                        {formatPrice(service.base_price)}
-                                                    </Typography>
-                                                </TableCell>
-
-                                                {/* Slots */}
-                                                <TableCell align="center">
-                                                    {(() => {
-                                                        const slotsCount = getSlotsCountForService(service.task_id);
-
-                                                        return (
-                                                            <Stack direction="row" spacing={0.5} justifyContent="center">
-                                                                <Tooltip title="Xem chi tiết ca">
-                                                                    <Chip
-                                                                        label={slotsCount.total}
-                                                                        size="small"
-                                                                        variant="outlined"
-                                                                        onClick={() => handleViewSlots(service)}
-                                                                        sx={{
-                                                                            cursor: 'pointer',
-                                                                            '&:hover': {
-                                                                                bgcolor: alpha(COLORS.PRIMARY[100], 0.5)
-                                                                            }
-                                                                        }}
-                                                                    />
-                                                                </Tooltip>
-                                                                <Tooltip title="Ca có sẵn">
-                                                                    <Chip
-                                                                        label={`${slotsCount.available}A`}
-                                                                        size="small"
-                                                                        color="success"
-                                                                        onClick={() => handleViewSlots(service)}
-                                                                        sx={{
-                                                                            cursor: 'pointer',
-                                                                            '&:hover': {
-                                                                                opacity: 0.8
-                                                                            }
-                                                                        }}
-                                                                    />
-                                                                </Tooltip>
-                                                            </Stack>
-                                                        );
-                                                    })()}
-                                                </TableCell>
-
-                                                {/* Trạng thái */}
-                                                <TableCell align="center">
-                                                    <Stack direction="row" alignItems="center" justifyContent="center" spacing={1}>
-                                                        <Switch
-                                                            checked={service.is_active === true}
-                                                            onChange={() => handleToggleStatus(service)}
-                                                            size="small"
-                                                            color="success"
-                                                        />
-                                                        <Chip
-                                                            label={service.is_active ? 'Hoạt động' : 'Không hoạt động'}
-                                                            size="small"
-                                                            icon={service.is_active ? <CheckIcon /> : <CloseIcon />}
-                                                            sx={{
-                                                                bgcolor: service.is_active
-                                                                    ? alpha(COLORS.SUCCESS[100], 0.8)
-                                                                    : alpha(COLORS.GRAY[200], 0.6),
-                                                                color: service.is_active
-                                                                    ? COLORS.SUCCESS[700]
-                                                                    : COLORS.TEXT.SECONDARY
-                                                            }}
-                                                        />
                                                     </Stack>
-                                                </TableCell>
+                                                ) : (
+                                                    <Typography variant="body2" color="text.secondary">
+                                                        —
+                                                    </Typography>
+                                                )}
+                                            </TableCell>
 
-                                                {/* Thao tác */}
-                                                <TableCell align="center">
-                                                    <IconButton
+                                            {/* Giá */}
+                                            <TableCell align="right">
+                                                <Typography variant="body2" fontWeight={600} color={COLORS.SUCCESS[700]}>
+                                                        {formatPrice(service.base_price)}
+                                                </Typography>
+                                            </TableCell>
+
+                                            {/* Slots */}
+                                            <TableCell align="center">
+                                                {(() => {
+                                                    const slotsCount = getSlotsCountForService(service.task_id);
+
+                                                    return (
+                                                        <Stack direction="row" spacing={0.5} justifyContent="center">
+                                                            <Tooltip title="Xem chi tiết ca">
+                                                                <Chip
+                                                                    label={slotsCount.total}
+                                                                    size="small"
+                                                                    variant="outlined"
+                                                                    onClick={() => handleViewSlots(service)}
+                                                                    sx={{
+                                                                        cursor: 'pointer',
+                                                                        '&:hover': {
+                                                                            bgcolor: alpha(COLORS.PRIMARY[100], 0.5)
+                                                                        }
+                                                                    }}
+                                                                />
+                                                            </Tooltip>
+                                                                <Tooltip title="Ca có sẵn">
+                                                                <Chip
+                                                                        label={`${slotsCount.available}A`}
+                                                                    size="small"
+                                                                    color="success"
+                                                                    onClick={() => handleViewSlots(service)}
+                                                                    sx={{
+                                                                        cursor: 'pointer',
+                                                                        '&:hover': {
+                                                                            opacity: 0.8
+                                                                        }
+                                                                    }}
+                                                                />
+                                                            </Tooltip>
+                                                        </Stack>
+                                                    );
+                                                })()}
+                                            </TableCell>
+
+                                            {/* Trạng thái */}
+                                            <TableCell align="center">
+                                                <Stack direction="row" alignItems="center" justifyContent="center" spacing={1}>
+                                                    <Switch
+                                                            checked={service.is_active === true}
+                                                        onChange={() => handleToggleStatus(service)}
                                                         size="small"
-                                                        onClick={(e) => {
-                                                            setServiceMenuAnchor(e.currentTarget);
-                                                            setMenuService(service);
+                                                        color="success"
+                                                    />
+                                                    <Chip
+                                                            label={service.is_active ? 'Hoạt động' : 'Không hoạt động'}
+                                                        size="small"
+                                                            icon={service.is_active ? <CheckIcon /> : <CloseIcon />}
+                                                        sx={{
+                                                                bgcolor: service.is_active
+                                                                ? alpha(COLORS.SUCCESS[100], 0.8)
+                                                                : alpha(COLORS.GRAY[200], 0.6),
+                                                                color: service.is_active
+                                                                ? COLORS.SUCCESS[700]
+                                                                : COLORS.TEXT.SECONDARY
                                                         }}
-                                                    >
-                                                        <MoreVertIcon fontSize="small" />
-                                                    </IconButton>
-                                                </TableCell>
-                                            </TableRow>
-                                        );
-                                    })
-                                )}
-                            </TableBody>
-                        </Table>
-                    </TableContainer>
+                                                    />
+                                                </Stack>
+                                            </TableCell>
+
+                                            {/* Thao tác */}
+                                            <TableCell align="center">
+                                                <IconButton
+                                                    size="small"
+                                                    onClick={(e) => {
+                                                        setServiceMenuAnchor(e.currentTarget);
+                                                        setMenuService(service);
+                                                    }}
+                                                >
+                                                    <MoreVertIcon fontSize="small" />
+                                                </IconButton>
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                })
+                            )}
+                        </TableBody>
+                    </Table>
+                </TableContainer>
 
                     {/* Pagination */}
                     <Box sx={{ mt: 2 }}>
@@ -948,20 +948,20 @@ const ServicesPage = () => {
                         </Table>
                     </TableContainer>
 
-                    {/* Pagination */}
-                    <Box sx={{ mt: 2 }}>
-                        <Pagination
-                            page={page}
-                            totalPages={totalPages}
-                            onPageChange={setPage}
-                            itemsPerPage={itemsPerPage}
-                            onItemsPerPageChange={(value) => {
-                                setItemsPerPage(value);
-                                setPage(1);
-                            }}
+            {/* Pagination */}
+                <Box sx={{ mt: 2 }}>
+                    <Pagination
+                        page={page}
+                        totalPages={totalPages}
+                        onPageChange={setPage}
+                        itemsPerPage={itemsPerPage}
+                        onItemsPerPageChange={(value) => {
+                            setItemsPerPage(value);
+                            setPage(1);
+                        }}
                             totalItems={filteredAvailableTasks.length}
-                        />
-                    </Box>
+                    />
+                </Box>
                 </>
             )}
 

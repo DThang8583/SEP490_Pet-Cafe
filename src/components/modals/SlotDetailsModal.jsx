@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, IconButton, Stack, Paper, Tooltip, Alert, Divider } from '@mui/material';
 import { alpha } from '@mui/material/styles';
-import { Close as CloseIcon, Add as AddIcon, Refresh as RefreshIcon, Edit as EditIcon, Delete as DeleteIcon, Info as InfoIcon } from '@mui/icons-material';
+import { Close as CloseIcon, Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, Info as InfoIcon } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 import { WEEKDAY_LABELS } from '../../api/slotApi';
 
@@ -187,13 +187,6 @@ const SlotDetailsModal = ({
                     >
                         Tạo Ca mới
                     </Button>
-                    <Button
-                        variant="outlined"
-                        startIcon={<RefreshIcon />}
-                        onClick={onRefresh}
-                    >
-                        Làm mới
-                    </Button>
                 </Stack>
 
                 {/* Slots Table */}
@@ -215,7 +208,7 @@ const SlotDetailsModal = ({
                                     <TableCell width="12%">Khu vực</TableCell>
                                     <TableCell width="12%">Pet Group</TableCell>
                                     <TableCell width="10%" align="center">Sức chứa</TableCell>
-                                    <TableCell width="10%" align="right">Giá</TableCell>
+                                    {taskData.is_public && <TableCell width="10%" align="right">Giá</TableCell>}
                                     <TableCell width="10%" align="center">Trạng thái</TableCell>
                                     <TableCell width="8%" align="center">Ghi chú</TableCell>
                                     <TableCell width="8%" align="center">Thao tác</TableCell>
@@ -289,21 +282,23 @@ const SlotDetailsModal = ({
                                             </Typography>
                                         </TableCell>
 
-                                        {/* Giá */}
-                                        <TableCell align="right">
-                                            {slot.price > 0 ? (
-                                                <Typography variant="body2" fontWeight={500} color={COLORS.SUCCESS[700]}>
-                                                    {new Intl.NumberFormat('vi-VN', {
-                                                        style: 'currency',
-                                                        currency: 'VND'
-                                                    }).format(slot.price)}
-                                                </Typography>
-                                            ) : (
-                                                <Typography variant="body2" color="text.secondary">
-                                                    Miễn phí
-                                                </Typography>
-                                            )}
-                                        </TableCell>
+                                        {/* Giá - Chỉ hiển thị nếu là nhiệm vụ công khai */}
+                                        {taskData.is_public && (
+                                            <TableCell align="right">
+                                                {slot.price && slot.price > 0 ? (
+                                                    <Typography variant="body2" fontWeight={500} color={COLORS.SUCCESS[700]}>
+                                                        {new Intl.NumberFormat('vi-VN', {
+                                                            style: 'currency',
+                                                            currency: 'VND'
+                                                        }).format(slot.price)}
+                                                    </Typography>
+                                                ) : (
+                                                    <Typography variant="body2" color="text.secondary">
+                                                        —
+                                                    </Typography>
+                                                )}
+                                            </TableCell>
+                                        )}
 
                                         {/* Trạng thái */}
                                         <TableCell align="center">

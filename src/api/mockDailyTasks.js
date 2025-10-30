@@ -10,8 +10,60 @@ const getTaskById = (id) => MOCK_TASK_TEMPLATES.find(t => t.id === id);
 // ========== MOCK DAILY TASKS DATA ==========
 
 export const MOCK_DAILY_TASKS = [
-    // CURRENT WEEK - MONDAY (2025-10-28)
-    // 1. Cho mèo ăn sáng (Task: 863b1830) - COMPLETED
+    // CURRENT WEEK (27/10 - 2/11/2025)
+
+    // ========== MONDAY 27/10/2025 (Thứ Hai) ==========
+    // 1. Dọn dẹp vệ sinh khu vực chó (buổi sáng) - COMPLETED
+    {
+        id: 'dt-mon-027-001',
+        team_id: 'a1b2c3d4-e5f6-4789-a012-bcdef3456789',
+        title: 'Dọn dẹp vệ sinh khu vực chó (buổi sáng)',
+        description: 'Vệ sinh toàn bộ khu vực chó, thu dọn chất thải, lau chùi sàn nhà và đồ chơi',
+        priority: 'HIGH',
+        status: 'COMPLETED',
+        assigned_date: '2025-10-27T00:00:00+00:00',
+        start_time: '06:00:00',
+        end_time: '07:30:00',
+        completion_date: '2025-10-27T07:20:00+00:00',
+        task_id: 'c07h7890-h1ce-45g6-d789-759947407333',
+        slot_id: '85235gfg-288h-6599-d2g4-825778722fb0',
+        notes: 'Vệ sinh sạch sẽ trước giờ mở cửa.',
+        task: getTaskById('c07h7890-h1ce-45g6-d789-759947407333'),
+        slot: getSlotById('85235gfg-288h-6599-d2g4-825778722fb0'),
+        team: getTeamById('a1b2c3d4-e5f6-4789-a012-bcdef3456789'),
+        created_at: '2025-10-27T05:30:00+00:00',
+        created_by: '00000000-0000-0000-0000-000000000000',
+        updated_at: '2025-10-27T07:20:00+00:00',
+        updated_by: '8ccb9b64-9c5f-47ab-8db8-21eb31f704ff',
+        is_deleted: false
+    },
+    // 2. Cho chó ăn sáng - COMPLETED
+    {
+        id: 'dt-mon-027-002',
+        team_id: 'a1b2c3d4-e5f6-4789-a012-bcdef3456789',
+        title: 'Cho chó ăn sáng',
+        description: 'Chuẩn bị và phân phối thức ăn sáng cho chó theo khẩu phần riêng',
+        priority: 'URGENT',
+        status: 'COMPLETED',
+        assigned_date: '2025-10-27T00:00:00+00:00',
+        start_time: '07:00:00',
+        end_time: '07:30:00',
+        completion_date: '2025-10-27T07:25:00+00:00',
+        task_id: '123e4567-e89b-12d3-a456-426614174000',
+        slot_id: 'a7457ihi-40aj-87b1-f4i6-a47990944hd2',
+        notes: 'Tất cả các bé đều ăn ngon.',
+        task: getTaskById('123e4567-e89b-12d3-a456-426614174000'),
+        slot: getSlotById('a7457ihi-40aj-87b1-f4i6-a47990944hd2'),
+        team: getTeamById('a1b2c3d4-e5f6-4789-a012-bcdef3456789'),
+        created_at: '2025-10-27T06:00:00+00:00',
+        created_by: '00000000-0000-0000-0000-000000000000',
+        updated_at: '2025-10-27T07:25:00+00:00',
+        updated_by: '8ccb9b64-9c5f-47ab-8db8-21eb31f704ff',
+        is_deleted: false
+    },
+
+    // ========== TUESDAY 28/10/2025 (Thứ Ba) ==========
+    // 3. Cho mèo ăn sáng (Task: 863b1830) - COMPLETED
     {
         id: 'dt-mon-001',
         team_id: '73db584f-89ba-4ac0-ae2e-4c559a907775',
@@ -136,7 +188,7 @@ export const MOCK_DAILY_TASKS = [
     // 6. Cho chó ăn sáng - COMPLETED
     {
         id: 'dt-mon-006',
-        team_id: '84ec695g-9acb-5bd1-bf3f-5d670b918886',
+        team_id: 'a1b2c3d4-e5f6-4789-a012-bcdef3456789',
         title: 'Cho chó ăn sáng',
         description: 'Chuẩn bị và cho chó ăn sáng theo khẩu phần, đảm bảo dinh dưỡng đầy đủ',
         priority: 'URGENT',
@@ -150,7 +202,7 @@ export const MOCK_DAILY_TASKS = [
         notes: 'Tất cả các bé đã ăn xong. Một bé Golden Retriever ăn chậm hơn bình thường, cần theo dõi.',
         task: getTaskById('123e4567-e89b-12d3-a456-426614174000'),
         slot: getSlotById('d078alml-73dm-10e4-i7l9-d70cc3277kg5'),
-        team: getTeamById('84ec695g-9acb-5bd1-bf3f-5d670b918886'),
+        team: getTeamById('a1b2c3d4-e5f6-4789-a012-bcdef3456789'),
         created_at: '2025-10-28T06:00:00+00:00',
         created_by: '00000000-0000-0000-0000-000000000000',
         updated_at: '2025-10-28T07:28:00+00:00',
@@ -160,7 +212,7 @@ export const MOCK_DAILY_TASKS = [
     // 7. Dắt chó đi dạo (sáng) - COMPLETED
     {
         id: 'dt-mon-007',
-        team_id: '84ec695g-9acb-5bd1-bf3f-5d670b918886',
+        team_id: 'a1b2c3d4-e5f6-4789-a012-bcdef3456789',
         title: 'Dắt chó đi dạo (buổi sáng)',
         description: 'Dắt chó đi dạo trong khu vực an toàn, tập thể dục và vận động buổi sáng',
         priority: 'MEDIUM',
@@ -174,7 +226,7 @@ export const MOCK_DAILY_TASKS = [
         notes: 'Dạo hoàn tất. Các bé rất vui vẻ và năng động.',
         task: getTaskById('a85f5678-f9ac-23e4-b567-537725285111'),
         slot: getSlotById('e189bmnn-84en-21f5-j8m0-e81dd4388lh6'),
-        team: getTeamById('84ec695g-9acb-5bd1-bf3f-5d670b918886'),
+        team: getTeamById('a1b2c3d4-e5f6-4789-a012-bcdef3456789'),
         created_at: '2025-10-28T07:00:00+00:00',
         created_by: '00000000-0000-0000-0000-000000000000',
         updated_at: '2025-10-28T09:00:00+00:00',
@@ -184,7 +236,7 @@ export const MOCK_DAILY_TASKS = [
     // 8. Vệ sinh Dog Play Area (sáng) - COMPLETED
     {
         id: 'dt-mon-008',
-        team_id: '84ec695g-9acb-5bd1-bf3f-5d670b918886',
+        team_id: 'a1b2c3d4-e5f6-4789-a012-bcdef3456789',
         title: 'Vệ sinh Dog Play Area (buổi sáng)',
         description: 'Dọn dẹp khu vực chơi của chó, khử trùng thiết bị, kiểm tra và sửa chữa đồ chơi hư hỏng',
         priority: 'HIGH',
@@ -198,7 +250,7 @@ export const MOCK_DAILY_TASKS = [
         notes: 'Vệ sinh hoàn tất. Phát hiện 1 đồ chơi hư, đã thay thế.',
         task: getTaskById('c07h7890-h1ce-45g6-d789-759947407333'),
         slot: getSlotById('h4b2epqq-b7hq-54i8-m1p3-hb4gg771bok9'),
-        team: getTeamById('84ec695g-9acb-5bd1-bf3f-5d670b918886'),
+        team: getTeamById('a1b2c3d4-e5f6-4789-a012-bcdef3456789'),
         created_at: '2025-10-28T05:30:00+00:00',
         created_by: '00000000-0000-0000-0000-000000000000',
         updated_at: '2025-10-28T07:25:00+00:00',
@@ -254,7 +306,7 @@ export const MOCK_DAILY_TASKS = [
         is_deleted: false
     },
 
-    // TUESDAY (2025-10-29)
+    // ========== WEDNESDAY 29/10/2025 (Thứ Tư) ==========
     // 11. Cho mèo ăn sáng - COMPLETED
     {
         id: 'dt-tue-001',
@@ -304,7 +356,7 @@ export const MOCK_DAILY_TASKS = [
         is_deleted: false
     },
 
-    // WEDNESDAY (2025-10-30)
+    // ========== THURSDAY 30/10/2025 (Thứ Năm - HÔM NAY) ==========
     // 13. Hướng dẫn khách chơi với mèo - CANCELLED
     {
         id: 'dt-wed-001',
@@ -332,7 +384,7 @@ export const MOCK_DAILY_TASKS = [
     // 14. Huấn luyện cơ bản cho chó - SCHEDULED
     {
         id: 'dt-wed-002',
-        team_id: '84ec695g-9acb-5bd1-bf3f-5d670b918886',
+        team_id: 'a1b2c3d4-e5f6-4789-a012-bcdef3456789',
         title: 'Huấn luyện cơ bản cho chó',
         description: 'Huấn luyện các lệnh cơ bản: ngồi, nằm, ở lại, đến cho chó trong thời gian vui chơi với khách',
         priority: 'LOW',
@@ -346,7 +398,7 @@ export const MOCK_DAILY_TASKS = [
         notes: null,
         task: getTaskById('b96g6789-g0bd-34f5-c678-648836396222'),
         slot: getSlotById('g3a1dopp-a6gp-43h7-l0o2-ga3ff660anj8'),
-        team: getTeamById('84ec695g-9acb-5bd1-bf3f-5d670b918886'),
+        team: getTeamById('a1b2c3d4-e5f6-4789-a012-bcdef3456789'),
         created_at: '2025-10-30T06:00:00+00:00',
         created_by: '00000000-0000-0000-0000-000000000000',
         updated_at: '2025-10-30T06:00:00+00:00',
@@ -354,7 +406,229 @@ export const MOCK_DAILY_TASKS = [
         is_deleted: false
     },
 
-    // PREVIOUS WEEK DATA (for history) - Week of 2025-10-21
+    // ========== FRIDAY 31/10/2025 (Thứ Sáu) ==========
+    // 15. Tắm và chải lông cho chó - SCHEDULED
+    {
+        id: 'dt-fri-001',
+        team_id: 'a1b2c3d4-e5f6-4789-a012-bcdef3456789',
+        title: 'Tắm và chải lông cho chó',
+        description: 'Tắm rửa và chải lông cho các bé chó theo lịch định kỳ, sử dụng sản phẩm chuyên dụng',
+        priority: 'MEDIUM',
+        status: 'SCHEDULED',
+        assigned_date: '2025-10-31T00:00:00+00:00',
+        start_time: '09:00:00',
+        end_time: '12:00:00',
+        completion_date: null,
+        task_id: 'a74f2830-65a5-59c8-87gg-c388427779d1',
+        slot_id: 'd8568jhj-51bk-9701-e3h5-d36889833hc2',
+        notes: null,
+        task: getTaskById('a74f2830-65a5-59c8-87gg-c388427779d1'),
+        slot: getSlotById('d8568jhj-51bk-9701-e3h5-d36889833hc2'),
+        team: getTeamById('a1b2c3d4-e5f6-4789-a012-bcdef3456789'),
+        created_at: '2025-10-31T06:00:00+00:00',
+        created_by: '00000000-0000-0000-0000-000000000000',
+        updated_at: '2025-10-31T06:00:00+00:00',
+        updated_by: null,
+        is_deleted: false
+    },
+    // 16. Kiểm tra và chăm sóc cây cảnh - SCHEDULED
+    {
+        id: 'dt-fri-002',
+        team_id: 'a1b2c3d4-e5f6-4789-a012-bcdef3456789',
+        title: 'Kiểm tra và chăm sóc cây cảnh',
+        description: 'Tưới nước, bón phân và kiểm tra tình trạng cây cối trong khu vực outdoor',
+        priority: 'LOW',
+        status: 'SCHEDULED',
+        assigned_date: '2025-10-31T00:00:00+00:00',
+        start_time: '07:00:00',
+        end_time: '08:00:00',
+        completion_date: null,
+        task_id: 'b85g3941-76b6-69da-b8ii-e599539990e2',
+        slot_id: 'e9679klk-72dm-1812-i7l9-e47aa3277kg5',
+        notes: null,
+        task: getTaskById('b85g3941-76b6-69da-b8ii-e599539990e2'),
+        slot: getSlotById('e9679klk-72dm-1812-i7l9-e47aa3277kg5'),
+        team: getTeamById('a1b2c3d4-e5f6-4789-a012-bcdef3456789'),
+        created_at: '2025-10-31T06:00:00+00:00',
+        created_by: '00000000-0000-0000-0000-000000000000',
+        updated_at: '2025-10-31T06:00:00+00:00',
+        updated_by: null,
+        is_deleted: false
+    },
+    // 17. Chuẩn bị thức ăn cho thú cưng (cuối tuần) - SCHEDULED
+    {
+        id: 'dt-fri-003',
+        team_id: 'a1b2c3d4-e5f6-4789-a012-bcdef3456789',
+        title: 'Chuẩn bị thức ăn cho thú cưng (cuối tuần)',
+        description: 'Chuẩn bị khẩu phần ăn cho cả tuần sau, kiểm tra tồn kho thực phẩm',
+        priority: 'HIGH',
+        status: 'SCHEDULED',
+        assigned_date: '2025-10-31T00:00:00+00:00',
+        start_time: '16:00:00',
+        end_time: '18:00:00',
+        completion_date: null,
+        task_id: 'c96h4052-87c7-79eb-c9jj-f600640001f3',
+        slot_id: 'f0780mlm-83en-2923-j8m0-f58bb4388lh6',
+        notes: null,
+        task: getTaskById('c96h4052-87c7-79eb-c9jj-f600640001f3'),
+        slot: getSlotById('f0780mlm-83en-2923-j8m0-f58bb4388lh6'),
+        team: getTeamById('a1b2c3d4-e5f6-4789-a012-bcdef3456789'),
+        created_at: '2025-10-31T06:00:00+00:00',
+        created_by: '00000000-0000-0000-0000-000000000000',
+        updated_at: '2025-10-31T06:00:00+00:00',
+        updated_by: null,
+        is_deleted: false
+    },
+
+    // ========== SATURDAY 01/11/2025 (Thứ Bảy) ==========
+    // 18. Vệ sinh tổng thể toàn bộ khu vực - SCHEDULED
+    {
+        id: 'dt-sat-001',
+        team_id: 'a1b2c3d4-e5f6-4789-a012-bcdef3456789',
+        title: 'Vệ sinh tổng thể toàn bộ khu vực',
+        description: 'Dọn dẹp vệ sinh tổng thể tất cả các khu vực trong pet cafe, bao gồm khu chó, mèo, outdoor',
+        priority: 'URGENT',
+        status: 'SCHEDULED',
+        assigned_date: '2025-11-01T00:00:00+00:00',
+        start_time: '06:00:00',
+        end_time: '09:00:00',
+        completion_date: null,
+        task_id: '752a0719-64a4-49b7-85ff-b266216667b9',
+        slot_id: '85235gfg-288h-6599-d2g4-825778722fb0',
+        notes: null,
+        task: getTaskById('752a0719-64a4-49b7-85ff-b266216667b9'),
+        slot: getSlotById('85235gfg-288h-6599-d2g4-825778722fb0'),
+        team: getTeamById('a1b2c3d4-e5f6-4789-a012-bcdef3456789'),
+        created_at: '2025-11-01T05:00:00+00:00',
+        created_by: '00000000-0000-0000-0000-000000000000',
+        updated_at: '2025-11-01T05:00:00+00:00',
+        updated_by: null,
+        is_deleted: false
+    },
+    // 19. Kiểm tra sức khỏe tổng quát cho thú cưng - SCHEDULED
+    {
+        id: 'dt-sat-002',
+        team_id: '73db584f-89ba-4ac0-ae2e-4c559a907775',
+        title: 'Kiểm tra sức khỏe tổng quát cho thú cưng',
+        description: 'Kiểm tra sức khỏe định kỳ cuối tuần cho tất cả thú cưng, ghi nhận các dấu hiệu bất thường',
+        priority: 'HIGH',
+        status: 'SCHEDULED',
+        assigned_date: '2025-11-01T00:00:00+00:00',
+        start_time: '09:00:00',
+        end_time: '11:00:00',
+        completion_date: null,
+        task_id: '974c2941-86c6-6bd9-a7hh-d488438889d1',
+        slot_id: 'c9679kjk-62cl-09d3-h6k8-c69bb2166jf4',
+        notes: null,
+        task: getTaskById('974c2941-86c6-6bd9-a7hh-d488438889d1'),
+        slot: getSlotById('c9679kjk-62cl-09d3-h6k8-c69bb2166jf4'),
+        team: getTeamById('73db584f-89ba-4ac0-ae2e-4c559a907775'),
+        created_at: '2025-11-01T05:00:00+00:00',
+        created_by: '00000000-0000-0000-0000-000000000000',
+        updated_at: '2025-11-01T05:00:00+00:00',
+        updated_by: null,
+        is_deleted: false
+    },
+    // 20. Hướng dẫn khách chơi với thú cưng (cuối tuần) - SCHEDULED
+    {
+        id: 'dt-sat-003',
+        team_id: '4d55bbb0-a1c1-4c03-98bf-c587f0713512',
+        title: 'Hướng dẫn khách chơi với thú cưng (cuối tuần)',
+        description: 'Tiếp đón và hướng dẫn khách tương tác với thú cưng trong ngày cuối tuần đông khách',
+        priority: 'MEDIUM',
+        status: 'SCHEDULED',
+        assigned_date: '2025-11-01T00:00:00+00:00',
+        start_time: '10:00:00',
+        end_time: '18:00:00',
+        completion_date: null,
+        task_id: 'cfa75dab-16cf-4978-b9fb-e6da47034108',
+        slot_id: '727d444e-6311-4377-86f9-acf24428dafd',
+        notes: null,
+        task: getTaskById('cfa75dab-16cf-4978-b9fb-e6da47034108'),
+        slot: getSlotById('727d444e-6311-4377-86f9-acf24428dafd'),
+        team: getTeamById('4d55bbb0-a1c1-4c03-98bf-c587f0713512'),
+        created_at: '2025-11-01T05:00:00+00:00',
+        created_by: '00000000-0000-0000-0000-000000000000',
+        updated_at: '2025-11-01T05:00:00+00:00',
+        updated_by: null,
+        is_deleted: false
+    },
+
+    // ========== SUNDAY 02/11/2025 (Chủ Nhật) ==========
+    // 21. Cho mèo và chó ăn sáng - SCHEDULED
+    {
+        id: 'dt-sun-001',
+        team_id: 'a1b2c3d4-e5f6-4789-a012-bcdef3456789',
+        title: 'Cho mèo và chó ăn sáng',
+        description: 'Chuẩn bị và phân phối thức ăn sáng chủ nhật cho tất cả thú cưng',
+        priority: 'URGENT',
+        status: 'SCHEDULED',
+        assigned_date: '2025-11-02T00:00:00+00:00',
+        start_time: '07:00:00',
+        end_time: '08:00:00',
+        completion_date: null,
+        task_id: '863b1830-75b5-5ac8-96gg-c377327778c0',
+        slot_id: 'a7457ihi-40aj-87b1-f4i6-a47990944hd2',
+        notes: null,
+        task: getTaskById('863b1830-75b5-5ac8-96gg-c377327778c0'),
+        slot: getSlotById('a7457ihi-40aj-87b1-f4i6-a47990944hd2'),
+        team: getTeamById('a1b2c3d4-e5f6-4789-a012-bcdef3456789'),
+        created_at: '2025-11-02T05:00:00+00:00',
+        created_by: '00000000-0000-0000-0000-000000000000',
+        updated_at: '2025-11-02T05:00:00+00:00',
+        updated_by: null,
+        is_deleted: false
+    },
+    // 22. Tổ chức sự kiện chủ nhật vui vẻ - SCHEDULED
+    {
+        id: 'dt-sun-002',
+        team_id: '4d55bbb0-a1c1-4c03-98bf-c587f0713512',
+        title: 'Tổ chức sự kiện chủ nhật vui vẻ',
+        description: 'Tổ chức các hoạt động vui chơi, tương tác đặc biệt cho khách và thú cưng vào chủ nhật',
+        priority: 'MEDIUM',
+        status: 'SCHEDULED',
+        assigned_date: '2025-11-02T00:00:00+00:00',
+        start_time: '10:00:00',
+        end_time: '16:00:00',
+        completion_date: null,
+        task_id: 'dfa86ebc-27dg-5089-c0gc-g7eb58145219',
+        slot_id: '838e555f-7422-5488-97g0-bdg35539ebge',
+        notes: null,
+        task: getTaskById('dfa86ebc-27dg-5089-c0gc-g7eb58145219'),
+        slot: getSlotById('838e555f-7422-5488-97g0-bdg35539ebge'),
+        team: getTeamById('4d55bbb0-a1c1-4c03-98bf-c587f0713512'),
+        created_at: '2025-11-02T05:00:00+00:00',
+        created_by: '00000000-0000-0000-0000-000000000000',
+        updated_at: '2025-11-02T05:00:00+00:00',
+        updated_by: null,
+        is_deleted: false
+    },
+    // 23. Vệ sinh và chuẩn bị cho tuần mới - SCHEDULED
+    {
+        id: 'dt-sun-003',
+        team_id: 'a1b2c3d4-e5f6-4789-a012-bcdef3456789',
+        title: 'Vệ sinh và chuẩn bị cho tuần mới',
+        description: 'Dọn dẹp tổng kết cuối tuần, chuẩn bị vật dụng và lên kế hoạch cho tuần tiếp theo',
+        priority: 'HIGH',
+        status: 'SCHEDULED',
+        assigned_date: '2025-11-02T00:00:00+00:00',
+        start_time: '17:00:00',
+        end_time: '19:00:00',
+        completion_date: null,
+        task_id: '752a0719-64a4-49b7-85ff-b266216667b9',
+        slot_id: '85235gfg-288h-6599-d2g4-825778722fb0',
+        notes: null,
+        task: getTaskById('752a0719-64a4-49b7-85ff-b266216667b9'),
+        slot: getSlotById('85235gfg-288h-6599-d2g4-825778722fb0'),
+        team: getTeamById('a1b2c3d4-e5f6-4789-a012-bcdef3456789'),
+        created_at: '2025-11-02T05:00:00+00:00',
+        created_by: '00000000-0000-0000-0000-000000000000',
+        updated_at: '2025-11-02T05:00:00+00:00',
+        updated_by: null,
+        is_deleted: false
+    },
+
+    // ========== PREVIOUS WEEK DATA (for history) - Week of 21/10/2025 ==========
     // 15. Cho mèo ăn sáng (tuần trước) - COMPLETED
     {
         id: 'dt-prev-mon-001',

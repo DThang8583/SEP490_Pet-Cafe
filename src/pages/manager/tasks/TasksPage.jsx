@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Box, Typography, Button, Tabs, Tab, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, IconButton, TextField, Stack, Toolbar, Grid, Avatar, Select, MenuItem, FormControl, InputLabel, Tooltip, Menu, ListItemIcon, ListItemText } from '@mui/material';
 import { alpha } from '@mui/material/styles';
-import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, Refresh as RefreshIcon, Schedule as ScheduleIcon, Public as PublicIcon, Lock as LockIcon, Visibility as VisibilityIcon, Assignment as AssignmentIcon, MoreVert as MoreVertIcon } from '@mui/icons-material';
+import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, Schedule as ScheduleIcon, Public as PublicIcon, Lock as LockIcon, Visibility as VisibilityIcon, Assignment as AssignmentIcon, MoreVert as MoreVertIcon } from '@mui/icons-material';
 import { COLORS } from '../../../constants/colors';
 import Loading from '../../../components/loading/Loading';
 import Pagination from '../../../components/common/Pagination';
@@ -11,7 +11,7 @@ import TaskTemplateFormModal from '../../../components/modals/TaskTemplateFormMo
 import SlotFormModal from '../../../components/modals/SlotFormModal';
 import SlotPublishModal from '../../../components/modals/SlotPublishModal';
 import SlotDetailsModal from '../../../components/modals/SlotDetailsModal';
-import taskTemplateApi from '../../../api/taskTemplateApi';
+import taskTemplateApi, { TASK_STATUS, TASK_PRIORITY } from '../../../api/taskTemplateApi';
 import slotApi, { SLOT_STATUS, WEEKDAY_LABELS } from '../../../api/slotApi';
 import serviceApi from '../../../api/serviceApi';
 import * as areasApi from '../../../api/areasApi';
@@ -39,6 +39,10 @@ const TasksPage = () => {
     // Search and filters
     const [searchQuery, setSearchQuery] = useState('');
     const [filterTaskType, setFilterTaskType] = useState('all');
+    const [filterStatus, setFilterStatus] = useState('all');
+    const [filterPriority, setFilterPriority] = useState('all');
+    const [filterIsPublic, setFilterIsPublic] = useState('all');
+    const [filterIsRecurring, setFilterIsRecurring] = useState('all');
     const [filterSlotStatus, setFilterSlotStatus] = useState('all');
     const [filterSlotTask, setFilterSlotTask] = useState('all');
 
@@ -112,15 +116,39 @@ const TasksPage = () => {
             }
 
             // Work type filter
-            if (filterTaskType !== 'all') {
-                if (t.work_type_id !== filterTaskType) {
+            if (filterTaskType !== 'all' && t.work_type_id !== filterTaskType) {
+                return false;
+            }
+
+            // Status filter
+            if (filterStatus !== 'all' && t.status !== filterStatus) {
+                return false;
+            }
+
+            // Priority filter
+            if (filterPriority !== 'all' && t.priority !== filterPriority) {
+                return false;
+            }
+
+            // Is Public filter
+            if (filterIsPublic !== 'all') {
+                const isPublic = filterIsPublic === 'true';
+                if (t.is_public !== isPublic) {
+                    return false;
+                }
+            }
+
+            // Is Recurring filter
+            if (filterIsRecurring !== 'all') {
+                const isRecurring = filterIsRecurring === 'true';
+                if (t.is_recurring !== isRecurring) {
                     return false;
                 }
             }
 
             return true;
         });
-    }, [taskTemplates, searchQuery, filterTaskType]);
+    }, [taskTemplates, searchQuery, filterTaskType, filterStatus, filterPriority, filterIsPublic, filterIsRecurring]);
 
     // Filter slots
     const filteredSlots = useMemo(() => {
@@ -470,9 +498,9 @@ const TasksPage = () => {
     // Get work type color (simple color assignment based on work type name)
     const getWorkTypeColor = (workTypeName) => {
         const colorMap = {
-            'Cat Zone Management ': COLORS.PRIMARY[500],
-            'Dog Zone Management ': COLORS.SUCCESS[500],
-            'Food & Beverage ': COLORS.INFO[500],
+            'Quản lý Khu Vực Mèo': COLORS.PRIMARY[500],
+            'Quản lý Khu Vực Chó': COLORS.SUCCESS[500],
+            'Thực phẩm & Đồ uống': COLORS.INFO[500],
         };
         return colorMap[workTypeName] || COLORS.GRAY[500];
     };
@@ -537,62 +565,6 @@ const TasksPage = () => {
             {/* Task Templates Tab */}
             {currentTab === 0 && (
                 <>
-                    {/* Toolbar */}
-                    <Paper sx={{ mb: 2 }}>
-                        <Toolbar sx={{ gap: 2, flexWrap: 'wrap' }}>
-                            <TextField
-                                placeholder="Tìm nhiệm vụ..."
-                                value={searchQuery}
-                                onChange={(e) => {
-                                    setSearchQuery(e.target.value);
-                                    setPage(1);
-                                }}
-                                size="small"
-                                sx={{ minWidth: 250 }}
-                            />
-
-                            <FormControl size="small" sx={{ minWidth: 200 }}>
-                                <InputLabel>Loại nhiệm vụ</InputLabel>
-                                <Select
-                                    value={filterTaskType}
-                                    onChange={(e) => {
-                                        setFilterTaskType(e.target.value);
-                                        setPage(1);
-                                    }}
-                                    label="Loại nhiệm vụ"
-                                >
-                                    <MenuItem value="all">Tất cả</MenuItem>
-                                    {workTypes.map(workType => (
-                                        <MenuItem key={workType.id} value={workType.id}>
-                                            <Box>
-                                                <Typography variant="body2" fontWeight={500}>
-                                                    {workType.name}
-                                                </Typography>
-                                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                                                    {workType.description}
-                                                </Typography>
-                                            </Box>
-                                        </MenuItem>
-                                    ))}
-                                </Select>
-                            </FormControl>
-
-                            <Box sx={{ flexGrow: 1 }} />
-
-                            <IconButton onClick={loadData} size="small">
-                                <RefreshIcon />
-                            </IconButton>
-
-                            <Button
-                                variant="contained"
-                                startIcon={<AddIcon />}
-                                onClick={handleCreateTask}
-                            >
-                                Tạo nhiệm vụ
-                            </Button>
-                        </Toolbar>
-                    </Paper>
-
                     {/* Statistics */}
                     <Grid container spacing={2} sx={{ mb: 3 }}>
                         <Grid item xs={12} sm={6} md={3}>
@@ -637,6 +609,124 @@ const TasksPage = () => {
                         </Grid>
                     </Grid>
 
+                    {/* Toolbar */}
+                    <Paper sx={{ mb: 2 }}>
+                        <Toolbar sx={{ gap: 2, flexWrap: 'wrap' }}>
+                            <TextField
+                                placeholder="Tìm nhiệm vụ..."
+                                value={searchQuery}
+                                onChange={(e) => {
+                                    setSearchQuery(e.target.value);
+                                    setPage(1);
+                                }}
+                                size="small"
+                                sx={{ minWidth: 250 }}
+                            />
+
+                            <FormControl size="small" sx={{ minWidth: 200 }}>
+                                <InputLabel>Loại nhiệm vụ</InputLabel>
+                                <Select
+                                    value={filterTaskType}
+                                    onChange={(e) => {
+                                        setFilterTaskType(e.target.value);
+                                        setPage(1);
+                                    }}
+                                    label="Loại nhiệm vụ"
+                                >
+                                    <MenuItem value="all">Tất cả</MenuItem>
+                                    {workTypes.map(workType => (
+                                        <MenuItem key={workType.id} value={workType.id}>
+                                            <Box>
+                                                <Typography variant="body2" fontWeight={500}>
+                                                    {workType.name}
+                                                </Typography>
+                                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                                                    {workType.description}
+                                                </Typography>
+                                            </Box>
+                                        </MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+
+                            <FormControl size="small" sx={{ minWidth: 150 }}>
+                                <InputLabel>Trạng thái</InputLabel>
+                                <Select
+                                    value={filterStatus}
+                                    onChange={(e) => {
+                                        setFilterStatus(e.target.value);
+                                        setPage(1);
+                                    }}
+                                    label="Trạng thái"
+                                >
+                                    <MenuItem value="all">Tất cả</MenuItem>
+                                    <MenuItem value={TASK_STATUS.ACTIVE}>Đang hoạt động</MenuItem>
+                                    <MenuItem value={TASK_STATUS.INACTIVE}>Không hoạt động</MenuItem>
+                                </Select>
+                            </FormControl>
+
+                            <FormControl size="small" sx={{ minWidth: 150 }}>
+                                <InputLabel>Độ ưu tiên</InputLabel>
+                                <Select
+                                    value={filterPriority}
+                                    onChange={(e) => {
+                                        setFilterPriority(e.target.value);
+                                        setPage(1);
+                                    }}
+                                    label="Độ ưu tiên"
+                                >
+                                    <MenuItem value="all">Tất cả</MenuItem>
+                                    <MenuItem value={TASK_PRIORITY.URGENT}>Khẩn cấp</MenuItem>
+                                    <MenuItem value={TASK_PRIORITY.HIGH}>Cao</MenuItem>
+                                    <MenuItem value={TASK_PRIORITY.MEDIUM}>Trung bình</MenuItem>
+                                    <MenuItem value={TASK_PRIORITY.LOW}>Thấp</MenuItem>
+                                </Select>
+                            </FormControl>
+
+                            <FormControl size="small" sx={{ minWidth: 150 }}>
+                                <InputLabel>Công khai</InputLabel>
+                                <Select
+                                    value={filterIsPublic}
+                                    onChange={(e) => {
+                                        setFilterIsPublic(e.target.value);
+                                        setPage(1);
+                                    }}
+                                    label="Công khai"
+                                >
+                                    <MenuItem value="all">Tất cả</MenuItem>
+                                    <MenuItem value="true">Công khai</MenuItem>
+                                    <MenuItem value="false">Nội bộ</MenuItem>
+                                </Select>
+                            </FormControl>
+
+                            <FormControl size="small" sx={{ minWidth: 150 }}>
+                                <InputLabel>Lặp lại</InputLabel>
+                                <Select
+                                    value={filterIsRecurring}
+                                    onChange={(e) => {
+                                        setFilterIsRecurring(e.target.value);
+                                        setPage(1);
+                                    }}
+                                    label="Lặp lại"
+                                >
+                                    <MenuItem value="all">Tất cả</MenuItem>
+                                    <MenuItem value="true">Có lặp lại</MenuItem>
+                                    <MenuItem value="false">Không lặp lại</MenuItem>
+                                </Select>
+                            </FormControl>
+
+                            <Box sx={{ flexGrow: 1 }} />
+
+                            <Button
+                                variant="contained"
+                                startIcon={<AddIcon />}
+                                onClick={handleCreateTask}
+                            >
+                                Tạo nhiệm vụ
+                            </Button>
+                        </Toolbar>
+                    </Paper>
+
                     {/* Table */}
                     <TableContainer component={Paper}>
                         <Table>
@@ -644,19 +734,20 @@ const TasksPage = () => {
                                 <TableRow>
                                     <TableCell width="5%">STT</TableCell>
                                     <TableCell width="10%">Loại</TableCell>
-                                    <TableCell width="25%">Tên nhiệm vụ</TableCell>
-                                    <TableCell width="35%">Mô tả</TableCell>
-                                    <TableCell width="10%" align="center">Thời gian</TableCell>
+                                    <TableCell width="20%">Tên nhiệm vụ</TableCell>
+                                    <TableCell width="30%">Mô tả</TableCell>
+                                    <TableCell width="8%" align="center">Thời gian</TableCell>
                                     <TableCell width="10%" align="center">Ca</TableCell>
+                                    <TableCell width="8%" align="center">Trạng thái</TableCell>
                                     <TableCell width="5%" align="center">Thao tác</TableCell>
                                 </TableRow>
                             </TableHead>
                             <TableBody>
                                 {currentPageItems.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                                        <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
                                             <Typography color="text.secondary">
-                                                Không có task template nào
+                                                Không có Nhiệm vụ nào
                                             </Typography>
                                         </TableCell>
                                     </TableRow>
@@ -734,21 +825,40 @@ const TasksPage = () => {
                                                                 }}
                                                             />
                                                         </Tooltip>
-                                                        <Tooltip title="Ca công khai">
-                                                            <Chip
-                                                                label={`${slotsCount.public}P`}
-                                                                size="small"
-                                                                color="success"
-                                                                onClick={() => handleViewSlots(task)}
-                                                                sx={{
-                                                                    cursor: 'pointer',
-                                                                    '&:hover': {
-                                                                        opacity: 0.8
-                                                                    }
-                                                                }}
-                                                            />
-                                                        </Tooltip>
+                                                        {task.is_public && (
+                                                            <Tooltip title="Ca công khai">
+                                                                <Chip
+                                                                    label={`${slotsCount.public}P`}
+                                                                    size="small"
+                                                                    color="success"
+                                                                    onClick={() => handleViewSlots(task)}
+                                                                    sx={{
+                                                                        cursor: 'pointer',
+                                                                        '&:hover': {
+                                                                            opacity: 0.8
+                                                                        }
+                                                                    }}
+                                                                />
+                                                            </Tooltip>
+                                                        )}
                                                     </Stack>
+                                                </TableCell>
+
+                                                {/* Trạng thái */}
+                                                <TableCell align="center">
+                                                    <Chip
+                                                        label={task.status === TASK_STATUS.ACTIVE ? 'Đang hoạt động' : 'Không hoạt động'}
+                                                        size="small"
+                                                        sx={{
+                                                            bgcolor: task.status === TASK_STATUS.ACTIVE
+                                                                ? alpha(COLORS.SUCCESS[100], 0.8)
+                                                                : alpha(COLORS.WARNING[100], 0.8),
+                                                            color: task.status === TASK_STATUS.ACTIVE
+                                                                ? COLORS.SUCCESS[700]
+                                                                : COLORS.WARNING[700],
+                                                            fontWeight: 600
+                                                        }}
+                                                    />
                                                 </TableCell>
 
                                                 {/* Thao tác */}

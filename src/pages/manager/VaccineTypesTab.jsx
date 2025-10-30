@@ -11,15 +11,26 @@ import VaccineTypeModal from '../../components/modals/VaccineTypeModal';
 import Pagination from '../../components/common/Pagination';
 import { vaccinationApi } from '../../api/vaccinationApi';
 
-const VaccineTypesTab = ({ species = [] }) => {
+const VaccineTypesTab = ({ species: speciesProp = [] }) => {
     const [isLoading, setIsLoading] = useState(true);
     const [vaccineTypes, setVaccineTypes] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [filterSpecies, setFilterSpecies] = useState('');
 
-    // Pagination
+    // Ensure species is always an array
+    const species = useMemo(() => {
+        if (!Array.isArray(speciesProp)) {
+            console.error('Species prop is not an array:', speciesProp);
+            return [];
+        }
+        return speciesProp;
+    }, [speciesProp]);
+
+    // Pagination - Server-side
     const [page, setPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
+    const [totalPages, setTotalPages] = useState(1);
+    const [totalItems, setTotalItems] = useState(0);
 
     // Dialog states
     const [dialogOpen, setDialogOpen] = useState(false);
@@ -39,14 +50,22 @@ const VaccineTypesTab = ({ species = [] }) => {
 
     useEffect(() => {
         loadVaccineTypes();
-    }, []);
+    }, [page, itemsPerPage, filterSpecies]);
 
     const loadVaccineTypes = async () => {
         try {
             setIsLoading(true);
-            const response = await vaccinationApi.getVaccineTypes();
+            const response = await vaccinationApi.getVaccineTypes(
+                filterSpecies || null,
+                page - 1, // API uses 0-based indexing
+                itemsPerPage
+            );
             if (response.success) {
                 setVaccineTypes(response.data);
+                if (response.pagination) {
+                    setTotalPages(response.pagination.total_pages_count);
+                    setTotalItems(response.pagination.total_items_count);
+                }
             }
         } catch (error) {
             console.error('Error loading vaccine types:', error);
@@ -61,32 +80,41 @@ const VaccineTypesTab = ({ species = [] }) => {
         }
     };
 
-    // Filter and search
+    // Client-side search only (server handles species filtering & pagination)
     const filteredVaccineTypes = useMemo(() => {
+        if (searchQuery === '') {
+            return vaccineTypes;
+        }
         return vaccineTypes.filter(vt => {
-            const matchSearch = searchQuery === '' ||
-                vt.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            const matchSearch = vt.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 vt.description?.toLowerCase().includes(searchQuery.toLowerCase());
-
-            const matchSpecies = filterSpecies === '' || vt.species_id === filterSpecies;
-
-            return matchSearch && matchSpecies;
+            return matchSearch;
         });
-    }, [vaccineTypes, searchQuery, filterSpecies]);
+    }, [vaccineTypes, searchQuery]);
 
-    // Pagination
-    const paginatedVaccineTypes = useMemo(() => {
-        const startIndex = (page - 1) * itemsPerPage;
-        const endIndex = startIndex + itemsPerPage;
-        return filteredVaccineTypes.slice(startIndex, endIndex);
-    }, [filteredVaccineTypes, page, itemsPerPage]);
-
-    const totalPages = Math.ceil(filteredVaccineTypes.length / itemsPerPage);
-
-    // Get species name
-    const getSpeciesName = (speciesId) => {
-        const speciesObj = species.find(s => s.id === speciesId);
-        return speciesObj ? speciesObj.name : '—';
+    // Get species name - Use populated species object or fallback to prop
+    const getSpeciesName = (vt) => {
+        // Safeguard: ensure we always return a string, not an object
+        if (vt.species) {
+            // If species is populated, get name from it
+            if (typeof vt.species === 'object' && vt.species !== null && vt.species.name) {
+                return String(vt.species.name);
+            }
+            // If species is somehow just a string, return it
+            if (typeof vt.species === 'string') {
+                return vt.species;
+            }
+            // If species is an object but doesn't have name, log error
+            console.error('Invalid species object:', vt.species);
+        }
+        // Fallback to finding species by ID
+        if (vt.species_id) {
+            const speciesObj = species.find(s => s.id === vt.species_id);
+            if (speciesObj && speciesObj.name) {
+                return String(speciesObj.name);
+            }
+        }
+        return '—';
     };
 
     // Handle open dialog
@@ -103,7 +131,7 @@ const VaccineTypesTab = ({ species = [] }) => {
         setCurrentVaccineType(null);
     };
 
-    // Handle save
+    // Handle save - Match official API (no required_doses)
     const handleSave = async (formData) => {
         try {
             setIsLoading(true);
@@ -113,7 +141,6 @@ const VaccineTypesTab = ({ species = [] }) => {
                 description: formData.description.trim(),
                 species_id: formData.species_id,
                 interval_months: parseInt(formData.interval_months),
-                required_doses: parseInt(formData.required_doses) || 0,
                 is_required: formData.is_required
             };
 
@@ -130,7 +157,7 @@ const VaccineTypesTab = ({ species = [] }) => {
                 setAlert({
                     open: true,
                     title: 'Thành công',
-                    message: editMode ? 'Cập nhật vaccine type thành công' : 'Tạo vaccine type thành công',
+                    message: editMode ? 'Cập nhật loại vaccine thành công' : 'Tạo loại vaccine thành công',
                     type: 'success'
                 });
             }
@@ -139,7 +166,7 @@ const VaccineTypesTab = ({ species = [] }) => {
             setAlert({
                 open: true,
                 title: 'Lỗi',
-                message: error.message || 'Không thể lưu vaccine type',
+                message: error.message || 'Không thể lưu loại vaccine',
                 type: 'error'
             });
         } finally {
@@ -228,9 +255,9 @@ const VaccineTypesTab = ({ species = [] }) => {
                                 <MenuItem value="">
                                     <em>Tất cả</em>
                                 </MenuItem>
-                                {species.map(s => (
+                                {Array.isArray(species) && species.map(s => (
                                     <MenuItem key={s.id} value={s.id}>
-                                        {s.name}
+                                        {s.name || '—'}
                                     </MenuItem>
                                 ))}
                             </Select>
@@ -241,12 +268,12 @@ const VaccineTypesTab = ({ species = [] }) => {
                         startIcon={<Add />}
                         onClick={() => handleOpenDialog()}
                         sx={{
-                            background: `linear-gradient(135deg, ${COLORS.PRIMARY[500]} 0%, ${COLORS.PRIMARY[700]} 100%)`,
+                            bgcolor: COLORS.PRIMARY[500],
                             color: '#fff',
                             fontWeight: 700,
                             px: 3,
                             '&:hover': {
-                                background: `linear-gradient(135deg, ${COLORS.PRIMARY[600]} 0%, ${COLORS.PRIMARY[800]} 100%)`
+                                bgcolor: COLORS.PRIMARY[600]
                             }
                         }}
                     >
@@ -279,7 +306,7 @@ const VaccineTypesTab = ({ species = [] }) => {
                         }}
                     />
                 </Stack>
-                {paginatedVaccineTypes.length > 0 ? (
+                {filteredVaccineTypes.length > 0 ? (
                     <>
                         <TableContainer
                             sx={{
@@ -294,13 +321,12 @@ const VaccineTypesTab = ({ species = [] }) => {
                                         <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.SUCCESS[50], 0.5) }}>Tên vaccine</TableCell>
                                         <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.SUCCESS[50], 0.5) }}>Loài</TableCell>
                                         <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.SUCCESS[50], 0.5), display: { xs: 'none', md: 'table-cell' } }}>Chu kỳ tiêm lại</TableCell>
-                                        <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.SUCCESS[50], 0.5), display: { xs: 'none', lg: 'table-cell' } }}>Số mũi</TableCell>
                                         <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.SUCCESS[50], 0.5) }}>Bắt buộc</TableCell>
                                         <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.SUCCESS[50], 0.5) }}>Thao tác</TableCell>
                                     </TableRow>
                                 </TableHead>
                                 <TableBody>
-                                    {paginatedVaccineTypes.map((vt) => (
+                                    {filteredVaccineTypes.map((vt) => (
                                         <TableRow
                                             key={vt.id}
                                             hover
@@ -334,7 +360,7 @@ const VaccineTypesTab = ({ species = [] }) => {
                                             </TableCell>
                                             <TableCell>
                                                 <Chip
-                                                    label={getSpeciesName(vt.species_id)}
+                                                    label={getSpeciesName(vt)}
                                                     size="small"
                                                     sx={{
                                                         background: alpha(COLORS.INFO[100], 0.5),
@@ -346,11 +372,6 @@ const VaccineTypesTab = ({ species = [] }) => {
                                             <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
                                                 <Typography variant="body2" sx={{ fontWeight: 600 }}>
                                                     {vt.interval_months} tháng
-                                                </Typography>
-                                            </TableCell>
-                                            <TableCell sx={{ display: { xs: 'none', lg: 'table-cell' } }}>
-                                                <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                                                    {vt.required_doses || 0}
                                                 </Typography>
                                             </TableCell>
                                             <TableCell>
@@ -440,7 +461,7 @@ const VaccineTypesTab = ({ species = [] }) => {
             >
                 <DialogTitle
                     sx={{
-                        background: `linear-gradient(135deg, ${COLORS.ERROR[500]} 0%, ${COLORS.ERROR[700]} 100%)`,
+                        background: COLORS.ERROR[500],
                         color: '#fff',
                         fontWeight: 800
                     }}
@@ -469,11 +490,11 @@ const VaccineTypesTab = ({ species = [] }) => {
                         variant="contained"
                         disabled={isLoading}
                         sx={{
-                            background: `linear-gradient(135deg, ${COLORS.ERROR[500]} 0%, ${COLORS.ERROR[700]} 100%)`,
+                            bgcolor: COLORS.ERROR[500],
                             color: '#fff',
                             fontWeight: 700,
                             '&:hover': {
-                                background: `linear-gradient(135deg, ${COLORS.ERROR[600]} 0%, ${COLORS.ERROR[800]} 100%)`
+                                bgcolor: COLORS.ERROR[600]
                             }
                         }}
                     >

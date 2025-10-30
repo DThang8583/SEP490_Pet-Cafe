@@ -294,14 +294,18 @@ const slotApi = {
         const getPetGroupById = (id) => MOCK_PET_GROUPS.find(pg => pg.id === id);
         const getServiceById = (id) => MOCK_SERVICES.find(s => s.id === id);
 
+        // Store old values for comparison
+        const oldSlot = MOCK_SLOTS[slotIndex];
+        const oldDayOfWeek = oldSlot.day_of_week;
+
         // Debug logging
         console.log('🔍 Updating Slot - slotId:', slotId);
         console.log('🔍 Updating Slot - updates:', updates);
-        console.log('🔍 Current slot before update:', MOCK_SLOTS[slotIndex]);
+        console.log('🔍 Current slot before update:', oldSlot);
 
         // Apply updates
         const updatedSlot = {
-            ...MOCK_SLOTS[slotIndex],
+            ...oldSlot,
             ...updates,
             updated_at: new Date().toISOString(),
             updated_by: currentUser?.id || '00000000-0000-0000-0000-000000000000'
@@ -328,6 +332,28 @@ const slotApi = {
         console.log('✅ Final updatedSlot:', updatedSlot);
 
         MOCK_SLOTS[slotIndex] = updatedSlot;
+
+        // Check if day_of_week changed - if so, invalidate related daily tasks
+        if (updates.day_of_week && updates.day_of_week !== oldDayOfWeek) {
+            console.log(`📅 Day of week changed from ${oldDayOfWeek} to ${updates.day_of_week}`);
+            console.log(`🗑️ Invalidating scheduled daily tasks for slot ${slotId}...`);
+
+            try {
+                // Use dynamic import to avoid circular dependency
+                const { invalidateDailyTasksBySlot } = await import('./dailyTasksApi');
+                const invalidateResult = await invalidateDailyTasksBySlot(slotId);
+                console.log('✅ Invalidate result:', invalidateResult);
+
+                return {
+                    success: true,
+                    data: updatedSlot,
+                    message: `Cập nhật slot thành công. ${invalidateResult.message || ''}`
+                };
+            } catch (error) {
+                console.error('❌ Error invalidating daily tasks:', error);
+                // Continue anyway, slot update succeeded
+            }
+        }
 
         return {
             success: true,
@@ -360,10 +386,26 @@ const slotApi = {
         MOCK_SLOTS[slotIndex].updated_at = new Date().toISOString();
         MOCK_SLOTS[slotIndex].updated_by = currentUser?.id || '00000000-0000-0000-0000-000000000000';
 
-        return {
-            success: true,
-            message: 'Xóa slot thành công'
-        };
+        // Also invalidate all scheduled daily tasks for this slot
+        console.log(`🗑️ Slot deleted. Invalidating scheduled daily tasks for slot ${slotId}...`);
+        try {
+            // Use dynamic import to avoid circular dependency
+            const { invalidateDailyTasksBySlot } = await import('./dailyTasksApi');
+            const invalidateResult = await invalidateDailyTasksBySlot(slotId);
+            console.log('✅ Invalidate result:', invalidateResult);
+
+            return {
+                success: true,
+                message: `Xóa slot thành công. ${invalidateResult.message || ''}`
+            };
+        } catch (error) {
+            console.error('❌ Error invalidating daily tasks:', error);
+            // Continue anyway, slot deletion succeeded
+            return {
+                success: true,
+                message: 'Xóa slot thành công'
+            };
+        }
     },
 
     /**
