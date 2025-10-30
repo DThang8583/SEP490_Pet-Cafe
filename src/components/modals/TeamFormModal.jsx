@@ -40,15 +40,22 @@ const TeamFormModal = ({
         const selectedShiftIds = new Set();
         Object.keys(newMatrix).forEach(key => {
             if (newMatrix[key]) {
-                const [, shift] = key.split('-');
-                selectedShiftIds.add(shift);
+                // Extract shift ID by removing the day prefix (first part before first hyphen)
+                // Key format: "MONDAY-aa5153ab-b361-40ac-bdfe-119191cdad89"
+                const firstHyphenIndex = key.indexOf('-');
+                if (firstHyphenIndex > 0) {
+                    const shift = key.substring(firstHyphenIndex + 1);
+                    selectedShiftIds.add(shift);
+                }
             }
         });
+
+        const work_shift_ids = Array.from(selectedShiftIds);
 
         onFormChange({
             ...formData,
             scheduleMatrix: newMatrix,
-            work_shift_ids: Array.from(selectedShiftIds)
+            work_shift_ids
         });
     };
 

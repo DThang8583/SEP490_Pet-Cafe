@@ -75,7 +75,7 @@ export const MOCK_WORK_SHIFTS = [
         end_time: '17:00:00',
         description: 'Phục vụ và xử lý đơn hàng trong giờ cao điểm, quản lý tương tác của khách hàng với thú cưng và hỗ trợ bán hàng sản phẩm.',
         is_active: true,
-        applicable_days: ['SATURDAY', 'SUNDAY'],
+        applicable_days: ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'],
         team_work_shifts: [],
         daily_schedules: [],
         created_at: '2025-10-27T13:31:10.174468+00:00',
@@ -1213,6 +1213,101 @@ export const MOCK_TEAM_MEMBERS = [
 ];
 
 // Team Work Shifts (Liên kết Team với Work Shift)
+// Team Work Types (junction table between teams and work types)
+export const MOCK_TEAM_WORK_TYPES = [
+    // Nhóm Chăm Sóc Khu Vực Mèo - Cat Zone Management
+    {
+        id: 'twt-1',
+        team_id: '73db584f-89ba-4ac0-ae2e-4c559a907775', // Nhóm Chăm Sóc Khu Vực Mèo
+        work_type_id: '7e7477a6-f481-4df6-b3fd-626944475fb5', // Cat Zone Management
+        team: null,
+        work_type: null,
+        created_at: '2025-10-27T13:01:10.000000+00:00',
+        created_by: '00000000-0000-0000-0000-000000000000',
+        updated_at: '2025-10-27T13:01:10.000000+00:00',
+        updated_by: null,
+        is_deleted: false
+    },
+    // Nhóm Bán Hàng & Đồ Uống - Food & Beverage
+    {
+        id: 'twt-2',
+        team_id: '4d55bbb0-a1c1-4c03-98bf-c587f0713512', // Nhóm Bán Hàng & Đồ Uống
+        work_type_id: '057b182b-94e1-477e-8362-e89df03c2faf', // Food & Beverage
+        team: null,
+        work_type: null,
+        created_at: '2025-10-27T13:03:17.000000+00:00',
+        created_by: '00000000-0000-0000-0000-000000000000',
+        updated_at: '2025-10-27T13:03:17.000000+00:00',
+        updated_by: null,
+        is_deleted: false
+    },
+    // Nhóm Chăm Sóc Khu Vực Chó - Dog Zone Management
+    {
+        id: 'twt-3',
+        team_id: 'a1b2c3d4-e5f6-4789-a012-bcdef3456789', // Nhóm Chăm Sóc Khu Vực Chó
+        work_type_id: 'b0c8a471-3b55-4038-9642-b598c072ea45', // Dog Zone Management
+        team: null,
+        work_type: null,
+        created_at: '2025-10-28T08:00:00.000000+00:00',
+        created_by: '00000000-0000-0000-0000-000000000000',
+        updated_at: '2025-10-28T08:00:00.000000+00:00',
+        updated_by: null,
+        is_deleted: false
+    },
+    // Nhóm Chăm Sóc & Làm Đẹp - Cat Zone Management (grooming for all pets)
+    {
+        id: 'twt-4',
+        team_id: 'b2c3d4e5-f6a7-4890-b123-cdef45678901', // Nhóm Chăm Sóc & Làm Đẹp
+        work_type_id: '7e7477a6-f481-4df6-b3fd-626944475fb5', // Cat Zone Management
+        team: null,
+        work_type: null,
+        created_at: '2025-10-28T08:15:00.000000+00:00',
+        created_by: '00000000-0000-0000-0000-000000000000',
+        updated_at: '2025-10-28T08:15:00.000000+00:00',
+        updated_by: null,
+        is_deleted: false
+    },
+    // Nhóm Phục Vụ VIP - Food & Beverage
+    {
+        id: 'twt-5',
+        team_id: 'c3d4e5f6-a7b8-4901-c234-def567890123', // Nhóm Phục Vụ VIP
+        work_type_id: '057b182b-94e1-477e-8362-e89df03c2faf', // Food & Beverage
+        team: null,
+        work_type: null,
+        created_at: '2025-10-28T08:30:00.000000+00:00',
+        created_by: '00000000-0000-0000-0000-000000000000',
+        updated_at: '2025-10-28T08:30:00.000000+00:00',
+        updated_by: null,
+        is_deleted: false
+    },
+    // Nhóm Quản Lý Sân Vườn - Cat Zone Management (general pet care)
+    {
+        id: 'twt-6',
+        team_id: 'd4e5f6a7-b8c9-4012-d345-ef6789012345', // Nhóm Quản Lý Sân Vườn
+        work_type_id: '7e7477a6-f481-4df6-b3fd-626944475fb5', // Cat Zone Management
+        team: null,
+        work_type: null,
+        created_at: '2025-10-28T08:45:00.000000+00:00',
+        created_by: '00000000-0000-0000-0000-000000000000',
+        updated_at: '2025-10-28T08:45:00.000000+00:00',
+        updated_by: null,
+        is_deleted: false
+    },
+    // Nhóm Chăm Sóc Khách Hàng - Food & Beverage (customer service)
+    {
+        id: 'twt-7',
+        team_id: 'e5f6a7b8-c9d0-4123-e456-f78901234567', // Nhóm Chăm Sóc Khách Hàng
+        work_type_id: '057b182b-94e1-477e-8362-e89df03c2faf', // Food & Beverage
+        team: null,
+        work_type: null,
+        created_at: '2025-10-28T09:00:00.000000+00:00',
+        created_by: '00000000-0000-0000-0000-000000000000',
+        updated_at: '2025-10-28T09:00:00.000000+00:00',
+        updated_by: null,
+        is_deleted: false
+    }
+];
+
 export const MOCK_TEAM_WORK_SHIFTS = [
     // Nhóm Chăm Sóc Khu Vực Mèo - Ca Sáng
     {

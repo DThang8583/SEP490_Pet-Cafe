@@ -436,7 +436,7 @@ const BreedsTab = ({ pets, species, breeds, onDataChange }) => {
                                                     <Box sx={{ flex: 1 }}>
                                                         <Typography sx={{ fontWeight: 700 }}>{pet.name}</Typography>
                                                         <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY }}>
-                                                            {pet.age} tuổi • {pet.weight} kg • {pet.gender === 'male' ? 'Đực' : 'Cái'}
+                                                            {pet.age} tuổi • {pet.weight} kg • {pet.gender === 'Male' ? 'Đực' : 'Cái'}
                                                         </Typography>
                                                     </Box>
                                                     <Chip

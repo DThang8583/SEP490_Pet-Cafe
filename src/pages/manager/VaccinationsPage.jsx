@@ -895,7 +895,7 @@ const VaccinationsPage = () => {
                                                     Giới tính
                                                 </Typography>
                                                 <Typography variant="body1" sx={{ fontWeight: 600, lineHeight: 1.5 }}>
-                                                    {selectedPetDetails?.gender?.toLowerCase() === 'male' ? 'Đực' : selectedPetDetails?.gender?.toLowerCase() === 'female' ? 'Cái' : '—'}
+                                                    {selectedPetDetails?.gender === 'Male' ? 'Đực' : selectedPetDetails?.gender === 'Female' ? 'Cái' : '—'}
                                                 </Typography>
                                             </Stack>
                                             <Stack direction="row" spacing={2}>

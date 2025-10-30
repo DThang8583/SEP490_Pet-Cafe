@@ -1,4 +1,4 @@
-import { MOCK_TEAMS, MOCK_EMPLOYEES, MOCK_WORK_TYPES, MOCK_WORK_SHIFTS, MOCK_TEAM_MEMBERS, MOCK_TEAM_WORK_SHIFTS } from './mockData';
+import { MOCK_TEAMS, MOCK_EMPLOYEES, MOCK_WORK_TYPES, MOCK_WORK_SHIFTS, MOCK_TEAM_MEMBERS, MOCK_TEAM_WORK_SHIFTS, MOCK_TEAM_WORK_TYPES } from './mockData';
 
 // Delay to simulate API call
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -111,12 +111,14 @@ const populateLeader = (team) => {
 
 // Helper: Populate team_work_types (for list view)
 const populateTeamWorkTypes = (teamId) => {
-    const createTeamWorkType = (teamId, workTypeId, id, createdAt) => {
-        const workType = getWorkTypeById(workTypeId);
+    const teamWorkTypes = MOCK_TEAM_WORK_TYPES.filter(twt => twt.team_id === teamId && !twt.is_deleted);
+
+    return teamWorkTypes.map(twt => {
+        const workType = getWorkTypeById(twt.work_type_id);
         if (!workType) return null;
 
         return {
-            team_id: teamId,
+            team_id: twt.team_id,
             work_type_id: workType.id,
             description: null,
             team: null,
@@ -134,87 +136,14 @@ const populateTeamWorkTypes = (teamId) => {
                 updated_by: workType.updated_by,
                 is_deleted: workType.is_deleted
             },
-            id: id,
-            created_at: createdAt,
-            created_by: '00000000-0000-0000-0000-000000000000',
-            updated_at: createdAt,
-            updated_by: null,
-            is_deleted: false
+            id: twt.id,
+            created_at: twt.created_at,
+            created_by: twt.created_by,
+            updated_at: twt.updated_at,
+            updated_by: twt.updated_by,
+            is_deleted: twt.is_deleted
         };
-    };
-
-    // Cat Zone Care Team
-    if (teamId === '73db584f-89ba-4ac0-ae2e-4c559a907775') {
-        const teamWorkType = createTeamWorkType(
-            teamId,
-            '7e7477a6-f481-4df6-b3fd-626944475fb5', // Cat Zone Management
-            '31e7c4be-908d-4ceb-83a9-50cae94fa0fc',
-            '2025-10-27T13:01:10.34081+00:00'
-        );
-        return teamWorkType ? [teamWorkType] : [];
-    }
-    // Sales & F&B Team
-    else if (teamId === '4d55bbb0-a1c1-4c03-98bf-c587f0713512') {
-        const teamWorkType = createTeamWorkType(
-            teamId,
-            '057b182b-94e1-477e-8362-e89df03c2faf', // Food & Beverage
-            '096a41a6-1369-4b6a-9c4e-2b6ef8f5728a',
-            '2025-10-27T13:03:17.644602+00:00'
-        );
-        return teamWorkType ? [teamWorkType] : [];
-    }
-    // Dog Zone Care Team
-    else if (teamId === 'a1b2c3d4-e5f6-4789-a012-bcdef3456789') {
-        const teamWorkType = createTeamWorkType(
-            teamId,
-            'b0c8a471-3b55-4038-9642-b598c072ea45', // Dog Zone Management
-            'twt-dog-1',
-            '2025-10-28T08:00:00.000000+00:00'
-        );
-        return teamWorkType ? [teamWorkType] : [];
-    }
-    // Grooming Team
-    else if (teamId === 'b2c3d4e5-f6a7-4890-b123-cdef45678901') {
-        const teamWorkType = createTeamWorkType(
-            teamId,
-            '7e7477a6-f481-4df6-b3fd-626944475fb5', // Cat Zone Management (grooming for all pets)
-            'twt-groom-1',
-            '2025-10-28T08:15:00.000000+00:00'
-        );
-        return teamWorkType ? [teamWorkType] : [];
-    }
-    // VIP Service Team
-    else if (teamId === 'c3d4e5f6-a7b8-4901-c234-def567890123') {
-        const teamWorkType = createTeamWorkType(
-            teamId,
-            '057b182b-94e1-477e-8362-e89df03c2faf', // Food & Beverage
-            'twt-vip-1',
-            '2025-10-28T08:30:00.000000+00:00'
-        );
-        return teamWorkType ? [teamWorkType] : [];
-    }
-    // Outdoor Garden Team
-    else if (teamId === 'd4e5f6a7-b8c9-4012-d345-ef6789012345') {
-        const teamWorkType = createTeamWorkType(
-            teamId,
-            '7e7477a6-f481-4df6-b3fd-626944475fb5', // Cat Zone Management (general pet care)
-            'twt-outdoor-1',
-            '2025-10-28T08:45:00.000000+00:00'
-        );
-        return teamWorkType ? [teamWorkType] : [];
-    }
-    // Customer Service Team
-    else if (teamId === 'e5f6a7b8-c9d0-4123-e456-f78901234567') {
-        const teamWorkType = createTeamWorkType(
-            teamId,
-            '057b182b-94e1-477e-8362-e89df03c2faf', // Food & Beverage (customer service)
-            'twt-cs-1',
-            '2025-10-28T09:00:00.000000+00:00'
-        );
-        return teamWorkType ? [teamWorkType] : [];
-    }
-
-    return [];
+    }).filter(twt => twt !== null);
 };
 
 // Helper: Populate team_members (for detail view and list view)
@@ -503,7 +432,7 @@ export const getAllTeamSlots = async () => {
 
 /**
  * Create team
- * API: { name, description, leader_id, work_type_ids[] }
+ * Official API: { name, description, leader_id, work_type_ids: ["uuid", ...] }
  */
 export const createTeam = async (teamData) => {
     await delay(700);
@@ -554,8 +483,22 @@ export const createTeam = async (teamData) => {
 
     MOCK_TEAMS.push(newTeam);
 
-    // TODO: Create team_work_types entries based on work_type_ids
-    // This would be done in the backend
+    // Create team_work_types entries based on work_type_ids
+    teamData.work_type_ids.forEach(workTypeId => {
+        const newTeamWorkType = {
+            id: generateId(),
+            team_id: newTeam.id,
+            work_type_id: workTypeId,
+            team: null,
+            work_type: null,
+            created_at: new Date().toISOString(),
+            created_by: currentUser?.id || '00000000-0000-0000-0000-000000000000',
+            updated_at: new Date().toISOString(),
+            updated_by: null,
+            is_deleted: false
+        };
+        MOCK_TEAM_WORK_TYPES.push(newTeamWorkType);
+    });
 
     return {
         success: true,
@@ -870,7 +813,7 @@ export const removeTeamMember = async (teamId, employeeId) => {
 
 /**
  * Assign work shifts to team
- * API: { work_shift_id: [...] }
+ * Official API: { work_shift_ids: ["uuid", ...] }
  */
 export const assignTeamWorkShifts = async (teamId, data) => {
     await delay(500);
@@ -886,12 +829,13 @@ export const assignTeamWorkShifts = async (teamId, data) => {
         throw new Error('Không tìm thấy nhóm');
     }
 
-    if (!data.work_shift_id || data.work_shift_id.length === 0) {
+    // Match official API structure: work_shift_ids (plural)
+    if (!data.work_shift_ids || data.work_shift_ids.length === 0) {
         throw new Error('Phải chọn ít nhất một ca làm việc');
     }
 
     // Verify all work shifts exist
-    const invalidShifts = data.work_shift_id.filter(wsId => {
+    const invalidShifts = data.work_shift_ids.filter(wsId => {
         return !MOCK_WORK_SHIFTS.find(ws => ws.id === wsId && !ws.is_deleted);
     });
 
@@ -899,12 +843,35 @@ export const assignTeamWorkShifts = async (teamId, data) => {
         throw new Error('Một số ca làm việc không tồn tại');
     }
 
-    // TODO: Create team_work_shifts entries
-    // This would be done in the backend
+    // Create team_work_shifts entries for each work shift
+    const newEntries = [];
+
+    data.work_shift_ids.forEach(workShiftId => {
+        // Check if already exists
+        const exists = MOCK_TEAM_WORK_SHIFTS.find(
+            tws => tws.team_id === teamId &&
+                tws.work_shift_id === workShiftId &&
+                !tws.is_deleted
+        );
+
+        if (!exists) {
+            const newEntry = {
+                id: generateId(),
+                team_id: teamId,
+                work_shift_id: workShiftId,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+                is_deleted: false
+            };
+            MOCK_TEAM_WORK_SHIFTS.push(newEntry);
+            newEntries.push(newEntry);
+        }
+    });
 
     return {
         success: true,
-        message: `Đã phân công ${data.work_shift_id.length} ca làm việc cho nhóm`
+        data: newEntries,
+        message: `Đã phân công ${data.work_shift_ids.length} ca làm việc cho nhóm`
     };
 };
 

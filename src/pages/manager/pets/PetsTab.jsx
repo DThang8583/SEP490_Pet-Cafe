@@ -239,8 +239,8 @@ const PetsTab = ({ pets, species, breeds, groups, onDataChange }) => {
                     <InputLabel>Giới tính</InputLabel>
                     <Select label="Giới tính" value={filterGender} onChange={(e) => setFilterGender(e.target.value)}>
                         <MenuItem value="all">Tất cả</MenuItem>
-                        <MenuItem value="male">Đực</MenuItem>
-                        <MenuItem value="female">Cái</MenuItem>
+                        <MenuItem value="Male">Đực</MenuItem>
+                        <MenuItem value="Female">Cái</MenuItem>
                     </Select>
                 </FormControl>
                 <FormControl size="small" sx={{ minWidth: 150 }}>
@@ -344,7 +344,7 @@ const PetsTab = ({ pets, species, breeds, groups, onDataChange }) => {
                                     <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>{pet.age} tuổi</TableCell>
                                     <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>{pet.weight} kg</TableCell>
                                     <TableCell sx={{ display: { xs: 'none', lg: 'table-cell' } }}>
-                                        {pet.gender === 'Male' || pet.gender === 'male' ? 'Đực' : 'Cái'}
+                                        {pet.gender === 'Male' ? 'Đực' : 'Cái'}
                                     </TableCell>
                                     <TableCell sx={{ display: { xs: 'none', xl: 'table-cell' } }}>{pet.color}</TableCell>
                                     <TableCell sx={{ display: { xs: 'none', lg: 'table-cell' } }}>
@@ -510,7 +510,7 @@ const PetsTab = ({ pets, species, breeds, groups, onDataChange }) => {
                                             <Stack direction="row" spacing={2}>
                                                 <Typography sx={{ width: '140px', color: COLORS.TEXT.SECONDARY, fontWeight: 600 }}>Giới tính:</Typography>
                                                 <Typography sx={{ flex: 1 }}>
-                                                    {petDetailDialog.pet.gender === 'Male' || petDetailDialog.pet.gender === 'male' ? '♂️ Đực' : '♀️ Cái'}
+                                                    {petDetailDialog.pet.gender === 'Male' ? '♂️ Đực' : '♀️ Cái'}
                                                 </Typography>
                                             </Stack>
                                             <Stack direction="row" spacing={2}>

@@ -40,7 +40,7 @@ const PetsPage = () => {
     };
 
     const loadPets = async () => {
-        const response = await petApi.getPets();
+        const response = await petApi.getPets({ page_size: 1000 });
         if (response.success) {
             setPets(response.data);
         }
@@ -90,9 +90,9 @@ const PetsPage = () => {
 
         pets.forEach(pet => {
             // Count gender
-            if (pet.gender === 'male') {
+            if (pet.gender === 'Male') {
                 stats.male++;
-            } else if (pet.gender === 'female') {
+            } else if (pet.gender === 'Female') {
                 stats.female++;
             }
 
