@@ -23,7 +23,7 @@ const SlotFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, 
         special_notes: '',
         day_of_week: '',
         price: 0,
-        service_status: SLOT_STATUS.AVAILABLE
+        service_status: SLOT_STATUS.UNAVAILABLE
     });
 
     const [errors, setErrors] = useState({});
@@ -71,11 +71,11 @@ const SlotFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, 
                     pet_id: initialData.pet_id || '',
                     start_time: initialData.start_time || '',
                     end_time: initialData.end_time || '',
-                    max_capacity: initialData.max_capacity || 0,
+                    max_capacity: initialData.max_capacity ?? 0,
                     special_notes: initialData.special_notes || '',
                     day_of_week: initialData.day_of_week || '',
-                    price: initialData.price || 0,
-                    service_status: initialData.service_status || SLOT_STATUS.AVAILABLE
+                    price: initialData.price ?? 0,
+                    service_status: initialData.service_status || SLOT_STATUS.UNAVAILABLE
                 });
             } else if (mode === 'create' && taskData) {
                 // Create mode: auto-fill task_id
@@ -116,7 +116,7 @@ const SlotFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, 
             special_notes: '',
             day_of_week: '',
             price: 0,
-            service_status: SLOT_STATUS.AVAILABLE
+            service_status: SLOT_STATUS.UNAVAILABLE
         });
         setErrors({});
     };
@@ -185,10 +185,12 @@ const SlotFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, 
             }
         }
 
-        // Validate price for edit mode
+        // Validate price for edit mode (only for public tasks)
         if (mode === 'edit') {
-            if (formData.price === undefined || formData.price === null || formData.price < 0) {
-                newErrors.price = 'Giá không được âm';
+            if (taskData && taskData.is_public) {
+                if (formData.price === undefined || formData.price === null || formData.price < 0) {
+                    newErrors.price = 'Giá không được âm';
+                }
             }
 
             if (!formData.service_status) {
@@ -224,7 +226,10 @@ const SlotFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, 
 
             // Add price and service_status for edit mode
             if (mode === 'edit') {
-                submitData.price = parseFloat(formData.price) || 0;
+                // Only add price for public tasks
+                if (taskData && taskData.is_public) {
+                    submitData.price = parseFloat(formData.price) || 0;
+                }
                 submitData.service_status = formData.service_status;
             }
 
@@ -299,6 +304,39 @@ const SlotFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, 
                             </Typography>
                         )}
                     </FormControl>
+
+                    {/* Warning for past day selection */}
+                    {formData.day_of_week && (() => {
+                        const today = new Date();
+                        const todayDayOfWeek = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'][today.getDay()];
+                        const todayIndex = WEEKDAYS.indexOf(todayDayOfWeek);
+                        const selectedIndex = WEEKDAYS.indexOf(formData.day_of_week);
+                        const isPast = selectedIndex < todayIndex;
+
+                        if (isPast) {
+                            return (
+                                <Alert severity="warning" sx={{ mt: 1 }}>
+                                    ⚠️ <strong>{WEEKDAY_LABELS[formData.day_of_week]}</strong> đã qua trong tuần này.
+                                    Nhiệm vụ hằng ngày sẽ được tạo cho <strong>tuần sau</strong>,
+                                    không tạo cho ngày trong quá khứ.
+                                </Alert>
+                            );
+                        } else if (selectedIndex === todayIndex) {
+                            return (
+                                <Alert severity="info" sx={{ mt: 1 }}>
+                                    ℹ️ Đây là ngày <strong>hôm nay</strong>.
+                                    Nhiệm vụ hằng ngày sẽ được tạo cho tuần này.
+                                </Alert>
+                            );
+                        } else {
+                            return (
+                                <Alert severity="success" sx={{ mt: 1 }}>
+                                    ✅ <strong>{WEEKDAY_LABELS[formData.day_of_week]}</strong> chưa tới trong tuần này.
+                                    Nhiệm vụ hằng ngày sẽ được tạo cho tuần này.
+                                </Alert>
+                            );
+                        }
+                    })()}
 
                     {/* Time range */}
                     <Stack direction="row" spacing={2}>
@@ -401,7 +439,7 @@ const SlotFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, 
                                 ? areas.find(a => a.id === formData.area_id)?.max_capacity
                                 : undefined
                         }}
-                        value={formData.max_capacity === 0 ? '' : formData.max_capacity}
+                        value={formData.max_capacity ?? ''}
                         onChange={(e) => {
                             const value = e.target.value;
                             handleChange('max_capacity', value === '' ? 0 : parseInt(value));
@@ -426,8 +464,8 @@ const SlotFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, 
                         placeholder="Hướng dẫn, lưu ý đặc biệt cho ca này..."
                     />
 
-                    {/* Price - Only for Edit Mode */}
-                    {mode === 'edit' && (
+                    {/* Price - Only for Edit Mode & Public Tasks */}
+                    {mode === 'edit' && taskData && taskData.is_public && (
                         <>
                             <TextField
                                 label="Giá"
@@ -455,55 +493,38 @@ const SlotFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, 
                                     </Typography>
                                 </Box>
                             )}
-
-                            {/* Service Status - Only for Edit Mode */}
-                            <FormControl fullWidth required error={!!errors.service_status}>
-                                <InputLabel>Trạng thái Ca</InputLabel>
-                                <Select
-                                    value={formData.service_status}
-                                    onChange={(e) => handleChange('service_status', e.target.value)}
-                                    label="Trạng thái Ca"
-                                >
-                                    <MenuItem value={SLOT_STATUS.AVAILABLE}>
-                                        <Typography variant="body2">Có sẵn</Typography>
-                                    </MenuItem>
-                                    <MenuItem value={SLOT_STATUS.UNAVAILABLE}>
-                                        <Typography variant="body2">Không có sẵn</Typography>
-                                    </MenuItem>
-                                    <MenuItem value={SLOT_STATUS.BOOKED}>
-                                        <Typography variant="body2">Đã đặt</Typography>
-                                    </MenuItem>
-                                    <MenuItem value={SLOT_STATUS.CANCELLED}>
-                                        <Typography variant="body2">Đã hủy</Typography>
-                                    </MenuItem>
-                                </Select>
-                                {errors.service_status && (
-                                    <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 2 }}>
-                                        {errors.service_status}
-                                    </Typography>
-                                )}
-                            </FormControl>
                         </>
                     )}
 
-                    {/* Info box */}
-                    <Box
-                        sx={{
-                            p: 2,
-                            bgcolor: 'info.lighter',
-                            borderRadius: 1,
-                            border: '1px dashed',
-                            borderColor: 'info.main'
-                        }}
-                    >
-                        <Typography variant="body2" color="info.dark">
-                            💡 <strong>Lưu ý:</strong>
-                            {mode === 'create'
-                                ? ' Tất cả các trường ngoài "Ngày", "Giờ bắt đầu", "Giờ kết thúc" đều là tùy chọn.'
-                                : ' Trong chế độ chỉnh sửa, "Giá" và "Trạng thái" là bắt buộc.'
-                            }
-                        </Typography>
-                    </Box>
+                    {/* Service Status - Only for Edit Mode */}
+                    {mode === 'edit' && (
+                        <FormControl fullWidth required error={!!errors.service_status}>
+                            <InputLabel>Trạng thái Ca</InputLabel>
+                            <Select
+                                value={formData.service_status}
+                                onChange={(e) => handleChange('service_status', e.target.value)}
+                                label="Trạng thái Ca"
+                            >
+                                <MenuItem value={SLOT_STATUS.AVAILABLE}>
+                                    <Typography variant="body2">Có sẵn</Typography>
+                                </MenuItem>
+                                <MenuItem value={SLOT_STATUS.UNAVAILABLE}>
+                                    <Typography variant="body2">Không có sẵn</Typography>
+                                </MenuItem>
+                                <MenuItem value={SLOT_STATUS.BOOKED}>
+                                    <Typography variant="body2">Đã đặt</Typography>
+                                </MenuItem>
+                                <MenuItem value={SLOT_STATUS.CANCELLED}>
+                                    <Typography variant="body2">Đã hủy</Typography>
+                                </MenuItem>
+                            </Select>
+                            {errors.service_status && (
+                                <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 2 }}>
+                                    {errors.service_status}
+                                </Typography>
+                            )}
+                        </FormControl>
+                    )}
                 </Stack>
             </DialogContent>
 

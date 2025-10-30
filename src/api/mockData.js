@@ -8,7 +8,7 @@ export { MOCK_SERVICES };
 export const MOCK_WORK_TYPES = [
     {
         id: 'b0c8a471-3b55-4038-9642-b598c072ea45',
-        name: 'Dog Zone Management ',
+        name: 'Quản lý Khu Vực Chó',
         description: 'Chịu trách nhiệm giám sát, huấn luyện cơ bản, cho ăn và đảm bảo vệ sinh, an toàn trong khu vực sinh hoạt của chó. Quản lý tương tác giữa chó và khách hàng, đặc biệt là các giống chó lớn.',
         is_active: true,
         tasks: [],
@@ -22,7 +22,7 @@ export const MOCK_WORK_TYPES = [
     },
     {
         id: '7e7477a6-f481-4df6-b3fd-626944475fb5',
-        name: 'Cat Zone Management ',
+        name: 'Quản lý Khu Vực Mèo',
         description: 'Chịu trách nhiệm quản lý, giám sát sức khỏe, cho ăn, dọn dẹp vệ sinh khu vực sinh hoạt của mèo, và đảm bảo tương tác an toàn giữa mèo với khách hàng trong khu vực Cat Zone.',
         is_active: true,
         tasks: [],
@@ -36,7 +36,7 @@ export const MOCK_WORK_TYPES = [
     },
     {
         id: '057b182b-94e1-477e-8362-e89df03c2faf',
-        name: 'Food & Beverage ',
+        name: 'Thực phẩm & Đồ uống',
         description: 'Phụ trách toàn bộ khu vực quầy bar và bàn khách, bao gồm pha chế, phục vụ đồ uống và thức ăn cho người, và duy trì vệ sinh, kiểm soát nguyên liệu tại khu vực F&B.',
         is_active: true,
         tasks: [],

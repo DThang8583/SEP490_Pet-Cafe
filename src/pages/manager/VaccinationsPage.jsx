@@ -57,7 +57,7 @@ const VaccinationsPage = () => {
 
             // Load pets, species, breeds, groups, vaccine types data
             const [petsRes, speciesRes, breedsRes, groupsRes, vaccineTypesRes] = await Promise.all([
-                petApi.getPets(),
+                petApi.getPets({ page_size: 1000 }), // Get all pets for vaccination data
                 petApi.getPetSpecies(),
                 petApi.getPetBreeds(),
                 petApi.getPetGroups(),
@@ -160,59 +160,23 @@ const VaccinationsPage = () => {
         try {
             setIsLoading(true);
 
-            if (formData.target_type === 'pet') {
-                // Create schedule for single pet
-                const scheduleData = {
-                    pet_id: formData.pet_id,
-                    vaccine_type_id: formData.vaccine_type_id,
-                    scheduled_date: new Date(formData.scheduled_date).toISOString(),
-                    notes: formData.notes
-                };
+            // Create schedule for single pet
+            const scheduleData = {
+                pet_id: formData.pet_id,
+                vaccine_type_id: formData.vaccine_type_id,
+                scheduled_date: new Date(formData.scheduled_date).toISOString(),
+                notes: formData.notes
+            };
 
-                const response = await vaccinationApi.createVaccinationSchedule(scheduleData, pets);
+            const response = await vaccinationApi.createVaccinationSchedule(scheduleData, pets);
 
-                if (response.success) {
-                    await loadVaccinationData();
-                    handleCloseScheduleModal();
-                    setAlert({
-                        open: true,
-                        title: 'Thành công',
-                        message: 'Tạo lịch tiêm thành công',
-                        type: 'success'
-                    });
-                }
-            } else {
-                // Create schedules for all pets in group
-                const group = groups.find(g => g.id === formData.group_id);
-                const groupPets = pets.filter(p => p.pet_group_id === formData.group_id);
-
-                if (groupPets.length === 0) {
-                    setAlert({
-                        open: true,
-                        title: 'Lỗi',
-                        message: 'Nhóm không có thú cưng nào',
-                        type: 'error'
-                    });
-                    return;
-                }
-
-                const createPromises = groupPets.map(pet => {
-                    const scheduleData = {
-                        pet_id: pet.id,
-                        vaccine_type_id: formData.vaccine_type_id,
-                        scheduled_date: new Date(formData.scheduled_date).toISOString(),
-                        notes: formData.notes + ` (Nhóm: ${group.name})`
-                    };
-                    return vaccinationApi.createVaccinationSchedule(scheduleData, pets);
-                });
-
-                await Promise.all(createPromises);
+            if (response.success) {
                 await loadVaccinationData();
                 handleCloseScheduleModal();
                 setAlert({
                     open: true,
                     title: 'Thành công',
-                    message: `Tạo lịch tiêm thành công cho ${groupPets.length} thú cưng trong nhóm ${group.name}`,
+                    message: 'Tạo lịch tiêm thành công',
                     type: 'success'
                 });
             }
@@ -512,12 +476,12 @@ const VaccinationsPage = () => {
                                 startIcon={<Add />}
                                 onClick={() => handleOpenScheduleModal()}
                                 sx={{
-                                    background: `linear-gradient(135deg, ${COLORS.WARNING[500]} 0%, ${COLORS.WARNING[700]} 100%)`,
+                                    bgcolor: COLORS.WARNING[500],
                                     color: '#fff',
                                     fontWeight: 700,
                                     px: 3,
                                     '&:hover': {
-                                        background: `linear-gradient(135deg, ${COLORS.WARNING[600]} 0%, ${COLORS.WARNING[800]} 100%)`
+                                        bgcolor: COLORS.WARNING[600]
                                     }
                                 }}
                             >
@@ -678,7 +642,17 @@ const VaccinationsPage = () => {
                                                                     {record.pet?.name || '—'}
                                                                 </Typography>
                                                                 <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY }}>
-                                                                    {record.pet?.species || ''}
+                                                                    {(() => {
+                                                                        if (record.pet?.species) {
+                                                                            if (typeof record.pet.species === 'object' && record.pet.species.name) {
+                                                                                return record.pet.species.name;
+                                                                            }
+                                                                            if (typeof record.pet.species === 'string') {
+                                                                                return record.pet.species;
+                                                                            }
+                                                                        }
+                                                                        return '';
+                                                                    })()}
                                                                 </Typography>
                                                             </Box>
                                                         </Stack>
@@ -824,7 +798,7 @@ const VaccinationsPage = () => {
             >
                 <DialogTitle
                     sx={{
-                        background: `linear-gradient(135deg, ${COLORS.INFO[500]} 0%, ${COLORS.INFO[700]} 100%)`,
+                        background: COLORS.INFO[500],
                         color: '#fff',
                         fontWeight: 800,
                         fontSize: '1.5rem',
@@ -921,7 +895,7 @@ const VaccinationsPage = () => {
                                                     Giới tính
                                                 </Typography>
                                                 <Typography variant="body1" sx={{ fontWeight: 600, lineHeight: 1.5 }}>
-                                                    {selectedPetDetails?.gender === 'male' ? 'Đực' : selectedPetDetails?.gender === 'female' ? 'Cái' : '—'}
+                                                    {selectedPetDetails?.gender?.toLowerCase() === 'male' ? 'Đực' : selectedPetDetails?.gender?.toLowerCase() === 'female' ? 'Cái' : '—'}
                                                 </Typography>
                                             </Stack>
                                             <Stack direction="row" spacing={2}>
@@ -1183,12 +1157,12 @@ const VaccinationsPage = () => {
                         onClick={handleCloseDetailDialog}
                         variant="contained"
                         sx={{
-                            background: `linear-gradient(135deg, ${COLORS.INFO[500]} 0%, ${COLORS.INFO[700]} 100%)`,
+                            bgcolor: COLORS.INFO[500],
                             color: '#fff',
                             fontWeight: 700,
                             px: 3,
                             '&:hover': {
-                                background: `linear-gradient(135deg, ${COLORS.INFO[600]} 0%, ${COLORS.INFO[800]} 100%)`
+                                bgcolor: COLORS.INFO[600]
                             }
                         }}
                     >

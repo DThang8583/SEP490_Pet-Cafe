@@ -454,7 +454,8 @@ export const getAllDailyTasks = async (params = {}) => {
                 end_date = null
             } = params;
 
-            let filtered = [...MOCK_DAILY_TASKS];
+            // Start with non-deleted tasks
+            let filtered = MOCK_DAILY_TASKS.filter(dt => !dt.is_deleted);
 
             // Apply filters
             if (status) {
@@ -501,17 +502,27 @@ export const getAllDailyTasks = async (params = {}) => {
 
 /**
  * Get daily tasks for a specific date range (e.g., a week)
+ * @param {string} startDate - Start date (FromDate)
+ * @param {string} endDate - End date (ToDate)
+ * @param {Array} taskTemplates - Task templates for auto-generation
+ * @param {Array} slots - Slots for auto-generation
+ * @param {string} teamId - Optional: Filter by team ID (TeamId)
+ * @param {string} status - Optional: Filter by status (Status)
  */
-export const getDailyTasksForDateRange = async (startDate, endDate, taskTemplates = [], slots = []) => {
+export const getDailyTasksForDateRange = async (startDate, endDate, taskTemplates = [], slots = [], teamId = null, status = null) => {
     return new Promise((resolve) => {
         setTimeout(() => {
             const start = formatDate(new Date(startDate));
             const end = formatDate(new Date(endDate));
 
-            // Get existing tasks in range
-            let tasksInRange = MOCK_DAILY_TASKS.filter(dt =>
-                dt.assigned_date >= start && dt.assigned_date <= end
-            );
+            // Get existing tasks in range (exclude deleted)
+            let tasksInRange = MOCK_DAILY_TASKS.filter(dt => {
+                const inDateRange = dt.assigned_date >= start && dt.assigned_date <= end && !dt.is_deleted;
+                const matchesTeam = !teamId || dt.team_id === teamId;
+                const matchesStatus = !status || dt.status === status;
+
+                return inDateRange && matchesTeam && matchesStatus;
+            });
 
             // Auto-generate tasks if needed
             const dates = [];
@@ -523,8 +534,19 @@ export const getDailyTasksForDateRange = async (startDate, endDate, taskTemplate
                 currentDate.setDate(currentDate.getDate() + 1);
             }
 
+            // Get today's date at midnight for comparison
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const todayStr = formatDate(today);
+
             // For each date, generate tasks from slots
             dates.forEach(date => {
+                // Skip dates in the past
+                if (date < todayStr) {
+                    console.log(`⏭️ Skipping past date: ${date}`);
+                    return;
+                }
+
                 const dateObj = new Date(date);
                 const dayOfWeekName = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'][dateObj.getDay()];
 
@@ -539,9 +561,10 @@ export const getDailyTasksForDateRange = async (startDate, endDate, taskTemplate
                     const taskTemplate = taskTemplates.find(t => t.id === slot.task_id && !t.is_deleted);
 
                     if (taskTemplate && taskTemplate.status === 'ACTIVE') {
-                        // Check if task already exists
-                        const existing = tasksInRange.find(dt =>
-                            dt.assigned_date === date &&
+                        // Check if task already exists in MOCK_DAILY_TASKS (not deleted)
+                        const existing = MOCK_DAILY_TASKS.find(dt =>
+                            !dt.is_deleted &&
+                            dt.assigned_date === `${date}T00:00:00+00:00` &&
                             dt.slot_id === slot.id &&
                             dt.task_id === taskTemplate.id
                         );
@@ -579,10 +602,14 @@ export const getDailyTasksForDateRange = async (startDate, endDate, taskTemplate
                 });
             });
 
-            // Re-filter and sort
-            tasksInRange = MOCK_DAILY_TASKS.filter(dt =>
-                dt.assigned_date >= start && dt.assigned_date <= end
-            ).sort((a, b) => new Date(a.assigned_date) - new Date(b.assigned_date));
+            // Re-filter with all parameters (exclude deleted)
+            tasksInRange = MOCK_DAILY_TASKS.filter(dt => {
+                const inDateRange = dt.assigned_date >= start && dt.assigned_date <= end && !dt.is_deleted;
+                const matchesTeam = !teamId || dt.team_id === teamId;
+                const matchesStatus = !status || dt.status === status;
+
+                return inDateRange && matchesTeam && matchesStatus;
+            }).sort((a, b) => new Date(a.assigned_date) - new Date(b.assigned_date));
 
             resolve({
                 success: true,
@@ -652,7 +679,7 @@ export const getDailyTasksStatistics = async (startDate, endDate) => {
             const end = formatDate(new Date(endDate));
 
             const tasksInRange = MOCK_DAILY_TASKS.filter(dt =>
-                dt.assigned_date >= start && dt.assigned_date <= end
+                dt.assigned_date >= start && dt.assigned_date <= end && !dt.is_deleted
             );
 
             const total = tasksInRange.length;
@@ -692,7 +719,7 @@ export const getWeeklySummaryByTask = async (startDate, endDate) => {
             const end = formatDate(new Date(endDate));
 
             const tasksInRange = MOCK_DAILY_TASKS.filter(dt =>
-                dt.assigned_date >= start && dt.assigned_date <= end
+                dt.assigned_date >= start && dt.assigned_date <= end && !dt.is_deleted
             );
 
             // Group by task_id
@@ -833,6 +860,116 @@ export const deleteDailyTask = async (dailyTaskId) => {
 };
 
 /**
+ * Invalidate (soft delete) all scheduled daily tasks for a specific slot
+ * This should be called when slot's day_of_week changes
+ * @param {string} slotId - The slot ID
+ * @returns {Promise<Object>}
+ */
+export const invalidateDailyTasksBySlot = async (slotId) => {
+    return new Promise((resolve) => {
+        setTimeout(() => {
+            const tasksToInvalidate = MOCK_DAILY_TASKS.filter(dt =>
+                dt.slot_id === slotId &&
+                dt.status === DAILY_TASK_STATUS.SCHEDULED &&
+                !dt.is_deleted
+            );
+
+            let invalidatedCount = 0;
+
+            tasksToInvalidate.forEach(task => {
+                const index = MOCK_DAILY_TASKS.findIndex(dt => dt.id === task.id);
+                if (index !== -1) {
+                    MOCK_DAILY_TASKS[index].is_deleted = true;
+                    MOCK_DAILY_TASKS[index].updated_at = new Date().toISOString();
+                    invalidatedCount++;
+                }
+            });
+
+            console.log(`🗑️ Invalidated ${invalidatedCount} scheduled daily tasks for slot ${slotId}`);
+
+            resolve({
+                success: true,
+                invalidatedCount,
+                message: `Đã xóa ${invalidatedCount} nhiệm vụ đã lên lịch do thay đổi ngày làm việc`
+            });
+        }, 100);
+    });
+};
+
+/**
+ * Remove duplicate daily tasks (keep oldest one)
+ * Duplicates are defined as: same date, same slot_id, same task_id
+ */
+export const removeDuplicateDailyTasks = () => {
+    const seen = new Map();
+    const toDelete = [];
+
+    MOCK_DAILY_TASKS.forEach(dt => {
+        if (dt.is_deleted) return; // Skip already deleted
+
+        const key = `${dt.assigned_date}_${dt.slot_id}_${dt.task_id}`;
+
+        if (seen.has(key)) {
+            // This is a duplicate - mark for deletion (keep the first one we saw)
+            toDelete.push(dt.id);
+        } else {
+            seen.set(key, dt.id);
+        }
+    });
+
+    // Mark duplicates as deleted
+    toDelete.forEach(id => {
+        const index = MOCK_DAILY_TASKS.findIndex(dt => dt.id === id);
+        if (index !== -1) {
+            MOCK_DAILY_TASKS[index].is_deleted = true;
+            MOCK_DAILY_TASKS[index].updated_at = new Date().toISOString();
+        }
+    });
+
+    console.log(`🧹 Cleaned up ${toDelete.length} duplicate daily tasks`);
+
+    return {
+        success: true,
+        removedCount: toDelete.length,
+        message: `Đã xóa ${toDelete.length} nhiệm vụ trùng lặp`
+    };
+};
+
+/**
+ * Remove past scheduled daily tasks
+ * Only remove tasks with status SCHEDULED and assigned_date < today
+ */
+export const removePastScheduledTasks = () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayStr = formatDate(today);
+
+    let removedCount = 0;
+
+    MOCK_DAILY_TASKS.forEach(dt => {
+        if (dt.is_deleted) return; // Skip already deleted
+
+        // Only remove SCHEDULED tasks in the past
+        if (dt.status === DAILY_TASK_STATUS.SCHEDULED && dt.assigned_date < `${todayStr}T00:00:00+00:00`) {
+            const index = MOCK_DAILY_TASKS.findIndex(task => task.id === dt.id);
+            if (index !== -1) {
+                MOCK_DAILY_TASKS[index].is_deleted = true;
+                MOCK_DAILY_TASKS[index].updated_at = new Date().toISOString();
+                removedCount++;
+            }
+        }
+    });
+
+    console.log(`🗑️ Removed ${removedCount} past scheduled tasks`);
+
+    return {
+        success: true,
+        removedCount,
+        message: `Đã xóa ${removedCount} nhiệm vụ đã lên lịch trong quá khứ`
+    };
+};
+
+/**
  * Reset mock data (for testing)
  */
 export const resetMockDailyTasks = () => {
@@ -848,6 +985,9 @@ export default {
     getWeeklySummaryByTask,
     createManualDailyTask,
     deleteDailyTask,
+    invalidateDailyTasksBySlot,
+    removeDuplicateDailyTasks,
+    removePastScheduledTasks,
     resetMockDailyTasks,
     DAILY_TASK_STATUS,
     TASK_PRIORITY,

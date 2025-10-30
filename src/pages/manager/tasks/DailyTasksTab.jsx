@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, IconButton, Stack, Toolbar, Grid, Button, FormControl, InputLabel, Select, MenuItem, Tooltip, alpha, Menu, ListItemIcon, ListItemText } from '@mui/material';
-import { CheckCircle, RadioButtonUnchecked, PlayArrow, Cancel, Refresh as RefreshIcon, NavigateBefore, NavigateNext, TrendingUp, Notes as NotesIcon, Flag, Block, SkipNext, MoreVert as MoreVertIcon, Add as AddIcon, Visibility as VisibilityIcon } from '@mui/icons-material';
+import { CheckCircle, RadioButtonUnchecked, PlayArrow, Cancel, NavigateBefore, NavigateNext, TrendingUp, Notes as NotesIcon, Flag, Block, SkipNext, MoreVert as MoreVertIcon, Add as AddIcon, Visibility as VisibilityIcon } from '@mui/icons-material';
 import { COLORS } from '../../../constants/colors';
 import Loading from '../../../components/loading/Loading';
 import Pagination from '../../../components/common/Pagination';
@@ -28,10 +28,8 @@ const DailyTasksTab = ({ taskTemplates, slots, onRefresh }) => {
     // Week navigation
     const [currentWeekStart, setCurrentWeekStart] = useState(getWeekStart(new Date()));
 
-    // Filters
+    // Filters (Only Status and Team as per API parameters)
     const [filterStatus, setFilterStatus] = useState('all');
-    const [filterTask, setFilterTask] = useState('all');
-    const [filterPriority, setFilterPriority] = useState('all');
     const [filterTeam, setFilterTeam] = useState('all');
 
     // Pagination
@@ -82,20 +80,31 @@ const DailyTasksTab = ({ taskTemplates, slots, onRefresh }) => {
     // Reset page when filters change
     useEffect(() => {
         setPage(1);
-    }, [filterStatus, filterTask, filterPriority, filterTeam]);
+    }, [filterStatus, filterTeam]);
 
     const loadDailyTasks = async () => {
         try {
             setLoading(true);
 
+            // First, cleanup any duplicate daily tasks
+            dailyTasksApi.removeDuplicateDailyTasks();
+
+            // Remove past scheduled tasks
+            dailyTasksApi.removePastScheduledTasks();
+
             const weekEnd = getWeekEnd(currentWeekStart);
 
             // Get daily tasks for current week (will auto-generate if needed)
+            // API supports parameters: FromDate, ToDate, TaskTemplates, Slots, TeamId (optional), Status (optional)
+            // Example: getDailyTasksForDateRange(fromDate, toDate, taskTemplates, slots, teamId, status)
             const response = await dailyTasksApi.getDailyTasksForDateRange(
                 currentWeekStart,
                 weekEnd,
                 taskTemplates,
                 slots
+                // Optional: pass teamId and status to filter at API level
+                // null, // teamId - set to filter by team
+                // null  // status - set to filter by status
             );
 
             if (response.success) {
@@ -140,7 +149,7 @@ const DailyTasksTab = ({ taskTemplates, slots, onRefresh }) => {
         setCurrentWeekStart(getWeekStart(new Date()));
     };
 
-    // Filter daily tasks
+    // Filter daily tasks (Only Status and Team as per API parameters)
     const filteredDailyTasks = useMemo(() => {
         let filtered = [...dailyTasks];
 
@@ -149,23 +158,20 @@ const DailyTasksTab = ({ taskTemplates, slots, onRefresh }) => {
             filtered = filtered.filter(dt => dt.status === filterStatus);
         }
 
-        // Task filter
-        if (filterTask !== 'all') {
-            filtered = filtered.filter(dt => dt.task_id === filterTask);
-        }
-
-        // Priority filter
-        if (filterPriority !== 'all') {
-            filtered = filtered.filter(dt => dt.priority === filterPriority);
-        }
-
         // Team filter
         if (filterTeam !== 'all') {
             filtered = filtered.filter(dt => dt.team_id === filterTeam);
         }
 
+        // Sort by assigned_date descending (newest first)
+        filtered.sort((a, b) => {
+            const dateA = new Date(a.assigned_date);
+            const dateB = new Date(b.assigned_date);
+            return dateB - dateA; // Descending order (mới nhất lên đầu)
+        });
+
         return filtered;
-    }, [dailyTasks, filterStatus, filterTask, filterPriority, filterTeam]);
+    }, [dailyTasks, filterStatus, filterTeam]);
 
     // Paginated daily tasks
     const paginatedDailyTasks = useMemo(() => {
@@ -491,10 +497,6 @@ const DailyTasksTab = ({ taskTemplates, slots, onRefresh }) => {
                         </Button>
                     </Stack>
 
-                    <IconButton onClick={loadDailyTasks} size="small">
-                        <RefreshIcon />
-                    </IconButton>
-
                     <Button
                         variant="contained"
                         startIcon={<AddIcon />}
@@ -524,22 +526,6 @@ const DailyTasksTab = ({ taskTemplates, slots, onRefresh }) => {
                     </Select>
                 </FormControl>
 
-                <FormControl size="small" sx={{ minWidth: 200 }}>
-                    <InputLabel>Nhiệm vụ</InputLabel>
-                    <Select
-                        value={filterTask}
-                        onChange={(e) => setFilterTask(e.target.value)}
-                        label="Nhiệm vụ"
-                    >
-                        <MenuItem value="all">Tất cả nhiệm vụ</MenuItem>
-                        {taskTemplates.map(task => (
-                            <MenuItem key={task.id} value={task.id}>
-                                {task.name || task.title}
-                            </MenuItem>
-                        ))}
-                    </Select>
-                </FormControl>
-
                 <FormControl size="small" sx={{ minWidth: 150 }}>
                     <InputLabel>Team</InputLabel>
                     <Select
@@ -556,21 +542,6 @@ const DailyTasksTab = ({ taskTemplates, slots, onRefresh }) => {
                                 </MenuItem>
                             ) : null;
                         })}
-                    </Select>
-                </FormControl>
-
-                <FormControl size="small" sx={{ minWidth: 150 }}>
-                    <InputLabel>Độ ưu tiên</InputLabel>
-                    <Select
-                        value={filterPriority}
-                        onChange={(e) => setFilterPriority(e.target.value)}
-                        label="Độ ưu tiên"
-                    >
-                        <MenuItem value="all">Tất cả</MenuItem>
-                        <MenuItem value={TASK_PRIORITY.URGENT}>Khẩn cấp</MenuItem>
-                        <MenuItem value={TASK_PRIORITY.HIGH}>Cao</MenuItem>
-                        <MenuItem value={TASK_PRIORITY.MEDIUM}>Trung bình</MenuItem>
-                        <MenuItem value={TASK_PRIORITY.LOW}>Thấp</MenuItem>
                     </Select>
                 </FormControl>
             </Toolbar>
@@ -603,8 +574,18 @@ const DailyTasksTab = ({ taskTemplates, slots, onRefresh }) => {
                         ) : (
                             paginatedDailyTasks.map((dailyTask, index) => {
                                 const statusDisplay = getStatusDisplay(dailyTask.status);
-                                const priorityDisplay = getPriorityDisplay(dailyTask.priority);
+                                // Get priority from task template, fallback to daily task
+                                const taskPriority = dailyTask.task?.priority || dailyTask.priority;
+                                const priorityDisplay = getPriorityDisplay(taskPriority);
                                 const assignedDate = dailyTask.assigned_date ? new Date(dailyTask.assigned_date) : new Date();
+
+                                // Get task info from task template
+                                const taskTitle = dailyTask.task?.title || dailyTask.task?.name || dailyTask.title;
+                                const taskDescription = dailyTask.task?.description || dailyTask.description;
+
+                                // Get time from slot, fallback to daily task
+                                const startTime = dailyTask.slot?.start_time || dailyTask.start_time;
+                                const endTime = dailyTask.slot?.end_time || dailyTask.end_time;
 
                                 return (
                                     <TableRow key={dailyTask.id} hover>
@@ -622,9 +603,9 @@ const DailyTasksTab = ({ taskTemplates, slots, onRefresh }) => {
                                         </TableCell>
 
                                         <TableCell>
-                                            <Tooltip title={dailyTask.description || ''}>
+                                            <Tooltip title={taskDescription || ''}>
                                                 <Typography variant="body2" fontWeight={500}>
-                                                    {dailyTask.title}
+                                                    {taskTitle}
                                                 </Typography>
                                             </Tooltip>
                                         </TableCell>
@@ -654,7 +635,7 @@ const DailyTasksTab = ({ taskTemplates, slots, onRefresh }) => {
 
                                         <TableCell>
                                             <Typography variant="body2" color="text.secondary">
-                                                {dailyTask.start_time?.substring(0, 5)} - {dailyTask.end_time?.substring(0, 5)}
+                                                {startTime?.substring(0, 5)} - {endTime?.substring(0, 5)}
                                             </Typography>
                                         </TableCell>
 
@@ -705,7 +686,7 @@ const DailyTasksTab = ({ taskTemplates, slots, onRefresh }) => {
             {/* Pagination */}
             {filteredDailyTasks.length > 0 && (
                 <Pagination
-                    currentPage={page}
+                    page={page}
                     totalPages={totalPages}
                     itemsPerPage={itemsPerPage}
                     totalItems={filteredDailyTasks.length}

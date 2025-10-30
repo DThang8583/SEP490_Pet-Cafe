@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Stack, Toolbar, TextField, Select, MenuItem, InputLabel, FormControl, IconButton, Button, Avatar, Grid, Menu, ListItemIcon, ListItemText } from '@mui/material';
+import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Stack, Toolbar, TextField, Select, MenuItem, InputLabel, FormControl, IconButton, Button, Avatar, Grid, Menu, ListItemIcon, ListItemText, Tooltip } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import { COLORS } from '../../constants/colors';
 import Loading from '../../components/loading/Loading';
@@ -7,7 +7,7 @@ import Pagination from '../../components/common/Pagination';
 import ConfirmModal from '../../components/modals/ConfirmModal';
 import AddStaffModal from '../../components/modals/AddStaffModal';
 import AlertModal from '../../components/modals/AlertModal';
-import { Edit, Delete, People, PersonAdd, Person, EventBusy, MoreVert } from '@mui/icons-material';
+import { Edit, Delete, People, PersonAdd, Person, EventBusy, MoreVert, Visibility, VisibilityOff } from '@mui/icons-material';
 import employeeApi from '../../api/employeeApi';
 
 const formatSalary = (salary) => {
@@ -66,6 +66,9 @@ const StaffPage = () => {
     // Menu state
     const [menuAnchor, setMenuAnchor] = useState(null);
     const [menuStaff, setMenuStaff] = useState(null);
+
+    // Salary visibility state
+    const [showSalaries, setShowSalaries] = useState(false);
 
     // Load staff data from API
     useEffect(() => {
@@ -320,7 +323,25 @@ const StaffPage = () => {
                                 <TableCell sx={{ fontWeight: 800, display: { xs: 'none', sm: 'table-cell' } }}>SĐT</TableCell>
                                 <TableCell sx={{ fontWeight: 800, display: { xs: 'none', lg: 'table-cell' } }}>Địa chỉ</TableCell>
                                 <TableCell sx={{ fontWeight: 800, display: { xs: 'none', xl: 'table-cell' } }}>Kỹ năng</TableCell>
-                                <TableCell sx={{ fontWeight: 800, display: { xs: 'none', lg: 'table-cell' } }}>Lương</TableCell>
+                                <TableCell sx={{ fontWeight: 800, display: { xs: 'none', lg: 'table-cell' } }}>
+                                    <Stack direction="row" alignItems="center" spacing={1}>
+                                        <Typography sx={{ fontWeight: 800 }}>Lương</Typography>
+                                        <Tooltip title={showSalaries ? "Ẩn lương" : "Hiện lương"} arrow>
+                                            <IconButton
+                                                size="small"
+                                                onClick={() => setShowSalaries(!showSalaries)}
+                                                sx={{
+                                                    color: showSalaries ? COLORS.PRIMARY[600] : COLORS.GRAY[500],
+                                                    '&:hover': {
+                                                        bgcolor: alpha(COLORS.PRIMARY[100], 0.5)
+                                                    }
+                                                }}
+                                            >
+                                                {showSalaries ? <Visibility fontSize="small" /> : <VisibilityOff fontSize="small" />}
+                                            </IconButton>
+                                        </Tooltip>
+                                    </Stack>
+                                </TableCell>
                                 <TableCell sx={{ fontWeight: 800 }}>Vai trò</TableCell>
                                 <TableCell sx={{ fontWeight: 800 }}>Trạng thái</TableCell>
                                 <TableCell sx={{ fontWeight: 800, textAlign: 'right' }}>Thao tác</TableCell>
@@ -364,9 +385,23 @@ const StaffPage = () => {
                                             </Box>
                                         </TableCell>
                                         <TableCell sx={{ display: { xs: 'none', lg: 'table-cell' } }}>
-                                            <Typography variant="body2" fontWeight={600} color={COLORS.SUCCESS[700]}>
-                                                {formatSalary(s.salary)}
-                                            </Typography>
+                                            {showSalaries ? (
+                                                <Typography variant="body2" fontWeight={600} color={COLORS.SUCCESS[700]}>
+                                                    {formatSalary(s.salary)}
+                                                </Typography>
+                                            ) : (
+                                                <Typography
+                                                    variant="body2"
+                                                    fontWeight={600}
+                                                    sx={{
+                                                        color: COLORS.GRAY[500],
+                                                        letterSpacing: 2,
+                                                        userSelect: 'none'
+                                                    }}
+                                                >
+                                                    ••••••••
+                                                </Typography>
+                                            )}
                                         </TableCell>
                                         <TableCell>
                                             <Chip size="small" label={roleLabel(s.sub_role)} sx={{ background: rColor.bg, color: rColor.color, fontWeight: 700 }} />

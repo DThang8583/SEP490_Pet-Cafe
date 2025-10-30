@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { MOCK_PET_SPECIES } from './mockData';
 
 // Base configuration
 const API_BASE_URL = 'http://localhost:8080/api';
@@ -31,350 +32,430 @@ const checkPermission = (user, permission) => {
     return userPermissions.includes(permission) || userPermissions.includes('full_access');
 };
 
-// Mock Vaccine Types database
+// Helper function to get species data
+const getSpeciesById = (speciesId) => {
+    return MOCK_PET_SPECIES.find(s => s.id === speciesId) || null;
+};
+
+// Mock Vaccine Types database - Match official API structure
 let MOCK_VACCINE_TYPES = [
+    // DOG VACCINES
     {
-        id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
-        name: 'Vaccine Dại (Rabies)',
-        description: 'Vaccine phòng bệnh dại cho chó mèo, tiêm hàng năm',
-        species_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6', // Chó
+        id: '2c4a59db-5c73-4aad-ab0f-7e68bf742234',
+        name: 'Vắc-xin 7 Bệnh Tổng hợp',
+        description: 'Vắc-xin phòng ngừa các bệnh như Parvo, Care, Viêm gan truyền nhiễm, Ho cũi, Cúm, và 2 chủng Leptospirosis.',
+        species_id: '8d769794-167b-4458-a9a9-ac33748feee1', // Chó
         interval_months: 12,
-        required_doses: 0,
+        required_doses: 3,
         is_required: true,
-        createdAt: '2023-01-01T10:00:00Z'
+        species: null, // Will be populated by API
+        vaccination_records: [],
+        vaccination_schedules: [],
+        created_at: '2025-10-27T06:38:27.809685+00:00',
+        created_by: '00000000-0000-0000-0000-000000000000',
+        updated_at: '2025-10-27T06:38:27.809686+00:00',
+        updated_by: null,
+        is_deleted: false
     },
     {
-        id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7',
-        name: 'Vaccine Dại (Rabies)',
-        description: 'Vaccine phòng bệnh dại cho mèo, tiêm hàng năm',
-        species_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7', // Mèo
+        id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+        name: 'Vắc-xin Dại (Rabies)',
+        description: 'Vắc-xin phòng bệnh dại cho chó, bắt buộc tiêm hàng năm theo quy định pháp luật.',
+        species_id: '8d769794-167b-4458-a9a9-ac33748feee1',
         interval_months: 12,
-        required_doses: 0,
+        required_doses: 2,
         is_required: true,
-        createdAt: '2023-01-01T10:00:00Z'
+        species: null,
+        vaccination_records: [],
+        vaccination_schedules: [],
+        created_at: '2025-10-27T06:37:15.500000+00:00',
+        created_by: '00000000-0000-0000-0000-000000000000',
+        updated_at: '2025-10-27T06:37:15.500000+00:00',
+        updated_by: null,
+        is_deleted: false
     },
     {
         id: '5gc07g86-7939-6784-d5he-4e185h88chc8',
-        name: 'Vaccine 7 bệnh (DHPPi+L)',
-        description: 'Vaccine phòng 7 bệnh cho chó: Carré, Parvo, Hepatitis, Para-influenza, Leptospirosis',
-        species_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6', // Chó
+        name: 'Vắc-xin DHPPi+L (8 bệnh)',
+        description: 'Vắc-xin phòng 8 bệnh cho chó: Carré, Parvo, Viêm gan, Para-influenza, Ho cũi và 3 chủng Leptospirosis.',
+        species_id: '8d769794-167b-4458-a9a9-ac33748feee1',
         interval_months: 12,
-        required_doses: 0,
+        required_doses: 3,
         is_required: true,
-        createdAt: '2023-01-01T10:00:00Z'
-    },
-    {
-        id: '6hd18h97-8040-7895-e6if-5f296i99dif9',
-        name: 'Vaccine 4 bệnh (FVRCP)',
-        description: 'Vaccine phòng 4 bệnh cho mèo: Viêm mũi khí quản, Calici, Phân trắng (Panleukopenia)',
-        species_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7', // Mèo
-        interval_months: 12,
-        required_doses: 0,
-        is_required: true,
-        createdAt: '2023-01-01T10:00:00Z'
+        species: null,
+        vaccination_records: [],
+        vaccination_schedules: [],
+        created_at: '2025-10-27T06:40:00.000000+00:00',
+        created_by: '00000000-0000-0000-0000-000000000000',
+        updated_at: '2025-10-27T06:40:00.000000+00:00',
+        updated_by: null,
+        is_deleted: false
     },
     {
         id: '7ie29i08-9151-8906-f7jg-6g307j00ejg0',
-        name: 'Vaccine Viêm gan truyền nhiễm (Hepatitis)',
-        description: 'Vaccine phòng viêm gan truyền nhiễm cho chó',
-        species_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6', // Chó
+        name: 'Vắc-xin Viêm gan truyền nhiễm (Hepatitis)',
+        description: 'Vắc-xin phòng viêm gan truyền nhiễm cho chó, thường kết hợp trong vắc-xin đa giá.',
+        species_id: '8d769794-167b-4458-a9a9-ac33748feee1',
         interval_months: 12,
-        required_doses: 0,
+        required_doses: 2,
         is_required: false,
-        createdAt: '2023-01-01T10:00:00Z'
-    },
-    {
-        id: '8jf30j19-0262-9017-g8kh-7h418k11fkh1',
-        name: 'Vaccine Bạch hầu mèo (FeLV)',
-        description: 'Vaccine phòng bệnh bạch hầu ở mèo',
-        species_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7', // Mèo
-        interval_months: 12,
-        required_doses: 0,
-        is_required: false,
-        createdAt: '2023-01-01T10:00:00Z'
+        species: null,
+        vaccination_records: [],
+        vaccination_schedules: [],
+        created_at: '2025-10-27T06:41:00.000000+00:00',
+        created_by: '00000000-0000-0000-0000-000000000000',
+        updated_at: '2025-10-27T06:41:00.000000+00:00',
+        updated_by: null,
+        is_deleted: false
     },
     {
         id: '9kg41k20-1373-0128-h9li-8i529l22gki2',
-        name: 'Vaccine Ho cũi chó (Kennel Cough)',
-        description: 'Vaccine phòng ho cũi chó (Bordetella)',
-        species_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6', // Chó
+        name: 'Vắc-xin Ho cũi chó (Kennel Cough)',
+        description: 'Vắc-xin phòng ho cũi chó (Bordetella bronchiseptica), cần thiết cho chó sống tập thể.',
+        species_id: '8d769794-167b-4458-a9a9-ac33748feee1',
         interval_months: 6,
-        required_doses: 0,
+        required_doses: 1,
         is_required: false,
-        createdAt: '2023-01-01T10:00:00Z'
+        species: null,
+        vaccination_records: [],
+        vaccination_schedules: [],
+        created_at: '2025-10-27T06:42:00.000000+00:00',
+        created_by: '00000000-0000-0000-0000-000000000000',
+        updated_at: '2025-10-27T06:42:00.000000+00:00',
+        updated_by: null,
+        is_deleted: false
+    },
+    // CAT VACCINES
+    {
+        id: '818b3688-d142-4d4d-97a5-1339b4b5cf29',
+        name: 'Vắc-xin Tổng hợp FPV/FHV/FCV',
+        description: 'Phòng ngừa Viêm ruột do Parvovirus (FPV), Viêm mũi khí quản (FHV) và Bệnh Calicivirus (FCV).',
+        species_id: 'b6988687-c027-4b63-b91f-e8652c7a54c6', // Mèo
+        interval_months: 12,
+        required_doses: 3,
+        is_required: true,
+        species: null,
+        vaccination_records: [],
+        vaccination_schedules: [],
+        created_at: '2025-10-27T06:39:20.704541+00:00',
+        created_by: '00000000-0000-0000-0000-000000000000',
+        updated_at: '2025-10-27T06:39:20.704541+00:00',
+        updated_by: null,
+        is_deleted: false
+    },
+    {
+        id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7',
+        name: 'Vắc-xin Dại cho Mèo (Rabies)',
+        description: 'Vắc-xin phòng bệnh dại cho mèo, bắt buộc tiêm hàng năm.',
+        species_id: 'b6988687-c027-4b63-b91f-e8652c7a54c6',
+        interval_months: 12,
+        required_doses: 2,
+        is_required: true,
+        species: null,
+        vaccination_records: [],
+        vaccination_schedules: [],
+        created_at: '2025-10-27T06:37:30.000000+00:00',
+        created_by: '00000000-0000-0000-0000-000000000000',
+        updated_at: '2025-10-27T06:37:30.000000+00:00',
+        updated_by: null,
+        is_deleted: false
+    },
+    {
+        id: '6hd18h97-8040-7895-e6if-5f296i99dif9',
+        name: 'Vắc-xin FVRCP (4 bệnh)',
+        description: 'Vắc-xin phòng 4 bệnh cho mèo: Viêm mũi khí quản, Calicivirus, Viêm ruột Parvovirus và Chlamydia.',
+        species_id: 'b6988687-c027-4b63-b91f-e8652c7a54c6',
+        interval_months: 12,
+        required_doses: 3,
+        is_required: true,
+        species: null,
+        vaccination_records: [],
+        vaccination_schedules: [],
+        created_at: '2025-10-27T06:43:00.000000+00:00',
+        created_by: '00000000-0000-0000-0000-000000000000',
+        updated_at: '2025-10-27T06:43:00.000000+00:00',
+        updated_by: null,
+        is_deleted: false
+    },
+    {
+        id: '8jf30j19-0262-9017-g8kh-7h418k11fkh1',
+        name: 'Vắc-xin Bạch hầu Mèo (FeLV)',
+        description: 'Vắc-xin phòng bệnh bạch hầu ở mèo, khuyến nghị cho mèo sống ngoài trời hoặc tiếp xúc mèo khác.',
+        species_id: 'b6988687-c027-4b63-b91f-e8652c7a54c6',
+        interval_months: 12,
+        required_doses: 2,
+        is_required: false,
+        species: null,
+        vaccination_records: [],
+        vaccination_schedules: [],
+        created_at: '2025-10-27T06:44:00.000000+00:00',
+        created_by: '00000000-0000-0000-0000-000000000000',
+        updated_at: '2025-10-27T06:44:00.000000+00:00',
+        updated_by: null,
+        is_deleted: false
     },
     {
         id: '0lh52l31-2484-1239-i0mj-9j630m33hkj3',
-        name: 'Vaccine FIP (Peritonitis)',
-        description: 'Vaccine phòng viêm phúc mạc truyền nhiễm ở mèo',
-        species_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7', // Mèo
+        name: 'Vắc-xin FIP (Viêm phúc mạc truyền nhiễm)',
+        description: 'Vắc-xin phòng viêm phúc mạc truyền nhiễm ở mèo, dùng cho mèo có nguy cơ cao.',
+        species_id: 'b6988687-c027-4b63-b91f-e8652c7a54c6',
         interval_months: 12,
-        required_doses: 0,
+        required_doses: 2,
         is_required: false,
-        createdAt: '2023-01-01T10:00:00Z'
+        species: null,
+        vaccination_records: [],
+        vaccination_schedules: [],
+        created_at: '2025-10-27T06:45:00.000000+00:00',
+        created_by: '00000000-0000-0000-0000-000000000000',
+        updated_at: '2025-10-27T06:45:00.000000+00:00',
+        updated_by: null,
+        is_deleted: false
     }
 ];
 
-// Mock Vaccination Schedules database
+// Mock Vaccination Schedules database - Using REAL pet IDs and vaccine type IDs
 let MOCK_VACCINATION_SCHEDULES = [
-    // Tháng 10/2025 - Tuần 2
+    // ============== THÁNG 11/2025 - SẮP TỚI ==============
+
+    // Tuần 1 (1-7/11/2025)
     {
         id: '1a1b1c1d-1111-1111-1111-111111111111',
-        pet_id: 'pet-001',
-        vaccine_type_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
-        scheduled_date: '2025-10-10T09:00:00Z',
-        notes: 'Lịch tiêm Vaccine Dại định kỳ hàng năm cho Bella',
-        status: 'scheduled',
-        createdAt: '2024-10-09T10:00:00Z'
+        pet_id: '72ab5c8f-cec6-42ce-87c7-6f6a55850c6a', // Bella (Poodle)
+        vaccine_type_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6', // Vắc-xin Dại
+        scheduled_date: '2025-11-03T09:00:00Z',
+        status: 'PENDING',
+        completed_date: null,
+        notes: 'Tiêm phòng dại định kỳ hàng năm cho Bella',
+        record_id: null,
+        record: null,
+        createdAt: '2025-10-30T10:00:00Z'
     },
     {
         id: '2b2c2d2e-2222-2222-2222-222222222222',
-        pet_id: 'pet-002',
-        vaccine_type_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7',
-        scheduled_date: '2025-10-12T14:00:00Z',
-        notes: 'Lịch tiêm Vaccine Dại cho mèo Miu',
-        status: 'scheduled',
-        createdAt: '2024-10-09T10:00:00Z'
+        pet_id: '1bd898d4-dd4a-4101-8e35-7b3fc40159e3', // Milo (Scottish Fold)
+        vaccine_type_id: '818b3688-d142-4d4d-97a5-1339b4b5cf29', // Vắc-xin FPV/FHV/FCV
+        scheduled_date: '2025-11-05T14:00:00Z',
+        notes: 'Tiêm phòng tổng hợp cho Milo - định kỳ hàng năm',
+        status: 'PENDING',
+        completed_date: null,
+        record_id: null,
+        record: null,
+        createdAt: '2025-10-30T10:00:00Z'
     },
     {
         id: '3c3d3e3f-3333-3333-3333-333333333333',
-        pet_id: 'pet-003',
-        vaccine_type_id: '5gc07g86-7939-6784-d5he-4e185h88chc8',
-        scheduled_date: '2025-10-14T10:30:00Z',
-        notes: 'Vaccine 7 bệnh định kỳ cho chó Max',
-        status: 'scheduled',
-        createdAt: '2024-10-09T10:00:00Z'
+        pet_id: 'cc33dd44-ee55-ff66-7788-99001122aabb', // Max (Golden Retriever)
+        vaccine_type_id: '2c4a59db-5c73-4aad-ab0f-7e68bf742234', // Vắc-xin 7 Bệnh
+        scheduled_date: '2025-11-07T10:30:00Z',
+        notes: 'Tiêm vắc-xin 7 bệnh tổng hợp cho Max',
+        status: 'PENDING',
+        completed_date: null,
+        record_id: null,
+        record: null,
+        createdAt: '2025-10-30T10:00:00Z'
     },
+
+    // Tuần 2 (8-14/11/2025)
     {
         id: '4d4e4f40-4444-4444-4444-444444444444',
-        pet_id: 'pet-013',
-        vaccine_type_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
-        scheduled_date: '2025-10-15T09:00:00Z',
-        notes: 'Tiêm phòng Dại cho chó Bella (Golden Retriever)',
-        status: 'scheduled',
-        createdAt: '2024-10-09T10:00:00Z'
+        pet_id: 'aa11bb22-cc33-dd44-ee55-ff6677889900', // Luna (Scottish Fold)
+        vaccine_type_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7', // Vắc-xin Dại cho Mèo
+        scheduled_date: '2025-11-10T09:00:00Z',
+        notes: 'Tiêm phòng dại cho Luna - mèo cần tiêm định kỳ',
+        status: 'PENDING',
+        completed_date: null,
+        record_id: null,
+        record: null,
+        createdAt: '2025-10-30T10:00:00Z'
     },
     {
         id: '5e5f5051-5555-5555-5555-555555555555',
-        pet_id: 'pet-034',
-        vaccine_type_id: '6hd18h97-8040-7895-e6if-5f296i99dif9',
-        scheduled_date: '2025-10-16T15:00:00Z',
-        notes: 'Vaccine 4 bệnh cho mèo Kitty',
-        status: 'scheduled',
-        createdAt: '2024-10-09T10:00:00Z'
+        pet_id: 'dd44ee55-ff66-7788-9900-1122aabbccdd', // Charlie (Labrador)
+        vaccine_type_id: '5gc07g86-7939-6784-d5he-4e185h88chc8', // DHPPi+L (8 bệnh)
+        scheduled_date: '2025-11-12T15:00:00Z',
+        notes: 'Tiêm vắc-xin 8 bệnh cho Charlie - bảo vệ toàn diện',
+        status: 'PENDING',
+        completed_date: null,
+        record_id: null,
+        record: null,
+        createdAt: '2025-10-30T10:00:00Z'
     },
-    // Tháng 10/2025 - Tuần 3
+
+    // Tuần 3 (15-21/11/2025)
     {
-        id: '6f6061-6666-6666-6666-666666666666',
-        pet_id: 'pet-015',
-        vaccine_type_id: '5gc07g86-7939-6784-d5he-4e185h88chc8',
-        scheduled_date: '2025-10-18T11:00:00Z',
-        notes: 'Vaccine 7 bệnh cho Luna',
-        status: 'scheduled',
-        createdAt: '2024-10-09T10:00:00Z'
+        id: '6f6071-6666-6666-6666-666666666666',
+        pet_id: 'bb22cc33-dd44-ee55-ff66-778899001122', // Oliver (Scottish Fold)
+
+        vaccine_type_id: '6hd18h97-8040-7895-e6if-5f296i99dif9', // FVRCP (4 bệnh)
+        scheduled_date: '2025-11-17T10:00:00Z',
+        notes: 'Tiêm vắc-xin 4 bệnh cho Oliver',
+        status: 'PENDING',
+        completed_date: null,
+        record_id: null,
+        record: null,
+        createdAt: '2025-10-30T10:00:00Z'
     },
     {
         id: '7g7172-7777-7777-7777-777777777777',
-        pet_id: 'pet-021',
-        vaccine_type_id: '9kg41k20-1373-0128-h9li-8i529l22gki2',
-        scheduled_date: '2025-10-20T08:30:00Z',
-        notes: 'Vaccine Ho cũi chó cho Rex (nhắc lại sau 6 tháng)',
-        status: 'scheduled',
-        createdAt: '2024-10-09T10:00:00Z'
+        pet_id: '77889900-1122-3344-5566-778899aabbcc', // Buddy (Golden Retriever)
+
+        vaccine_type_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6', // Vắc-xin Dại
+        scheduled_date: '2025-11-19T14:30:00Z',
+        notes: 'Tiêm phòng dại định kỳ cho Buddy',
+        status: 'PENDING',
+        completed_date: null,
+        record_id: null,
+        record: null,
+        createdAt: '2025-10-30T10:00:00Z'
     },
     {
         id: '8h8283-8888-8888-8888-888888888888',
-        pet_id: 'pet-036',
-        vaccine_type_id: '8jf30j19-0262-9017-g8kh-7h418k11fkh1',
-        scheduled_date: '2025-10-22T13:45:00Z',
-        notes: 'Vaccine Bạch hầu mèo (FeLV) cho Princess',
-        status: 'scheduled',
-        createdAt: '2024-10-09T10:00:00Z'
+        pet_id: '88990011-2233-4455-6677-8899aabbccdd', // Lucy (Labrador)
+
+        vaccine_type_id: '2c4a59db-5c73-4aad-ab0f-7e68bf742234', // Vắc-xin 7 Bệnh
+        scheduled_date: '2025-11-24T11:00:00Z',
+        notes: 'Tiêm vắc-xin 7 bệnh cho Lucy',
+        status: 'PENDING',
+        completed_date: null,
+        record_id: null,
+        record: null,
+        createdAt: '2025-10-30T10:00:00Z'
     },
     {
         id: '9i9394-9999-9999-9999-999999999999',
-        pet_id: 'pet-004',
-        vaccine_type_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7',
-        scheduled_date: '2025-10-23T10:00:00Z',
-        notes: 'Vaccine Dại định kỳ cho mèo Luna',
-        status: 'scheduled',
-        createdAt: '2024-10-09T10:00:00Z'
+        pet_id: '99001122-3344-5566-7788-99aabbccddee', // Tiny (Chihuahua)
+        vaccine_type_id: '9kg41k20-1373-0128-h9li-8i529l22gki2', // Ho cũi chó
+        scheduled_date: '2025-11-26T08:30:00Z',
+        notes: 'Tiêm vắc-xin ho cũi cho Tiny - định kỳ 6 tháng',
+        status: 'PENDING',
+        completed_date: null,
+        record_id: null,
+        record: null,
+        createdAt: '2025-10-30T10:00:00Z'
     },
     {
         id: '0j0405-0000-0000-0000-000000000000',
-        pet_id: 'pet-019',
-        vaccine_type_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
-        scheduled_date: '2025-10-25T14:30:00Z',
-        notes: 'Vaccine Dại cho chó Buddy',
-        status: 'scheduled',
-        createdAt: '2024-10-09T10:00:00Z'
+        pet_id: '00112233-4455-6677-8899-aabbccddeeff', // Hachi (Shiba Inu)
+        vaccine_type_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6', // Vắc-xin Dại
+        scheduled_date: '2025-11-28T13:00:00Z',
+        notes: 'Tiêm phòng dại cho Hachi',
+        status: 'PENDING',
+        completed_date: null,
+        record_id: null,
+        record: null,
+        createdAt: '2025-10-30T10:00:00Z'
     },
-    // Tháng 10/2025 - Tuần 4
+
+    // ============== THÁNG 12/2025 ==============
     {
         id: '1k1516-1111-1111-1111-111111111112',
-        pet_id: 'pet-027',
-        vaccine_type_id: '6hd18h97-8040-7895-e6if-5f296i99dif9',
-        scheduled_date: '2025-10-27T09:15:00Z',
-        notes: 'Vaccine 4 bệnh cho mèo Simba',
-        status: 'scheduled',
-        createdAt: '2024-10-09T10:00:00Z'
+        pet_id: '11223344-5566-7788-99aa-bbccddeeff00', // Mochi (Shiba Inu)
+        vaccine_type_id: '5gc07g86-7939-6784-d5he-4e185h88chc8', // DHPPi+L
+        scheduled_date: '2025-12-03T10:15:00Z',
+        notes: 'Tiêm vắc-xin 8 bệnh cho Mochi',
+        status: 'PENDING',
+        completed_date: null,
+        record_id: null,
+        record: null,
+        createdAt: '2025-10-30T10:00:00Z'
     },
     {
         id: '2l2627-2222-2222-2222-222222222223',
-        pet_id: 'pet-012',
-        vaccine_type_id: '5gc07g86-7939-6784-d5he-4e185h88chc8',
-        scheduled_date: '2025-10-28T11:30:00Z',
-        notes: 'Vaccine 7 bệnh cho chó Rocky',
-        status: 'scheduled',
-        createdAt: '2024-10-09T10:00:00Z'
+        pet_id: '22334455-6677-8899-aabb-ccddeeff0011', // Corgito (Corgi)
+        vaccine_type_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6', // Dại
+        scheduled_date: '2025-12-05T14:00:00Z',
+        notes: 'Tiêm phòng dại định kỳ cho Corgito',
+        status: 'PENDING',
+        completed_date: null,
+        record_id: null,
+        record: null,
+        createdAt: '2025-10-30T10:00:00Z'
     },
     {
         id: '3m3738-3333-3333-3333-333333333334',
-        pet_id: 'pet-038',
-        vaccine_type_id: '0lh52l31-2484-1239-i0mj-9j630m33hkj3',
-        scheduled_date: '2025-10-30T15:00:00Z',
-        notes: 'Vaccine FIP cho mèo Nala',
-        status: 'scheduled',
-        createdAt: '2024-10-09T10:00:00Z'
+        pet_id: '33445566-7788-99aa-bbcc-ddeeff001122', // Ein (Corgi)
+        vaccine_type_id: '2c4a59db-5c73-4aad-ab0f-7e68bf742234', // 7 bệnh
+        scheduled_date: '2025-12-08T09:30:00Z',
+        notes: 'Tiêm vắc-xin 7 bệnh cho Ein',
+        status: 'PENDING',
+        completed_date: null,
+        record_id: null,
+        record: null,
+        createdAt: '2025-10-30T10:00:00Z'
     },
-    // Tháng 11/2025 - Tuần 1
+
+    // ============== ĐÃ HOÀN THÀNH (COMPLETED) ==============
     {
-        id: '4n4849-4444-4444-4444-444444444445',
-        pet_id: 'pet-005',
-        vaccine_type_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
-        scheduled_date: '2025-11-03T10:00:00Z',
-        notes: 'Vaccine Dại cho chó Charlie',
-        status: 'scheduled',
-        createdAt: '2024-10-09T10:00:00Z'
-    },
-    {
-        id: '5o5960-5555-5555-5555-555555555556',
-        pet_id: 'pet-024',
-        vaccine_type_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7',
-        scheduled_date: '2025-11-05T13:30:00Z',
-        notes: 'Vaccine Dại cho mèo Chloe',
-        status: 'scheduled',
-        createdAt: '2024-10-09T10:00:00Z'
+        id: '9c9304-9999-9999-9999-999999999881',
+        pet_id: '72ab5c8f-cec6-42ce-87c7-6f6a55850c6a', // Bella
+        vaccine_type_id: '2c4a59db-5c73-4aad-ab0f-7e68bf742234', // 7 bệnh
+        scheduled_date: '2025-10-27T08:09:00+00:00',
+        status: 'COMPLETED',
+        completed_date: '2025-10-27T09:46:08.684208+00:00',
+        notes: 'Tiêm nhắc lại vắc-xin hàng năm. Đã hoàn thành, không có phản ứng phụ.',
+        record_id: 'vr-011',
+        record: null,
+        createdAt: '2025-10-20T10:00:00Z'
     },
     {
-        id: '6p6071-6666-6666-6666-666666666667',
-        pet_id: 'pet-009',
-        vaccine_type_id: '7ie29i08-9151-8906-f7jg-6g307j00ejg0',
-        scheduled_date: '2025-11-06T09:45:00Z',
-        notes: 'Vaccine Viêm gan truyền nhiễm cho chó Cooper',
-        status: 'scheduled',
-        createdAt: '2024-10-09T10:00:00Z'
+        id: '0d0415-0000-0000-0000-000000000882',
+        pet_id: '1bd898d4-dd4a-4101-8e35-7b3fc40159e3', // Milo
+        vaccine_type_id: '818b3688-d142-4d4d-97a5-1339b4b5cf29', // FPV/FHV/FCV
+        scheduled_date: '2025-10-25T14:00:00+00:00',
+        status: 'COMPLETED',
+        completed_date: '2025-10-25T14:30:00+00:00',
+        notes: 'Tiêm phòng tổng hợp cho mèo Milo. Hoàn thành tốt, theo dõi sau 24h không có vấn đề gì.',
+        record_id: 'vr-012',
+        record: null,
+        createdAt: '2025-10-18T10:00:00Z'
     },
     {
-        id: '7q7182-7777-7777-7777-777777777778',
-        pet_id: 'pet-031',
-        vaccine_type_id: '6hd18h97-8040-7895-e6if-5f296i99dif9',
-        scheduled_date: '2025-11-08T14:15:00Z',
-        notes: 'Vaccine 4 bệnh cho mèo Mochi',
-        status: 'scheduled',
-        createdAt: '2024-10-09T10:00:00Z'
-    },
-    // Tháng 11/2025 - Tuần 2
-    {
-        id: '8r8293-8888-8888-8888-888888888889',
-        pet_id: 'pet-016',
-        vaccine_type_id: '5gc07g86-7939-6784-d5he-4e185h88chc8',
-        scheduled_date: '2025-11-10T10:30:00Z',
-        notes: 'Vaccine 7 bệnh cho chó Duke',
-        status: 'scheduled',
-        createdAt: '2024-10-09T10:00:00Z'
+        id: '1e1526-1111-1111-1111-111111111883',
+        pet_id: 'cc33dd44-ee55-ff66-7788-99001122aabb', // Max
+        vaccine_type_id: '5gc07g86-7939-6784-d5he-4e185h88chc8', // DHPPi+L
+        scheduled_date: '2025-10-20T09:30:00Z',
+        status: 'COMPLETED',
+        completed_date: '2025-10-20T10:15:00Z',
+        notes: 'Tiêm vắc-xin 8 bệnh cho Max. Đã tiêm xong, sức khỏe tốt.',
+        record_id: 'vr-013',
+        record: null,
+        createdAt: '2025-10-10T10:00:00Z'
     },
     {
-        id: '9s9304-9999-9999-9999-999999999990',
-        pet_id: 'pet-022',
-        vaccine_type_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
-        scheduled_date: '2025-11-12T11:00:00Z',
-        notes: 'Vaccine Dại cho chó Bailey',
-        status: 'scheduled',
-        createdAt: '2024-10-09T10:00:00Z'
+        id: '2f2637-2222-2222-2222-222222222884',
+        pet_id: 'dd44ee55-ff66-7788-9900-1122aabbccdd', // Charlie
+        vaccine_type_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6', // Dại
+        scheduled_date: '2025-10-18T11:00:00Z',
+        status: 'COMPLETED',
+        completed_date: '2025-10-18T11:45:00Z',
+        notes: 'Tiêm vắc-xin dại cho Charlie. Hoàn thành, không có biểu hiện bất thường.',
+        record_id: 'vr-014',
+        record: null,
+        createdAt: '2025-10-08T10:00:00Z'
     },
     {
-        id: '0t0415-0000-0000-0000-000000000001',
-        pet_id: 'pet-035',
-        vaccine_type_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7',
-        scheduled_date: '2025-11-14T15:45:00Z',
-        notes: 'Vaccine Dại cho mèo Oreo',
-        status: 'scheduled',
-        createdAt: '2024-10-09T10:00:00Z'
-    },
-    // Tháng 11/2025 - Tuần 3
-    {
-        id: '1u1526-1111-1111-1111-111111111113',
-        pet_id: 'pet-007',
-        vaccine_type_id: '9kg41k20-1373-0128-h9li-8i529l22gki2',
-        scheduled_date: '2025-11-17T08:30:00Z',
-        notes: 'Vaccine Ho cũi chó cho Daisy',
-        status: 'scheduled',
-        createdAt: '2024-10-09T10:00:00Z'
+        id: '3g3748-3333-3333-3333-333333333885',
+        pet_id: 'aa11bb22-cc33-dd44-ee55-ff6677889900', // Luna
+        vaccine_type_id: '6hd18h97-8040-7895-e6if-5f296i99dif9', // FVRCP
+        scheduled_date: '2025-10-22T08:30:00Z',
+        status: 'COMPLETED',
+        completed_date: '2025-10-22T09:00:00Z',
+        notes: 'Tiêm vắc-xin 4 bệnh cho Luna. Tiêm phòng thành công, phản ứng tốt.',
+        record_id: 'vr-015',
+        record: null,
+        createdAt: '2025-10-12T10:00:00Z'
     },
     {
-        id: '2v2637-2222-2222-2222-222222222224',
-        pet_id: 'pet-029',
-        vaccine_type_id: '6hd18h97-8040-7895-e6if-5f296i99dif9',
-        scheduled_date: '2025-11-19T13:00:00Z',
-        notes: 'Vaccine 4 bệnh cho mèo Tiger',
-        status: 'scheduled',
-        createdAt: '2024-10-09T10:00:00Z'
-    },
-    {
-        id: '3w3748-3333-3333-3333-333333333335',
-        pet_id: 'pet-011',
-        vaccine_type_id: '5gc07g86-7939-6784-d5he-4e185h88chc8',
-        scheduled_date: '2025-11-21T10:15:00Z',
-        notes: 'Vaccine 7 bệnh cho chó Sadie',
-        status: 'scheduled',
-        createdAt: '2024-10-09T10:00:00Z'
-    },
-    {
-        id: '4x4859-4444-4444-4444-444444444446',
-        pet_id: 'pet-040',
-        vaccine_type_id: '8jf30j19-0262-9017-g8kh-7h418k11fkh1',
-        scheduled_date: '2025-11-23T14:30:00Z',
-        notes: 'Vaccine Bạch hầu mèo (FeLV) cho Shadow',
-        status: 'scheduled',
-        createdAt: '2024-10-09T10:00:00Z'
-    },
-    // Tháng 11/2025 - Tuần 4
-    {
-        id: '5y5960-5555-5555-5555-555555555557',
-        pet_id: 'pet-018',
-        vaccine_type_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
-        scheduled_date: '2025-11-25T09:00:00Z',
-        notes: 'Vaccine Dại cho chó Molly',
-        status: 'scheduled',
-        createdAt: '2024-10-09T10:00:00Z'
-    },
-    {
-        id: '6z6071-6666-6666-6666-666666666668',
-        pet_id: 'pet-033',
-        vaccine_type_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7',
-        scheduled_date: '2025-11-27T11:30:00Z',
-        notes: 'Vaccine Dại cho mèo Mittens',
-        status: 'scheduled',
-        createdAt: '2024-10-09T10:00:00Z'
-    },
-    {
-        id: '7a7182-7777-7777-7777-777777777779',
-        pet_id: 'pet-014',
-        vaccine_type_id: '5gc07g86-7939-6784-d5he-4e185h88chc8',
-        scheduled_date: '2025-11-28T15:00:00Z',
-        notes: 'Vaccine 7 bệnh cho chó Tucker',
-        status: 'scheduled',
-        createdAt: '2024-10-09T10:00:00Z'
-    },
-    {
-        id: '8b8293-8888-8888-8888-888888888880',
-        pet_id: 'pet-025',
-        vaccine_type_id: '6hd18h97-8040-7895-e6if-5f296i99dif9',
-        scheduled_date: '2025-11-30T10:45:00Z',
-        notes: 'Vaccine 4 bệnh cho mèo Jasper',
-        status: 'scheduled',
-        createdAt: '2024-10-09T10:00:00Z'
+        id: '4h4859-4444-4444-4444-444444444886',
+        pet_id: 'bb22cc33-dd44-ee55-ff66-778899001122', // Oliver
+        vaccine_type_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7', // Dại cho mèo
+        scheduled_date: '2025-10-15T13:00:00Z',
+        status: 'COMPLETED',
+        completed_date: '2025-10-15T13:30:00Z',
+        notes: 'Tiêm phòng dại cho Oliver. Hoàn thành tốt.',
+        record_id: 'vr-016',
+        record: null,
+        createdAt: '2025-10-05T10:00:00Z'
     }
 ];
 
@@ -384,77 +465,77 @@ let MOCK_VACCINATION_SCHEDULES = [
 let MOCK_VACCINATION_RECORDS = [
     {
         id: 'vr-001',
-        pet_id: 'pet-001',
+        pet_id: 'dd44ee55-ff66-7788-9900-1122aabbccdd', // Charlie (Labrador)
         vaccine_type_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
         vaccination_date: '2024-01-15T10:21:43.7742Z',
         next_due_date: '2025-01-15T10:21:43.7742Z', // Quá hạn ~9 tháng (Overdue)
         veterinarian: 'Dr. Nguyễn Văn A',
         clinic_name: 'Phòng khám thú y Sài Gòn',
         batch_number: 'RB2024-001-VN',
-        notes: 'Tiêm phòng bệnh dại định kỳ, sức khỏe tốt',
+        notes: 'Tiêm phòng bệnh dại định kỳ cho Charlie, sức khỏe tốt',
         schedule_id: '1a1b1c1d-1111-1111-1111-111111111111',
         status: 'completed',
         createdAt: '2024-01-15T10:21:43.7742Z'
     },
     {
         id: 'vr-002',
-        pet_id: 'pet-001',
+        pet_id: 'dd44ee55-ff66-7788-9900-1122aabbccdd', // Charlie (Labrador)
         vaccine_type_id: '5gc07g86-7939-6784-d5he-4e185h88chc8',
         vaccination_date: '2024-02-10T14:30:00Z',
         next_due_date: '2025-10-09T14:30:00Z', // Đến hạn hôm nay (Due Today)
         veterinarian: 'Dr. Trần Thị B',
         clinic_name: 'Bệnh viện thú y Hà Nội',
         batch_number: 'DH7-2024-055-VN',
-        notes: 'Vaccine 7 bệnh, không có phản ứng phụ',
+        notes: 'Vaccine 7 bệnh cho Charlie, không có phản ứng phụ',
         schedule_id: null,
         status: 'completed',
         createdAt: '2024-02-10T14:30:00Z'
     },
     {
         id: 'vr-003',
-        pet_id: 'pet-002',
+        pet_id: 'bb22cc33-dd44-ee55-ff66-778899001122', // Oliver (Scottish Fold)
         vaccine_type_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7',
         vaccination_date: '2024-03-10T09:15:00Z',
         next_due_date: '2025-10-12T09:15:00Z', // Còn 3 ngày (Due in 1-7 days)
         veterinarian: 'Dr. Lê Văn C',
         clinic_name: 'Phòng khám Pet Care',
         batch_number: 'RB-CAT-2024-012',
-        notes: 'Tiêm vaccine dại cho mèo, phản ứng tốt',
+        notes: 'Tiêm vaccine dại cho mèo Oliver, phản ứng tốt',
         schedule_id: '2b2c2d2e-2222-2222-2222-222222222222',
         status: 'completed',
         createdAt: '2024-03-10T09:15:00Z'
     },
     {
         id: 'vr-004',
-        pet_id: 'pet-002',
+        pet_id: 'bb22cc33-dd44-ee55-ff66-778899001122', // Oliver (Scottish Fold)
         vaccine_type_id: '6hd18h97-8040-7895-e6if-5f296i99dif9',
         vaccination_date: '2024-04-20T11:00:00Z',
         next_due_date: '2025-10-15T11:00:00Z', // Còn 6 ngày (Due in 1-7 days)
         veterinarian: 'Dr. Lê Văn C',
         clinic_name: 'Phòng khám Pet Care',
         batch_number: 'FVRCP-2024-088',
-        notes: 'Vaccine 4 bệnh cho mèo, sức khỏe tốt',
+        notes: 'Vaccine 4 bệnh cho mèo Oliver, sức khỏe tốt',
         schedule_id: null,
         status: 'completed',
         createdAt: '2024-04-20T11:00:00Z'
     },
     {
         id: 'vr-005',
-        pet_id: 'pet-003',
+        pet_id: 'cc33dd44-ee55-ff66-7788-99001122aabb', // Max (Golden Retriever)
         vaccine_type_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
         vaccination_date: '2024-02-20T13:45:00Z',
         next_due_date: '2025-10-20T13:45:00Z', // Còn 11 ngày (Due in 8-30 days)
         veterinarian: 'Dr. Phạm Thị D',
         clinic_name: 'Bệnh viện thú y quốc tế',
         batch_number: 'RB2024-045-INT',
-        notes: 'Vaccine dại cho chó Husky Max',
+        notes: 'Vaccine dại cho chó Golden Retriever Max',
         schedule_id: '3c3d3e3f-3333-3333-3333-333333333333',
         status: 'completed',
         createdAt: '2024-02-20T13:45:00Z'
     },
     {
         id: 'vr-006',
-        pet_id: 'pet-013',
+        pet_id: '72ab5c8f-cec6-42ce-87c7-6f6a55850c6a', // Bella (Poodle Toy)
         vaccine_type_id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
         vaccination_date: '2024-05-10T10:00:00Z',
         next_due_date: '2025-11-05T10:00:00Z', // Còn 27 ngày (Due in 8-30 days)
@@ -468,21 +549,21 @@ let MOCK_VACCINATION_RECORDS = [
     },
     {
         id: 'vr-007',
-        pet_id: 'pet-034',
+        pet_id: '1bd898d4-dd4a-4101-8e35-7b3fc40159e3', // Milo (Scottish Fold)
         vaccine_type_id: '4fb96f75-6828-5673-c4gd-3d074g77bgb7',
         vaccination_date: '2024-10-01T14:00:00Z',
         next_due_date: '2025-11-15T14:00:00Z', // Còn 37 ngày (Due in 31-90 days)
         veterinarian: 'Dr. Hà Văn L',
         clinic_name: 'Phòng khám Kitty Care',
         batch_number: 'RB-CAT-2024-155',
-        notes: 'Vaccine dại cho mèo Kitty',
+        notes: 'Vaccine dại cho mèo Milo',
         schedule_id: '5e5f5051-5555-5555-5555-555555555555',
         status: 'completed',
         createdAt: '2024-10-01T14:00:00Z'
     },
     {
         id: 'vr-008',
-        pet_id: 'pet-015',
+        pet_id: 'aa11bb22-cc33-dd44-ee55-ff6677889900', // Luna (Scottish Fold)
         vaccine_type_id: '5gc07g86-7939-6784-d5he-4e185h88chc8',
         vaccination_date: '2024-08-15T09:30:00Z',
         next_due_date: '2025-12-10T09:30:00Z', // Còn 62 ngày (Due in 31-90 days)
@@ -496,7 +577,7 @@ let MOCK_VACCINATION_RECORDS = [
     },
     {
         id: 'vr-009',
-        pet_id: 'pet-036',
+        pet_id: '33cc44dd-55ee-66ff-7788-990011223344', // Princess (Pomeranian)
         vaccine_type_id: '6hd18h97-8040-7895-e6if-5f296i99dif9',
         vaccination_date: '2024-09-05T11:15:00Z',
         next_due_date: '2026-01-15T11:15:00Z', // Còn 98 ngày (Còn thời gian > 90 days)
@@ -510,14 +591,14 @@ let MOCK_VACCINATION_RECORDS = [
     },
     {
         id: 'vr-010',
-        pet_id: 'pet-021',
+        pet_id: '77889900-1122-3344-5566-778899aabbcc', // Buddy (Golden Retriever)
         vaccine_type_id: '9kg41k20-1373-0128-h9li-8i529l22gki2',
         vaccination_date: '2024-07-20T15:00:00Z',
         next_due_date: '2025-10-06T15:00:00Z', // Quá hạn 3 ngày (Overdue)
         veterinarian: 'Dr. Đặng Văn H',
         clinic_name: 'Bệnh viện thú y Rex Care',
         batch_number: 'KC-2024-095',
-        notes: 'Vaccine ho cũi chó cho Rex',
+        notes: 'Vaccine ho cũi chó cho Buddy',
         schedule_id: null,
         status: 'completed',
         createdAt: '2024-07-20T15:00:00Z'
@@ -537,7 +618,7 @@ const vaccinationApi = {
     // ==================== VACCINE TYPES APIs ====================
 
     // Get all vaccine types
-    async getVaccineTypes(speciesId = null) {
+    async getVaccineTypes(speciesId = null, page_index = 0, page_size = 10) {
         await delay(200);
 
         let vaccineTypes = [...MOCK_VACCINE_TYPES];
@@ -546,10 +627,34 @@ const vaccinationApi = {
             vaccineTypes = vaccineTypes.filter(vt => vt.species_id === speciesId);
         }
 
-        return { success: true, data: vaccineTypes };
+        // Populate species object
+        vaccineTypes = vaccineTypes.map(vt => ({
+            ...vt,
+            species: getSpeciesById(vt.species_id)
+        }));
+
+        // Pagination
+        const total_items_count = vaccineTypes.length;
+        const total_pages_count = Math.ceil(total_items_count / page_size);
+        const start_index = page_index * page_size;
+        const end_index = start_index + page_size;
+        const paginatedVaccineTypes = vaccineTypes.slice(start_index, end_index);
+
+        return {
+            success: true,
+            data: paginatedVaccineTypes,
+            pagination: {
+                total_items_count,
+                page_size,
+                total_pages_count,
+                page_index,
+                has_next: page_index < total_pages_count - 1,
+                has_previous: page_index > 0
+            }
+        };
     },
 
-    // Create vaccine type
+    // Create vaccine type - Match official API
     async createVaccineType(vaccineData) {
         await delay(400);
         const currentUser = getCurrentUser();
@@ -577,9 +682,16 @@ const vaccinationApi = {
             description: vaccineData.description || '',
             species_id: vaccineData.species_id,
             interval_months: parseInt(vaccineData.interval_months),
-            required_doses: parseInt(vaccineData.required_doses) || 0,
+            required_doses: 0, // Auto-set by system
             is_required: vaccineData.is_required || false,
-            createdAt: new Date().toISOString()
+            species: null,
+            vaccination_records: [],
+            vaccination_schedules: [],
+            created_at: new Date().toISOString(),
+            created_by: currentUser.id,
+            updated_at: new Date().toISOString(),
+            updated_by: null,
+            is_deleted: false
         };
 
         MOCK_VACCINE_TYPES.push(newVaccineType);
@@ -587,7 +699,7 @@ const vaccinationApi = {
         return { success: true, data: newVaccineType, message: 'Thêm loại vaccine thành công' };
     },
 
-    // Update vaccine type
+    // Update vaccine type - Match official API
     async updateVaccineType(vaccineTypeId, updates) {
         await delay(400);
         const currentUser = getCurrentUser();
@@ -611,13 +723,13 @@ const vaccinationApi = {
             throw new Error('Khoảng thời gian tiêm lại không hợp lệ');
         }
 
-        // Apply updates
-        const allowedFields = ['name', 'description', 'species_id', 'interval_months', 'required_doses', 'is_required'];
+        // Apply updates - Match official API structure (no required_doses in edit)
+        const allowedFields = ['name', 'description', 'species_id', 'interval_months', 'is_required'];
         allowedFields.forEach(field => {
             if (updates[field] !== undefined) {
                 if (field === 'name' || field === 'description') {
                     MOCK_VACCINE_TYPES[vaccineTypeIndex][field] = updates[field]?.trim ? updates[field].trim() : updates[field];
-                } else if (field === 'interval_months' || field === 'required_doses') {
+                } else if (field === 'interval_months') {
                     MOCK_VACCINE_TYPES[vaccineTypeIndex][field] = parseInt(updates[field]);
                 } else {
                     MOCK_VACCINE_TYPES[vaccineTypeIndex][field] = updates[field];
@@ -625,7 +737,8 @@ const vaccinationApi = {
             }
         });
 
-        MOCK_VACCINE_TYPES[vaccineTypeIndex].updatedAt = new Date().toISOString();
+        MOCK_VACCINE_TYPES[vaccineTypeIndex].updated_at = new Date().toISOString();
+        MOCK_VACCINE_TYPES[vaccineTypeIndex].updated_by = currentUser.id;
 
         return {
             success: true,
@@ -670,7 +783,7 @@ const vaccinationApi = {
     // ==================== VACCINATION SCHEDULES APIs ====================
 
     // Get vaccination schedules
-    async getVaccinationSchedules(petId = null, petsData = []) {
+    async getVaccinationSchedules(petId = null, petsData = [], page_index = 0, page_size = 10) {
         await delay(300);
         const currentUser = getCurrentUser();
 
@@ -684,21 +797,44 @@ const vaccinationApi = {
             schedules = schedules.filter(s => s.pet_id === petId);
         }
 
-        // Populate vaccine type information
+        // Populate full vaccine type, pet, and record information
         schedules = schedules.map(schedule => {
             const vaccineType = MOCK_VACCINE_TYPES.find(vt => vt.id === schedule.vaccine_type_id);
             const pet = petsData.find(p => p.id === schedule.pet_id);
+            const record = schedule.record_id
+                ? MOCK_VACCINATION_RECORDS.find(r => r.id === schedule.record_id)
+                : null;
+
             return {
                 ...schedule,
-                vaccine_type: vaccineType,
-                pet: pet ? { id: pet.id, name: pet.name, species: pet.species } : null
+                vaccine_type: vaccineType || null,
+                pet: pet || null,
+                record: record || null
             };
         });
 
         // Sort by scheduled date (nearest first)
         schedules.sort((a, b) => new Date(a.scheduled_date) - new Date(b.scheduled_date));
 
-        return { success: true, data: schedules };
+        // Pagination
+        const total_items_count = schedules.length;
+        const total_pages_count = Math.ceil(total_items_count / page_size);
+        const start_index = page_index * page_size;
+        const end_index = start_index + page_size;
+        const paginatedSchedules = schedules.slice(start_index, end_index);
+
+        return {
+            success: true,
+            data: paginatedSchedules,
+            pagination: {
+                total_items_count,
+                page_size,
+                total_pages_count,
+                page_index,
+                has_next: page_index < total_pages_count - 1,
+                has_previous: page_index > 0
+            }
+        };
     },
 
     // Create vaccination schedule
@@ -740,8 +876,11 @@ const vaccinationApi = {
             pet_id: scheduleData.pet_id,
             vaccine_type_id: scheduleData.vaccine_type_id,
             scheduled_date: scheduleData.scheduled_date,
+            status: 'PENDING',
+            completed_date: null,
             notes: scheduleData.notes || '',
-            status: 'scheduled',
+            record_id: null,
+            record: null,
             createdAt: new Date().toISOString()
         };
 
@@ -765,8 +904,21 @@ const vaccinationApi = {
             throw new Error('Không tìm thấy lịch tiêm phòng');
         }
 
-        // Apply updates
-        const allowedFields = ['scheduled_date', 'notes', 'status'];
+        // Validate pet_id if provided
+        if (updates.pet_id) {
+            // Pet validation would be done here in real API
+        }
+
+        // Validate vaccine_type_id if provided
+        if (updates.vaccine_type_id) {
+            const vaccineType = MOCK_VACCINE_TYPES.find(vt => vt.id === updates.vaccine_type_id);
+            if (!vaccineType) {
+                throw new Error('Không tìm thấy loại vaccine');
+            }
+        }
+
+        // Apply updates - match official API structure
+        const allowedFields = ['pet_id', 'vaccine_type_id', 'scheduled_date', 'notes', 'status'];
         allowedFields.forEach(field => {
             if (updates[field] !== undefined) {
                 MOCK_VACCINATION_SCHEDULES[scheduleIndex][field] = updates[field];
@@ -835,7 +987,12 @@ const vaccinationApi = {
             return {
                 ...record,
                 vaccine_type: vaccineType,
-                pet: pet ? { id: pet.id, name: pet.name, species: pet.species } : null,
+                pet: pet ? {
+                    id: pet.id,
+                    name: pet.name,
+                    species: pet.species,
+                    avatar: pet.image_url || pet.avatar || pet.avatar_url || null
+                } : null,
                 schedule: schedule
             };
         });
@@ -914,7 +1071,7 @@ const vaccinationApi = {
             batch_number: recordData.batch_number || '',
             notes: recordData.notes || '',
             schedule_id: recordData.schedule_id || null,
-            status: 'completed',
+            status: 'COMPLETED',
             createdAt: new Date().toISOString()
         };
 
@@ -926,7 +1083,9 @@ const vaccinationApi = {
                 s => s.id === recordData.schedule_id
             );
             if (scheduleIndex !== -1) {
-                MOCK_VACCINATION_SCHEDULES[scheduleIndex].status = 'completed';
+                MOCK_VACCINATION_SCHEDULES[scheduleIndex].status = 'COMPLETED';
+                MOCK_VACCINATION_SCHEDULES[scheduleIndex].completed_date = recordData.vaccination_date;
+                MOCK_VACCINATION_SCHEDULES[scheduleIndex].record_id = newRecord.id;
             }
         }
 
@@ -1013,7 +1172,7 @@ const vaccinationApi = {
             const scheduleDate = new Date(schedule.scheduled_date);
             return scheduleDate >= today &&
                 scheduleDate <= futureDate &&
-                schedule.status === 'scheduled';
+                schedule.status === 'PENDING';
         });
 
         // Populate with vaccine type and pet information
@@ -1023,7 +1182,12 @@ const vaccinationApi = {
             return {
                 ...schedule,
                 vaccine_type: vaccineType,
-                pet: pet ? { id: pet.id, name: pet.name, species: pet.species, avatar: pet.avatar } : null
+                pet: pet ? {
+                    id: pet.id,
+                    name: pet.name,
+                    species: pet.species,
+                    avatar: pet.image_url || pet.avatar || pet.avatar_url || null
+                } : null
             };
         });
 
@@ -1099,7 +1263,7 @@ const vaccinationApi = {
             total_schedules: MOCK_VACCINATION_SCHEDULES.length,
             upcoming_schedules: MOCK_VACCINATION_SCHEDULES.filter(s => {
                 const scheduleDate = new Date(s.scheduled_date);
-                return scheduleDate >= today && s.status === 'scheduled';
+                return scheduleDate >= today && s.status === 'PENDING';
             }).length,
             total_records: MOCK_VACCINATION_RECORDS.length,
             recent_vaccinations: MOCK_VACCINATION_RECORDS.filter(r => {

@@ -87,7 +87,13 @@ const DailyTaskDetailsModal = ({ open, onClose, dailyTask }) => {
     };
 
     const statusInfo = getStatusDisplay(dailyTask.status);
-    const priorityInfo = getPriorityDisplay(dailyTask.priority);
+
+    // Get data from task template, fallback to daily task
+    const taskPriority = dailyTask.task?.priority || dailyTask.priority;
+    const priorityInfo = getPriorityDisplay(taskPriority);
+
+    const taskTitle = dailyTask.task?.title || dailyTask.task?.name || dailyTask.title;
+    const taskDescription = dailyTask.task?.description || dailyTask.description;
 
     return (
         <Dialog
@@ -138,7 +144,7 @@ const DailyTaskDetailsModal = ({ open, onClose, dailyTask }) => {
                     {/* Title & Status */}
                     <Box>
                         <Typography variant="h6" fontWeight={600} gutterBottom>
-                            {dailyTask.title}
+                            {taskTitle}
                         </Typography>
                         <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mt: 1 }}>
                             <Chip
@@ -202,7 +208,7 @@ const DailyTaskDetailsModal = ({ open, onClose, dailyTask }) => {
                                 <Box sx={{ flex: 1 }}>
                                     <Typography variant="caption" color="text.secondary">Thời gian</Typography>
                                     <Typography variant="body2" fontWeight={500}>
-                                        {dailyTask.start_time?.substring(0, 5)} - {dailyTask.end_time?.substring(0, 5)}
+                                        {(dailyTask.slot?.start_time || dailyTask.start_time)?.substring(0, 5)} - {(dailyTask.slot?.end_time || dailyTask.end_time)?.substring(0, 5)}
                                     </Typography>
                                 </Box>
                             </Stack>

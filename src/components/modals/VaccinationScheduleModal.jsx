@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
     Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Stack, IconButton,
-    FormControl, InputLabel, Select, MenuItem, Typography, alpha, RadioGroup, FormControlLabel, Radio, Chip, Box
+    FormControl, InputLabel, Select, MenuItem, Typography, alpha, Box
 } from '@mui/material';
 import { CalendarToday, Close } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
@@ -18,12 +18,11 @@ const VaccinationScheduleModal = ({
     isLoading = false
 }) => {
     const [formData, setFormData] = useState({
-        target_type: 'pet', // 'pet' or 'group'
         pet_id: '',
-        group_id: '',
         vaccine_type_id: '',
         scheduled_date: '',
-        notes: ''
+        notes: '',
+        status: 'PENDING' // PENDING or COMPLETED
     });
 
     const [errors, setErrors] = useState({});
@@ -32,21 +31,19 @@ const VaccinationScheduleModal = ({
         if (isOpen) {
             if (editMode && initialData) {
                 setFormData({
-                    target_type: initialData.group_id ? 'group' : 'pet',
                     pet_id: initialData.pet_id || '',
-                    group_id: initialData.group_id || '',
                     vaccine_type_id: initialData.vaccine_type_id || '',
                     scheduled_date: initialData.scheduled_date ? new Date(initialData.scheduled_date).toISOString().split('T')[0] : '',
-                    notes: initialData.notes || ''
+                    notes: initialData.notes || '',
+                    status: initialData.status || 'PENDING'
                 });
             } else {
                 setFormData({
-                    target_type: 'pet',
                     pet_id: '',
-                    group_id: '',
                     vaccine_type_id: '',
                     scheduled_date: '',
-                    notes: ''
+                    notes: '',
+                    status: 'PENDING'
                 });
             }
             setErrors({});
@@ -56,12 +53,8 @@ const VaccinationScheduleModal = ({
     const validate = () => {
         const newErrors = {};
 
-        if (formData.target_type === 'pet' && !formData.pet_id) {
+        if (!formData.pet_id) {
             newErrors.pet_id = 'Vui lòng chọn thú cưng';
-        }
-
-        if (formData.target_type === 'group' && !formData.group_id) {
-            newErrors.group_id = 'Vui lòng chọn nhóm thú cưng';
         }
 
         if (!formData.vaccine_type_id) {
@@ -89,7 +82,8 @@ const VaccinationScheduleModal = ({
             group_id: '',
             vaccine_type_id: '',
             scheduled_date: '',
-            notes: ''
+            notes: '',
+            status: 'PENDING'
         });
         setErrors({});
         onClose();
@@ -101,22 +95,10 @@ const VaccinationScheduleModal = ({
         return pet ? pet.name : '';
     };
 
-    // Get group name
-    const getGroupName = (groupId) => {
-        const group = groups.find(g => g.id === groupId);
-        return group ? group.name : '';
-    };
-
     // Get vaccine type name
     const getVaccineTypeName = (vaccineTypeId) => {
         const vaccineType = vaccineTypes.find(vt => vt.id === vaccineTypeId);
         return vaccineType ? vaccineType.name : '';
-    };
-
-    // Get group pet count
-    const getGroupPetCount = (groupId) => {
-        const group = groups.find(g => g.id === groupId);
-        return group ? group.current_count : 0;
     };
 
     return (
@@ -134,7 +116,7 @@ const VaccinationScheduleModal = ({
         >
             <DialogTitle
                 sx={{
-                    background: `linear-gradient(135deg, ${COLORS.WARNING[500]} 0%, ${COLORS.WARNING[700]} 100%)`,
+                    background: COLORS.WARNING[500],
                     color: '#fff',
                     fontWeight: 800,
                     py: 2.5
@@ -160,100 +142,31 @@ const VaccinationScheduleModal = ({
             </DialogTitle>
             <DialogContent sx={{ p: 3, mt: 2 }}>
                 <Stack spacing={3}>
-                    {/* Target Type Selection */}
-                    {!editMode && (
-                        <FormControl>
-                            <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700, color: COLORS.TEXT.PRIMARY }}>
-                                Đối tượng tiêm
-                            </Typography>
-                            <RadioGroup
-                                value={formData.target_type}
-                                onChange={(e) => {
-                                    setFormData({
-                                        ...formData,
-                                        target_type: e.target.value,
-                                        pet_id: '',
-                                        group_id: ''
-                                    });
-                                    setErrors({});
-                                }}
-                                row
-                            >
-                                <FormControlLabel
-                                    value="pet"
-                                    control={<Radio />}
-                                    label="Thú cưng đơn lẻ"
-                                />
-                                <FormControlLabel
-                                    value="group"
-                                    control={<Radio />}
-                                    label="Nhóm thú cưng"
-                                />
-                            </RadioGroup>
-                        </FormControl>
-                    )}
-
                     {/* Pet Selection */}
-                    {formData.target_type === 'pet' && (
-                        <FormControl fullWidth required error={Boolean(errors.pet_id)}>
-                            <InputLabel>Chọn thú cưng</InputLabel>
-                            <Select
-                                value={formData.pet_id}
-                                onChange={(e) => setFormData({ ...formData, pet_id: e.target.value })}
-                                label="Chọn thú cưng"
-                            >
-                                {pets.map(pet => (
-                                    <MenuItem key={pet.id} value={pet.id}>
-                                        <Stack direction="row" alignItems="center" spacing={1}>
-                                            <Typography>{pet.name}</Typography>
-                                            <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY }}>
-                                                ({pet.species_id === '3fa85f64-5717-4562-b3fc-2c963f66afa6' ? 'Chó' : 'Mèo'})
-                                            </Typography>
-                                        </Stack>
-                                    </MenuItem>
-                                ))}
-                            </Select>
-                            {errors.pet_id && (
-                                <Typography variant="caption" sx={{ color: COLORS.ERROR[600], mt: 0.5, ml: 1.5 }}>
-                                    {errors.pet_id}
-                                </Typography>
-                            )}
-                        </FormControl>
-                    )}
-
-                    {/* Group Selection */}
-                    {formData.target_type === 'group' && (
-                        <FormControl fullWidth required error={Boolean(errors.group_id)}>
-                            <InputLabel>Chọn nhóm thú cưng</InputLabel>
-                            <Select
-                                value={formData.group_id}
-                                onChange={(e) => setFormData({ ...formData, group_id: e.target.value })}
-                                label="Chọn nhóm thú cưng"
-                            >
-                                {groups.map(group => (
-                                    <MenuItem key={group.id} value={group.id}>
-                                        <Stack direction="row" alignItems="center" spacing={1}>
-                                            <Typography>{group.name}</Typography>
-                                            <Chip
-                                                label={`${getGroupPetCount(group.id)} con`}
-                                                size="small"
-                                                sx={{
-                                                    height: 20,
-                                                    fontSize: '0.7rem',
-                                                    background: alpha(COLORS.INFO[100], 0.5)
-                                                }}
-                                            />
-                                        </Stack>
-                                    </MenuItem>
-                                ))}
-                            </Select>
-                            {errors.group_id && (
-                                <Typography variant="caption" sx={{ color: COLORS.ERROR[600], mt: 0.5, ml: 1.5 }}>
-                                    {errors.group_id}
-                                </Typography>
-                            )}
-                        </FormControl>
-                    )}
+                    <FormControl fullWidth required error={Boolean(errors.pet_id)}>
+                        <InputLabel>Chọn thú cưng</InputLabel>
+                        <Select
+                            value={formData.pet_id}
+                            onChange={(e) => setFormData({ ...formData, pet_id: e.target.value })}
+                            label="Chọn thú cưng"
+                        >
+                            {pets.map(pet => (
+                                <MenuItem key={pet.id} value={pet.id}>
+                                    <Stack direction="row" alignItems="center" spacing={1}>
+                                        <Typography>{pet.name}</Typography>
+                                        <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY }}>
+                                            ({pet.species_id === '3fa85f64-5717-4562-b3fc-2c963f66afa6' ? 'Chó' : 'Mèo'})
+                                        </Typography>
+                                    </Stack>
+                                </MenuItem>
+                            ))}
+                        </Select>
+                        {errors.pet_id && (
+                            <Typography variant="caption" sx={{ color: COLORS.ERROR[600], mt: 0.5, ml: 1.5 }}>
+                                {errors.pet_id}
+                            </Typography>
+                        )}
+                    </FormControl>
 
                     {/* Vaccine Type Selection */}
                     <FormControl fullWidth required error={Boolean(errors.vaccine_type_id)}>
@@ -298,6 +211,47 @@ const VaccinationScheduleModal = ({
                         helperText={errors.scheduled_date}
                     />
 
+                    {/* Status - Only in Edit Mode */}
+                    {editMode && (
+                        <FormControl fullWidth>
+                            <InputLabel>Trạng thái</InputLabel>
+                            <Select
+                                value={formData.status}
+                                onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                                label="Trạng thái"
+                            >
+                                <MenuItem value="PENDING">
+                                    <Stack direction="row" alignItems="center" spacing={1}>
+                                        <Chip
+                                            label="Đang chờ"
+                                            size="small"
+                                            sx={{
+                                                background: alpha(COLORS.WARNING[100], 0.7),
+                                                color: COLORS.WARNING[800],
+                                                fontWeight: 700
+                                            }}
+                                        />
+                                        <Typography variant="body2">Lịch tiêm chưa thực hiện</Typography>
+                                    </Stack>
+                                </MenuItem>
+                                <MenuItem value="COMPLETED">
+                                    <Stack direction="row" alignItems="center" spacing={1}>
+                                        <Chip
+                                            label="Đã hoàn thành"
+                                            size="small"
+                                            sx={{
+                                                background: alpha(COLORS.SUCCESS[100], 0.7),
+                                                color: COLORS.SUCCESS[800],
+                                                fontWeight: 700
+                                            }}
+                                        />
+                                        <Typography variant="body2">Đã tiêm xong</Typography>
+                                    </Stack>
+                                </MenuItem>
+                            </Select>
+                        </FormControl>
+                    )}
+
                     {/* Notes */}
                     <TextField
                         label="Ghi chú"
@@ -310,7 +264,7 @@ const VaccinationScheduleModal = ({
                     />
 
                     {/* Preview Info */}
-                    {(formData.pet_id || formData.group_id) && formData.vaccine_type_id && formData.scheduled_date && (
+                    {formData.pet_id && formData.vaccine_type_id && formData.scheduled_date && (
                         <Box
                             sx={{
                                 p: 2,
@@ -324,9 +278,7 @@ const VaccinationScheduleModal = ({
                             </Typography>
                             <Stack spacing={0.5}>
                                 <Typography variant="body2">
-                                    <strong>Đối tượng:</strong> {formData.target_type === 'pet'
-                                        ? getPetName(formData.pet_id)
-                                        : `${getGroupName(formData.group_id)} (${getGroupPetCount(formData.group_id)} con)`}
+                                    <strong>Đối tượng:</strong> {getPetName(formData.pet_id)}
                                 </Typography>
                                 <Typography variant="body2">
                                     <strong>Vaccine:</strong> {getVaccineTypeName(formData.vaccine_type_id)}
@@ -359,12 +311,12 @@ const VaccinationScheduleModal = ({
                     variant="contained"
                     disabled={isLoading}
                     sx={{
-                        background: `linear-gradient(135deg, ${COLORS.WARNING[500]} 0%, ${COLORS.WARNING[700]} 100%)`,
+                        bgcolor: COLORS.WARNING[500],
                         color: '#fff',
                         fontWeight: 700,
                         px: 3,
                         '&:hover': {
-                            background: `linear-gradient(135deg, ${COLORS.WARNING[600]} 0%, ${COLORS.WARNING[800]} 100%)`
+                            bgcolor: COLORS.WARNING[600]
                         }
                     }}
                 >

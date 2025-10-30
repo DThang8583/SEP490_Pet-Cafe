@@ -29,8 +29,7 @@ import {
     MoreVert as MoreVertIcon,
     WorkOutline,
     CheckCircle,
-    Cancel,
-    Refresh as RefreshIcon
+    Cancel
 } from '@mui/icons-material';
 import { COLORS } from '../../../constants/colors';
 import WorkTypeFormModal from '../../../components/modals/WorkTypeFormModal';
@@ -216,10 +215,6 @@ const WorkTypeTab = ({ onAlert }) => {
                     />
 
                     <Box sx={{ flexGrow: 1 }} />
-
-                    <IconButton onClick={loadWorkTypes} size="small">
-                        <RefreshIcon />
-                    </IconButton>
 
                     <Button
                         variant="contained"
