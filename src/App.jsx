@@ -11,6 +11,7 @@ import AreasPage from "./pages/areas/AreasPage";
 import ProfilePage from "./pages/profile/ProfilePage";
 import BookingPage from "./pages/booking/BookingPage";
 import managerRoutes from "./routes/managerRoutes";
+import salesRoutes from "./routes/salesRoutes";
 
 function App() {
   return (
@@ -31,6 +32,7 @@ function App() {
           <Route path="/areas" element={<AreasPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           {managerRoutes}
+          {salesRoutes}
         </Route>
       </Routes>
     </div>
