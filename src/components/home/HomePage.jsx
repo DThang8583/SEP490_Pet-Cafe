@@ -19,7 +19,15 @@ const HomePage = () => {
                 setUserRole(role);
                 
                 // Redirect non-customer users to appropriate dashboard
-                if (role === 'manager' || role === 'sales_staff' || role === 'working_staff') {
+                if (role === 'manager') {
+                    navigate('/manager/dashboard', { replace: true });
+                    return;
+                }
+                if (role === 'sales_staff') {
+                    navigate('/sales/dashboard', { replace: true });
+                    return;
+                }
+                if (role === 'working_staff') {
                     navigate('/manager/dashboard', { replace: true });
                     return;
                 }

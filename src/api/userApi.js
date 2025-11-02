@@ -1109,36 +1109,26 @@ const MOCK_DATABASE = {
     ],
 
     products: [
-        {
-            id: 'product-001',
-            name: 'Thức ăn cho chó Royal Canin',
-            category: 'food',
-            price: 450000,
-            stock: 50,
-            description: 'Thức ăn khô cao cấp cho chó 5kg',
-            image: '',
-            status: 'active'
-        },
-        {
-            id: 'product-002',
-            name: 'Thức ăn cho mèo Whiskas',
-            category: 'food',
-            price: 280000,
-            stock: 30,
-            description: 'Thức ăn khô cho mèo 3kg',
-            image: '',
-            status: 'active'
-        },
-        {
-            id: 'product-003',
-            name: 'Đồ chơi bóng cao su',
-            category: 'toy',
-            price: 85000,
-            stock: 100,
-            description: 'Bóng cao su an toàn cho thú cưng',
-            image: '',
-            status: 'active'
-        }
+        { id: 'product-001', name: 'Thức ăn cho chó Royal Canin', category: 'food', price: 450000, stock: 50, description: 'Thức ăn khô cao cấp cho chó 5kg', image: '', status: 'active' },
+        { id: 'product-002', name: 'Thức ăn cho mèo Whiskas', category: 'food', price: 280000, stock: 30, description: 'Thức ăn khô cho mèo 3kg', image: '', status: 'active' },
+        { id: 'product-003', name: 'Pate cho mèo gà cá ngừ', category: 'food', price: 39000, stock: 120, description: 'Pate lon 170g hương gà cá ngừ', image: '', status: 'active' },
+        { id: 'product-004', name: 'Bánh thưởng cho chó vị bò', category: 'food', price: 65000, stock: 140, description: 'Snack thưởng huấn luyện vị bò', image: '', status: 'active' },
+        { id: 'product-005', name: 'Hạt mềm cho mèo Kitten', category: 'food', price: 220000, stock: 80, description: 'Thức ăn hạt mềm cho mèo con 2kg', image: '', status: 'active' },
+        { id: 'product-006', name: 'Cà phê sữa đá', category: 'drink', price: 45000, stock: 200, description: 'Đồ uống cho khách tại quán', image: '', status: 'active' },
+        { id: 'product-007', name: 'Trà đào cam sả', category: 'drink', price: 49000, stock: 180, description: 'Đồ uống giải khát', image: '', status: 'active' },
+        { id: 'product-008', name: 'Trà sữa trân châu', category: 'drink', price: 52000, stock: 160, description: 'Trà sữa thơm béo kèm trân châu', image: '', status: 'active' },
+        { id: 'product-009', name: 'Nước cam ép', category: 'drink', price: 42000, stock: 150, description: 'Nước cam tươi 100%', image: '', status: 'active' },
+        { id: 'product-010', name: 'Soda chanh bạc hà', category: 'drink', price: 45000, stock: 140, description: 'Soda mát lạnh vị chanh bạc hà', image: '', status: 'active' },
+        { id: 'product-011', name: 'Thức ăn ướt cho chó vị gà', category: 'food', price: 42000, stock: 110, description: 'Túi 100g thức ăn ướt vị gà', image: '', status: 'active' },
+        { id: 'product-012', name: 'Thức ăn hạt cho chó nhỏ 2kg', category: 'food', price: 260000, stock: 70, description: 'Hạt khô cho chó nhỏ 2kg', image: '', status: 'active' },
+        { id: 'product-013', name: 'Hạt cho mèo trưởng thành 3kg', category: 'food', price: 320000, stock: 60, description: 'Hạt khô mèo lớn 3kg', image: '', status: 'active' },
+        { id: 'product-014', name: 'Pate cho chó vị bò rau củ', category: 'food', price: 45000, stock: 130, description: 'Pate lon 185g bò rau củ', image: '', status: 'active' },
+        { id: 'product-015', name: 'Snack cá khô cho mèo', category: 'food', price: 55000, stock: 100, description: 'Snack cá khô giàu đạm', image: '', status: 'active' },
+        { id: 'product-016', name: 'Latte nóng', category: 'drink', price: 49000, stock: 120, description: 'Cà phê Latte nóng', image: '', status: 'active' },
+        { id: 'product-017', name: 'Americano đá', category: 'drink', price: 39000, stock: 120, description: 'Americano đậm vị', image: '', status: 'active' },
+        { id: 'product-018', name: 'Trà chanh mật ong', category: 'drink', price: 39000, stock: 140, description: 'Trà chanh thanh mát', image: '', status: 'active' },
+        { id: 'product-019', name: 'Nước suối 500ml', category: 'drink', price: 15000, stock: 300, description: 'Nước suối đóng chai 500ml', image: '', status: 'active' },
+        { id: 'product-020', name: 'Sinh tố xoài', category: 'drink', price: 55000, stock: 90, description: 'Sinh tố xoài tươi', image: '', status: 'active' }
     ],
 
     bookings: [
@@ -1326,6 +1316,10 @@ const MOCK_DATABASE = {
             createdAt: '2024-01-19'
         }
     ],
+
+    // Sales orders and invoices (generated during runtime)
+    orders: [],
+    invoices: [],
 
     revenue: {
         daily: [
@@ -1738,7 +1732,7 @@ export const salesApi = {
             id: generateId('order'),
             ...orderData,
             salesStaffId: currentUser.id,
-            status: 'processing',
+            status: orderData.paid ? 'completed' : 'processing',
             createdAt: new Date().toISOString(),
             total: orderData.items.reduce((sum, item) => sum + (item.price * item.quantity), 0)
         };
@@ -1750,7 +1744,41 @@ export const salesApi = {
             MOCK_DATABASE.users[staffIndex].salesStats.completedOrders += 1;
         }
 
-        return { success: true, data: newOrder, message: 'Tạo đơn hàng thành công' };
+        // Persist order
+        MOCK_DATABASE.orders.push(newOrder);
+
+        // Create invoice
+        const newInvoice = {
+            id: generateId('invoice'),
+            customerId: orderData.customerId || 'walk-in',
+            salesStaffId: currentUser.id,
+            items: newOrder.items,
+            total: newOrder.total,
+            status: orderData.paid ? 'paid' : 'unpaid',
+            paymentMethod: orderData.paymentMethod || 'cash',
+            createdAt: new Date().toISOString()
+        };
+        MOCK_DATABASE.invoices.push(newInvoice);
+
+        // Notify working staff if dine-in feeding
+        if (orderData.dineIn === true || orderData.feeding === true) {
+            const workingStaff = MOCK_DATABASE.users.filter(u => u.role === 'working_staff' && u.status === 'active');
+            const assigned = workingStaff[Math.floor(Math.random() * (workingStaff.length || 1))];
+            if (assigned) {
+                MOCK_DATABASE.notifications.push({
+                    id: generateId('notif'),
+                    userId: assigned.id,
+                    type: 'feeding_order',
+                    title: 'Phục vụ thú cưng tại quán',
+                    message: `Đơn phục vụ tại quán cần phục vụ. Tổng tiền: ${newOrder.total.toLocaleString('vi-VN')} ₫`,
+                    orderId: newOrder.id,
+                    read: false,
+                    createdAt: new Date().toISOString()
+                });
+            }
+        }
+
+        return { success: true, data: { order: newOrder, invoice: newInvoice }, message: 'Tạo đơn hàng thành công' };
     },
 
     // Invoice Management
@@ -1762,8 +1790,8 @@ export const salesApi = {
             throw new Error('Không có quyền xem hóa đơn');
         }
 
-        // Mock invoices data
-        const invoices = [
+        // Seed invoices data
+        const seedInvoices = [
             {
                 id: 'invoice-001',
                 customerId: 'user-032',
@@ -1777,7 +1805,8 @@ export const salesApi = {
             }
         ];
 
-        return { success: true, data: invoices };
+        const runtimeInvoices = MOCK_DATABASE.invoices || [];
+        return { success: true, data: [...runtimeInvoices, ...seedInvoices] };
     },
 
     // Customer Support

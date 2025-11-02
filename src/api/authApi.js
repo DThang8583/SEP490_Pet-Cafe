@@ -321,6 +321,10 @@ export const salesApi = {
     async getProducts() {
         return await userApi.sales.getProducts();
     },
+    // Services for sale
+    async getServices() {
+        return await userApi.manager.getServices();
+    },
 
     async createOrder(orderData) {
         return await userApi.sales.createOrder(orderData);

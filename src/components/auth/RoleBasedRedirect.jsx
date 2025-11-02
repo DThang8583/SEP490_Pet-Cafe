@@ -59,7 +59,9 @@ const RoleBasedRedirect = () => {
     // Redirect based on user role
     if (userRole === 'manager') {
         return <Navigate to="/manager/dashboard" replace />;
-    } else if (userRole === 'sales_staff' || userRole === 'working_staff') {
+    } else if (userRole === 'sales_staff') {
+        return <Navigate to="/sales/dashboard" replace />;
+    } else if (userRole === 'working_staff') {
         return <Navigate to="/manager/dashboard" replace />;
     } else if (userRole === 'customer' || !userRole) {
         // For customers or unauthenticated users, show HomePage
