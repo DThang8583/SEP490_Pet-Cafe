@@ -1,350 +1,286 @@
+import apiClient from '../config/config';
+import { uploadFile } from './fileApi';
+
 /**
- * Products API - Official backend integration
+ * Extract image URL from upload response
+ * @param {string|Object} uploadResponse - Response from uploadFile
+ * @returns {string|null} Image URL or null
  */
-
-import axios from 'axios';
-
-// Resolve API base URL from env or global, fallback to relative '/api' for dev proxy
-const API_BASE_URL = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_API_BASE_URL)
-    ? import.meta.env.VITE_API_BASE_URL
-    : (typeof window !== 'undefined' && window.__API_BASE_URL__) || '/api';
-
-const http = axios.create({
-    baseURL: API_BASE_URL,
-    timeout: 15000
-});
-
-const buildQueryParams = (filters = {}) => {
-    const params = {};
-    if (filters.IsActive !== undefined) params.IsActive = filters.IsActive;
-    if (filters.IsForPets !== undefined) params.IsForPets = filters.IsForPets;
-    if (filters.MinPrice !== undefined) params.MinPrice = filters.MinPrice;
-    if (filters.MaxPrice !== undefined) params.MaxPrice = filters.MaxPrice;
-    if (filters.MinCost !== undefined) params.MinCost = filters.MinCost;
-    if (filters.MaxCost !== undefined) params.MaxCost = filters.MaxCost;
-    if (filters.MinStockQuantity !== undefined) params.MinStockQuantity = filters.MinStockQuantity;
-    if (filters.MaxStockQuantity !== undefined) params.MaxStockQuantity = filters.MaxStockQuantity;
-    if (filters.PageIndex !== undefined) params.PageIndex = filters.PageIndex;
-    if (filters.PageSize !== undefined) params.PageSize = filters.PageSize;
-    return params;
+const extractImageUrl = (uploadResponse) => {
+    if (!uploadResponse) return null;
+    if (typeof uploadResponse === 'string') return uploadResponse;
+    return uploadResponse.image_url || uploadResponse.url || uploadResponse.data?.image_url || uploadResponse.data?.url || null;
 };
 
-// Hardcoded demo data as fallback when API is unavailable
-let DEMO_PRODUCTS = [
-    {
-        id: '02833aba-63b4-4d96-a098-840e28442e78',
-        name: 'Coca Cola',
-        category_id: '395401fd-eee8-4b23-a2d9-b71008eb8683',
-        description: 'Nước giải khát có gas, dùng lạnh ngon hơn',
-        price: 15000,
-        daily_quantity: 50,
-        remaining_quantity: 35,
-        image_url: 'https://firebasestorage.googleapis.com/v0/b/digital-dynamo-cb555.appspot.com/o/assets%2Fimages%2Feaa3cdbe-708c-48e9-8d7c-f75c2d94b678.jpg?alt=media&token=00fe4f99-1e6c-4a4f-b3b3-efe2aa713968',
-        thumbnails: [],
-        is_active: true,
-        is_for_pets: false,
-        manuallyDisabled: false,
-        category: {
-            id: '395401fd-eee8-4b23-a2d9-b71008eb8683',
-            name: 'Nước Uống & Thức Uống Giải Khát'
-        }
-    },
-    {
-        id: 'f6fd4c2e-5b2e-4f71-9c3e-222222222222',
-        name: 'Latte',
-        category_id: 'cafedrink',
-        description: 'Cà phê Latte béo ngậy',
-        price: 45000,
-        daily_quantity: 30,
-        remaining_quantity: 12,
-        image_url: 'https://images.unsplash.com/photo-1510591509098-f4fdc6d0ff04?w=800&auto=format&fit=crop',
-        thumbnails: [],
-        is_active: true,
-        is_for_pets: false,
-        manuallyDisabled: false,
-        category: {
-            id: 'cafedrink',
-            name: 'Đồ uống (Khách)'
-        }
-    },
-    {
-        id: 'a1b2c3d4-5e6f-7a8b-9c0d-333333333333',
-        name: 'Snack cho mèo',
-        category_id: 'petfood',
-        description: 'Bánh thưởng giòn tan cho mèo',
-        price: 20000,
-        daily_quantity: 40,
-        remaining_quantity: 28,
-        image_url: 'https://images.unsplash.com/photo-1548681528-6a5c45b66b42?w=800&auto=format&fit=crop',
-        thumbnails: [],
-        is_active: true,
-        is_for_pets: true,
-        manuallyDisabled: false,
-        category: {
-            id: 'petfood',
-            name: 'Đồ ăn (Pet)'
-        }
-    },
-    {
-        id: 'prod-004',
-        name: 'Cappuccino',
-        category_id: 'cafedrink',
-        description: 'Cà phê Cappuccino thơm ngon, bọt sữa mịn màng',
-        price: 50000,
-        daily_quantity: 25,
-        remaining_quantity: 3,
-        image_url: 'https://images.unsplash.com/photo-1572442388796-11668a67e53d?w=800&auto=format&fit=crop',
-        thumbnails: [],
-        is_active: true,
-        is_for_pets: false,
-        manuallyDisabled: false,
-        category: {
-            id: 'cafedrink',
-            name: 'Đồ uống (Khách)'
-        }
-    },
-    {
-        id: 'prod-005',
-        name: 'Trà sữa trân châu',
-        category_id: 'cafedrink',
-        description: 'Trà sữa thơm ngọt kèm trân châu dai',
-        price: 35000,
-        daily_quantity: 40,
-        remaining_quantity: 0,
-        image_url: 'https://images.unsplash.com/photo-1525385133512-2f3bdd039054?w=800&auto=format&fit=crop',
-        thumbnails: [],
-        is_active: true,
-        is_for_pets: false,
-        manuallyDisabled: false,
-        category: {
-            id: 'cafedrink',
-            name: 'Đồ uống (Khách)'
-        }
-    },
-    {
-        id: 'prod-006',
-        name: 'Bánh mì thịt nướng',
-        category_id: 'foodcustomer',
-        description: 'Bánh mì giòn tan với thịt nướng thơm lừng',
-        price: 25000,
-        daily_quantity: 50,
-        remaining_quantity: 42,
-        image_url: 'https://images.unsplash.com/photo-1626074353765-517a681e40be?w=800&auto=format&fit=crop',
-        thumbnails: [],
-        is_active: true,
-        is_for_pets: false,
-        manuallyDisabled: false,
-        category: {
-            id: 'foodcustomer',
-            name: 'Đồ ăn (Khách)'
-        }
-    },
-    {
-        id: 'prod-007',
-        name: 'Pate cho chó',
-        category_id: 'petfood',
-        description: 'Pate dinh dưỡng cao cấp cho chó mọi lứa tuổi',
-        price: 30000,
-        daily_quantity: 20,
-        remaining_quantity: 15,
-        image_url: 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=800&auto=format&fit=crop',
-        thumbnails: [],
-        is_active: true,
-        is_for_pets: true,
-        manuallyDisabled: false,
-        category: {
-            id: 'petfood',
-            name: 'Đồ ăn (Pet)'
-        }
-    },
-    {
-        id: 'prod-008',
-        name: 'Nước ép cam',
-        category_id: 'cafedrink',
-        description: 'Nước ép cam tươi nguyên chất 100%',
-        price: 30000,
-        daily_quantity: 35,
-        remaining_quantity: 22,
-        image_url: 'https://images.unsplash.com/photo-1600271886742-f049cd451bba?w=800&auto=format&fit=crop',
-        thumbnails: [],
-        is_active: true,
-        is_for_pets: false,
-        manuallyDisabled: false,
-        category: {
-            id: 'cafedrink',
-            name: 'Đồ uống (Khách)'
-        }
-    },
-    {
-        id: 'prod-009',
-        name: 'Croissant',
-        category_id: 'foodcustomer',
-        description: 'Bánh sừng bò giòn xốp thơm bơ',
-        price: 20000,
-        daily_quantity: 30,
-        remaining_quantity: 18,
-        image_url: 'https://images.unsplash.com/photo-1555507036-ab1f4038808a?w=800&auto=format&fit=crop',
-        thumbnails: [],
-        is_active: true,
-        is_for_pets: false,
-        manuallyDisabled: false,
-        category: {
-            id: 'foodcustomer',
-            name: 'Đồ ăn (Khách)'
-        }
-    },
-    {
-        id: 'prod-010',
-        name: 'Sữa chua hoa quả',
-        category_id: 'foodcustomer',
-        description: 'Sữa chua nguyên chất kèm hoa quả tươi',
-        price: 18000,
-        daily_quantity: 45,
-        remaining_quantity: 31,
-        image_url: 'https://images.unsplash.com/photo-1488477181946-6428a0291777?w=800&auto=format&fit=crop',
-        thumbnails: [],
-        is_active: true,
-        is_for_pets: false,
-        manuallyDisabled: false,
-        category: {
-            id: 'foodcustomer',
-            name: 'Đồ ăn (Khách)'
-        }
-    },
-    {
-        id: 'prod-011',
-        name: 'Trà đào cam sả',
-        category_id: 'cafedrink',
-        description: 'Trà hoa quả thanh mát với đào, cam và sả',
-        price: 35000,
-        daily_quantity: 0,
-        remaining_quantity: 0,
-        image_url: 'https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=800&auto=format&fit=crop',
-        thumbnails: [],
-        is_active: false,
-        is_for_pets: false,
-        manuallyDisabled: true,
-        category: {
-            id: 'cafedrink',
-            name: 'Đồ uống (Khách)'
-        }
+/**
+ * Upload image file and return URL
+ * @param {File} imageFile - Image file to upload
+ * @returns {Promise<string|null>} Image URL or null
+ */
+const uploadImageFile = async (imageFile) => {
+    if (!imageFile) return null;
+    try {
+        const uploadResponse = await uploadFile(imageFile);
+        return extractImageUrl(uploadResponse);
+    } catch (uploadError) {
+        console.error('Error uploading image:', uploadError);
+        throw new Error('Không thể tải ảnh lên. Vui lòng thử lại.');
     }
-];
+};
 
+/**
+ * Create pagination object
+ * @param {number} totalItems - Total number of items
+ * @param {number} pageSize - Page size
+ * @param {number} pageIndex - Page index
+ * @returns {Object} Pagination object
+ */
+const createPagination = (totalItems, pageSize, pageIndex) => ({
+    total_items_count: totalItems,
+    page_size: pageSize,
+    total_pages_count: Math.ceil(totalItems / pageSize) || 0,
+    page_index: pageIndex,
+    has_next: (pageIndex + 1) * pageSize < totalItems,
+    has_previous: pageIndex > 0
+});
+
+/**
+ * Get all products from official API
+ * @param {Object} params - { IsActive, MinPrice, MaxPrice, MinCost, MaxCost, IsForPets, MinStockQuantity, MaxStockQuantity, PageIndex, PageSize }
+ * @returns {Promise<Object>} { data, pagination }
+ */
+export const getAllProducts = async (params = {}) => {
+    const {
+        IsActive,
+        MinPrice,
+        MaxPrice,
+        MinCost,
+        MaxCost,
+        IsForPets,
+        MinStockQuantity,
+        MaxStockQuantity,
+        PageIndex = 0,
+        PageSize = 10
+    } = params;
+
+    try {
+        const queryParams = {};
+        if (IsActive !== undefined) queryParams.IsActive = IsActive;
+        if (MinPrice !== undefined) queryParams.MinPrice = MinPrice;
+        if (MaxPrice !== undefined) queryParams.MaxPrice = MaxPrice;
+        if (MinCost !== undefined) queryParams.MinCost = MinCost;
+        if (MaxCost !== undefined) queryParams.MaxCost = MaxCost;
+        if (IsForPets !== undefined) queryParams.IsForPets = IsForPets;
+        if (MinStockQuantity !== undefined) queryParams.MinStockQuantity = MinStockQuantity;
+        if (MaxStockQuantity !== undefined) queryParams.MaxStockQuantity = MaxStockQuantity;
+        if (PageIndex !== undefined) queryParams.PageIndex = PageIndex;
+        if (PageSize !== undefined) queryParams.PageSize = PageSize;
+
+        const response = await apiClient.get('/products', {
+            params: queryParams,
+            timeout: 30000
+        });
+
+        const responseData = response.data;
+        if (responseData?.data && Array.isArray(responseData.data)) {
+            return {
+                data: responseData.data,
+                pagination: responseData.pagination || createPagination(
+                    responseData.data.length,
+                    PageSize,
+                    PageIndex
+                )
+            };
+        }
+
+        if (Array.isArray(responseData)) {
+            return {
+                data: responseData,
+                pagination: createPagination(responseData.length, PageSize, PageIndex)
+            };
+        }
+
+        return {
+            data: [],
+            pagination: createPagination(0, PageSize, PageIndex)
+        };
+    } catch (error) {
+        console.error('Error fetching products:', error);
+        const message = error?.response?.data?.message || error?.message || 'Lỗi tải dữ liệu sản phẩm';
+        throw new Error(message);
+    }
+};
+
+/**
+ * Get product by ID
+ * @param {string} productId
+ * @returns {Promise<Object>}
+ */
+export const getProductById = async (productId) => {
+    try {
+        const response = await apiClient.get(`/products/${productId}`, {
+            timeout: 10000
+        });
+        return response.data;
+    } catch (error) {
+        console.error('Error fetching product by ID:', error);
+        const message = error?.response?.data?.message || error?.message || 'Không thể tải thông tin sản phẩm';
+        throw new Error(message);
+    }
+};
+
+/**
+ * Create a new product
+ * @param {Object} productData - { name, category_id, description, price, cost, stock_quantity, min_stock_level, image_url, is_for_pets, thumbnails }
+ * @returns {Promise<Object>}
+ */
+export const createProduct = async (productData) => {
+    try {
+        let imageUrl = productData.image_url || null;
+
+        // If image_file is provided, upload it first
+        if (productData.image_file) {
+            imageUrl = await uploadImageFile(productData.image_file);
+        }
+
+        const payload = {
+            name: productData.name,
+            category_id: productData.category_id,
+            description: productData.description || '',
+            price: Number(productData.price) || 0,
+            cost: Number(productData.cost) || 0,
+            stock_quantity: Number(productData.stock_quantity) || 0,
+            min_stock_level: Number(productData.min_stock_level) || 0,
+            image_url: imageUrl || '',
+            is_for_pets: productData.is_for_pets || false,
+            thumbnails: productData.thumbnails || []
+        };
+
+        const response = await apiClient.post('/products', payload, {
+            timeout: 30000
+        });
+        return response.data;
+    } catch (error) {
+        console.error('Error creating product:', error);
+        const message = error?.response?.data?.message || error?.message || 'Không thể tạo sản phẩm';
+        throw new Error(message);
+    }
+};
+
+/**
+ * Update an existing product
+ * @param {string} productId
+ * @param {Object} productData - { name, category_id, description, price, cost, stock_quantity, min_stock_level, image_url, is_for_pets, thumbnails, is_active }
+ * @returns {Promise<Object>}
+ */
+export const updateProduct = async (productId, productData) => {
+    try {
+        let imageUrl = productData.image_url || null;
+
+        // If image_file is provided, upload it first
+        if (productData.image_file) {
+            imageUrl = await uploadImageFile(productData.image_file);
+        }
+
+        const payload = {
+            name: productData.name,
+            category_id: productData.category_id,
+            description: productData.description || '',
+            price: Number(productData.price) || 0,
+            cost: Number(productData.cost) || 0,
+            stock_quantity: Number(productData.stock_quantity) || 0,
+            min_stock_level: Number(productData.min_stock_level) || 0,
+            image_url: imageUrl || '',
+            is_for_pets: productData.is_for_pets || false,
+            thumbnails: productData.thumbnails || [],
+            is_active: productData.is_active !== undefined ? productData.is_active : true
+        };
+
+        const response = await apiClient.put(`/products/${productId}`, payload, {
+            timeout: 30000
+        });
+        return response.data;
+    } catch (error) {
+        console.error('Error updating product:', error);
+        const message = error?.response?.data?.message || error?.message || 'Không thể cập nhật sản phẩm';
+        throw new Error(message);
+    }
+};
+
+/**
+ * Delete a product
+ * @param {string} productId
+ * @returns {Promise<Object>}
+ */
+export const deleteProduct = async (productId) => {
+    try {
+        const response = await apiClient.delete(`/products/${productId}`, {
+            timeout: 10000
+        });
+        return response.data;
+    } catch (error) {
+        console.error('Error deleting product:', error);
+        const message = error?.response?.data?.message || error?.message || 'Không thể xóa sản phẩm';
+        throw new Error(message);
+    }
+};
+
+/**
+ * Toggle product active status
+ * @param {string} productId
+ * @param {boolean} disable - true to disable, false to enable
+ * @returns {Promise<Object>}
+ */
+export const toggleProductStatus = async (productId, disable) => {
+    try {
+        // First get the current product
+        const currentProduct = await getProductById(productId);
+
+        // Then update with toggled is_active status
+        return await updateProduct(productId, {
+            ...currentProduct,
+            is_active: !disable
+        });
+    } catch (error) {
+        console.error('Error toggling product status:', error);
+        const message = error?.response?.data?.message || error?.message || 'Không thể cập nhật trạng thái sản phẩm';
+        throw new Error(message);
+    }
+};
+
+/**
+ * Update product stock quantity (if API supports it)
+ * Note: This might need to use updateProduct instead if there's no dedicated endpoint
+ * @param {string} productId
+ * @param {number} stockQuantity
+ * @returns {Promise<Object>}
+ */
+export const updateStockQuantity = async (productId, stockQuantity) => {
+    try {
+        // First get the current product
+        const currentProduct = await getProductById(productId);
+
+        // Then update with new stock_quantity
+        return await updateProduct(productId, {
+            ...currentProduct,
+            stock_quantity: Number(stockQuantity) || 0
+        });
+    } catch (error) {
+        console.error('Error updating stock quantity:', error);
+        const message = error?.response?.data?.message || error?.message || 'Không thể cập nhật số lượng tồn kho';
+        throw new Error(message);
+    }
+};
+
+// Default export for backward compatibility
 const productsApi = {
-    async getAllProducts(filters = {}) {
-        try {
-            const response = await http.get('/products', { params: buildQueryParams(filters) });
-            const payload = response.data;
-            if (!payload || !Array.isArray(payload.data) || payload.data.length === 0) {
-                console.warn('[productsApi] Empty payload, using demo products');
-                return { data: DEMO_PRODUCTS, pagination: { total_items_count: DEMO_PRODUCTS.length, page_size: DEMO_PRODUCTS.length, total_pages_count: 1, page_index: 0, has_next: false, has_previous: false } };
-            }
-            return payload; // { data: [...], pagination: {...} }
-        } catch (error) {
-            // Normalize error for UI
-            const message = error?.response?.data?.message || error?.message || 'Network error';
-            console.warn('[productsApi] Falling back to demo products:', message);
-            return { data: DEMO_PRODUCTS, pagination: { total_items_count: DEMO_PRODUCTS.length, page_size: DEMO_PRODUCTS.length, total_pages_count: 1, page_index: 0, has_next: false, has_previous: false } };
-        }
-    },
-
-    async getCategories(filters = {}) {
-        try {
-            const response = await http.get('/categories', { params: buildQueryParams(filters) });
-            return response.data; // { data: [...], pagination: {...} }
-        } catch (error) {
-            const message = error?.response?.data?.message || error?.message || 'Network error';
-            throw new Error(message);
-        }
-    },
-
-    async createProduct(payload) {
-        // Expect payload to match official schema
-        // {
-        //   name, category_id, description, price, daily_quantity,
-        //   image_url, is_for_pets, thumbnails
-        // }
-        try {
-            const response = await http.post('/products', payload);
-            return response.data;
-        } catch (error) {
-            const message = error?.response?.data?.message || error?.message || 'Network error';
-            throw new Error(message);
-        }
-    },
-
-    async updateDailyQuantity(productId, dailyQuantity) {
-        try {
-            // Try API first
-            const response = await http.patch(`/products/${productId}/daily-quantity`, { daily_quantity: dailyQuantity });
-            return response.data;
-        } catch (error) {
-            // Fallback to mock
-            console.warn('[productsApi] Updating demo product quantity');
-            const productIndex = DEMO_PRODUCTS.findIndex(p => p.id === productId);
-            if (productIndex === -1) {
-                throw new Error('Không tìm thấy sản phẩm');
-            }
-
-            DEMO_PRODUCTS[productIndex].daily_quantity = dailyQuantity;
-            // Reset remaining to match new daily quantity
-            DEMO_PRODUCTS[productIndex].remaining_quantity = dailyQuantity;
-
-            return {
-                success: true,
-                message: 'Cập nhật số lượng thành công',
-                data: DEMO_PRODUCTS[productIndex]
-            };
-        }
-    },
-
-    async toggleProductStatus(productId, disable = false) {
-        try {
-            // Try API first
-            const response = await http.patch(`/products/${productId}/toggle-status`, { disable });
-            return response.data;
-        } catch (error) {
-            // Fallback to mock
-            console.warn('[productsApi] Toggling demo product status');
-            const productIndex = DEMO_PRODUCTS.findIndex(p => p.id === productId);
-            if (productIndex === -1) {
-                throw new Error('Không tìm thấy sản phẩm');
-            }
-
-            DEMO_PRODUCTS[productIndex].manuallyDisabled = disable;
-            DEMO_PRODUCTS[productIndex].is_active = !disable;
-
-            return {
-                success: true,
-                message: disable ? 'Đã tạm ngừng bán sản phẩm' : 'Đã mở lại bán sản phẩm',
-                data: DEMO_PRODUCTS[productIndex]
-            };
-        }
-    },
-
-    async deleteProduct(productId) {
-        try {
-            // Try API first
-            const response = await http.delete(`/products/${productId}`);
-            return response.data;
-        } catch (error) {
-            // Fallback to mock
-            console.warn('[productsApi] Deleting demo product');
-            const productIndex = DEMO_PRODUCTS.findIndex(p => p.id === productId);
-            if (productIndex === -1) {
-                throw new Error('Không tìm thấy sản phẩm');
-            }
-
-            DEMO_PRODUCTS.splice(productIndex, 1);
-
-            return {
-                success: true,
-                message: 'Xóa sản phẩm thành công'
-            };
-        }
-    }
+    getAllProducts,
+    getProductById,
+    createProduct,
+    updateProduct,
+    deleteProduct,
+    toggleProductStatus,
+    updateStockQuantity
 };
 
 export default productsApi;
-

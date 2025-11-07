@@ -184,7 +184,7 @@ const WorkTypeTab = ({ onAlert }) => {
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         size="small"
-                        sx={{ minWidth: 300 }}
+                        sx={{ width: '1395px', flexShrink: 0 }}
                     />
 
                     <Box sx={{ flexGrow: 1 }} />

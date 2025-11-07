@@ -8,7 +8,7 @@ import WorkShiftPage from "../pages/manager/WorkShiftPage";
 import TasksPage from "../pages/manager/tasks/TasksPage";
 import ServicesPage from "../pages/manager/ServicesPage";
 import AreasPage from "../pages/manager/AreasPage";
-import ProductPage from "../pages/manager/ProductPage";
+import ProductPage from "../pages/manager/products/ProductPage";
 
 const managerRoutes = (
     <>
