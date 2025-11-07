@@ -13,7 +13,8 @@ const SlotDetailsModal = ({
     onCreateSlot,
     onEditSlot,
     onDeleteSlot,
-    onRefresh
+    onRefresh,
+    showCreateAction = false
 }) => {
     const [taskSlots, setTaskSlots] = useState([]);
 
@@ -170,24 +171,26 @@ const SlotDetailsModal = ({
                 </Stack>
 
                 {/* Action Buttons */}
-                <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
-                    <Button
-                        variant="contained"
-                        startIcon={<AddIcon />}
-                        onClick={() => {
-                            onCreateSlot(taskData);
-                            onClose();
-                        }}
-                        sx={{
-                            bgcolor: COLORS.SUCCESS[600],
-                            '&:hover': {
-                                bgcolor: COLORS.SUCCESS[700]
-                            }
-                        }}
-                    >
-                        Tạo Ca mới
-                    </Button>
-                </Stack>
+                {showCreateAction && (
+                    <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
+                        <Button
+                            variant="contained"
+                            startIcon={<AddIcon />}
+                            onClick={() => {
+                                onCreateSlot(taskData);
+                                onClose();
+                            }}
+                            sx={{
+                                bgcolor: COLORS.SUCCESS[600],
+                                '&:hover': {
+                                    bgcolor: COLORS.SUCCESS[700]
+                                }
+                            }}
+                        >
+                            Tạo Ca mới
+                        </Button>
+                    </Stack>
+                )}
 
                 {/* Slots Table */}
                 {taskSlots.length === 0 ? (
@@ -206,7 +209,7 @@ const SlotDetailsModal = ({
                                     <TableCell width="10%">Thời gian</TableCell>
                                     <TableCell width="12%">Team</TableCell>
                                     <TableCell width="12%">Khu vực</TableCell>
-                                    <TableCell width="12%">Pet Group</TableCell>
+                                    <TableCell width="12%">Nhóm Pet</TableCell>
                                     <TableCell width="10%" align="center">Sức chứa</TableCell>
                                     {taskData.is_public && <TableCell width="10%" align="right">Giá</TableCell>}
                                     <TableCell width="10%" align="center">Trạng thái</TableCell>

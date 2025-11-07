@@ -202,8 +202,12 @@ const WorkShiftPage = () => {
         const activeShifts = shifts.filter(s => s.is_active).length;
         const totalTeams = teams.length;
 
-        // Count total staff assignments (placeholder - would come from actual assignments)
-        const totalAssignments = 42; // Hardcoded for now
+        // Count total staff assignments based on current team data
+        const totalAssignments = teams.reduce((sum, team) => {
+            const membersCount = (team.team_members?.length || 0);
+            const leaderCount = team.leader ? 1 : 0;
+            return sum + membersCount + leaderCount;
+        }, 0);
 
         return {
             totalShifts,

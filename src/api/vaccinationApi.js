@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { MOCK_PET_SPECIES } from './mockData';
+import { MOCK_PET_SPECIES } from './petApi';
 
 // Base configuration
 const API_BASE_URL = 'http://localhost:8080/api';

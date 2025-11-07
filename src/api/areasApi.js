@@ -1,13 +1,103 @@
 // Areas API - Mock implementation matching official API structure
-import { MOCK_AREAS, MOCK_WORK_TYPES } from './mockData';
+import { MOCK_WORK_TYPES } from './workTypeApi';
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+// ========== MOCK AREAS ==========
+const MOCK_AREAS = [
+    {
+        id: '1c92f639-a6fa-48c3-b4b7-0a713389df5c',
+        name: 'Dog Zone - Khu Vực Sân Chơi',
+        description: 'Khu vực rộng rãi có hàng rào, dành riêng cho chó có kích thước vừa và lớn vui chơi. Có các trò chơi huấn luyện cơ bản và bể nước nhỏ.',
+        location: 'Tầng trệt, phía sau quầy bar',
+        max_capacity: 20,
+        is_active: true,
+        image_url: 'https://firebasestorage.googleapis.com/v0/b/digital-dynamo-cb555.appspot.com/o/assets%2Fimages%2F4c131330-db62-44db-8099-df710340edf7.webp?alt=media&token=2237c04a-c0d2-40b6-a23e-bf19e7153a06',
+        slots: [],
+        area_work_types: [
+            {
+                area_id: '1c92f639-a6fa-48c3-b4b7-0a713389df5c',
+                work_type_id: 'b0c8a471-3b55-4038-9642-b598c072ea45',
+                description: null,
+                area: null,
+                work_type: {
+                    name: 'Dog Zone Management ',
+                    description: 'Chịu trách nhiệm giám sát, huấn luyện cơ bản, cho ăn và đảm bảo vệ sinh, an toàn trong khu vực sinh hoạt của chó. Quản lý tương tác giữa chó và khách hàng, đặc biệt là các giống chó lớn.',
+                    is_active: true,
+                    tasks: [],
+                    area_work_types: [null],
+                    team_work_types: [],
+                    id: 'b0c8a471-3b55-4038-9642-b598c072ea45',
+                    created_at: '2025-10-27T12:28:16.424682+00:00',
+                    created_by: '00000000-0000-0000-0000-000000000000',
+                    updated_at: '2025-10-27T12:28:16.424683+00:00',
+                    updated_by: null,
+                    is_deleted: false
+                },
+                id: '2d0dc8d5-9406-4956-a99a-79d453034836',
+                created_at: '2025-10-27T12:36:23.605599+00:00',
+                created_by: '00000000-0000-0000-0000-000000000000',
+                updated_at: '2025-10-27T12:36:23.6056+00:00',
+                updated_by: null,
+                is_deleted: false
+            }
+        ],
+        created_at: '2025-10-27T12:36:23.6056+00:00',
+        created_by: '00000000-0000-0000-0000-000000000000',
+        updated_at: '2025-10-27T12:36:23.605601+00:00',
+        updated_by: null,
+        is_deleted: false
+    },
+    {
+        id: '0a10e6b3-085d-42f2-b218-8474302d72b4',
+        name: 'Cat Lounge - Tầng Lửng',
+        description: 'Khu vực tầng lửng yên tĩnh, được trang bị tháp mèo, đồ chơi và ghế sofa ấm cúng. Nơi mèo nghỉ ngơi và tương tác nhẹ nhàng với khách hàng.',
+        location: 'Tầng lửng, phía trên khu F&B',
+        max_capacity: 25,
+        is_active: true,
+        image_url: 'https://firebasestorage.googleapis.com/v0/b/digital-dynamo-cb555.appspot.com/o/assets%2Fimages%2F4c131330-db62-44db-8099-df710340edf7.webp?alt=media&token=2237c04a-c0d2-40b6-a23e-bf19e7153a06',
+        slots: [],
+        area_work_types: [
+            {
+                area_id: '0a10e6b3-085d-42f2-b218-8474302d72b4',
+                work_type_id: '7e7477a6-f481-4df6-b3fd-626944475fb5',
+                description: null,
+                area: null,
+                work_type: {
+                    name: 'Cat Zone Management ',
+                    description: 'Chịu trách nhiệm quản lý, giám sát sức khỏe, cho ăn, dọn dẹp vệ sinh khu vực sinh hoạt của mèo, và đảm bảo tương tác an toàn giữa mèo với khách hàng trong khu vực Cat Zone.',
+                    is_active: true,
+                    tasks: [],
+                    area_work_types: [null],
+                    team_work_types: [],
+                    id: '7e7477a6-f481-4df6-b3fd-626944475fb5',
+                    created_at: '2025-10-27T12:31:09.910051+00:00',
+                    created_by: '00000000-0000-0000-0000-000000000000',
+                    updated_at: '2025-10-27T12:31:09.910051+00:00',
+                    updated_by: null,
+                    is_deleted: false
+                },
+                id: 'bc0bbba1-6705-40f8-a5db-e38267b095f9',
+                created_at: '2025-10-27T12:37:34.296162+00:00',
+                created_by: '00000000-0000-0000-0000-000000000000',
+                updated_at: '2025-10-27T12:37:34.296163+00:00',
+                updated_by: null,
+                is_deleted: false
+            }
+        ],
+        created_at: '2025-10-27T12:37:34.296163+00:00',
+        created_by: '00000000-0000-0000-0000-000000000000',
+        updated_at: '2025-10-27T12:37:34.296163+00:00',
+        updated_by: null,
+        is_deleted: false
+    }
+];
 
 let areasStore = JSON.parse(JSON.stringify(MOCK_AREAS)); // Deep copy
 
 /**
  * Get all areas with pagination
- * @param {Object} params - { page_index, page_size, search, is_active }
+ * @param {Object} params - { page_index, page_size, search, is_active, work_type_id }
  * @returns {Promise<Object>} { data, pagination }
  */
 export const getAllAreas = async (params = {}) => {
@@ -17,7 +107,8 @@ export const getAllAreas = async (params = {}) => {
         page_index = 0,
         page_size = 10,
         search = '',
-        is_active = null
+        is_active = null,
+        work_type_id = null
     } = params;
 
     // Filter
@@ -36,6 +127,14 @@ export const getAllAreas = async (params = {}) => {
     // Filter by is_active
     if (is_active !== null) {
         filtered = filtered.filter(area => area.is_active === is_active);
+    }
+
+    // Filter by work_type_id
+    if (work_type_id !== null) {
+        filtered = filtered.filter(area =>
+            area.area_work_types &&
+            area.area_work_types.some(awt => awt.work_type_id === work_type_id)
+        );
     }
 
     // Pagination
@@ -440,3 +539,5 @@ export default {
     updateAreaWorkTypes,
     getAreasStatistics
 };
+
+export { MOCK_AREAS };

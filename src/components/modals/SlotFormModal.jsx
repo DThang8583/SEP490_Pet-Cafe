@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import * as teamApi from '../../api/teamApi';
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, FormControl, InputLabel, Select, MenuItem, Box, Alert, Typography, Stack, InputAdornment } from '@mui/material';
 import { WEEKDAYS, WEEKDAY_LABELS } from '../../api/slotApi';
 import { formatPrice } from '../../utils/formatPrice';
@@ -28,18 +29,38 @@ const SlotFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, 
 
     const [errors, setErrors] = useState({});
     const [loading, setLoading] = useState(false);
+    const [localTeams, setLocalTeams] = useState(teams || []);
+
+    // Ensure team data is available when modal opens
+    useEffect(() => {
+        const ensureTeams = async () => {
+            if (!open) return;
+            if (teams && teams.length > 0) {
+                setLocalTeams(teams);
+                return;
+            }
+            try {
+                const res = await teamApi.getTeams();
+                setLocalTeams(res.data || []);
+            } catch (e) {
+                setLocalTeams([]);
+            }
+        };
+        ensureTeams();
+    }, [open, teams]);
 
     // Filter teams based on selected time range
     const filteredTeams = useMemo(() => {
-        if (!formData.start_time || !formData.end_time || !teams || teams.length === 0) {
-            return teams || [];
+        const sourceTeams = localTeams && localTeams.length > 0 ? localTeams : teams;
+        if (!formData.start_time || !formData.end_time || !sourceTeams || sourceTeams.length === 0) {
+            return sourceTeams || [];
         }
 
         // Convert time strings to comparable format (HH:MM:SS)
         const slotStart = formData.start_time.length === 5 ? `${formData.start_time}:00` : formData.start_time;
         const slotEnd = formData.end_time.length === 5 ? `${formData.end_time}:00` : formData.end_time;
 
-        return teams.filter(team => {
+        return sourceTeams.filter(team => {
             // Team must have at least one work shift that covers the slot time range
             if (!team.team_work_shifts || team.team_work_shifts.length === 0) {
                 return false;
@@ -56,7 +77,7 @@ const SlotFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, 
                 return shiftStart <= slotStart && shiftEnd >= slotEnd;
             });
         });
-    }, [teams, formData.start_time, formData.end_time]);
+    }, [teams, localTeams, formData.start_time, formData.end_time]);
 
     // Initialize form when modal opens
     useEffect(() => {

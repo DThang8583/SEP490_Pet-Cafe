@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Box, Typography, Button, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, IconButton, TextField, Stack, Toolbar, Grid, FormControl, InputLabel, Select, MenuItem, Switch, Tooltip, Tabs, Tab, Menu, ListItemIcon, ListItemText, Avatar } from '@mui/material';
+import { Box, Typography, Button, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, IconButton, TextField, Stack, Toolbar, Grid, FormControl, InputLabel, Select, MenuItem, Switch, Tooltip, Tabs, Tab, Menu, ListItemIcon, ListItemText, Avatar, OutlinedInput } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, Refresh as RefreshIcon, Schedule as ScheduleIcon, Check as CheckIcon, Close as CloseIcon, MiscellaneousServices as ServicesIcon, MoreVert as MoreVertIcon } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
@@ -15,7 +15,7 @@ import serviceApi from '../../api/serviceApi';
 import slotApi from '../../api/slotApi';
 import * as areasApi from '../../api/areasApi';
 import petApi from '../../api/petApi';
-import { MOCK_TEAMS } from '../../api/mockData';
+import { MOCK_TEAMS } from '../../api/teamApi';
 import { formatPrice } from '../../utils/formatPrice';
 
 const ServicesPage = () => {
@@ -32,11 +32,23 @@ const ServicesPage = () => {
     const [workTypes, setWorkTypes] = useState([]);
     const [areas, setAreas] = useState([]);
     const [petGroups, setPetGroups] = useState([]);
+    const [petBreeds, setPetBreeds] = useState([]);
+    const [petSpecies, setPetSpecies] = useState([]);
     const [teams, setTeams] = useState([]);
 
     // Search and filters
     const [searchQuery, setSearchQuery] = useState('');
     const [filterServiceStatus, setFilterServiceStatus] = useState('all');
+    const [filterTaskId, setFilterTaskId] = useState('all');
+    const [filterStartTime, setFilterStartTime] = useState('');
+    const [filterEndTime, setFilterEndTime] = useState('');
+    const [filterSpeciesIds, setFilterSpeciesIds] = useState([]);
+    const [filterBreedIds, setFilterBreedIds] = useState([]);
+    const [filterAreaIds, setFilterAreaIds] = useState([]);
+    const [filterMinPrice, setFilterMinPrice] = useState(''); // numeric value or ''
+    const [filterMaxPrice, setFilterMaxPrice] = useState(''); // numeric value or ''
+    const [filterMinPriceText, setFilterMinPriceText] = useState(''); // formatted display
+    const [filterMaxPriceText, setFilterMaxPriceText] = useState(''); // formatted display
 
     // Pagination
     const [page, setPage] = useState(1);
@@ -130,9 +142,56 @@ const ServicesPage = () => {
                 return service.is_active === false;
             }
 
+            // Task filter (client-side safeguard)
+            if (filterTaskId !== 'all' && service.task_id !== filterTaskId) {
+                return false;
+            }
+
+            // Price range filter (client-side safeguard)
+            if (filterMinPrice !== '' && Number(service.base_price) < filterMinPrice) {
+                return false;
+            }
+            if (filterMaxPrice !== '' && Number(service.base_price) > filterMaxPrice) {
+                return false;
+            }
+
+            // Slot-related client-side filters (time/species/breed/area)
+            const needSlotFilters =
+                (filterStartTime && filterStartTime.length > 0) ||
+                (filterEndTime && filterEndTime.length > 0) ||
+                (filterSpeciesIds && filterSpeciesIds.length > 0) ||
+                (filterBreedIds && filterBreedIds.length > 0) ||
+                (filterAreaIds && filterAreaIds.length > 0);
+
+            if (needSlotFilters) {
+                const norm = (t) => (t && t.length === 5 ? `${t}:00` : t);
+                const startT = norm(filterStartTime);
+                const endT = norm(filterEndTime);
+
+                const slots = service.slots || [];
+                if (slots.length === 0) return false;
+
+                const slotOk = slots.some(slot => {
+                    if (startT && slot.start_time < startT) return false;
+                    if (endT && slot.end_time > endT) return false;
+                    if (filterAreaIds && filterAreaIds.length && !filterAreaIds.includes(slot.area_id)) return false;
+                    if (filterSpeciesIds && filterSpeciesIds.length) {
+                        const speciesId = slot.pet_group?.pet_species_id || slot.pet_group?.pet_species?.id;
+                        if (!speciesId || !filterSpeciesIds.includes(speciesId)) return false;
+                    }
+                    if (filterBreedIds && filterBreedIds.length) {
+                        const breedId = slot.pet_group?.pet_breed_id || slot.pet_group?.pet_breed?.id;
+                        if (!breedId || !filterBreedIds.includes(breedId)) return false;
+                    }
+                    return true;
+                });
+
+                if (!slotOk) return false;
+            }
+
             return true;
         });
-    }, [services, searchQuery, filterServiceStatus]);
+    }, [services, searchQuery, filterServiceStatus, filterTaskId, filterMinPrice, filterMaxPrice, filterStartTime, filterEndTime, filterSpeciesIds, filterBreedIds, filterAreaIds]);
 
     // Pagination
     const currentPageItems = useMemo(() => {
@@ -156,6 +215,7 @@ const ServicesPage = () => {
                 loadSlots(),
                 loadWorkTypes(),
                 loadAreas(),
+                loadPetSpeciesAndBreeds(),
                 loadPetGroups(),
                 loadTeams()
             ]);
@@ -177,16 +237,110 @@ const ServicesPage = () => {
             const response = await taskTemplateApi.getAllTaskTemplates();
             setTaskTemplates(response.data || []);
         } catch (error) {
-            throw error;
+            console.error('Error loading task templates:', error);
+            setTaskTemplates([]);
         }
     };
 
     const loadServices = async () => {
         try {
-            const response = await serviceApi.getAllServices();
+            const response = await serviceApi.getAllServices({
+                search: searchQuery,
+                is_active: filterServiceStatus === 'active' ? true : filterServiceStatus === 'inactive' ? false : null,
+                task_id: filterTaskId !== 'all' ? filterTaskId : null,
+                start_time: filterStartTime || null,
+                end_time: filterEndTime || null,
+                pet_species_ids: filterSpeciesIds,
+                pet_breed_ids: filterBreedIds,
+                area_ids: filterAreaIds,
+                min_price: filterMinPrice === '' ? null : filterMinPrice,
+                max_price: filterMaxPrice === '' ? null : filterMaxPrice
+            });
             setServices(response.data || []);
         } catch (error) {
-            throw error;
+            console.error('Error loading services:', error);
+            setServices([]);
+        }
+    };
+
+    // Auto-refresh services when filters change (debounced)
+    useEffect(() => {
+        const id = setTimeout(() => {
+            loadServices();
+        }, 250);
+        return () => clearTimeout(id);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [
+        searchQuery,
+        filterServiceStatus,
+        filterTaskId,
+        filterStartTime,
+        filterEndTime,
+        filterSpeciesIds,
+        filterBreedIds,
+        filterAreaIds,
+        filterMinPrice,
+        filterMaxPrice
+    ]);
+
+    // Format helpers for price inputs
+    const formatNumberVi = (value) => new Intl.NumberFormat('vi-VN').format(value);
+
+    // Min price handlers
+    const handleMinPriceInputChange = (e) => {
+        const raw = e.target.value || '';
+        const digits = raw.replace(/\D/g, '');
+        if (digits.length === 0) {
+            setFilterMinPrice('');
+            setFilterMinPriceText('');
+        } else {
+            const num = parseInt(digits, 10);
+            setFilterMinPrice(num);
+            setFilterMinPriceText(digits); // keep unformatted while typing
+        }
+        loadServices();
+    };
+    const handleMinPriceBlur = () => {
+        if (filterMinPrice === '') {
+            setFilterMinPriceText('');
+        } else {
+            setFilterMinPriceText(formatNumberVi(filterMinPrice));
+        }
+    };
+    const handleMinPriceFocus = () => {
+        if (filterMinPrice === '') {
+            setFilterMinPriceText('');
+        } else {
+            setFilterMinPriceText(String(filterMinPrice));
+        }
+    };
+
+    // Max price handlers
+    const handleMaxPriceInputChange = (e) => {
+        const raw = e.target.value || '';
+        const digits = raw.replace(/\D/g, '');
+        if (digits.length === 0) {
+            setFilterMaxPrice('');
+            setFilterMaxPriceText('');
+        } else {
+            const num = parseInt(digits, 10);
+            setFilterMaxPrice(num);
+            setFilterMaxPriceText(digits); // keep unformatted while typing
+        }
+        loadServices();
+    };
+    const handleMaxPriceBlur = () => {
+        if (filterMaxPrice === '') {
+            setFilterMaxPriceText('');
+        } else {
+            setFilterMaxPriceText(formatNumberVi(filterMaxPrice));
+        }
+    };
+    const handleMaxPriceFocus = () => {
+        if (filterMaxPrice === '') {
+            setFilterMaxPriceText('');
+        } else {
+            setFilterMaxPriceText(String(filterMaxPrice));
         }
     };
 
@@ -195,7 +349,8 @@ const ServicesPage = () => {
             const response = await slotApi.getAllSlots();
             setSlots(response.data || []);
         } catch (error) {
-            throw error;
+            console.warn('Slots not available (permission or data):', error?.message || error);
+            setSlots([]);
         }
     };
 
@@ -215,6 +370,19 @@ const ServicesPage = () => {
             setAreas(response.data || []);
         } catch (error) {
             console.error('Error loading areas:', error);
+        }
+    };
+
+    const loadPetSpeciesAndBreeds = async () => {
+        try {
+            const [speciesRes, breedsRes] = await Promise.all([
+                petApi.getPetSpecies(),
+                petApi.getPetBreeds()
+            ]);
+            setPetSpecies(speciesRes.data || []);
+            setPetBreeds(breedsRes.data || []);
+        } catch (error) {
+            console.error('Error loading species/breeds:', error);
         }
     };
 
@@ -383,9 +551,9 @@ const ServicesPage = () => {
             return;
         }
 
-            setSelectedTask(task);
+        setSelectedTask(task);
         setSelectedService(service);
-            setSlotDetailsOpen(true);
+        setSlotDetailsOpen(true);
     };
 
     const handleCreateSlot = (task) => {
@@ -406,21 +574,21 @@ const ServicesPage = () => {
             if (slotFormMode === 'edit' && editingSlot) {
                 // Edit mode
                 await slotApi.updateSlot(editingSlot.id, formData);
-            setAlert({
-                open: true,
-                title: 'Thành công',
+                setAlert({
+                    open: true,
+                    title: 'Thành công',
                     message: 'Cập nhật ca thành công!',
-                type: 'success'
-            });
+                    type: 'success'
+                });
             } else {
                 // Create mode
                 await slotApi.createSlot(formData);
-            setAlert({
-                open: true,
-                title: 'Thành công',
+                setAlert({
+                    open: true,
+                    title: 'Thành công',
                     message: 'Tạo ca thành công!',
-                type: 'success'
-            });
+                    type: 'success'
+                });
             }
 
             await loadSlots();
@@ -566,82 +734,115 @@ const ServicesPage = () => {
             {/* Tab Content */}
             {currentTab === 0 && (
                 <>
-            {/* Toolbar */}
-            <Paper sx={{ mb: 2 }}>
-                <Toolbar sx={{ gap: 2, flexWrap: 'wrap' }}>
-                    <TextField
-                                placeholder="Tìm dịch vụ..."
-                        value={searchQuery}
-                        onChange={(e) => {
-                            setSearchQuery(e.target.value);
-                            setPage(1);
-                        }}
-                        size="small"
-                        sx={{ minWidth: 250 }}
-                    />
+                    {/* Toolbar */}
+                    <Paper sx={{ mb: 2 }}>
+                        <Toolbar sx={{ py: 2, flexDirection: 'column', gap: 1 }}>
+                            {/* Row 1 - fixed layout (no responsive) */}
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%' }}>
+                                <Box sx={{ flex: '0 0 1040px' }}>
+                                    <TextField placeholder="Tìm dịch vụ..." value={searchQuery} onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }} size="small" fullWidth />
+                                </Box>
+                                <Box sx={{ flex: '0 0 24px' }} />
+                                <FormControl size="small" sx={{ width: 200 }}>
+                                    <InputLabel>Trạng thái</InputLabel>
+                                    <Select value={filterServiceStatus} onChange={(e) => { setFilterServiceStatus(e.target.value); setPage(1); loadServices(); }} label="Trạng thái">
+                                        <MenuItem value="all">Tất cả</MenuItem>
+                                        <MenuItem value="active">Hoạt động</MenuItem>
+                                        <MenuItem value="inactive">Không hoạt động</MenuItem>
+                                    </Select>
+                                </FormControl>
+                                <FormControl size="small" sx={{ width: 240, ml: 1 }}>
+                                    <InputLabel>Nhiệm vụ</InputLabel>
+                                    <Select value={filterTaskId} onChange={(e) => { setFilterTaskId(e.target.value); setPage(1); loadServices(); }} label="Nhiệm vụ">
+                                        <MenuItem value="all">Tất cả</MenuItem>
+                                        {taskTemplates.map(t => (<MenuItem key={t.id} value={t.id}>{t.title || t.name}</MenuItem>))}
+                                    </Select>
+                                </FormControl>
+                            </Box>
 
-                        <FormControl size="small" sx={{ minWidth: 150 }}>
-                                <InputLabel>Trạng thái</InputLabel>
-                            <Select
-                                value={filterServiceStatus}
-                                onChange={(e) => {
-                                    setFilterServiceStatus(e.target.value);
-                                    setPage(1);
-                                }}
-                                    label="Trạng thái"
-                            >
-                                <MenuItem value="all">Tất cả</MenuItem>
-                                    <MenuItem value="active">Hoạt động</MenuItem>
-                                    <MenuItem value="inactive">Không hoạt động</MenuItem>
-                            </Select>
-                        </FormControl>
-
-                    <Box sx={{ flexGrow: 1 }} />
-
-                    <IconButton onClick={loadData} size="small">
-                        <RefreshIcon />
-                    </IconButton>
-                </Toolbar>
-            </Paper>
+                            {/* Row 2 - fixed layout (no responsive) */}
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%', flexWrap: 'nowrap' }}>
+                                <TextField label="Giá từ" size="small" value={filterMinPriceText} onChange={handleMinPriceInputChange} onBlur={handleMinPriceBlur} onFocus={handleMinPriceFocus} inputMode="numeric" InputLabelProps={{ shrink: true }} sx={{ width: 200 }} />
+                                <TextField label="đến" size="small" value={filterMaxPriceText} onChange={handleMaxPriceInputChange} onBlur={handleMaxPriceBlur} onFocus={handleMaxPriceFocus} inputMode="numeric" InputLabelProps={{ shrink: true }} sx={{ width: 200 }} />
+                                <TextField label="Giờ bắt đầu" type="time" size="small" value={filterStartTime} onChange={(e) => { setFilterStartTime(e.target.value); loadServices(); }} InputLabelProps={{ shrink: true }} sx={{ width: 200 }} />
+                                <TextField label="Giờ kết thúc" type="time" size="small" value={filterEndTime} onChange={(e) => { setFilterEndTime(e.target.value); loadServices(); }} InputLabelProps={{ shrink: true }} sx={{ width: 200 }} />
+                                <FormControl size="small" sx={{ width: 240 }}>
+                                    <InputLabel shrink>Loài</InputLabel>
+                                    <Select multiple displayEmpty value={filterSpeciesIds} onChange={(e) => { const val = (e.target.value || []).filter(v => v !== '__ALL__'); setFilterSpeciesIds(val); loadServices(); }} input={<OutlinedInput label="Loài" />} renderValue={(selected) => {
+                                        const arr = Array.isArray(selected) ? selected : [];
+                                        if (arr.length === 0) return 'Tất cả';
+                                        return petSpecies.filter(sp => arr.includes(sp.id)).map(sp => sp.name).join(', ');
+                                    }}>
+                                        <MenuItem value="__ALL__">Tất cả</MenuItem>
+                                        {petSpecies.map(sp => (<MenuItem key={sp.id} value={sp.id}>{sp.name}</MenuItem>))}
+                                    </Select>
+                                </FormControl>
+                                <FormControl size="small" sx={{ width: 240 }}>
+                                    <InputLabel shrink>Giống</InputLabel>
+                                    <Select multiple displayEmpty value={filterBreedIds} onChange={(e) => { const val = (e.target.value || []).filter(v => v !== '__ALL__'); setFilterBreedIds(val); loadServices(); }} input={<OutlinedInput label="Giống" />} renderValue={(selected) => {
+                                        const arr = Array.isArray(selected) ? selected : [];
+                                        if (arr.length === 0) return 'Tất cả';
+                                        return petBreeds.filter(br => arr.includes(br.id)).map(br => br.name).join(', ');
+                                    }}>
+                                        <MenuItem value="__ALL__">Tất cả</MenuItem>
+                                        {petBreeds.map(br => (<MenuItem key={br.id} value={br.id}>{br.name}</MenuItem>))}
+                                    </Select>
+                                </FormControl>
+                                <FormControl size="small" sx={{ width: 240 }}>
+                                    <InputLabel shrink>Khu vực</InputLabel>
+                                    <Select multiple displayEmpty value={filterAreaIds} onChange={(e) => { const val = (e.target.value || []).filter(v => v !== '__ALL__'); setFilterAreaIds(val); loadServices(); }} input={<OutlinedInput label="Khu vực" />} renderValue={(selected) => {
+                                        const arr = Array.isArray(selected) ? selected : [];
+                                        if (arr.length === 0) return 'Tất cả';
+                                        return areas.filter(a => arr.includes(a.id)).map(a => a.name).join(', ');
+                                    }}>
+                                        <MenuItem value="__ALL__">Tất cả</MenuItem>
+                                        {areas.map(a => (<MenuItem key={a.id} value={a.id}>{a.name}</MenuItem>))}
+                                    </Select>
+                                </FormControl>
+                                <Box sx={{ flex: 1 }} />
+                                <Button variant="text" size="small" onClick={() => { setFilterTaskId('all'); setFilterStartTime(''); setFilterEndTime(''); setFilterSpeciesIds([]); setFilterBreedIds([]); setFilterAreaIds([]); setFilterMinPrice(''); setFilterMaxPrice(''); setFilterMinPriceText(''); setFilterMaxPriceText(''); setFilterServiceStatus('all'); setSearchQuery(''); setPage(1); loadServices(); }}>Xóa bộ lọc</Button>
+                            </Box>
+                        </Toolbar>
+                    </Paper>
 
                     {/* Services Table */}
-                <TableContainer component={Paper}>
-                    <Table>
-                        <TableHead sx={{ bgcolor: alpha(COLORS.GRAY[100], 0.5) }}>
-                            <TableRow>
-                                <TableCell width="4%">STT</TableCell>
+                    <TableContainer component={Paper}>
+                        <Table>
+                            <TableHead sx={{ bgcolor: alpha(COLORS.GRAY[100], 0.5) }}>
+                                <TableRow>
+                                    <TableCell width="4%">STT</TableCell>
                                     <TableCell width="6%">Ảnh</TableCell>
                                     <TableCell width="9%">Loại</TableCell>
                                     <TableCell width="16%">Tên Dịch vụ</TableCell>
                                     <TableCell width="23%">Mô tả</TableCell>
                                     <TableCell width="8%" align="center">Thời gian</TableCell>
-                                <TableCell width="9%" align="right">Giá</TableCell>
-                                <TableCell width="8%" align="center">Ca</TableCell>
+                                    <TableCell width="9%" align="right">Giá</TableCell>
+                                    <TableCell width="8%" align="center">Ca</TableCell>
                                     <TableCell width="10%" align="center">Trạng thái</TableCell>
                                     <TableCell width="7%" align="center">Thao tác</TableCell>
-                            </TableRow>
-                        </TableHead>
-                        <TableBody>
-                            {currentPageItems.length === 0 ? (
-                                <TableRow>
-                                        <TableCell colSpan={10} align="center" sx={{ py: 4 }}>
-                                        <Typography color="text.secondary">
-                                                Không có dịch vụ nào
-                                        </Typography>
-                                    </TableCell>
                                 </TableRow>
-                            ) : (
-                                currentPageItems.map((service, index) => {
-                                    const task = getTaskForService(service.task_id);
+                            </TableHead>
+                            <TableBody>
+                                {currentPageItems.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={10} align="center" sx={{ py: 4 }}>
+                                            <Typography color="text.secondary">
+                                                Không có dịch vụ nào
+                                            </Typography>
+                                        </TableCell>
+                                    </TableRow>
+                                ) : (
+                                    currentPageItems.map((service, index) => {
+                                        const task = getTaskForService(service.task_id);
                                         const workType = task?.work_type;
                                         const workTypeColor = workType ? getWorkTypeColor(workType.name) : COLORS.GRAY[500];
 
-                                    return (
-                                        <TableRow key={service.id} hover>
-                                            {/* STT */}
-                                            <TableCell>
-                                                {(page - 1) * itemsPerPage + index + 1}
-                                            </TableCell>
+                                        return (
+                                            <TableRow key={service.id} hover>
+                                                {/* STT */}
+                                                <TableCell>
+                                                    {(page - 1) * itemsPerPage + index + 1}
+                                                </TableCell>
 
                                                 {/* Ảnh */}
                                                 <TableCell>
@@ -654,13 +855,13 @@ const ServicesPage = () => {
                                                     </Avatar>
                                                 </TableCell>
 
-                                            {/* Loại */}
-                                            <TableCell>
+                                                {/* Loại */}
+                                                <TableCell>
                                                     <Tooltip title={workType?.description || ''} arrow>
-                                                    <Chip
+                                                        <Chip
                                                             label={workType?.name || 'N/A'}
-                                                        size="small"
-                                                        sx={{
+                                                            size="small"
+                                                            sx={{
                                                                 bgcolor: alpha(workTypeColor, 0.15),
                                                                 color: workTypeColor,
                                                                 fontWeight: 600,
@@ -668,137 +869,137 @@ const ServicesPage = () => {
                                                             }}
                                                         />
                                                     </Tooltip>
-                                            </TableCell>
+                                                </TableCell>
 
-                                            {/* Tên Service */}
-                                            <TableCell>
-                                                <Typography variant="body2" fontWeight={500}>
-                                                    {service.name}
-                                                </Typography>
-                                                {task && (
-                                                    <Typography variant="caption" color="text.secondary">
+                                                {/* Tên Service */}
+                                                <TableCell>
+                                                    <Typography variant="body2" fontWeight={500}>
+                                                        {service.name}
+                                                    </Typography>
+                                                    {task && (
+                                                        <Typography variant="caption" color="text.secondary">
                                                             Nhiệm vụ: {task.title || task.name}
-                                                    </Typography>
-                                                )}
-                                            </TableCell>
-
-                                            {/* Mô tả */}
-                                            <TableCell>
-                                                <Typography variant="body2" color="text.secondary" noWrap>
-                                                    {service.description.length > 80
-                                                        ? `${service.description.substring(0, 80)}...`
-                                                        : service.description
-                                                    }
-                                                </Typography>
-                                            </TableCell>
-
-                                            {/* Thời gian */}
-                                            <TableCell align="center">
-                                                    {service.duration_minutes > 0 ? (
-                                                    <Stack direction="row" alignItems="center" justifyContent="center" spacing={0.5}>
-                                                        <ScheduleIcon fontSize="small" color="action" />
-                                                        <Typography variant="body2">
-                                                                {service.duration_minutes}p
                                                         </Typography>
-                                                    </Stack>
-                                                ) : (
-                                                    <Typography variant="body2" color="text.secondary">
-                                                        —
+                                                    )}
+                                                </TableCell>
+
+                                                {/* Mô tả */}
+                                                <TableCell>
+                                                    <Typography variant="body2" color="text.secondary" noWrap>
+                                                        {service.description.length > 80
+                                                            ? `${service.description.substring(0, 80)}...`
+                                                            : service.description
+                                                        }
                                                     </Typography>
-                                                )}
-                                            </TableCell>
+                                                </TableCell>
 
-                                            {/* Giá */}
-                                            <TableCell align="right">
-                                                <Typography variant="body2" fontWeight={600} color={COLORS.SUCCESS[700]}>
-                                                        {formatPrice(service.base_price)}
-                                                </Typography>
-                                            </TableCell>
-
-                                            {/* Slots */}
-                                            <TableCell align="center">
-                                                {(() => {
-                                                    const slotsCount = getSlotsCountForService(service.task_id);
-
-                                                    return (
-                                                        <Stack direction="row" spacing={0.5} justifyContent="center">
-                                                            <Tooltip title="Xem chi tiết ca">
-                                                                <Chip
-                                                                    label={slotsCount.total}
-                                                                    size="small"
-                                                                    variant="outlined"
-                                                                    onClick={() => handleViewSlots(service)}
-                                                                    sx={{
-                                                                        cursor: 'pointer',
-                                                                        '&:hover': {
-                                                                            bgcolor: alpha(COLORS.PRIMARY[100], 0.5)
-                                                                        }
-                                                                    }}
-                                                                />
-                                                            </Tooltip>
-                                                                <Tooltip title="Ca có sẵn">
-                                                                <Chip
-                                                                        label={`${slotsCount.available}A`}
-                                                                    size="small"
-                                                                    color="success"
-                                                                    onClick={() => handleViewSlots(service)}
-                                                                    sx={{
-                                                                        cursor: 'pointer',
-                                                                        '&:hover': {
-                                                                            opacity: 0.8
-                                                                        }
-                                                                    }}
-                                                                />
-                                                            </Tooltip>
+                                                {/* Thời gian */}
+                                                <TableCell align="center">
+                                                    {service.duration_minutes > 0 ? (
+                                                        <Stack direction="row" alignItems="center" justifyContent="center" spacing={0.5}>
+                                                            <ScheduleIcon fontSize="small" color="action" />
+                                                            <Typography variant="body2">
+                                                                {service.duration_minutes}p
+                                                            </Typography>
                                                         </Stack>
-                                                    );
-                                                })()}
-                                            </TableCell>
+                                                    ) : (
+                                                        <Typography variant="body2" color="text.secondary">
+                                                            —
+                                                        </Typography>
+                                                    )}
+                                                </TableCell>
 
-                                            {/* Trạng thái */}
-                                            <TableCell align="center">
-                                                <Stack direction="row" alignItems="center" justifyContent="center" spacing={1}>
-                                                    <Switch
+                                                {/* Giá */}
+                                                <TableCell align="right">
+                                                    <Typography variant="body2" fontWeight={600} color={COLORS.SUCCESS[700]}>
+                                                        {formatPrice(service.base_price)}
+                                                    </Typography>
+                                                </TableCell>
+
+                                                {/* Slots */}
+                                                <TableCell align="center">
+                                                    {(() => {
+                                                        const slotsCount = getSlotsCountForService(service.task_id);
+
+                                                        return (
+                                                            <Stack direction="row" spacing={0.5} justifyContent="center">
+                                                                <Tooltip title="Xem chi tiết ca">
+                                                                    <Chip
+                                                                        label={slotsCount.total}
+                                                                        size="small"
+                                                                        variant="outlined"
+                                                                        onClick={() => handleViewSlots(service)}
+                                                                        sx={{
+                                                                            cursor: 'pointer',
+                                                                            '&:hover': {
+                                                                                bgcolor: alpha(COLORS.PRIMARY[100], 0.5)
+                                                                            }
+                                                                        }}
+                                                                    />
+                                                                </Tooltip>
+                                                                <Tooltip title="Ca có sẵn">
+                                                                    <Chip
+                                                                        label={`${slotsCount.available}A`}
+                                                                        size="small"
+                                                                        color="success"
+                                                                        onClick={() => handleViewSlots(service)}
+                                                                        sx={{
+                                                                            cursor: 'pointer',
+                                                                            '&:hover': {
+                                                                                opacity: 0.8
+                                                                            }
+                                                                        }}
+                                                                    />
+                                                                </Tooltip>
+                                                            </Stack>
+                                                        );
+                                                    })()}
+                                                </TableCell>
+
+                                                {/* Trạng thái */}
+                                                <TableCell align="center">
+                                                    <Stack direction="row" alignItems="center" justifyContent="center" spacing={1}>
+                                                        <Switch
                                                             checked={service.is_active === true}
-                                                        onChange={() => handleToggleStatus(service)}
-                                                        size="small"
-                                                        color="success"
-                                                    />
-                                                    <Chip
+                                                            onChange={() => handleToggleStatus(service)}
+                                                            size="small"
+                                                            color="success"
+                                                        />
+                                                        <Chip
                                                             label={service.is_active ? 'Hoạt động' : 'Không hoạt động'}
-                                                        size="small"
+                                                            size="small"
                                                             icon={service.is_active ? <CheckIcon /> : <CloseIcon />}
-                                                        sx={{
+                                                            sx={{
                                                                 bgcolor: service.is_active
-                                                                ? alpha(COLORS.SUCCESS[100], 0.8)
-                                                                : alpha(COLORS.GRAY[200], 0.6),
+                                                                    ? alpha(COLORS.SUCCESS[100], 0.8)
+                                                                    : alpha(COLORS.GRAY[200], 0.6),
                                                                 color: service.is_active
-                                                                ? COLORS.SUCCESS[700]
-                                                                : COLORS.TEXT.SECONDARY
-                                                        }}
-                                                    />
-                                                </Stack>
-                                            </TableCell>
+                                                                    ? COLORS.SUCCESS[700]
+                                                                    : COLORS.TEXT.SECONDARY
+                                                            }}
+                                                        />
+                                                    </Stack>
+                                                </TableCell>
 
-                                            {/* Thao tác */}
-                                            <TableCell align="center">
-                                                <IconButton
-                                                    size="small"
-                                                    onClick={(e) => {
-                                                        setServiceMenuAnchor(e.currentTarget);
-                                                        setMenuService(service);
-                                                    }}
-                                                >
-                                                    <MoreVertIcon fontSize="small" />
-                                                </IconButton>
-                                            </TableCell>
-                                        </TableRow>
-                                    );
-                                })
-                            )}
-                        </TableBody>
-                    </Table>
-                </TableContainer>
+                                                {/* Thao tác */}
+                                                <TableCell align="center">
+                                                    <IconButton
+                                                        size="small"
+                                                        onClick={(e) => {
+                                                            setServiceMenuAnchor(e.currentTarget);
+                                                            setMenuService(service);
+                                                        }}
+                                                    >
+                                                        <MoreVertIcon fontSize="small" />
+                                                    </IconButton>
+                                                </TableCell>
+                                            </TableRow>
+                                        );
+                                    })
+                                )}
+                            </TableBody>
+                        </Table>
+                    </TableContainer>
 
                     {/* Pagination */}
                     <Box sx={{ mt: 2 }}>
@@ -835,10 +1036,6 @@ const ServicesPage = () => {
                             />
 
                             <Box sx={{ flexGrow: 1 }} />
-
-                            <IconButton onClick={loadData} size="small">
-                                <RefreshIcon />
-                            </IconButton>
                         </Toolbar>
                     </Paper>
 
@@ -948,20 +1145,20 @@ const ServicesPage = () => {
                         </Table>
                     </TableContainer>
 
-            {/* Pagination */}
-                <Box sx={{ mt: 2 }}>
-                    <Pagination
-                        page={page}
-                        totalPages={totalPages}
-                        onPageChange={setPage}
-                        itemsPerPage={itemsPerPage}
-                        onItemsPerPageChange={(value) => {
-                            setItemsPerPage(value);
-                            setPage(1);
-                        }}
+                    {/* Pagination */}
+                    <Box sx={{ mt: 2 }}>
+                        <Pagination
+                            page={page}
+                            totalPages={totalPages}
+                            onPageChange={setPage}
+                            itemsPerPage={itemsPerPage}
+                            onItemsPerPageChange={(value) => {
+                                setItemsPerPage(value);
+                                setPage(1);
+                            }}
                             totalItems={filteredAvailableTasks.length}
-                    />
-                </Box>
+                        />
+                    </Box>
                 </>
             )}
 
@@ -980,10 +1177,10 @@ const ServicesPage = () => {
                 onClose={() => setSlotDetailsOpen(false)}
                 taskData={selectedTask}
                 slots={slots}
-                onCreateSlot={handleCreateSlot}
                 onEditSlot={handleEditSlot}
                 onDeleteSlot={handleDeleteSlot}
                 onRefresh={loadData}
+                showCreateAction={false}
             />
 
             <SlotFormModal
