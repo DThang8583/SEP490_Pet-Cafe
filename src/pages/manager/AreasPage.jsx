@@ -1,46 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
-import {
-    Box,
-    Typography,
-    Button,
-    Paper,
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TableRow,
-    Chip,
-    IconButton,
-    TextField,
-    Stack,
-    Toolbar,
-    Grid,
-    Menu,
-    MenuItem,
-    ListItemIcon,
-    ListItemText,
-    Tooltip,
-    Avatar,
-    Switch,
-    FormControl,
-    InputLabel,
-    Select,
-    Badge
-} from '@mui/material';
+import { Box, Typography, Button, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, IconButton, TextField, Stack, Toolbar, Grid, Menu, MenuItem, ListItemIcon, ListItemText, Tooltip, Avatar, Switch, FormControl, InputLabel, Select } from '@mui/material';
 import { alpha } from '@mui/material/styles';
-import {
-    Add as AddIcon,
-    Edit as EditIcon,
-    Delete as DeleteIcon,
-    LocationOn as LocationIcon,
-    People as PeopleIcon,
-    MoreVert as MoreVertIcon,
-    Check as CheckIcon,
-    Close as CloseIcon,
-    Assignment as AssignmentIcon,
-    MeetingRoom as RoomIcon
-} from '@mui/icons-material';
+import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, LocationOn as LocationIcon, People as PeopleIcon, MoreVert as MoreVertIcon, Assignment as AssignmentIcon, MeetingRoom as RoomIcon } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 import Loading from '../../components/loading/Loading';
 import Pagination from '../../components/common/Pagination';
@@ -49,7 +10,7 @@ import ConfirmModal from '../../components/modals/ConfirmModal';
 import AreaWorkTypesModal from '../../components/modals/AreaWorkTypesModal';
 import AreaFormModal from '../../components/modals/AreaFormModal';
 import * as areasApi from '../../api/areasApi';
-import taskTemplateApi from '../../api/taskTemplateApi';
+import * as workTypeApi from '../../api/workTypeApi';
 
 const AreasPage = () => {
     // Loading & Data
@@ -82,7 +43,10 @@ const AreasPage = () => {
     const calculateStats = (areasArray) => {
         const active = areasArray.filter(a => a.is_active).length;
         const inactive = areasArray.filter(a => !a.is_active).length;
-        const totalCapacity = areasArray.reduce((sum, a) => sum + a.max_capacity, 0);
+        const totalCapacity = areasArray.reduce((sum, a) => {
+            const capacity = Number(a.max_capacity) || 0;
+            return sum + capacity;
+        }, 0);
         const averageCapacity = areasArray.length > 0
             ? Math.round(totalCapacity / areasArray.length)
             : 0;
@@ -91,8 +55,8 @@ const AreasPage = () => {
             total: areasArray.length,
             active,
             inactive,
-            totalCapacity,
-            averageCapacity
+            totalCapacity: totalCapacity || 0,
+            averageCapacity: averageCapacity || 0
         };
     };
 
@@ -102,17 +66,61 @@ const AreasPage = () => {
             const isActiveParam = filterStatus === 'active' ? true : filterStatus === 'inactive' ? false : null;
             const workTypeIdParam = filterWorkTypeId !== 'all' ? filterWorkTypeId : null;
 
-            const [areasResponse, statsResponse, workTypesResponse] = await Promise.all([
-                areasApi.getAllAreas({
-                    is_active: isActiveParam,
-                    work_type_id: workTypeIdParam
-                }),
-                areasApi.getAreasStatistics(),
-                taskTemplateApi.getWorkTypes()
-            ]);
-            setAreas(areasResponse.data || []);
-            setStats(statsResponse);
-            setWorkTypes(workTypesResponse.data || []);
+            let areasData = [];
+            let statsResponse;
+            let workTypesResponse;
+
+            // If filter is "all", fetch both active and inactive areas separately
+            // because API might default to active only when IsActive parameter is not provided
+            if (filterStatus === 'all') {
+                const [activeResponse, inactiveResponse, stats, workTypes] = await Promise.all([
+                    areasApi.getAllAreas({
+                        page_index: 0,
+                        page_size: 1000,
+                        is_active: true,
+                        work_type_id: workTypeIdParam
+                    }),
+                    areasApi.getAllAreas({
+                        page_index: 0,
+                        page_size: 1000,
+                        is_active: false,
+                        work_type_id: workTypeIdParam
+                    }),
+                    areasApi.getAreasStatistics(),
+                    workTypeApi.getWorkTypes()
+                ]);
+
+                // Merge active and inactive areas
+                const activeAreas = activeResponse?.data || [];
+                const inactiveAreas = inactiveResponse?.data || [];
+                areasData = [...activeAreas, ...inactiveAreas];
+                statsResponse = stats;
+                workTypesResponse = workTypes;
+            } else {
+                // For "active" or "inactive" filter, use single request
+                const [response, stats, workTypes] = await Promise.all([
+                    areasApi.getAllAreas({
+                        page_index: 0,
+                        page_size: 1000,
+                        is_active: isActiveParam,
+                        work_type_id: workTypeIdParam
+                    }),
+                    areasApi.getAreasStatistics(),
+                    workTypeApi.getWorkTypes()
+                ]);
+
+                areasData = response?.data || response || [];
+                statsResponse = stats;
+                workTypesResponse = workTypes;
+            }
+
+            // Set state
+            setAreas(Array.isArray(areasData) ? areasData : []);
+            setStats(statsResponse || { total: 0, active: 0, inactive: 0, totalCapacity: 0, averageCapacity: 0 });
+
+            // Handle workTypeApi response structure: { success: true, data: [...] }
+            const workTypesData = workTypesResponse?.data || workTypesResponse || [];
+            setWorkTypes(Array.isArray(workTypesData) ? workTypesData : []);
         } catch (error) {
             console.error('Error loading areas:', error);
             setAlert({
@@ -138,9 +146,9 @@ const AreasPage = () => {
             // Search
             if (searchQuery) {
                 const searchLower = searchQuery.toLowerCase();
-                const matchSearch = area.name.toLowerCase().includes(searchLower) ||
-                    area.description.toLowerCase().includes(searchLower) ||
-                    area.location.toLowerCase().includes(searchLower);
+                const matchSearch = (area.name || '').toLowerCase().includes(searchLower) ||
+                    (area.description || '').toLowerCase().includes(searchLower) ||
+                    (area.location || '').toLowerCase().includes(searchLower);
                 if (!matchSearch) return false;
             }
 
@@ -177,17 +185,27 @@ const AreasPage = () => {
 
     const handleConfirmToggleStatus = async () => {
         const area = confirmToggle.area;
-        if (!area) return;
+        if (!area) {
+            setAlert({
+                open: true,
+                title: 'Lỗi',
+                message: 'Không tìm thấy thông tin khu vực',
+                type: 'error'
+            });
+            setConfirmToggle({ open: false, area: null });
+            return;
+        }
 
         try {
-            const updatedArea = await areasApi.toggleAreaStatus(area.id);
+            await areasApi.toggleAreaStatus(area.id);
 
-            // Update areas state locally and recalculate stats
-            setAreas(prevAreas => {
-                const updatedAreas = prevAreas.map(a => a.id === area.id ? updatedArea : a);
-                setStats(calculateStats(updatedAreas));
-                return updatedAreas;
-            });
+            // Always change filter to "all" when toggling status
+            // This ensures the area is still visible after toggle (not filtered out)
+            if (filterStatus !== 'all') {
+                setFilterStatus('all');
+            } else {
+                await loadData();
+            }
 
             setAlert({
                 open: true,
@@ -294,14 +312,7 @@ const AreasPage = () => {
     const handleFormSubmit = async (formData) => {
         try {
             if (formModal.mode === 'create') {
-                const newArea = await areasApi.createArea(formData);
-
-                // Add new area to list and recalculate stats
-                setAreas(prevAreas => {
-                    const updatedAreas = [newArea, ...prevAreas];
-                    setStats(calculateStats(updatedAreas));
-                    return updatedAreas;
-                });
+                await areasApi.createArea(formData);
 
                 setAlert({
                     open: true,
@@ -310,14 +321,13 @@ const AreasPage = () => {
                     type: 'success'
                 });
             } else {
-                const updatedArea = await areasApi.updateArea(formModal.area.id, formData);
+                // Validate area and areaId
+                if (!formModal.area || !formModal.area.id) {
+                    throw new Error('Không tìm thấy thông tin khu vực cần cập nhật');
+                }
 
-                // Update area in list and recalculate stats
-                setAreas(prevAreas => {
-                    const updatedAreas = prevAreas.map(a => a.id === formModal.area.id ? updatedArea : a);
-                    setStats(calculateStats(updatedAreas));
-                    return updatedAreas;
-                });
+                const areaId = formModal.area.id;
+                await areasApi.updateArea(areaId, formData);
 
                 setAlert({
                     open: true,
@@ -328,6 +338,9 @@ const AreasPage = () => {
             }
 
             handleCloseFormModal();
+
+            // Reload data from API to get the latest information
+            await loadData();
         } catch (error) {
             console.error('Error saving area:', error);
             setAlert({
@@ -387,7 +400,7 @@ const AreasPage = () => {
                             Tổng khu vực
                         </Typography>
                         <Typography variant="h4" fontWeight={600} color={COLORS.PRIMARY[700]}>
-                            {stats.total}
+                            {stats.total ?? 0}
                         </Typography>
                     </Paper>
                 </Grid>
@@ -397,7 +410,7 @@ const AreasPage = () => {
                             Đang hoạt động
                         </Typography>
                         <Typography variant="h4" fontWeight={600} color={COLORS.SUCCESS[700]}>
-                            {stats.active}
+                            {stats.active ?? 0}
                         </Typography>
                     </Paper>
                 </Grid>
@@ -407,7 +420,7 @@ const AreasPage = () => {
                             Không hoạt động
                         </Typography>
                         <Typography variant="h4" fontWeight={600} color={COLORS.WARNING[700]}>
-                            {stats.inactive}
+                            {stats.inactive ?? 0}
                         </Typography>
                     </Paper>
                 </Grid>
@@ -417,7 +430,7 @@ const AreasPage = () => {
                             Tổng sức chứa
                         </Typography>
                         <Typography variant="h4" fontWeight={600} color={COLORS.INFO[700]}>
-                            {stats.totalCapacity}
+                            {stats.totalCapacity ?? 0}
                         </Typography>
                     </Paper>
                 </Grid>
@@ -491,7 +504,7 @@ const AreasPage = () => {
                             </TableRow>
                         ) : (
                             paginatedAreas.map((area, index) => (
-                                <TableRow key={area.id} hover>
+                                <TableRow key={area.id || `area-${index}`} hover>
                                     {/* STT */}
                                     <TableCell>
                                         {(page - 1) * itemsPerPage + index + 1}
@@ -500,7 +513,7 @@ const AreasPage = () => {
                                     {/* Ảnh */}
                                     <TableCell>
                                         <Avatar
-                                            src={area.image_url}
+                                            src={area.image_url || ''}
                                             variant="rounded"
                                             sx={{ width: 48, height: 48 }}
                                         >
@@ -511,17 +524,17 @@ const AreasPage = () => {
                                     {/* Tên khu vực */}
                                     <TableCell>
                                         <Typography variant="body2" fontWeight={500}>
-                                            {area.name}
+                                            {area.name || ''}
                                         </Typography>
                                     </TableCell>
 
                                     {/* Mô tả */}
                                     <TableCell>
-                                        <Tooltip title={area.description}>
+                                        <Tooltip title={area.description || ''}>
                                             <Typography variant="body2" color="text.secondary" noWrap>
-                                                {area.description.length > 60
+                                                {area.description && area.description.length > 60
                                                     ? `${area.description.substring(0, 60)}...`
-                                                    : area.description}
+                                                    : (area.description || '')}
                                             </Typography>
                                         </Tooltip>
                                     </TableCell>
@@ -531,7 +544,7 @@ const AreasPage = () => {
                                         <Stack direction="row" alignItems="center" spacing={0.5}>
                                             <LocationIcon fontSize="small" color="action" />
                                             <Typography variant="body2" color="text.secondary" noWrap>
-                                                {area.location}
+                                                {area.location || ''}
                                             </Typography>
                                         </Stack>
                                     </TableCell>
@@ -541,7 +554,7 @@ const AreasPage = () => {
                                         <Stack direction="row" alignItems="center" justifyContent="center" spacing={0.5}>
                                             <PeopleIcon fontSize="small" color="action" />
                                             <Typography variant="body2" fontWeight={500}>
-                                                {area.max_capacity}
+                                                {area.max_capacity ?? 0}
                                             </Typography>
                                         </Stack>
                                     </TableCell>
@@ -644,19 +657,21 @@ const AreasPage = () => {
             />
 
             {/* Confirm Toggle Status Modal */}
-            <ConfirmModal
-                isOpen={confirmToggle.open}
-                onClose={() => setConfirmToggle({ open: false, area: null })}
-                onConfirm={handleConfirmToggleStatus}
-                title={confirmToggle.area?.is_active ? "Xác nhận vô hiệu hóa" : "Xác nhận kích hoạt"}
-                message={
-                    confirmToggle.area?.is_active
-                        ? `Bạn có chắc chắn muốn vô hiệu hóa khu vực "${confirmToggle.area?.name}"? Khu vực sẽ tạm thời không hoạt động.`
-                        : `Bạn có chắc chắn muốn kích hoạt khu vực "${confirmToggle.area?.name}"?`
-                }
-                confirmText={confirmToggle.area?.is_active ? "Vô hiệu hóa" : "Kích hoạt"}
-                cancelText="Hủy"
-            />
+            {confirmToggle.area && (
+                <ConfirmModal
+                    isOpen={confirmToggle.open}
+                    onClose={() => setConfirmToggle({ open: false, area: null })}
+                    onConfirm={handleConfirmToggleStatus}
+                    title={confirmToggle.area.is_active ? "Xác nhận vô hiệu hóa" : "Xác nhận kích hoạt"}
+                    message={
+                        confirmToggle.area.is_active
+                            ? `Bạn có chắc chắn muốn vô hiệu hóa khu vực "${confirmToggle.area.name}"? Khu vực sẽ tạm thời không hoạt động.`
+                            : `Bạn có chắc chắn muốn kích hoạt khu vực "${confirmToggle.area.name}"?`
+                    }
+                    confirmText={confirmToggle.area.is_active ? "Vô hiệu hóa" : "Kích hoạt"}
+                    cancelText="Hủy"
+                />
+            )}
 
             {/* Work Types Modal */}
             <AreaWorkTypesModal

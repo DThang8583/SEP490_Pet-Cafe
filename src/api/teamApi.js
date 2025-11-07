@@ -1,5 +1,6 @@
 import { MOCK_EMPLOYEES } from './employeeApi';
-import { MOCK_WORK_TYPES } from './workTypeApi';
+// Note: MOCK_WORK_TYPES removed - use workTypeApi.getWorkTypeById() for API calls
+import { getWorkTypeById as getWorkTypeByIdFromAPI } from './workTypeApi';
 import { MOCK_WORK_SHIFTS } from './workShiftApi';
 
 // ========== TEAM MOCK DATA (moved from mockData) ==========
@@ -240,8 +241,12 @@ const getEmployeeById = (id) => {
 };
 
 // Helper: Get work type by ID
+// TODO: This is a sync helper but API is async - needs refactoring
+// For now, this will return null - update to use async getWorkTypeByIdFromAPI when needed
 const getWorkTypeById = (id) => {
-    return MOCK_WORK_TYPES.find(wt => wt.id === id && !wt.is_deleted);
+    // Note: MOCK_WORK_TYPES removed - this helper needs to be updated to use API
+    // Return null for now - update calling code to use async getWorkTypeByIdFromAPI
+    return null;
 };
 
 // Helper: Get work shift by ID

@@ -7,7 +7,7 @@ export const API_BASE_URL =
         ? import.meta.env.VITE_API_BASE_URL
         : (typeof window !== 'undefined' && window.__API_BASE_URL__)
             ? window.__API_BASE_URL__
-            : 'https://petcafe-htc6ddabayh6h4dz.southeastasia-01.azurewebsites.net/api';
+            : 'https://petcafe-htc6dadbayh6h4dz.southeastasia-01.azurewebsites.net/api';
 
 const apiClient = axios.create({
     baseURL: API_BASE_URL,
@@ -28,9 +28,8 @@ apiClient.interceptors.request.use(
             config.headers.Authorization = `Bearer ${token}`;
         }
 
-        if (config.data instanceof FormData) {
-            config.headers['Content-Type'] = 'multipart/form-data';
-        } else {
+        // Don't set Content-Type for FormData - browser will set it automatically with boundary
+        if (!(config.data instanceof FormData)) {
             config.headers['Content-Type'] = 'application/json';
         }
 

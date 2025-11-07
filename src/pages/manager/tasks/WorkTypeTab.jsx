@@ -1,43 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import {
-    Box,
-    Typography,
-    Button,
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TableRow,
-    IconButton,
-    Chip,
-    Stack,
-    Toolbar,
-    TextField,
-    Grid,
-    Paper,
-    alpha,
-    Menu,
-    MenuItem,
-    ListItemIcon,
-    ListItemText
-} from '@mui/material';
-import {
-    Add as AddIcon,
-    Edit as EditIcon,
-    Delete as DeleteIcon,
-    MoreVert as MoreVertIcon,
-    WorkOutline,
-    CheckCircle,
-    Cancel
-} from '@mui/icons-material';
+import { useState, useEffect, useMemo } from 'react';
+import { Box, Typography, Button, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, IconButton, Chip, Stack, Toolbar, TextField, Grid, Paper, alpha, Menu, MenuItem, ListItemIcon, ListItemText } from '@mui/material';
+import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, MoreVert as MoreVertIcon, WorkOutline, CheckCircle, Cancel } from '@mui/icons-material';
 import { COLORS } from '../../../constants/colors';
 import WorkTypeFormModal from '../../../components/modals/WorkTypeFormModal';
 import ConfirmModal from '../../../components/modals/ConfirmModal';
 import workTypeApi from '../../../api/workTypeApi';
 
 const WorkTypeTab = ({ onAlert }) => {
-    const [loading, setLoading] = useState(false);
     const [workTypes, setWorkTypes] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
 
@@ -60,10 +29,11 @@ const WorkTypeTab = ({ onAlert }) => {
 
     const loadWorkTypes = async () => {
         try {
-            setLoading(true);
             const response = await workTypeApi.getWorkTypes();
-            if (response.success) {
+            if (response?.success) {
                 setWorkTypes(response.data.filter(wt => !wt.is_deleted));
+            } else {
+                setWorkTypes(response?.data || []);
             }
         } catch (error) {
             console.error('Error loading work types:', error);
@@ -72,21 +42,23 @@ const WorkTypeTab = ({ onAlert }) => {
                 message: error.message || 'Không thể tải danh sách loại công việc',
                 type: 'error'
             });
-        } finally {
-            setLoading(false);
         }
     };
 
-    const filteredWorkTypes = workTypes.filter(wt =>
-        wt.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        wt.description.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const filteredWorkTypes = useMemo(() => {
+        if (!searchQuery) return workTypes;
+        const query = searchQuery.toLowerCase();
+        return workTypes.filter(wt =>
+            wt.name?.toLowerCase().includes(query) ||
+            wt.description?.toLowerCase().includes(query)
+        );
+    }, [workTypes, searchQuery]);
 
-    const stats = {
+    const stats = useMemo(() => ({
         total: workTypes.length,
         active: workTypes.filter(wt => wt.is_active).length,
         inactive: workTypes.filter(wt => !wt.is_active).length
-    };
+    }), [workTypes]);
 
     const handleCreate = () => {
         setFormMode('create');
@@ -109,9 +81,10 @@ const WorkTypeTab = ({ onAlert }) => {
 
     const handleFormSubmit = async (formData) => {
         try {
+            let response;
             if (formMode === 'create') {
-                const response = await workTypeApi.createWorkType(formData);
-                if (response.success) {
+                response = await workTypeApi.createWorkType(formData);
+                if (response?.success) {
                     setWorkTypes(prev => [...prev, response.data]);
                     onAlert?.({
                         title: 'Thành công',
@@ -120,8 +93,8 @@ const WorkTypeTab = ({ onAlert }) => {
                     });
                 }
             } else {
-                const response = await workTypeApi.updateWorkType(selectedWorkType.id, formData);
-                if (response.success) {
+                response = await workTypeApi.updateWorkType(selectedWorkType.id, formData);
+                if (response?.success) {
                     setWorkTypes(prev => prev.map(wt =>
                         wt.id === selectedWorkType.id ? response.data : wt
                     ));
@@ -146,7 +119,7 @@ const WorkTypeTab = ({ onAlert }) => {
     const confirmDelete = async () => {
         try {
             const response = await workTypeApi.deleteWorkType(deleteTarget.id);
-            if (response.success) {
+            if (response?.success) {
                 setWorkTypes(prev => prev.filter(wt => wt.id !== deleteTarget.id));
                 onAlert?.({
                     title: 'Thành công',
@@ -292,7 +265,7 @@ const WorkTypeTab = ({ onAlert }) => {
                                                 setMenuWorkType(workType);
                                             }}
                                         >
-                                            <MoreVertIcon fontSize="small" />
+                                            <MoreVertIcon />
                                         </IconButton>
                                     </TableCell>
                                 </TableRow>

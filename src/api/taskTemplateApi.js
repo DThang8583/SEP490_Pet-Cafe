@@ -1,4 +1,5 @@
-import { MOCK_WORK_TYPES } from './workTypeApi';
+// Note: MOCK_WORK_TYPES removed - use workTypeApi.getWorkTypeById() for API calls
+import { getWorkTypeById as getWorkTypeByIdFromAPI } from './workTypeApi';
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -51,7 +52,14 @@ export const TASK_TYPES = [
 
 // ========== MOCK DATABASE ==========
 
-const getWorkTypeById = (id) => MOCK_WORK_TYPES.find(wt => wt.id === id);
+// Helper: Get work type by ID
+// TODO: This is a sync helper but API is async - needs refactoring
+// For now, this will return null - update to use async getWorkTypeByIdFromAPI when needed
+const getWorkTypeById = (id) => {
+    // Note: MOCK_WORK_TYPES removed - this helper needs to be updated to use API
+    // Return null for now - update calling code to use async getWorkTypeByIdFromAPI
+    return null;
+};
 
 let MOCK_TASK_TEMPLATES = [
     {
@@ -495,17 +503,20 @@ const taskTemplateApi = {
     /**
      * Get work types
      * @returns {Promise<Object>}
+     * Note: This should use workTypeApi.getWorkTypes() instead
      */
     async getWorkTypes() {
         await delay(200);
 
+        // TODO: Use workTypeApi.getWorkTypes() instead of mock data
+        // For now, return empty array
         return {
             success: true,
-            data: MOCK_WORK_TYPES.filter(wt => !wt.is_deleted && wt.is_active)
+            data: []
         };
     }
 };
 
 // Export
-export { MOCK_TASK_TEMPLATES, MOCK_WORK_TYPES };
+export { MOCK_TASK_TEMPLATES };
 export default taskTemplateApi;

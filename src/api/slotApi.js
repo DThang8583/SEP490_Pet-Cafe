@@ -1,6 +1,6 @@
 import { MOCK_SERVICES } from './serviceApi';
 import { MOCK_PET_GROUPS } from './petApi';
-import { MOCK_AREAS } from './areasApi';
+import { getAreaById as getAreaByIdFromAPI } from './areasApi';
 import { MOCK_TEAMS } from './teamApi';
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -8,7 +8,9 @@ const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 // Helper functions for MOCK_SLOTS
 const getPetGroupById = (id) => MOCK_PET_GROUPS.find(pg => pg.id === id);
 const getServiceById = (id) => MOCK_SERVICES.find(s => s.id === id);
-const getAreaById = (id) => MOCK_AREAS.find(a => a.id === id);
+// Note: getAreaById is async from API, so for mock data we return null
+// The actual area will be populated when fetching from API
+const getAreaById = (id) => null; // Mock data doesn't populate area, will be fetched from API when needed
 const getTeamById = (id) => MOCK_TEAMS.find(t => t.id === id);
 
 const generateId = () => {
@@ -701,7 +703,7 @@ const slotApi = {
         }
 
         // Helper functions to get nested data
-        const getAreaById = (id) => MOCK_AREAS.find(a => a.id === id);
+        // Note: getAreaById returns null for mock data, area will be fetched from API when needed
         const getTeamById = (id) => MOCK_TEAMS.find(t => t.id === id);
         const getPetGroupById = (id) => MOCK_PET_GROUPS.find(pg => pg.id === id);
         const getServiceById = (id) => MOCK_SERVICES.find(s => s.id === id);
@@ -795,7 +797,7 @@ const slotApi = {
         }
 
         // Helper functions to get nested data
-        const getAreaById = (id) => MOCK_AREAS.find(a => a.id === id);
+        // Note: getAreaById returns null for mock data, area will be fetched from API when needed
         const getTeamById = (id) => MOCK_TEAMS.find(t => t.id === id);
         const getPetGroupById = (id) => MOCK_PET_GROUPS.find(pg => pg.id === id);
         const getServiceById = (id) => MOCK_SERVICES.find(s => s.id === id);
