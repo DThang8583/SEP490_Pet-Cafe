@@ -1,4 +1,48 @@
-import { MOCK_WORK_TYPES } from './mockData';
+// ========== MOCK WORK TYPES ==========
+const MOCK_WORK_TYPES = [
+    {
+        id: 'b0c8a471-3b55-4038-9642-b598c072ea45',
+        name: 'Quản lý Khu Vực Chó',
+        description: 'Chịu trách nhiệm giám sát, huấn luyện cơ bản, cho ăn và đảm bảo vệ sinh, an toàn trong khu vực sinh hoạt của chó. Quản lý tương tác giữa chó và khách hàng, đặc biệt là các giống chó lớn.',
+        is_active: true,
+        tasks: [],
+        area_work_types: [],
+        team_work_types: [],
+        created_at: '2025-10-27T12:28:16.424682+00:00',
+        created_by: '00000000-0000-0000-0000-000000000000',
+        updated_at: '2025-10-27T12:28:16.424683+00:00',
+        updated_by: null,
+        is_deleted: false
+    },
+    {
+        id: '7e7477a6-f481-4df6-b3fd-626944475fb5',
+        name: 'Quản lý Khu Vực Mèo',
+        description: 'Chịu trách nhiệm quản lý, giám sát sức khỏe, cho ăn, dọn dẹp vệ sinh khu vực sinh hoạt của mèo, và đảm bảo tương tác an toàn giữa mèo với khách hàng trong khu vực Cat Zone.',
+        is_active: true,
+        tasks: [],
+        area_work_types: [],
+        team_work_types: [],
+        created_at: '2025-10-27T12:31:09.910051+00:00',
+        created_by: '00000000-0000-0000-0000-000000000000',
+        updated_at: '2025-10-27T12:31:09.910051+00:00',
+        updated_by: null,
+        is_deleted: false
+    },
+    {
+        id: '057b182b-94e1-477e-8362-e89df03c2faf',
+        name: 'Thực phẩm & Đồ uống',
+        description: 'Phụ trách toàn bộ khu vực quầy bar và bàn khách, bao gồm pha chế, phục vụ đồ uống và thức ăn cho người, và duy trì vệ sinh, kiểm soát nguyên liệu tại khu vực F&B.',
+        is_active: true,
+        tasks: [],
+        area_work_types: [],
+        team_work_types: [],
+        created_at: '2025-10-27T12:31:22.371814+00:00',
+        created_by: '00000000-0000-0000-0000-000000000000',
+        updated_at: '2025-10-27T12:31:22.371814+00:00',
+        updated_by: null,
+        is_deleted: false
+    }
+];
 
 // Delay to simulate API call
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -178,3 +222,5 @@ export default {
     updateWorkType,
     deleteWorkType
 };
+
+export { MOCK_WORK_TYPES };

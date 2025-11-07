@@ -33,7 +33,6 @@ import {
     Add as AddIcon,
     Edit as EditIcon,
     Delete as DeleteIcon,
-    Refresh as RefreshIcon,
     LocationOn as LocationIcon,
     People as PeopleIcon,
     MoreVert as MoreVertIcon,
@@ -62,6 +61,7 @@ const AreasPage = () => {
     // Filters & Search
     const [searchQuery, setSearchQuery] = useState('');
     const [filterStatus, setFilterStatus] = useState('all'); // all, active, inactive
+    const [filterWorkTypeId, setFilterWorkTypeId] = useState('all');
 
     // Pagination
     const [page, setPage] = useState(1);
@@ -96,16 +96,17 @@ const AreasPage = () => {
         };
     };
 
-    // Load data
-    useEffect(() => {
-        loadData();
-    }, []);
-
     const loadData = async () => {
         setLoading(true);
         try {
+            const isActiveParam = filterStatus === 'active' ? true : filterStatus === 'inactive' ? false : null;
+            const workTypeIdParam = filterWorkTypeId !== 'all' ? filterWorkTypeId : null;
+
             const [areasResponse, statsResponse, workTypesResponse] = await Promise.all([
-                areasApi.getAllAreas(),
+                areasApi.getAllAreas({
+                    is_active: isActiveParam,
+                    work_type_id: workTypeIdParam
+                }),
                 areasApi.getAreasStatistics(),
                 taskTemplateApi.getWorkTypes()
             ]);
@@ -125,7 +126,13 @@ const AreasPage = () => {
         }
     };
 
-    // Filtered areas
+    // Load data on mount and when filters change
+    useEffect(() => {
+        loadData();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [filterStatus, filterWorkTypeId]);
+
+    // Filtered areas (client-side search only, status and workType are filtered server-side)
     const filteredAreas = useMemo(() => {
         return areas.filter(area => {
             // Search
@@ -137,16 +144,9 @@ const AreasPage = () => {
                 if (!matchSearch) return false;
             }
 
-            // Status filter
-            if (filterStatus === 'active') {
-                return area.is_active === true;
-            } else if (filterStatus === 'inactive') {
-                return area.is_active === false;
-            }
-
             return true;
         });
-    }, [areas, searchQuery, filterStatus]);
+    }, [areas, searchQuery]);
 
     // Paginated areas
     const paginatedAreas = useMemo(() => {
@@ -342,7 +342,7 @@ const AreasPage = () => {
     // Reset page when filters change
     useEffect(() => {
         setPage(1);
-    }, [searchQuery, filterStatus]);
+    }, [searchQuery, filterStatus, filterWorkTypeId]);
 
     if (loading) {
         return <Loading fullScreen />;
@@ -447,11 +447,21 @@ const AreasPage = () => {
                         </Select>
                     </FormControl>
 
-                    <Box sx={{ flexGrow: 1 }} />
+                    <FormControl size="small" sx={{ minWidth: 200 }}>
+                        <InputLabel>Loại công việc</InputLabel>
+                        <Select
+                            value={filterWorkTypeId}
+                            onChange={(e) => setFilterWorkTypeId(e.target.value)}
+                            label="Loại công việc"
+                        >
+                            <MenuItem value="all">Tất cả</MenuItem>
+                            {workTypes.map(wt => (
+                                <MenuItem key={wt.id} value={wt.id}>{wt.name}</MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
 
-                    <IconButton onClick={loadData} size="small">
-                        <RefreshIcon />
-                    </IconButton>
+                    <Box sx={{ flexGrow: 1 }} />
                 </Toolbar>
             </Paper>
 

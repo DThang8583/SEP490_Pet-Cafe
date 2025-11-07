@@ -1,4 +1,4 @@
-import { MOCK_WORK_TYPES } from './mockData';
+import { MOCK_WORK_TYPES } from './workTypeApi';
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 

@@ -1,4 +1,212 @@
-import { MOCK_TEAMS, MOCK_EMPLOYEES, MOCK_WORK_TYPES, MOCK_WORK_SHIFTS, MOCK_TEAM_MEMBERS, MOCK_TEAM_WORK_SHIFTS, MOCK_TEAM_WORK_TYPES } from './mockData';
+import { MOCK_EMPLOYEES } from './employeeApi';
+import { MOCK_WORK_TYPES } from './workTypeApi';
+import { MOCK_WORK_SHIFTS } from './workShiftApi';
+
+// ========== TEAM MOCK DATA (moved from mockData) ==========
+const MOCK_TEAMS = [
+    {
+        id: '73db584f-89ba-4ac0-ae2e-4c559a907775',
+        name: 'Nhóm Chăm Sóc Khu Vực Mèo',
+        description: 'Nhóm chuyên trách quản lý khu vực mèo, đảm bảo vệ sinh chuồng trại, cung cấp thức ăn, nước uống và chăm sóc sức khỏe ban đầu cho các bé mèo.',
+        leader_id: '8ccb9b64-9c5f-47ab-8db8-21eb31f704ff',
+        is_active: true,
+        status: 'INACTIVE',
+        leader: null,
+        team_members: [],
+        bookings: [],
+        slots: [],
+        daily_tasks: [],
+        team_work_shifts: [],
+        team_work_types: [],
+        created_at: '2025-10-27T13:01:10.340811+00:00',
+        created_by: '00000000-0000-0000-0000-000000000000',
+        updated_at: '2025-10-27T13:01:10.340811+00:00',
+        updated_by: null,
+        is_deleted: false
+    },
+    {
+        id: '4d55bbb0-a1c1-4c03-98bf-c587f0713512',
+        name: 'Nhóm Bán Hàng & Đồ Uống',
+        description: 'Nhóm quản lý quầy bar và quầy bán lẻ, chịu trách nhiệm pha chế đồ uống, bán hàng, thu ngân và kiểm soát hàng tồn kho cho các mặt hàng tiêu dùng và quà lưu niệm.',
+        leader_id: '48a7e46b-8542-4738-9e6c-dfa8e19fbd60',
+        is_active: true,
+        status: 'INACTIVE',
+        leader: null,
+        team_members: [],
+        bookings: [],
+        slots: [],
+        daily_tasks: [],
+        team_work_shifts: [],
+        team_work_types: [],
+        created_at: '2025-10-27T13:03:17.644603+00:00',
+        created_by: '00000000-0000-0000-0000-000000000000',
+        updated_at: '2025-10-27T13:03:17.644603+00:00',
+        updated_by: null,
+        is_deleted: false
+    },
+    {
+        id: 'a1b2c3d4-e5f6-4789-a012-bcdef3456789',
+        name: 'Nhóm Chăm Sóc Khu Vực Chó',
+        description: 'Nhóm chuyên trách quản lý khu vực chó, giám sát an toàn, huấn luyện cơ bản, cho ăn và đảm bảo vệ sinh trong khu vực sinh hoạt của chó. Quản lý tương tác giữa chó và khách hàng.',
+        leader_id: '5d789abc-1234-5678-9abc-def123456789',
+        is_active: true,
+        status: 'INACTIVE',
+        leader: null,
+        team_members: [],
+        bookings: [],
+        slots: [],
+        daily_tasks: [],
+        team_work_shifts: [],
+        team_work_types: [],
+        created_at: '2025-10-28T08:00:00.000000+00:00',
+        created_by: '00000000-0000-0000-0000-000000000000',
+        updated_at: '2025-10-28T08:00:00.000000+00:00',
+        updated_by: null,
+        is_deleted: false
+    },
+    {
+        id: 'b2c3d4e5-f6a7-4890-b123-cdef45678901',
+        name: 'Nhóm Chăm Sóc & Làm Đẹp',
+        description: 'Nhóm chuyên nghiệp về chăm sóc và làm đẹp cho thú cưng, bao gồm tắm rửa, cắt tỉa lông, vệ sinh tai, cắt móng và các dịch vụ spa cao cấp.',
+        leader_id: '6e890bcd-2345-6789-abcd-ef0123456790',
+        is_active: true,
+        status: 'INACTIVE',
+        leader: null,
+        team_members: [],
+        bookings: [],
+        slots: [],
+        daily_tasks: [],
+        team_work_shifts: [],
+        team_work_types: [],
+        created_at: '2025-10-28T08:15:00.000000+00:00',
+        created_by: '00000000-0000-0000-0000-000000000000',
+        updated_at: '2025-10-28T08:15:00.000000+00:00',
+        updated_by: null,
+        is_deleted: false
+    },
+    {
+        id: 'c3d4e5f6-a7b8-4901-c234-def567890123',
+        name: 'Nhóm Phục Vụ VIP',
+        description: 'Nhóm chuyên phục vụ khu vực VIP và khách hàng cao cấp, đảm bảo trải nghiệm đặc biệt với dịch vụ tận tâm, chu đáo và riêng tư.',
+        leader_id: '7f901cde-3456-789a-bcde-f01234567891',
+        is_active: true,
+        status: 'INACTIVE',
+        leader: null,
+        team_members: [],
+        bookings: [],
+        slots: [],
+        daily_tasks: [],
+        team_work_shifts: [],
+        team_work_types: [],
+        created_at: '2025-10-28T08:30:00.000000+00:00',
+        created_by: '00000000-0000-0000-0000-000000000000',
+        updated_at: '2025-10-28T08:30:00.000000+00:00',
+        updated_by: null,
+        is_deleted: false
+    },
+    {
+        id: 'd4e5f6a7-b8c9-4012-d345-ef6789012345',
+        name: 'Nhóm Quản Lý Sân Vườn',
+        description: 'Nhóm quản lý sân vườn ngoài trời, chăm sóc cây xanh, duy trì vệ sinh khu vực ngoài trời và đảm bảo an toàn cho thú cưng và khách hàng.',
+        leader_id: '8g012def-4567-89ab-cdef-012345678902',
+        is_active: true,
+        status: 'INACTIVE',
+        leader: null,
+        team_members: [],
+        bookings: [],
+        slots: [],
+        daily_tasks: [],
+        team_work_shifts: [],
+        team_work_types: [],
+        created_at: '2025-10-28T08:45:00.000000+00:00',
+        created_by: '00000000-0000-0000-0000-000000000000',
+        updated_at: '2025-10-28T08:45:00.000000+00:00',
+        updated_by: null,
+        is_deleted: false
+    },
+    {
+        id: 'e5f6a7b8-c9d0-4123-e456-f78901234567',
+        name: 'Nhóm Chăm Sóc Khách Hàng',
+        description: 'Nhóm chăm sóc khách hàng, tiếp đón, hướng dẫn và giải đáp thắc mắc. Xử lý booking, thanh toán và đảm bảo sự hài lòng của khách hàng.',
+        leader_id: '9h123efg-5678-9abc-def0-123456789013',
+        is_active: true,
+        status: 'INACTIVE',
+        leader: null,
+        team_members: [],
+        bookings: [],
+        slots: [],
+        daily_tasks: [],
+        team_work_shifts: [],
+        team_work_types: [],
+        created_at: '2025-10-28T09:00:00.000000+00:00',
+        created_by: '00000000-0000-0000-0000-000000000000',
+        updated_at: '2025-10-28T09:00:00.000000+00:00',
+        updated_by: null,
+        is_deleted: false
+    }
+];
+
+const MOCK_TEAM_MEMBERS = [
+    {
+        id: '50a63c58-2691-4208-a451-8ee3eed0b9c8',
+        team_id: '73db584f-89ba-4ac0-ae2e-4c559a907775',
+        employee_id: '6c899348-3038-45cb-b49e-48a5f498584f',
+        is_active: true,
+        team: null,
+        employee: null,
+        daily_schedules: [],
+        created_at: '2025-10-27T13:05:18.491285+00:00',
+        created_by: '00000000-0000-0000-0000-000000000000',
+        updated_at: '2025-10-27T13:05:18.491285+00:00',
+        updated_by: null,
+        is_deleted: false
+    },
+    { id: 'tm-cat-2', team_id: '73db584f-89ba-4ac0-ae2e-4c559a907775', employee_id: 'emp-ws-1', is_active: true, team: null, employee: null, daily_schedules: [], created_at: '2025-10-27T13:05:20.000000+00:00', created_by: '00000000-0000-0000-0000-000000000000', updated_at: '2025-10-27T13:05:20.000000+00:00', updated_by: null, is_deleted: false },
+    { id: 'tm-cat-3', team_id: '73db584f-89ba-4ac0-ae2e-4c559a907775', employee_id: 'emp-ws-2', is_active: true, team: null, employee: null, daily_schedules: [], created_at: '2025-10-27T13:05:22.000000+00:00', created_by: '00000000-0000-0000-0000-000000000000', updated_at: '2025-10-27T13:05:22.000000+00:00', updated_by: null, is_deleted: false },
+    { id: 'tm-sales-1', team_id: '4d55bbb0-a1c1-4c03-98bf-c587f0713512', employee_id: '4474a3ef-9bb2-49fd-8904-86ff6b03a40c', is_active: true, team: null, employee: null, daily_schedules: [], created_at: '2025-10-27T13:05:25.000000+00:00', created_by: '00000000-0000-0000-0000-000000000000', updated_at: '2025-10-27T13:05:25.000000+00:00', updated_by: null, is_deleted: false },
+    { id: 'tm-sales-2', team_id: '4d55bbb0-a1c1-4c03-98bf-c587f0713512', employee_id: 'emp-sale-1', is_active: true, team: null, employee: null, daily_schedules: [], created_at: '2025-10-27T13:05:30.000000+00:00', created_by: '00000000-0000-0000-0000-000000000000', updated_at: '2025-10-27T13:05:30.000000+00:00', updated_by: null, is_deleted: false },
+    { id: 'tm-sales-3', team_id: '4d55bbb0-a1c1-4c03-98bf-c587f0713512', employee_id: 'emp-sale-2', is_active: true, team: null, employee: null, daily_schedules: [], created_at: '2025-10-27T13:05:32.000000+00:00', created_by: '00000000-0000-0000-0000-000000000000', updated_at: '2025-10-27T13:05:32.000000+00:00', updated_by: null, is_deleted: false },
+    { id: 'tm-sales-4', team_id: '4d55bbb0-a1c1-4c03-98bf-c587f0713512', employee_id: 'emp-ws-3', is_active: true, team: null, employee: null, daily_schedules: [], created_at: '2025-10-27T13:05:34.000000+00:00', created_by: '00000000-0000-0000-0000-000000000000', updated_at: '2025-10-27T13:05:34.000000+00:00', updated_by: null, is_deleted: false },
+    { id: 'tm-dog-1', team_id: 'a1b2c3d4-e5f6-4789-a012-bcdef3456789', employee_id: '0i234fgh-6789-abcd-ef01-234567890124', is_active: true, team: null, employee: null, daily_schedules: [], created_at: '2025-10-28T08:05:00.000000+00:00', created_by: '00000000-0000-0000-0000-000000000000', updated_at: '2025-10-28T08:05:00.000000+00:00', updated_by: null, is_deleted: false },
+    { id: 'tm-dog-2', team_id: 'a1b2c3d4-e5f6-4789-a012-bcdef3456789', employee_id: '1j345ghi-789a-bcde-f012-345678901235', is_active: true, team: null, employee: null, daily_schedules: [], created_at: '2025-10-28T08:06:00.000000+00:00', created_by: '00000000-0000-0000-0000-000000000000', updated_at: '2025-10-28T08:06:00.000000+00:00', updated_by: null, is_deleted: false },
+    { id: 'tm-groom-1', team_id: 'b2c3d4e5-f6a7-4890-b123-cdef45678901', employee_id: '2k456hij-89ab-cdef-0123-456789012346', is_active: true, team: null, employee: null, daily_schedules: [], created_at: '2025-10-28T08:20:00.000000+00:00', created_by: '00000000-0000-0000-0000-000000000000', updated_at: '2025-10-28T08:20:00.000000+00:00', updated_by: null, is_deleted: false },
+    { id: 'tm-groom-2', team_id: 'b2c3d4e5-f6a7-4890-b123-cdef45678901', employee_id: '3l567ijk-9abc-def0-1234-567890123457', is_active: true, team: null, employee: null, daily_schedules: [], created_at: '2025-10-28T08:21:00.000000+00:00', created_by: '00000000-0000-0000-0000-000000000000', updated_at: '2025-10-28T08:21:00.000000+00:00', updated_by: null, is_deleted: false },
+    { id: 'tm-vip-1', team_id: 'c3d4e5f6-a7b8-4901-c234-def567890123', employee_id: '4m678jkl-abcd-ef01-2345-678901234568', is_active: true, team: null, employee: null, daily_schedules: [], created_at: '2025-10-28T08:35:00.000000+00:00', created_by: '00000000-0000-0000-0000-000000000000', updated_at: '2025-10-28T08:35:00.000000+00:00', updated_by: null, is_deleted: false },
+    { id: 'tm-vip-2', team_id: 'c3d4e5f6-a7b8-4901-c234-def567890123', employee_id: 'emp-sale-1', is_active: true, team: null, employee: null, daily_schedules: [], created_at: '2025-10-28T08:36:00.000000+00:00', created_by: '00000000-0000-0000-0000-000000000000', updated_at: '2025-10-28T08:36:00.000000+00:00', updated_by: null, is_deleted: false },
+    { id: 'tm-outdoor-1', team_id: 'd4e5f6a7-b8c9-4012-d345-ef6789012345', employee_id: 'emp-ws-1', is_active: true, team: null, employee: null, daily_schedules: [], created_at: '2025-10-28T08:50:00.000000+00:00', created_by: '00000000-0000-0000-0000-000000000000', updated_at: '2025-10-28T08:50:00.000000+00:00', updated_by: null, is_deleted: false },
+    { id: 'tm-outdoor-2', team_id: 'd4e5f6a7-b8c9-4012-d345-ef6789012345', employee_id: 'emp-ws-2', is_active: true, team: null, employee: null, daily_schedules: [], created_at: '2025-10-28T08:51:00.000000+00:00', created_by: '00000000-0000-0000-0000-000000000000', updated_at: '2025-10-28T08:51:00.000000+00:00', updated_by: null, is_deleted: false },
+    { id: 'tm-cs-1', team_id: 'e5f6a7b8-c9d0-4123-e456-f78901234567', employee_id: 'emp-sale-2', is_active: true, team: null, employee: null, daily_schedules: [], created_at: '2025-10-28T09:05:00.000000+00:00', created_by: '00000000-0000-0000-0000-000000000000', updated_at: '2025-10-28T09:05:00.000000+00:00', updated_by: null, is_deleted: false },
+    { id: 'tm-cs-2', team_id: 'e5f6a7b8-c9d0-4123-e456-f78901234567', employee_id: '6c899348-3038-45cb-b49e-48a5f498584f', is_active: true, team: null, employee: null, daily_schedules: [], created_at: '2025-10-28T09:06:00.000000+00:00', created_by: '00000000-0000-0000-0000-000000000000', updated_at: '2025-10-28T09:06:00.000000+00:00', updated_by: null, is_deleted: false }
+];
+
+const MOCK_TEAM_WORK_TYPES = [
+    { id: 'twt-1', team_id: '73db584f-89ba-4ac0-ae2e-4c559a907775', work_type_id: '7e7477a6-f481-4df6-b3fd-626944475fb5', team: null, work_type: null, created_at: '2025-10-27T13:01:10.000000+00:00', created_by: '00000000-0000-0000-0000-000000000000', updated_at: '2025-10-27T13:01:10.000000+00:00', updated_by: null, is_deleted: false },
+    { id: 'twt-2', team_id: '4d55bbb0-a1c1-4c03-98bf-c587f0713512', work_type_id: '057b182b-94e1-477e-8362-e89df03c2faf', team: null, work_type: null, created_at: '2025-10-27T13:03:17.000000+00:00', created_by: '00000000-0000-0000-0000-000000000000', updated_at: '2025-10-27T13:03:17.000000+00:00', updated_by: null, is_deleted: false },
+    { id: 'twt-3', team_id: 'a1b2c3d4-e5f6-4789-a012-bcdef3456789', work_type_id: 'b0c8a471-3b55-4038-9642-b598c072ea45', team: null, work_type: null, created_at: '2025-10-28T08:00:00.000000+00:00', created_by: '00000000-0000-0000-0000-000000000000', updated_at: '2025-10-28T08:00:00.000000+00:00', updated_by: null, is_deleted: false },
+    { id: 'twt-4', team_id: 'b2c3d4e5-f6a7-4890-b123-cdef45678901', work_type_id: '7e7477a6-f481-4df6-b3fd-626944475fb5', team: null, work_type: null, created_at: '2025-10-28T08:15:00.000000+00:00', created_by: '00000000-0000-0000-0000-000000000000', updated_at: '2025-10-28T08:15:00.000000+00:00', updated_by: null, is_deleted: false },
+    { id: 'twt-5', team_id: 'c3d4e5f6-a7b8-4901-c234-def567890123', work_type_id: '057b182b-94e1-477e-8362-e89df03c2faf', team: null, work_type: null, created_at: '2025-10-28T08:30:00.000000+00:00', created_by: '00000000-0000-0000-0000-000000000000', updated_at: '2025-10-28T08:30:00.000000+00:00', updated_by: null, is_deleted: false },
+    { id: 'twt-6', team_id: 'd4e5f6a7-b8c9-4012-d345-ef6789012345', work_type_id: '7e7477a6-f481-4df6-b3fd-626944475fb5', team: null, work_type: null, created_at: '2025-10-28T08:45:00.000000+00:00', created_by: '00000000-0000-0000-0000-000000000000', updated_at: '2025-10-28T08:45:00.000000+00:00', updated_by: null, is_deleted: false },
+    { id: 'twt-7', team_id: 'e5f6a7b8-c9d0-4123-e456-f78901234567', work_type_id: '057b182b-94e1-477e-8362-e89df03c2faf', team: null, work_type: null, created_at: '2025-10-28T09:00:00.000000+00:00', created_by: '00000000-0000-0000-0000-000000000000', updated_at: '2025-10-28T09:00:00.000000+00:00', updated_by: null, is_deleted: false }
+];
+
+const MOCK_TEAM_WORK_SHIFTS = [
+    { id: 'tws-1', team_id: '73db584f-89ba-4ac0-ae2e-4c559a907775', work_shift_id: 'aa5153ab-b361-40ac-bdfe-119191cdad89', team: null, work_shift: null, created_at: '2025-10-27T13:35:00.000000+00:00', created_by: '00000000-0000-0000-0000-000000000000', updated_at: '2025-10-27T13:35:00.000000+00:00', updated_by: null, is_deleted: false },
+    { id: 'tws-2', team_id: '73db584f-89ba-4ac0-ae2e-4c559a907775', work_shift_id: 'cd24631d-084b-4db8-b1a4-5b48dbac3b21', team: null, work_shift: null, created_at: '2025-10-27T13:35:05.000000+00:00', created_by: '00000000-0000-0000-0000-000000000000', updated_at: '2025-10-27T13:35:05.000000+00:00', updated_by: null, is_deleted: false },
+    { id: 'tws-3', team_id: '4d55bbb0-a1c1-4c03-98bf-c587f0713512', work_shift_id: 'cd24631d-084b-4db8-b1a4-5b48dbac3b21', team: null, work_shift: null, created_at: '2025-10-27T13:35:10.000000+00:00', created_by: '00000000-0000-0000-0000-000000000000', updated_at: '2025-10-27T13:35:10.000000+00:00', updated_by: null, is_deleted: false },
+    { id: 'tws-4', team_id: '4d55bbb0-a1c1-4c03-98bf-c587f0713512', work_shift_id: 'bb2310ba-58c6-4466-9e8a-371b2d2e6331', team: null, work_shift: null, created_at: '2025-10-27T13:35:15.000000+00:00', created_by: '00000000-0000-0000-0000-000000000000', updated_at: '2025-10-27T13:35:15.000000+00:00', updated_by: null, is_deleted: false },
+    { id: 'tws-5', team_id: 'a1b2c3d4-e5f6-4789-a012-bcdef3456789', work_shift_id: 'aa5153ab-b361-40ac-bdfe-119191cdad89', team: null, work_shift: null, created_at: '2025-10-28T08:01:00.000000+00:00', created_by: '00000000-0000-0000-0000-000000000000', updated_at: '2025-10-28T08:01:00.000000+00:00', updated_by: null, is_deleted: false },
+    { id: 'tws-6', team_id: 'a1b2c3d4-e5f6-4789-a012-bcdef3456789', work_shift_id: 'bb2310ba-58c6-4466-9e8a-371b2d2e6331', team: null, work_shift: null, created_at: '2025-10-28T08:02:00.000000+00:00', created_by: '00000000-0000-0000-0000-000000000000', updated_at: '2025-10-28T08:02:00.000000+00:00', updated_by: null, is_deleted: false },
+    { id: 'tws-7', team_id: 'b2c3d4e5-f6a7-4890-b123-cdef45678901', work_shift_id: 'aa5153ab-b361-40ac-bdfe-119191cdad89', team: null, work_shift: null, created_at: '2025-10-28T08:16:00.000000+00:00', created_by: '00000000-0000-0000-0000-000000000000', updated_at: '2025-10-28T08:16:00.000000+00:00', updated_by: null, is_deleted: false },
+    { id: 'tws-8', team_id: 'b2c3d4e5-f6a7-4890-b123-cdef45678901', work_shift_id: 'cd24631d-084b-4db8-b1a4-5b48dbac3b21', team: null, work_shift: null, created_at: '2025-10-28T08:17:00.000000+00:00', created_by: '00000000-0000-0000-0000-000000000000', updated_at: '2025-10-28T08:17:00.000000+00:00', updated_by: null, is_deleted: false },
+    { id: 'tws-9', team_id: 'b2c3d4e5-f6a7-4890-b123-cdef45678901', work_shift_id: 'bb2310ba-58c6-4466-9e8a-371b2d2e6331', team: null, work_shift: null, created_at: '2025-10-28T08:18:00.000000+00:00', created_by: '00000000-0000-0000-0000-000000000000', updated_at: '2025-10-28T08:18:00.000000+00:00', updated_by: null, is_deleted: false },
+    { id: 'tws-10', team_id: 'c3d4e5f6-a7b8-4901-c234-def567890123', work_shift_id: 'cd24631d-084b-4db8-b1a4-5b48dbac3b21', team: null, work_shift: null, created_at: '2025-10-28T08:31:00.000000+00:00', created_by: '00000000-0000-0000-0000-000000000000', updated_at: '2025-10-28T08:31:00.000000+00:00', updated_by: null, is_deleted: false },
+    { id: 'tws-11', team_id: 'c3d4e5f6-a7b8-4901-c234-def567890123', work_shift_id: 'bb2310ba-58c6-4466-9e8a-371b2d2e6331', team: null, work_shift: null, created_at: '2025-10-28T08:32:00.000000+00:00', created_by: '00000000-0000-0000-0000-000000000000', updated_at: '2025-10-28T08:32:00.000000+00:00', updated_by: null, is_deleted: false },
+    { id: 'tws-12', team_id: 'd4e5f6a7-b8c9-4012-d345-ef6789012345', work_shift_id: 'aa5153ab-b361-40ac-bdfe-119191cdad89', team: null, work_shift: null, created_at: '2025-10-28T08:46:00.000000+00:00', created_by: '00000000-0000-0000-0000-000000000000', updated_at: '2025-10-28T08:46:00.000000+00:00', updated_by: null, is_deleted: false },
+    { id: 'tws-13', team_id: 'd4e5f6a7-b8c9-4012-d345-ef6789012345', work_shift_id: 'cd24631d-084b-4db8-b1a4-5b48dbac3b21', team: null, work_shift: null, created_at: '2025-10-28T08:47:00.000000+00:00', created_by: '00000000-0000-0000-0000-000000000000', updated_at: '2025-10-28T08:47:00.000000+00:00', updated_by: null, is_deleted: false },
+    { id: 'tws-14', team_id: 'e5f6a7b8-c9d0-4123-e456-f78901234567', work_shift_id: 'aa5153ab-b361-40ac-bdfe-119191cdad89', team: null, work_shift: null, created_at: '2025-10-28T09:01:00.000000+00:00', created_by: '00000000-0000-0000-0000-000000000000', updated_at: '2025-10-28T09:01:00.000000+00:00', updated_by: null, is_deleted: false },
+    { id: 'tws-15', team_id: 'e5f6a7b8-c9d0-4123-e456-f78901234567', work_shift_id: 'cd24631d-084b-4db8-b1a4-5b48dbac3b21', team: null, work_shift: null, created_at: '2025-10-28T09:02:00.000000+00:00', created_by: '00000000-0000-0000-0000-000000000000', updated_at: '2025-10-28T09:02:00.000000+00:00', updated_by: null, is_deleted: false },
+    { id: 'tws-16', team_id: 'e5f6a7b8-c9d0-4123-e456-f78901234567', work_shift_id: 'bb2310ba-58c6-4466-9e8a-371b2d2e6331', team: null, work_shift: null, created_at: '2025-10-28T09:03:00.000000+00:00', created_by: '00000000-0000-0000-0000-000000000000', updated_at: '2025-10-28T09:03:00.000000+00:00', updated_by: null, is_deleted: false }
+];
 
 // Delay to simulate API call
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -891,4 +1099,6 @@ export default {
     removeTeamMember,
     assignTeamWorkShifts
 };
+
+export { MOCK_TEAMS, MOCK_TEAM_MEMBERS, MOCK_TEAM_WORK_TYPES, MOCK_TEAM_WORK_SHIFTS };
 

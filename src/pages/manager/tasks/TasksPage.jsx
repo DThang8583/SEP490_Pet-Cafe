@@ -515,8 +515,9 @@ const TasksPage = () => {
         const taskSlots = slots.filter(s => s.task_id === taskId);
         return {
             total: taskSlots.length,
-            public: taskSlots.filter(s => s.status === SLOT_STATUS.PUBLIC).length,
-            internal: taskSlots.filter(s => s.status === SLOT_STATUS.INTERNAL_ONLY).length
+            // Public pill should show number of AVAILABLE slots for public tasks
+            public: taskSlots.filter(s => s.service_status === 'AVAILABLE').length,
+            internal: taskSlots.filter(s => s.service_status !== 'AVAILABLE').length
         };
     };
 
@@ -957,6 +958,7 @@ const TasksPage = () => {
                 onEditSlot={handleEditSlot}
                 onDeleteSlot={handleDeleteSlot}
                 onRefresh={loadData}
+                showCreateAction={true}
             />
 
             <ConfirmModal

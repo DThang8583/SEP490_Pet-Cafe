@@ -10,7 +10,8 @@ import VaccineTypesTab from './VaccineTypesTab';
 import VaccinationScheduleModal from '../../components/modals/VaccinationScheduleModal';
 import { vaccinationApi } from '../../api/vaccinationApi';
 import { petApi } from '../../api/petApi';
-import { MOCK_PET_SPECIES, MOCK_PET_BREEDS } from '../../api/mockData';
+// Updated: species & breeds now exported from petApi if needed directly
+// (This page already fetches via petApi methods above, so static mocks aren't required.)
 
 const VaccinationsPage = () => {
     const [isLoading, setIsLoading] = useState(true);

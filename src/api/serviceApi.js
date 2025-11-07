@@ -1,8 +1,116 @@
-import { MOCK_SERVICES } from './mockServices';
-import { MOCK_SLOTS } from './mockSlots';
+// Note: Avoid importing slots at module top to prevent circular deps with slotApi
 
 // Delay helper
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+// ========== MOCK SERVICES DATA ==========
+const MOCK_SERVICES = [
+    {
+        id: 'caa26439-478e-4892-861f-1aab0a41ba4b',
+        name: 'Combo Trải Nghiệm Thú Cưng (2 Giờ)',
+        description: 'Bao gồm vé vào cổng khu vực thú cưng trong 2 giờ, kèm theo 1 đồ uống tùy chọn từ menu (cà phê/trà) và 1 phần snack nhỏ cho thú cưng.',
+        duration_minutes: 120,
+        base_price: 80000,
+        image_url: 'https://firebasestorage.googleapis.com/v0/b/digital-dynamo-cb555.appspot.com/o/assets%2Fimages%2Fae24dee3-563c-4d2b-8d1c-db3d610f3398.jpg?alt=media&token=9f4a73cb-d651-49fe-a0b8-91eebeacc156',
+        thumbnails: [
+            'https://firebasestorage.googleapis.com/v0/b/digital-dynamo-cb555.appspot.com/o/assets%2Fimages%2Fae24dee3-563c-4d2b-8d1c-db3d610f3398.jpg?alt=media&token=9f4a73cb-d651-49fe-a0b8-91eebeacc156'
+        ],
+        is_active: true,
+        task_id: 'cfa75dab-16cf-4978-b9fb-e6da47034108',
+        task: null,
+        slots: [],
+        order_details: [],
+        bookings: [],
+        created_at: '2025-10-27T16:05:43.85052+00:00',
+        created_by: '00000000-0000-0000-0000-000000000000',
+        updated_at: '2025-10-27T16:05:43.85052+00:00',
+        updated_by: null,
+        is_deleted: false
+    },
+    {
+        id: '8f3a2c1b-4e5d-6f7a-8b9c-0d1e2f3a4b5c',
+        name: 'Chăm Sóc Mèo Chuyên Nghiệp',
+        description: 'Dịch vụ chăm sóc toàn diện cho mèo bao gồm: vệ sinh, cho ăn, chải lông và kiểm tra sức khỏe cơ bản trong 3 giờ.',
+        duration_minutes: 180,
+        base_price: 120000,
+        image_url: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=400',
+        thumbnails: [
+            'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=400',
+            'https://images.unsplash.com/photo-1543852786-1cf6624b9987?w=400'
+        ],
+        is_active: true,
+        task_id: '752a0719-64a4-49b7-85ff-b266216667b9',
+        task: null,
+        slots: [],
+        order_details: [],
+        bookings: [],
+        created_at: '2025-10-28T14:14:07.355437+00:00',
+        created_by: '00000000-0000-0000-0000-000000000000',
+        updated_at: '2025-10-28T14:14:07.355437+00:00',
+        updated_by: null,
+        is_deleted: false
+    },
+    {
+        id: 'dbb37550-589f-5993-972g-2bbc1b52cb5c',
+        name: 'Huấn Luyện Cơ Bản Cho Chó',
+        description: 'Huấn luyện cơ bản (ngồi, đứng, nằm, gọi lại) trong môi trường an toàn, phù hợp khi khách vui chơi cùng thú cưng.',
+        duration_minutes: 120,
+        base_price: 150000,
+        image_url: 'https://images.unsplash.com/photo-1507149833265-60c372daea22?w=400',
+        thumbnails: ['https://images.unsplash.com/photo-1507149833265-60c372daea22?w=400'],
+        is_active: true,
+        task_id: 'b96g6789-g0bd-34f5-c678-648836396222',
+        task: null,
+        slots: [],
+        order_details: [],
+        bookings: [],
+        created_at: '2025-10-29T10:00:00.000000+00:00',
+        created_by: '00000000-0000-0000-0000-000000000000',
+        updated_at: '2025-10-29T10:00:00.000000+00:00',
+        updated_by: null,
+        is_deleted: false
+    },
+    {
+        id: 'a12b34c5-d6e7-48f9-a0b1-c2d3e4f5a6b7',
+        name: 'Vé Vào Cổng 1 Giờ',
+        description: 'Vé vào cổng khu vực thú cưng trong 60 phút kèm 1 chai nước suối.',
+        duration_minutes: 60,
+        base_price: 50000,
+        image_url: 'https://images.unsplash.com/photo-1508672019048-805c876b67e2?w=400',
+        thumbnails: ['https://images.unsplash.com/photo-1508672019048-805c876b67e2?w=400'],
+        is_active: true,
+        task_id: 'cfa75dab-16cf-4978-b9fb-e6da47034108',
+        task: null,
+        slots: [],
+        order_details: [],
+        bookings: [],
+        created_at: '2025-10-27T16:40:00.000000+00:00',
+        created_by: '00000000-0000-0000-0000-000000000000',
+        updated_at: '2025-10-27T16:40:00.000000+00:00',
+        updated_by: null,
+        is_deleted: false
+    },
+    {
+        id: 'c23d45e6-f7a8-49b0-b1c2-d3e4f5a6b7c8',
+        name: 'Spa & Tắm Gội Thú Cưng',
+        description: 'Tắm gội, sấy khô, chải lông, vệ sinh tai và cắt móng cơ bản.',
+        duration_minutes: 90,
+        base_price: 180000,
+        image_url: 'https://images.unsplash.com/photo-1558944351-c37d7c8a4f61?w=400',
+        thumbnails: ['https://images.unsplash.com/photo-1558944351-c37d7c8a4f61?w=400'],
+        is_active: false,
+        task_id: '974c2941-86c6-6bd9-a7hh-d488438889d1',
+        task: null,
+        slots: [],
+        order_details: [],
+        bookings: [],
+        created_at: '2025-10-30T08:00:00.000000+00:00',
+        created_by: '00000000-0000-0000-0000-000000000000',
+        updated_at: '2025-10-30T08:00:00.000000+00:00',
+        updated_by: null,
+        is_deleted: false
+    }
+];
 
 // Service API matching official structure
 const serviceApi = {
@@ -47,14 +155,12 @@ const serviceApi = {
         const end = start + page_size;
         const paginatedServices = services.slice(start, end);
 
-        // For each service, populate slots from MOCK_SLOTS
-        const servicesWithSlots = paginatedServices.map(service => {
-            const serviceSlots = MOCK_SLOTS.filter(slot => slot.service_id === service.id);
-            return {
-                ...service,
-                slots: serviceSlots
-            };
-        });
+        // For each service, populate slots (lazy import to avoid circular deps)
+        const { MOCK_SLOTS } = await import('./slotApi');
+        const servicesWithSlots = paginatedServices.map(service => ({
+            ...service,
+            slots: MOCK_SLOTS.filter(slot => slot.service_id === service.id)
+        }));
 
         return {
             data: servicesWithSlots,
@@ -83,7 +189,8 @@ const serviceApi = {
             throw new Error('Không tìm thấy dịch vụ');
         }
 
-        // Populate slots
+        // Populate slots (lazy import)
+        const { MOCK_SLOTS } = await import('./slotApi');
         const serviceSlots = MOCK_SLOTS.filter(slot => slot.service_id === serviceId);
 
         return {
@@ -112,7 +219,8 @@ const serviceApi = {
             throw new Error('Không tìm thấy dịch vụ');
         }
 
-        // Get slots for this service
+        // Get slots for this service (lazy import)
+        const { MOCK_SLOTS } = await import('./slotApi');
         let slots = MOCK_SLOTS.filter(slot => slot.service_id === serviceId);
 
         // Calculate pagination
@@ -336,3 +444,4 @@ const serviceApi = {
 };
 
 export default serviceApi;
+export { MOCK_SERVICES };
