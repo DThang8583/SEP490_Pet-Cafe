@@ -364,32 +364,14 @@ const AreasPage = () => {
     return (
         <Box sx={{ p: 3 }}>
             {/* Header */}
-            <Box sx={{
-                mb: 3,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between'
-            }}>
-                <Box>
-                    <Typography variant="h4" fontWeight={700} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <RoomIcon sx={{ fontSize: 32, color: COLORS.PRIMARY[600] }} />
-                        Quản lý Khu vực
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                        Quản lý các khu vực hoạt động trong cafe
-                    </Typography>
-                </Box>
-                <Button
-                    variant="contained"
-                    startIcon={<AddIcon />}
-                    onClick={handleOpenCreateModal}
-                    sx={{
-                        bgcolor: COLORS.PRIMARY[600],
-                        '&:hover': { bgcolor: COLORS.PRIMARY[700] }
-                    }}
-                >
-                    Tạo khu vực
-                </Button>
+            <Box sx={{ mb: 3 }}>
+                <Typography variant="h4" fontWeight={700} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <RoomIcon sx={{ fontSize: 32, color: COLORS.PRIMARY[600] }} />
+                    Quản lý Khu vực
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                    Quản lý các khu vực hoạt động trong cafe
+                </Typography>
             </Box>
 
             {/* Statistics */}
@@ -444,7 +426,7 @@ const AreasPage = () => {
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         size="small"
-                        sx={{ minWidth: 250 }}
+                        sx={{ width: '1100px', flexShrink: 0 }}
                     />
 
                     <FormControl size="small" sx={{ minWidth: 150 }}>
@@ -475,6 +457,17 @@ const AreasPage = () => {
                     </FormControl>
 
                     <Box sx={{ flexGrow: 1 }} />
+                    <Button
+                        variant="contained"
+                        startIcon={<AddIcon />}
+                        onClick={handleOpenCreateModal}
+                        sx={{
+                            bgcolor: COLORS.PRIMARY[600],
+                            '&:hover': { bgcolor: COLORS.PRIMARY[700] }
+                        }}
+                    >
+                        Tạo khu vực
+                    </Button>
                 </Toolbar>
             </Paper>
 
