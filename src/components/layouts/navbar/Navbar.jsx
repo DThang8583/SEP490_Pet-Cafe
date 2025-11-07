@@ -31,7 +31,8 @@ const Navbar = () => {
 
     // Keep sidebar width synchronized globally for layouts without changing hook order
     useEffect(() => {
-        const widthPx = (isManager || isSales) && isDesktop && sidebarOpen ? (collapsed ? 88 : 280) : 0;
+        // Apply sidebar width on both desktop (permanent) and mobile (persistent) when open
+        const widthPx = (isManager || isSales) && sidebarOpen ? (collapsed ? 88 : 280) : 0;
         document.documentElement.style.setProperty('--sidebar-width', `${widthPx}px`);
         return () => {
             // On unmount reset to 0 to avoid lingering margin
@@ -115,7 +116,7 @@ const Navbar = () => {
                 </AppBar>
 
                 <Drawer
-                    variant={isDesktop ? 'permanent' : 'temporary'}
+                    variant={isDesktop ? 'permanent' : 'persistent'}
                     open={sidebarOpen}
                     onClose={() => setSidebarOpen(false)}
                     ModalProps={{
@@ -170,7 +171,7 @@ const Navbar = () => {
                             { label: 'Dashboard', icon: <Dashboard />, path: '/sales/dashboard' },
                             { label: 'Bán hàng', icon: <ShoppingCart />, path: '/sales/sales' },
                             { label: 'Bán dịch vụ', icon: <DesignServices />, path: '/sales/services' },
-                            { label: 'Nhóm thú cưng', icon: <Pets />, path: '/sales/pet-groups' },
+                            { label: 'Điểm danh', icon: <Schedule />, path: '/sales/attendance' },
                             { label: 'Hóa đơn', icon: <ReceiptLong />, path: '/sales/invoices' },
                             { label: 'Tài khoản', icon: <AccountCircle />, path: '/profile' }
                         ]).map((item) => {

@@ -3,24 +3,89 @@
 
 import userApi from './userApi.js';
 
+// External Auth API endpoint
+const OFFICIAL_AUTH_URL = 'https://petcafe-htc6dadbayh6h4dz.southeastasia-01.azurewebsites.net/api/auths';
+
+const mapExternalRole = (account) => {
+    const upperRole = (account?.role || '').toUpperCase();
+    const subRole = (account?.employee?.sub_role || '').toUpperCase();
+    // Map backend roles to frontend roles
+    if (upperRole === 'MANAGER' || subRole === 'MANAGER') return 'manager';
+    if (upperRole === 'EMPLOYEE' && subRole === 'SALE_STAFF') return 'sales_staff';
+    if (upperRole === 'EMPLOYEE') return 'working_staff';
+    if (upperRole === 'CUSTOMER') return 'customer';
+    return 'customer';
+};
+
+const mapExternalAccountToUser = (account) => {
+    const role = mapExternalRole(account);
+    const base = {
+        id: account?.id || account?.employee?.account_id || account?.employee?.id || account?.email,
+        email: account?.email,
+        name: account?.employee?.full_name || account?.username || account?.email?.split('@')[0] || 'Người dùng',
+        role,
+        avatar: account?.employee?.avatar_url || '',
+        phone: account?.employee?.phone || '',
+        address: account?.employee?.address || ''
+    };
+    // Minimal permissions based on role to work with existing checks
+    const permissionsByRole = {
+        manager: ['staff_management','pet_management','service_management','report_access','revenue_tracking','full_access'],
+        sales_staff: ['product_sales','invoice_management','customer_support','payment_processing'],
+        working_staff: ['task_management','pet_status_update','service_execution','booking_management'],
+        customer: ['service_booking','product_purchase','feedback_submission','notification_receive']
+    };
+    return { ...base, permissions: permissionsByRole[role] || [] };
+};
+
 // Re-export authentication functions from userApi with additional utilities
 export const authApi = {
     // Login function
     async login(credentials) {
+        // Try official backend first
         try {
-            const response = await userApi.auth.login(credentials);
-
-            // Store additional auth data if needed
-            if (response.success) {
-                localStorage.setItem('authToken', response.token);
-                localStorage.setItem('userRole', response.user.role);
-                localStorage.setItem('loginTime', new Date().toISOString());
+            const resp = await fetch(OFFICIAL_AUTH_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(credentials)
+            });
+            if (!resp.ok) {
+                throw new Error('Đăng nhập thất bại');
             }
+            const data = await resp.json();
+            if (!data?.access_token || !data?.account) {
+                throw new Error('Phản hồi không hợp lệ');
+            }
+            const user = mapExternalAccountToUser(data.account);
 
-            return response;
-        } catch (error) {
-            console.error('Login error:', error);
-            throw error;
+            // Persist tokens and user/session info
+            localStorage.setItem('authToken', data.access_token);
+            if (data.refresh_token) localStorage.setItem('refreshToken', data.refresh_token);
+            localStorage.setItem('userRole', user.role);
+            localStorage.setItem('loginTime', new Date().toISOString());
+            // Also persist currentUser for existing userApi-based getters
+            localStorage.setItem('currentUser', JSON.stringify(user));
+
+            return {
+                success: true,
+                user,
+                token: data.access_token,
+                message: 'Đăng nhập thành công'
+            };
+        } catch (e) {
+            // Fallback to local mock auth
+            try {
+                const response = await userApi.auth.login(credentials);
+                if (response.success) {
+                    localStorage.setItem('authToken', response.token);
+                    localStorage.setItem('userRole', response.user.role);
+                    localStorage.setItem('loginTime', new Date().toISOString());
+                }
+                return response;
+            } catch (error) {
+                console.error('Login error:', error);
+                throw error;
+            }
         }
     },
 

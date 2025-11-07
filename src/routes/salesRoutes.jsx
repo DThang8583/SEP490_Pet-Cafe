@@ -10,6 +10,7 @@ import SuccessPage from "../pages/sales/SuccessPage";
 import ProductConfirmPage from "../pages/sales/ProductConfirmPage";
 import PetGroupsPage from "../pages/sales/PetGroupsPage";
 import PetStatusPage from "../pages/sales/PetStatusPage";
+import AttendancePage from "../pages/sales/AttendancePage";
 
 const salesRoutes = (
     <>
@@ -23,6 +24,7 @@ const salesRoutes = (
         <Route path="/sales/confirm" element={<ProductConfirmPage />} />
         <Route path="/sales/pet-groups" element={<PetGroupsPage />} />
         <Route path="/sales/pet-status" element={<PetStatusPage />} />
+        <Route path="/sales/attendance" element={<AttendancePage />} />
     </>
 );
 
