@@ -1,37 +1,6 @@
 import { useState, useEffect } from 'react';
-import {
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
-    Button,
-    TextField,
-    Box,
-    Typography,
-    Stack,
-    IconButton,
-    Alert,
-    FormControl,
-    InputLabel,
-    Select,
-    MenuItem,
-    OutlinedInput,
-    Chip,
-    Checkbox,
-    ListItemText,
-    FormControlLabel,
-    Switch,
-    Avatar,
-    Paper
-} from '@mui/material';
-import {
-    Close as CloseIcon,
-    Add as AddIcon,
-    Edit as EditIcon,
-    MeetingRoom as RoomIcon,
-    CloudUpload as UploadIcon,
-    Delete as DeleteIcon
-} from '@mui/icons-material';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Box, Typography, Stack, IconButton, Alert, FormControl, InputLabel, Select, MenuItem, OutlinedInput, Chip, Checkbox, ListItemText, FormControlLabel, Switch, Avatar, Paper } from '@mui/material';
+import { Close as CloseIcon, Add as AddIcon, Edit as EditIcon, MeetingRoom as RoomIcon, CloudUpload as UploadIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 
 const AreaFormModal = ({ open, onClose, onSubmit, area, workTypes, mode = 'create' }) => {
@@ -48,6 +17,7 @@ const AreaFormModal = ({ open, onClose, onSubmit, area, workTypes, mode = 'creat
     const [errors, setErrors] = useState({});
     const [imageFile, setImageFile] = useState(null);
     const [imagePreview, setImagePreview] = useState(null);
+    const [imageError, setImageError] = useState('');
 
     // Initialize form data when area changes (for edit mode)
     useEffect(() => {
@@ -62,8 +32,7 @@ const AreaFormModal = ({ open, onClose, onSubmit, area, workTypes, mode = 'creat
                 is_active: area.is_active !== undefined ? area.is_active : true
             });
             setImagePreview(area.image_url || null);
-            setImageFile(null);
-        } else if (mode === 'create') {
+        } else {
             setFormData({
                 name: '',
                 description: '',
@@ -74,9 +43,10 @@ const AreaFormModal = ({ open, onClose, onSubmit, area, workTypes, mode = 'creat
                 is_active: true
             });
             setImagePreview(null);
-            setImageFile(null);
         }
+        setImageFile(null);
         setErrors({});
+        setImageError('');
     }, [area, mode, open]);
 
     const handleChange = (e) => {
@@ -97,37 +67,48 @@ const AreaFormModal = ({ open, onClose, onSubmit, area, workTypes, mode = 'creat
             ...prev,
             work_type_ids: typeof value === 'string' ? value.split(',') : value
         }));
+        // Clear error if exists
+        if (errors.work_type_ids) {
+            setErrors(prev => ({ ...prev, work_type_ids: '' }));
+        }
     };
 
     const handleImageChange = (event) => {
         const file = event.target.files[0];
-        if (file) {
-            // Validate file type
-            if (!file.type.startsWith('image/')) {
-                alert('Vui lòng chọn file hình ảnh');
-                return;
-            }
+        if (!file) return;
 
-            // Validate file size (max 5MB)
-            if (file.size > 5 * 1024 * 1024) {
-                alert('Kích thước ảnh không được vượt quá 5MB');
-                return;
-            }
+        setImageError('');
 
-            setImageFile(file);
-
-            // Create preview
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setImagePreview(reader.result);
-            };
-            reader.readAsDataURL(file);
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+            setImageError('Vui lòng chọn file hình ảnh');
+            return;
         }
+
+        // Validate file size (max 5MB)
+        const MAX_SIZE = 5 * 1024 * 1024;
+        if (file.size > MAX_SIZE) {
+            setImageError('Kích thước ảnh không được vượt quá 5MB');
+            return;
+        }
+
+        setImageFile(file);
+
+        // Create preview
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            setImagePreview(reader.result);
+        };
+        reader.onerror = () => {
+            setImageError('Không thể đọc file ảnh');
+        };
+        reader.readAsDataURL(file);
     };
 
     const handleRemoveImage = () => {
         setImageFile(null);
         setImagePreview(null);
+        setImageError('');
         setFormData(prev => ({ ...prev, image_url: '' }));
     };
 
@@ -166,12 +147,10 @@ const AreaFormModal = ({ open, onClose, onSubmit, area, workTypes, mode = 'creat
         };
 
         // Add image_file if user uploaded new image
-        // NOTE: Backend will handle upload and return image_url
-        // For now, we pass null to indicate no image or keep existing URL in edit mode
         if (imageFile) {
-            submitData.image_file = imageFile; // Backend will handle upload
+            submitData.image_file = imageFile;
         } else if (mode === 'edit' && formData.image_url) {
-            submitData.image_url = formData.image_url; // Keep existing URL
+            submitData.image_url = formData.image_url;
         } else {
             submitData.image_url = null;
         }
@@ -299,6 +278,11 @@ const AreaFormModal = ({ open, onClose, onSubmit, area, workTypes, mode = 'creat
                         <Typography variant="body2" color="text.secondary" gutterBottom sx={{ mb: 1 }}>
                             Hình ảnh khu vực (Tùy chọn)
                         </Typography>
+                        {imageError && (
+                            <Alert severity="error" sx={{ mb: 1 }}>
+                                {imageError}
+                            </Alert>
+                        )}
 
                         {imagePreview ? (
                             <Paper
@@ -379,11 +363,11 @@ const AreaFormModal = ({ open, onClose, onSubmit, area, workTypes, mode = 'creat
                             input={<OutlinedInput label="Loại công việc (Tùy chọn)" />}
                             renderValue={(selected) => (
                                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                                    {selected.map((value) => {
+                                    {selected.map((value, index) => {
                                         const wt = workTypes.find(w => w.id === value);
                                         return (
                                             <Chip
-                                                key={value}
+                                                key={value || `selected-${index}`}
                                                 label={wt?.name || value}
                                                 size="small"
                                                 sx={{ bgcolor: COLORS.PRIMARY[100] }}
@@ -393,8 +377,8 @@ const AreaFormModal = ({ open, onClose, onSubmit, area, workTypes, mode = 'creat
                                 </Box>
                             )}
                         >
-                            {workTypes.map((workType) => (
-                                <MenuItem key={workType.id} value={workType.id}>
+                            {workTypes.map((workType, index) => (
+                                <MenuItem key={workType.id || `worktype-${index}`} value={workType.id}>
                                     <Checkbox checked={formData.work_type_ids.indexOf(workType.id) > -1} />
                                     <ListItemText
                                         primary={workType.name}

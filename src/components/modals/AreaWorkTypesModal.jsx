@@ -1,32 +1,6 @@
 import { useState, useEffect } from 'react';
-import {
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
-    Button,
-    Box,
-    Typography,
-    Stack,
-    Chip,
-    IconButton,
-    Divider,
-    Alert,
-    Checkbox,
-    FormControlLabel,
-    Paper,
-    List,
-    ListItem,
-    ListItemText,
-    ListItemIcon
-} from '@mui/material';
-import {
-    Close as CloseIcon,
-    Assignment as AssignmentIcon,
-    Add as AddIcon,
-    Delete as DeleteIcon,
-    Check as CheckIcon
-} from '@mui/icons-material';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Box, Typography, Stack, Chip, IconButton, Divider, Alert, Checkbox, Paper, List, ListItem, ListItemText, ListItemIcon } from '@mui/material';
+import { Close as CloseIcon, Assignment as AssignmentIcon, Check as CheckIcon } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 
 const AreaWorkTypesModal = ({ open, onClose, area, allWorkTypes, onSave }) => {
@@ -34,21 +8,20 @@ const AreaWorkTypesModal = ({ open, onClose, area, allWorkTypes, onSave }) => {
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
-        if (area && area.area_work_types) {
-            // Initialize with current work types
-            const currentWorkTypeIds = area.area_work_types.map(awt => awt.work_type.id);
+        if (open && area?.area_work_types) {
+            const currentWorkTypeIds = area.area_work_types.map(awt => awt.work_type?.id).filter(Boolean);
             setSelectedWorkTypes(currentWorkTypeIds);
+        } else if (!open) {
+            setSelectedWorkTypes([]);
         }
-    }, [area]);
+    }, [area, open]);
 
     const handleToggleWorkType = (workTypeId) => {
-        setSelectedWorkTypes(prev => {
-            if (prev.includes(workTypeId)) {
-                return prev.filter(id => id !== workTypeId);
-            } else {
-                return [...prev, workTypeId];
-            }
-        });
+        setSelectedWorkTypes(prev =>
+            prev.includes(workTypeId)
+                ? prev.filter(id => id !== workTypeId)
+                : [...prev, workTypeId]
+        );
     };
 
     const handleSave = async () => {
@@ -65,13 +38,7 @@ const AreaWorkTypesModal = ({ open, onClose, area, allWorkTypes, onSave }) => {
 
     if (!area) return null;
 
-    // Current work types
     const currentWorkTypes = area.area_work_types || [];
-
-    // Available work types (not yet assigned)
-    const availableWorkTypes = allWorkTypes.filter(wt =>
-        !currentWorkTypes.some(awt => awt.work_type.id === wt.id)
-    );
 
     return (
         <Dialog
@@ -136,11 +103,14 @@ const AreaWorkTypesModal = ({ open, onClose, area, allWorkTypes, onSave }) => {
                             <List sx={{ bgcolor: COLORS.GRAY[50], borderRadius: 1 }}>
                                 {currentWorkTypes.map((awt, index) => (
                                     <ListItem
-                                        key={awt.work_type.id}
+                                        key={awt.work_type?.id || awt.id || `awt-${index}`}
                                         sx={{
                                             borderBottom: index < currentWorkTypes.length - 1
                                                 ? `1px solid ${COLORS.GRAY[200]}`
-                                                : 'none'
+                                                : 'none',
+                                            '&:last-child': {
+                                                borderBottom: 'none'
+                                            }
                                         }}
                                     >
                                         <ListItemIcon>
@@ -181,11 +151,11 @@ const AreaWorkTypesModal = ({ open, onClose, area, allWorkTypes, onSave }) => {
                         </Typography>
                         <Paper sx={{ p: 2, maxHeight: 400, overflow: 'auto', mt: 1 }}>
                             <Stack spacing={1}>
-                                {allWorkTypes.map(workType => {
+                                {allWorkTypes.map((workType, index) => {
                                     const isSelected = selectedWorkTypes.includes(workType.id);
                                     return (
                                         <Paper
-                                            key={workType.id}
+                                            key={workType.id || `worktype-${index}`}
                                             sx={{
                                                 p: 1.5,
                                                 border: `2px solid ${isSelected ? COLORS.PRIMARY[500] : COLORS.GRAY[200]}`,
