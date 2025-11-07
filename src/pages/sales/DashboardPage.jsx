@@ -56,7 +56,14 @@ const DashboardPage = () => {
     ];
 
     return (
-        <Box sx={{ py: 3 }}>
+        <Box sx={{
+            py: 3,
+            minHeight: '100vh',
+            background: `radial-gradient(1200px 400px at -10% -10%, rgba(255, 235, 238, 0.9), transparent 60%),
+                         radial-gradient(900px 300px at 110% 10%, rgba(255, 248, 220, 0.7), transparent 60%),
+                         radial-gradient(900px 400px at 50% 110%, rgba(232, 245, 233, 0.6), transparent 60%),
+                         ${COLORS.BACKGROUND.NEUTRAL}`
+        }}>
             <Container maxWidth="xl">
             <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 3 }}>
                 <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.ERROR[600] }}>Bảng điều khiển bán hàng</Typography>
@@ -70,7 +77,14 @@ const DashboardPage = () => {
             <Grid container spacing={2}>
                 {cards.map((c) => (
                     <Grid item xs={12} sm={6} md={3} key={c.label}>
-                        <Card sx={{ borderRadius: 3, border: `1px solid ${c.color}30`, boxShadow: `0 8px 24px ${c.color}22` }}>
+                        <Card sx={{
+                            borderRadius: 4,
+                            overflow: 'hidden',
+                            border: `1px solid ${c.color}30`,
+                            boxShadow: `0 10px 28px ${c.color}22`,
+                            transition: 'transform 120ms ease, box-shadow 120ms ease',
+                            '&:hover': { transform: 'translateY(-3px)', boxShadow: `0 16px 36px ${c.color}33` }
+                        }}>
                             <CardContent>
                                 <Stack direction="row" alignItems="center" justifyContent="space-between">
                                     <Box>
@@ -79,7 +93,7 @@ const DashboardPage = () => {
                                     </Box>
                                     <Box sx={{ color: c.color }}>{c.icon}</Box>
                                 </Stack>
-                                <Button onClick={() => navigate(c.path)} sx={{ mt: 2 }} variant="contained" color="error">Xem chi tiết</Button>
+                                <Button onClick={() => navigate(c.path)} sx={{ mt: 2, borderRadius: 2 }} variant="contained" color="error">Xem chi tiết</Button>
                             </CardContent>
                         </Card>
                     </Grid>

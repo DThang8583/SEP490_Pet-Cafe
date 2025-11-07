@@ -72,11 +72,10 @@ const ServiceSalesPage = () => {
                 next = [...current, item];
             }
             notifyCartChanged(next);
-            navigate('/sales/cart');
         } catch {
             notifyCartChanged([item]);
-            navigate('/sales/cart');
         }
+        // Theo yêu cầu: không tự chuyển sang trang giỏ hàng
     };
 
     return (
@@ -98,37 +97,57 @@ const ServiceSalesPage = () => {
 
                 {error && <Typography color="error" sx={{ mb: 2 }}>{error}</Typography>}
 
-                <Grid container spacing={2}>
+                <Box sx={{
+                    display: 'grid',
+                    gap: 2,
+                    gridTemplateColumns: {
+                        xs: 'repeat(1, 1fr)',
+                        sm: 'repeat(2, 1fr)',
+                        md: 'repeat(4, 1fr)',
+                        lg: 'repeat(4, 1fr)',
+                        xl: 'repeat(4, 1fr)'
+                    }
+                }}>
                     {filtered.map(s => (
-                        <Grid item xs={12} md={6} lg={4} key={s.id}>
-                            <Card sx={{ borderRadius: 3, height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                        <Box key={s.id} sx={{ height: '100%' }}>
+                            <Card sx={{
+                                borderRadius: 4,
+                                height: '100%',
+                                overflow: 'hidden',
+                                boxShadow: 6,
+                                transition: 'transform 120ms ease, box-shadow 120ms ease',
+                                '&:hover': { transform: 'translateY(-2px)', boxShadow: 10 },
+                                display: 'flex', flexDirection: 'column'
+                            }}>
                                 {s.image_url && (
-                                    <Box component="img" src={s.image_url} alt={s.name} sx={{ width: '100%', height: 160, objectFit: 'cover' }} />
+                                    <Box component="img" src={s.image_url} alt={s.name} sx={{ width: '100%', height: 180, objectFit: 'cover', flexShrink: 0 }} />
                                 )}
                                 <CardContent sx={{ display: 'flex', flexDirection: 'column', flexGrow: 1 }}>
-                                    <Typography variant="h6" sx={{ fontWeight: 800, mb: 1 }}>{s.name}</Typography>
-                                    <Typography sx={{ color: COLORS.TEXT.SECONDARY, mb: 1.5 }}>
+                                    <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', minHeight: 48 }}>{s.name}</Typography>
+                                    <Typography sx={{ color: COLORS.TEXT.SECONDARY, mb: 1, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', minHeight: 40 }}>
                                         {s.description || 'Dịch vụ tại Pet Cafe'}
                                     </Typography>
                                     <Typography sx={{ fontWeight: 800, color: COLORS.ERROR[600], mb: 1 }}>{(s.base_price || 0).toLocaleString('vi-VN')} ₫</Typography>
-                                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }}>
+                                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }} sx={{ mb: 1 }}>
                                         <TextField
                                             type="number"
                                             label="Số lượng"
                                             value={quantities[s.id] || 1}
                                             onChange={(e) => setQty(s.id, e.target.value)}
-                                            InputProps={{ inputProps: { min: 0 }, endAdornment: <InputAdornment position="end">lần</InputAdornment> }}
-                                            sx={{ width: { xs: '100%', sm: 160 } }}
+                                            InputProps={{ inputProps: { min: 1 }, endAdornment: <InputAdornment position="end">lần</InputAdornment> }}
+                                            size="small"
+                                            sx={{ width: { xs: '100%', sm: 140 } }}
                                         />
-                                        <Button variant="contained" color="error" onClick={() => addServiceToCart(s)}>
+                                        <Button variant="contained" color="error" size="small" onClick={() => addServiceToCart(s)} sx={{ borderRadius: 2, alignSelf: 'flex-start' }}>
                                             Thêm vào giỏ
                                         </Button>
                                     </Stack>
+                                    <Box sx={{ flexGrow: 1 }} />
                                 </CardContent>
                             </Card>
-                        </Grid>
+                        </Box>
                     ))}
-                </Grid>
+                </Box>
             </Container>
         </Box>
     );

@@ -9,6 +9,7 @@ const CartPage = () => {
     const navigate = useNavigate();
     const [items, setItems] = useState([]);
     const [initialized, setInitialized] = useState(false);
+    const [paymentMethod, setPaymentMethod] = useState('cash'); // 'cash' | 'bank_transfer'
 
     useEffect(() => {
         try {
@@ -47,13 +48,70 @@ const CartPage = () => {
         try {
             const role = authApi.getUserRole();
             if (role !== 'sales_staff' && role !== 'manager') throw new Error('Không có quyền');
-            const res = await salesApi.createOrder({ items, paymentMethod: 'bank_transfer', paid: true });
-            const invoice = res?.data?.invoice;
-            const search = new URLSearchParams({ invoiceId: invoice?.id || '', total: String(invoice?.total || 0), method: 'bank_transfer' }).toString();
-            // Clear cart then go to QR page
+
+            // Build payload per official API
+            const productItems = items
+                .filter(i => !String(i.id).startsWith('svc-'))
+                .map(i => ({ product_id: i.id, quantity: i.quantity, notes: '' }));
+
+            const serviceItems = items
+                .filter(i => String(i.id).startsWith('svc-'))
+                .map(i => ({
+                    slot_id: String(i.id).replace('svc-',''),
+                    notes: '',
+                    booking_date: new Date().toISOString()
+                }));
+
+            const payload = {
+                full_name: '',
+                address: '',
+                phone: '',
+                notes: '',
+                payment_method: (paymentMethod || 'cash').toUpperCase(),
+                ...(productItems.length ? { products: productItems } : {}),
+                ...(serviceItems.length ? { services: serviceItems } : {})
+            };
+
+            const token = localStorage.getItem('authToken');
+            console.log('[Cart][checkout] items:', items);
+            console.log('[Cart][checkout] paymentMethod:', paymentMethod);
+            console.log('[Cart][checkout] payload:', payload);
+            console.log('[Cart][checkout] hasToken:', !!token);
+            const resp = await fetch('https://petcafe-htc6dadbayh6h4dz.southeastasia-01.azurewebsites.net/api/orders', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'Authorization': token ? `Bearer ${token}` : ''
+                },
+                body: JSON.stringify(payload)
+            });
+            const rawText = await resp.text();
+            console.log('[Cart][checkout] response.status:', resp.status);
+            console.log('[Cart][checkout] response.body:', rawText);
+            const jsonData = (() => { try { return JSON.parse(rawText); } catch { return null; } })();
+            if (!resp.ok) {
+                const msg = jsonData?.message || 'Không thể tạo đơn hàng';
+                throw new Error(msg);
+            }
+            const data = jsonData;
+            const root = (data && data.data) ? data.data : data;
+            const orderId = root?.product_order?.order_id || root?.id || (productItems[0]?.product_id || serviceItems[0]?.slot_id || '');
+            const productOrderId = root?.product_order?.id || '';
+            const localTotal = items.reduce((s, i) => s + i.price * i.quantity, 0);
+
+            const search = new URLSearchParams({
+                invoiceId: productOrderId || root?.service_order?.id || '',
+                productOrderId: productOrderId || '',
+                total: String(root?.final_amount || localTotal || 0),
+                method: paymentMethod,
+                orderId
+            }).toString();
+
             setItems([]);
             navigate(`/sales/checkout?${search}`);
         } catch (e) {
+            console.error('[Cart][checkout] error:', e);
             alert(e.message || 'Lỗi tạo đơn hàng');
         }
     };
@@ -98,6 +156,13 @@ const CartPage = () => {
                             <Typography sx={{ fontWeight: 800, color: COLORS.ERROR[600] }}>{total.toLocaleString('vi-VN')} ₫</Typography>
                         </Stack>
                         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+                            <Button
+                                variant="outlined"
+                                color={paymentMethod === 'cash' ? 'success' : 'error'}
+                                onClick={() => setPaymentMethod(prev => prev === 'cash' ? 'bank_transfer' : 'cash')}
+                            >
+                                {paymentMethod === 'cash' ? 'Phương thức: Tiền mặt' : 'Phương thức: Chuyển khoản QR'}
+                            </Button>
                             <Button variant="outlined" color="error" onClick={clearCart}>Xóa giỏ hàng</Button>
                             <Button variant="contained" color="error" startIcon={<ShoppingCart />} disabled={!items.length} onClick={checkout}>Thanh toán</Button>
                         </Stack>
