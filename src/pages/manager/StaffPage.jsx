@@ -14,16 +14,32 @@ const formatSalary = (salary) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(salary);
 };
 
-const roleLabel = (r) => {
-    switch (r) {
+// Helper to get the display role from employee data
+const getDisplayRole = (employee) => {
+    // If account.role is MANAGER, use that
+    if (employee.account?.role === 'MANAGER') {
+        return 'MANAGER';
+    }
+    // Otherwise use sub_role (for EMPLOYEE)
+    const subRole = employee.sub_role?.trim();
+    if (subRole) {
+        return subRole;
+    }
+    return null;
+};
+
+const roleLabel = (role) => {
+    switch (role) {
+        case 'MANAGER': return 'Manager';
         case 'SALE_STAFF': return 'Sale Staff';
         case 'WORKING_STAFF': return 'Working Staff';
-        default: return r;
+        default: return role || '—';
     }
 };
 
-const roleColor = (r) => {
-    switch (r) {
+const roleColor = (role) => {
+    switch (role) {
+        case 'MANAGER': return { bg: alpha(COLORS.ERROR[100], 0.8), color: COLORS.ERROR[700] };
         case 'SALE_STAFF': return { bg: alpha(COLORS.INFO[100], 0.8), color: COLORS.INFO[700] };
         case 'WORKING_STAFF': return { bg: alpha(COLORS.WARNING[100], 0.8), color: COLORS.WARNING[700] };
         default: return { bg: alpha(COLORS.GRAY[200], 0.6), color: COLORS.TEXT.SECONDARY };
@@ -55,6 +71,7 @@ const StaffPage = () => {
     const [editMode, setEditMode] = useState(false);
     const [selectedStaff, setSelectedStaff] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [apiErrors, setApiErrors] = useState(null);
 
     // Delete confirmation
     const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
@@ -76,10 +93,11 @@ const StaffPage = () => {
             try {
                 setIsLoading(true);
                 setError('');
-                const response = await employeeApi.getEmployees();
-                if (response.success) {
-                    setStaff(response.data);
-                }
+                const response = await employeeApi.getAllEmployees({
+                    page_index: page - 1,
+                    page_size: itemsPerPage
+                });
+                setStaff(response.data || []);
             } catch (e) {
                 setError(e.message || 'Không thể tải danh sách nhân viên');
                 setAlert({
@@ -93,11 +111,17 @@ const StaffPage = () => {
             }
         };
         loadStaff();
-    }, []);
+    }, [page, itemsPerPage]);
 
     const filtered = useMemo(() => {
         return staff.filter(s => {
-            if (filterRole !== 'all' && s.sub_role !== filterRole) return false;
+            // Exclude MANAGER role - Manager cannot manage other Managers
+            const displayRole = getDisplayRole(s);
+            if (displayRole === 'MANAGER') return false;
+
+            if (filterRole !== 'all') {
+                if (displayRole !== filterRole) return false;
+            }
             if (filterStatus !== 'all') {
                 const isActive = s.account?.is_active;
                 if (filterStatus === 'active' && !isActive) return false;
@@ -108,14 +132,15 @@ const StaffPage = () => {
         });
     }, [staff, q, filterRole, filterStatus]);
 
-    // Statistics
+    // Statistics - exclude MANAGER from counts
     const stats = useMemo(() => {
+        const nonManagerStaff = staff.filter(s => getDisplayRole(s) !== 'MANAGER');
         return {
-            total: staff.length,
-            saleStaff: staff.filter(s => s.sub_role === 'SALE_STAFF').length,
-            workingStaff: staff.filter(s => s.sub_role === 'WORKING_STAFF').length,
-            active: staff.filter(s => s.account?.is_active === true).length,
-            inactive: staff.filter(s => s.account?.is_active === false).length
+            total: nonManagerStaff.length,
+            saleStaff: nonManagerStaff.filter(s => getDisplayRole(s) === 'SALE_STAFF').length,
+            workingStaff: nonManagerStaff.filter(s => getDisplayRole(s) === 'WORKING_STAFF').length,
+            active: nonManagerStaff.filter(s => s.account?.is_active === true).length,
+            inactive: nonManagerStaff.filter(s => s.account?.is_active === false).length
         };
     }, [staff]);
 
@@ -126,10 +151,134 @@ const StaffPage = () => {
         return filtered.slice(startIndex, startIndex + itemsPerPage);
     }, [page, itemsPerPage, filtered]);
 
+    // Parse API error response to extract field-specific errors
+    const parseApiErrors = (error) => {
+        const fieldErrors = {};
+
+        // Check if error has response data with validation errors
+        if (error.response?.data) {
+            const errorData = error.response.data;
+
+            // Handle format: { error: Array(2) ['Password: ...', 'Password: ...'] }
+            if (errorData.error && Array.isArray(errorData.error)) {
+                errorData.error.forEach(message => {
+                    if (typeof message === 'string') {
+                        // Check if message contains field name prefix like "Password: ..."
+                        const fieldPrefixMatch = message.match(/^(\w+):\s*(.+)$/i);
+                        if (fieldPrefixMatch) {
+                            const fieldName = fieldPrefixMatch[1].toLowerCase();
+                            const errorText = fieldPrefixMatch[2].trim();
+                            const mappedField = mapFieldName(fieldName);
+
+                            // If field already has error, append to it
+                            if (fieldErrors[mappedField]) {
+                                fieldErrors[mappedField] += '. ' + errorText;
+                            } else {
+                                fieldErrors[mappedField] = errorText;
+                            }
+                        }
+                    }
+                });
+            }
+            // Handle different error response formats
+            else if (errorData.errors && typeof errorData.errors === 'object') {
+                // ASP.NET Core validation errors format: { "errors": { "field": ["error1", "error2"] } }
+                Object.keys(errorData.errors).forEach(field => {
+                    const fieldName = field.toLowerCase();
+                    const errorMessages = errorData.errors[field];
+                    if (Array.isArray(errorMessages) && errorMessages.length > 0) {
+                        // Map common field names
+                        const mappedField = mapFieldName(fieldName);
+                        // Combine all error messages for this field
+                        const combinedMessage = errorMessages.length > 1
+                            ? errorMessages.join('. ')
+                            : errorMessages[0];
+                        fieldErrors[mappedField] = combinedMessage;
+                    }
+                });
+            } else if (errorData.message) {
+                // Handle single message or array of messages
+                let messages = [];
+                if (Array.isArray(errorData.message)) {
+                    messages = errorData.message;
+                } else if (typeof errorData.message === 'string') {
+                    messages = [errorData.message];
+                }
+
+                // Process each message
+                messages.forEach(message => {
+                    // Check if message contains field name prefix like "Password: ..."
+                    const fieldPrefixMatch = message.match(/^(\w+):\s*(.+)$/i);
+                    if (fieldPrefixMatch) {
+                        const fieldName = fieldPrefixMatch[1].toLowerCase();
+                        const errorText = fieldPrefixMatch[2].trim();
+                        const mappedField = mapFieldName(fieldName);
+
+                        // If field already has error, append to it
+                        if (fieldErrors[mappedField]) {
+                            fieldErrors[mappedField] += '. ' + errorText;
+                        } else {
+                            fieldErrors[mappedField] = errorText;
+                        }
+                    } else {
+                        // Try to extract field name from message
+                        const fieldMatch = message.match(/(?:field|fieldname|property)\s+['"]?(\w+)['"]?/i);
+                        if (fieldMatch) {
+                            const mappedField = mapFieldName(fieldMatch[1].toLowerCase());
+                            if (fieldErrors[mappedField]) {
+                                fieldErrors[mappedField] += '. ' + message;
+                            } else {
+                                fieldErrors[mappedField] = message;
+                            }
+                        } else {
+                            // Check common field names in message
+                            const commonFields = ['email', 'phone', 'password', 'full_name', 'fullname', 'sub_role', 'subrole'];
+                            for (const field of commonFields) {
+                                if (message.toLowerCase().includes(field)) {
+                                    const mappedField = mapFieldName(field);
+                                    if (fieldErrors[mappedField]) {
+                                        fieldErrors[mappedField] += '. ' + message;
+                                    } else {
+                                        fieldErrors[mappedField] = message;
+                                    }
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        return fieldErrors;
+    };
+
+    // Map API field names to form field names
+    const mapFieldName = (apiFieldName) => {
+        const mapping = {
+            'fullname': 'full_name',
+            'full_name': 'full_name',
+            'email': 'email',
+            'phone': 'phone',
+            'address': 'address',
+            'salary': 'salary',
+            'subrole': 'sub_role',
+            'sub_role': 'sub_role',
+            'password': 'password',
+            'avatarurl': 'avatar_url',
+            'avatar_url': 'avatar_url',
+            'areaid': 'area_id',
+            'area_id': 'area_id',
+            'skills': 'skills'
+        };
+        return mapping[apiFieldName] || apiFieldName;
+    };
+
     // Handle submit staff (add/edit)
     const handleSubmitStaff = async (staffData) => {
         try {
             setIsSubmitting(true);
+            setApiErrors(null); // Clear previous errors
 
             if (editMode) {
                 // Update existing staff
@@ -141,15 +290,18 @@ const StaffPage = () => {
                     salary: parseFloat(staffData.salary),
                     sub_role: staffData.sub_role,
                     skills: staffData.skills || [],
+                    area_id: staffData.area_id || null,
                     avatar_url: staffData.avatar_url || selectedStaff.avatar_url || '',
                     password: staffData.password || undefined
                 });
 
                 if (response.success) {
-                    // Update local state
-                    setStaff(prev => prev.map(s =>
-                        s.id === selectedStaff.id ? response.data : s
-                    ));
+                    // Reload data from API
+                    const reloadResponse = await employeeApi.getAllEmployees({
+                        page_index: page - 1,
+                        page_size: itemsPerPage
+                    });
+                    setStaff(reloadResponse.data || []);
 
                     setAlert({
                         open: true,
@@ -157,6 +309,12 @@ const StaffPage = () => {
                         message: 'Cập nhật thông tin nhân viên thành công!',
                         type: 'success'
                     });
+
+                    // Close modal on success
+                    setAddStaffModalOpen(false);
+                    setSelectedStaff(null);
+                    setEditMode(false);
+                    setApiErrors(null);
                 }
             } else {
                 // Add new staff
@@ -168,13 +326,18 @@ const StaffPage = () => {
                     salary: parseFloat(staffData.salary),
                     sub_role: staffData.sub_role,
                     skills: staffData.skills || [],
+                    area_id: staffData.area_id || null,
                     avatar_url: staffData.avatar_url || '',
                     password: staffData.password
                 });
 
                 if (response.success) {
-                    // Add to local state
-                    setStaff(prev => [...prev, response.data]);
+                    // Reload data from API
+                    const reloadResponse = await employeeApi.getAllEmployees({
+                        page_index: page - 1,
+                        page_size: itemsPerPage
+                    });
+                    setStaff(reloadResponse.data || []);
 
                     setAlert({
                         open: true,
@@ -182,21 +345,33 @@ const StaffPage = () => {
                         message: 'Thêm nhân viên mới thành công!',
                         type: 'success'
                     });
+
+                    // Close modal on success
+                    setAddStaffModalOpen(false);
+                    setSelectedStaff(null);
+                    setEditMode(false);
+                    setApiErrors(null);
                 }
             }
-
-            // Close modal
-            setAddStaffModalOpen(false);
-            setSelectedStaff(null);
-            setEditMode(false);
         } catch (error) {
             console.error('Error submitting staff:', error);
-            setAlert({
-                open: true,
-                title: 'Lỗi',
-                message: error.message || 'Không thể lưu thông tin nhân viên',
-                type: 'error'
-            });
+
+            // Parse API errors to get field-specific errors
+            const fieldErrors = parseApiErrors(error);
+
+            if (Object.keys(fieldErrors).length > 0) {
+                // We have field-specific errors - display them in the form
+                setApiErrors(fieldErrors);
+                // Don't close modal - let user see and fix errors
+            } else {
+                // Generic error (network, server error, etc.) - show in alert modal
+                setAlert({
+                    open: true,
+                    title: 'Lỗi',
+                    message: error.response?.data?.message || error.message || 'Không thể lưu thông tin nhân viên',
+                    type: 'error'
+                });
+            }
         } finally {
             setIsSubmitting(false);
         }
@@ -305,6 +480,7 @@ const StaffPage = () => {
                         onClick={() => {
                             setEditMode(false);
                             setSelectedStaff(null);
+                            setApiErrors(null);
                             setAddStaffModalOpen(true);
                         }}
                         sx={{ backgroundColor: COLORS.ERROR[500], '&:hover': { backgroundColor: COLORS.ERROR[600] } }}
@@ -349,7 +525,8 @@ const StaffPage = () => {
                         </TableHead>
                         <TableBody>
                             {currentPageStaff.map((s) => {
-                                const rColor = roleColor(s.sub_role);
+                                const displayRole = getDisplayRole(s);
+                                const rColor = roleColor(displayRole);
                                 const st = statusColor(s.account?.is_active);
                                 return (
                                     <TableRow key={s.id} hover>
@@ -404,7 +581,7 @@ const StaffPage = () => {
                                             )}
                                         </TableCell>
                                         <TableCell>
-                                            <Chip size="small" label={roleLabel(s.sub_role)} sx={{ background: rColor.bg, color: rColor.color, fontWeight: 700 }} />
+                                            <Chip size="small" label={roleLabel(displayRole)} sx={{ background: rColor.bg, color: rColor.color, fontWeight: 700 }} />
                                         </TableCell>
                                         <TableCell>
                                             <Chip size="small" label={st.label} sx={{ background: st.bg, color: st.color, fontWeight: 700 }} />
@@ -449,11 +626,13 @@ const StaffPage = () => {
                         setAddStaffModalOpen(false);
                         setSelectedStaff(null);
                         setEditMode(false);
+                        setApiErrors(null);
                     }}
                     onSubmit={handleSubmitStaff}
                     editMode={editMode}
                     initialData={selectedStaff}
                     isLoading={isSubmitting}
+                    apiErrors={apiErrors}
                 />
 
                 {/* Confirm Delete Modal */}
@@ -467,7 +646,13 @@ const StaffPage = () => {
                         try {
                             const response = await employeeApi.deleteEmployee(pendingDeleteId);
                             if (response.success) {
-                                setStaff(prev => prev.filter(s => s.id !== pendingDeleteId));
+                                // Reload data from API
+                                const reloadResponse = await employeeApi.getAllEmployees({
+                                    page_index: page - 1,
+                                    page_size: itemsPerPage
+                                });
+                                setStaff(reloadResponse.data || []);
+
                                 setAlert({
                                     open: true,
                                     title: 'Thành công',
@@ -525,6 +710,7 @@ const StaffPage = () => {
                             if (menuStaff) {
                                 setEditMode(true);
                                 setSelectedStaff(menuStaff);
+                                setApiErrors(null);
                                 setAddStaffModalOpen(true);
                             }
                             setMenuAnchor(null);

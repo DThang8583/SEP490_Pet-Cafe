@@ -19,7 +19,7 @@ const VaccinationScheduleModal = ({
         vaccine_type_id: '',
         scheduled_date: '',
         notes: '',
-        status: 'PENDING' // PENDING or COMPLETED
+        status: 'PENDING' // PENDING, COMPLETED, CANCELLED, IN_PROGRESS
     });
 
     const [errors, setErrors] = useState({});
@@ -287,7 +287,7 @@ const VaccinationScheduleModal = ({
                                     <MenuItem value="PENDING">
                                         <Stack direction="row" alignItems="center" spacing={1}>
                                             <Chip
-                                                label="Đang chờ"
+                                                label="Đã lên lịch"
                                                 size="small"
                                                 sx={{
                                                     background: alpha(COLORS.WARNING[100], 0.7),
@@ -296,6 +296,20 @@ const VaccinationScheduleModal = ({
                                                 }}
                                             />
                                             <Typography variant="body2">Lịch tiêm chưa thực hiện</Typography>
+                                        </Stack>
+                                    </MenuItem>
+                                    <MenuItem value="IN_PROGRESS">
+                                        <Stack direction="row" alignItems="center" spacing={1}>
+                                            <Chip
+                                                label="Đang thực hiện"
+                                                size="small"
+                                                sx={{
+                                                    background: alpha(COLORS.INFO[100], 0.7),
+                                                    color: COLORS.INFO[800],
+                                                    fontWeight: 700
+                                                }}
+                                            />
+                                            <Typography variant="body2">Đang trong quá trình tiêm</Typography>
                                         </Stack>
                                     </MenuItem>
                                     <MenuItem value="COMPLETED">
@@ -310,6 +324,20 @@ const VaccinationScheduleModal = ({
                                                 }}
                                             />
                                             <Typography variant="body2">Đã tiêm xong</Typography>
+                                        </Stack>
+                                    </MenuItem>
+                                    <MenuItem value="CANCELLED">
+                                        <Stack direction="row" alignItems="center" spacing={1}>
+                                            <Chip
+                                                label="Đã hủy"
+                                                size="small"
+                                                sx={{
+                                                    background: alpha(COLORS.ERROR[100], 0.7),
+                                                    color: COLORS.ERROR[800],
+                                                    fontWeight: 700
+                                                }}
+                                            />
+                                            <Typography variant="body2">Lịch tiêm đã bị hủy</Typography>
                                         </Stack>
                                     </MenuItem>
                                 </Select>

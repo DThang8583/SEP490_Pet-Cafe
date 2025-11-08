@@ -87,17 +87,17 @@ const VaccinationsPage = () => {
                     petSpeciesApi.getAllSpecies({ page_size: 1000 }),
                     petBreedsApi.getAllBreeds({ page_size: 1000 }),
                     vaccineTypesApi.getAllVaccineTypes({ page_size: 1000 })
-                ]);
+            ]);
 
                 const petsData = petsRes?.data || [];
                 const speciesData = speciesRes?.data || [];
                 const breedsData = breedsRes?.data || [];
                 const vaccineTypesData = vaccineTypesRes?.data || [];
 
-                setPets(petsData);
-                setSpecies(speciesData);
-                setBreeds(breedsData);
-                setVaccineTypes(vaccineTypesData);
+            setPets(petsData);
+            setSpecies(speciesData);
+            setBreeds(breedsData);
+            setVaccineTypes(vaccineTypesData);
             }
 
             // Prepare filter params for API - Only use date/status filters, let client-side handle the rest
@@ -588,6 +588,28 @@ const VaccinationsPage = () => {
 
     const recordsTotalPages = Math.ceil(vaccinationRecords.length / recordsItemsPerPage);
 
+    // Helper function to get status label in Vietnamese
+    const getStatusLabel = (status) => {
+        const statusMap = {
+            'PENDING': 'Đã lên lịch',
+            'COMPLETED': 'Đã hoàn thành',
+            'CANCELLED': 'Đã hủy',
+            'IN_PROGRESS': 'Đang thực hiện'
+        };
+        return statusMap[status] || status;
+    };
+
+    // Helper function to get status color
+    const getStatusColor = (status) => {
+        const colorMap = {
+            'PENDING': { bg: COLORS.WARNING[100], color: COLORS.WARNING[800] },
+            'COMPLETED': { bg: COLORS.SUCCESS[100], color: COLORS.SUCCESS[800] },
+            'CANCELLED': { bg: COLORS.ERROR[100], color: COLORS.ERROR[800] },
+            'IN_PROGRESS': { bg: COLORS.INFO[100], color: COLORS.INFO[800] }
+        };
+        return colorMap[status] || { bg: COLORS.WARNING[100], color: COLORS.WARNING[800] };
+    };
+
     // Get vaccination status based on next_due_date
     const getVaccinationStatus = (record) => {
         if (!record.next_due_date) return null;
@@ -817,20 +839,20 @@ const VaccinationsPage = () => {
                         }}
                     >
                         <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 3 }}>
-                            <Schedule sx={{ color: COLORS.WARNING[700], fontSize: 28 }} />
-                            <Typography variant="h6" sx={{ fontWeight: 800, color: COLORS.WARNING[700] }}>
-                                Danh sách lịch tiêm sắp tới
-                            </Typography>
-                            <Chip
+                                <Schedule sx={{ color: COLORS.WARNING[700], fontSize: 28 }} />
+                                <Typography variant="h6" sx={{ fontWeight: 800, color: COLORS.WARNING[700] }}>
+                                    Danh sách lịch tiêm sắp tới
+                                </Typography>
+                                <Chip
                                 label={filteredUpcomingVaccinations.length}
-                                size="small"
-                                sx={{
-                                    bgcolor: alpha(COLORS.WARNING[600], 0.2),
-                                    color: COLORS.WARNING[700],
-                                    fontWeight: 600
-                                }}
-                            />
-                        </Stack>
+                                    size="small"
+                                    sx={{
+                                        bgcolor: alpha(COLORS.WARNING[600], 0.2),
+                                        color: COLORS.WARNING[700],
+                                        fontWeight: 600
+                                    }}
+                                />
+                            </Stack>
 
                         {/* Search and Filters - Row 1 */}
                         <Box
@@ -928,7 +950,7 @@ const VaccinationsPage = () => {
 
                         {/* Search and Filters - Row 2 */}
                         <Box
-                            sx={{
+                                            sx={{
                                 display: 'flex',
                                 gap: 2,
                                 mb: 3,
@@ -936,7 +958,7 @@ const VaccinationsPage = () => {
                             }}
                         >
                             <TextField
-                                size="small"
+                                                        size="small"
                                 type="date"
                                 label="Từ ngày"
                                 value={tempFromDate || filterFromDate}
@@ -962,10 +984,10 @@ const VaccinationsPage = () => {
                                     max: filterToDate || tempToDate || undefined
                                 }}
                                 sx={{ minWidth: 250 }}
-                            />
+                                                    />
 
                             <TextField
-                                size="small"
+                                                        size="small"
                                 type="date"
                                 label="Đến ngày"
                                 value={tempToDate || filterToDate}
@@ -991,7 +1013,7 @@ const VaccinationsPage = () => {
                                     min: filterFromDate || tempFromDate || undefined
                                 }}
                                 sx={{ minWidth: 250 }}
-                            />
+                                />
 
                             <FormControl size="small" sx={{ minWidth: 250 }}>
                                 <InputLabel shrink>Trạng thái</InputLabel>
@@ -1004,14 +1026,16 @@ const VaccinationsPage = () => {
                                         if (!selected || selected === '') {
                                             return 'Tất cả';
                                         }
-                                        return selected === 'PENDING' ? 'Đã lên lịch' : 'Đã hoàn thành';
+                                        return getStatusLabel(selected);
                                     }}
                                 >
                                     <MenuItem value="">
                                         <em>Tất cả</em>
                                     </MenuItem>
                                     <MenuItem value="PENDING">Đã lên lịch</MenuItem>
+                                    <MenuItem value="IN_PROGRESS">Đang thực hiện</MenuItem>
                                     <MenuItem value="COMPLETED">Đã hoàn thành</MenuItem>
+                                    <MenuItem value="CANCELLED">Đã hủy</MenuItem>
                                 </Select>
                             </FormControl>
                         </Box>
@@ -1080,19 +1104,15 @@ const VaccinationsPage = () => {
                                                         </Typography>
                                                     </TableCell>
                                                     <TableCell>
-                                                        <Chip
-                                                            label={item.status === 'COMPLETED' ? 'Đã hoàn thành' : 'Đã lên lịch'}
-                                                            size="small"
-                                                            sx={{
-                                                                background: item.status === 'COMPLETED'
-                                                                    ? alpha(COLORS.SUCCESS[100], 0.7)
-                                                                    : alpha(COLORS.WARNING[100], 0.7),
-                                                                color: item.status === 'COMPLETED'
-                                                                    ? COLORS.SUCCESS[800]
-                                                                    : COLORS.WARNING[800],
+                                                                    <Chip
+                                                            label={getStatusLabel(item.status)}
+                                                                        size="small"
+                                                                        sx={{
+                                                                background: alpha(getStatusColor(item.status).bg, 0.7),
+                                                                color: getStatusColor(item.status).color,
                                                                 fontWeight: 700
-                                                            }}
-                                                        />
+                                                                    }}
+                                                                />
                                                     </TableCell>
                                                     <TableCell align="right">
                                                         <IconButton
@@ -1117,18 +1137,18 @@ const VaccinationsPage = () => {
                                     </Table>
                                 </TableContainer>
                                 <Box sx={{ mt: 2 }}>
-                                    <Pagination
+                                <Pagination
                                         page={upcomingPage}
                                         totalPages={upcomingTotalPages}
                                         onPageChange={setUpcomingPage}
                                         itemsPerPage={upcomingItemsPerPage}
-                                        onItemsPerPageChange={(newValue) => {
+                                    onItemsPerPageChange={(newValue) => {
                                             setUpcomingItemsPerPage(newValue);
                                             setUpcomingPage(1);
-                                        }}
+                                    }}
                                         totalItems={filteredUpcomingVaccinations.length}
                                         itemsPerPageOptions={[5, 10, 15, 20]}
-                                    />
+                                />
                                 </Box>
                             </>
                         ) : (
@@ -1136,7 +1156,7 @@ const VaccinationsPage = () => {
                                 <Schedule sx={{ fontSize: 80, color: COLORS.TEXT.DISABLED, mb: 2 }} />
                                 <Typography variant="h6" sx={{ color: COLORS.TEXT.SECONDARY, mb: 1 }}>
                                     Không có lịch tiêm nào
-                                </Typography>
+                            </Typography>
                                 <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
                                     Thử tạo lịch tiêm mới hoặc thay đổi bộ lọc
                                 </Typography>
@@ -1447,37 +1467,33 @@ const VaccinationsPage = () => {
                                 <Divider sx={{ mb: 2 }} />
                                 <Stack spacing={1.5}>
                                     {/* Scheduled Date */}
-                                    <Stack direction="row" spacing={2}>
-                                        <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, width: '160px', flexShrink: 0 }}>
+                                            <Stack direction="row" spacing={2}>
+                                                <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, width: '160px', flexShrink: 0 }}>
                                             Ngày tiêm dự kiến
-                                        </Typography>
-                                        <Typography variant="body1" sx={{ fontWeight: 600, lineHeight: 1.5 }}>
+                                                </Typography>
+                                                <Typography variant="body1" sx={{ fontWeight: 600, lineHeight: 1.5 }}>
                                             {selectedItem.scheduled_date ? new Date(selectedItem.scheduled_date).toLocaleDateString('vi-VN', {
                                                 weekday: 'long',
-                                                year: 'numeric',
-                                                month: 'long',
+                                                        year: 'numeric',
+                                                        month: 'long',
                                                 day: 'numeric',
                                                 hour: '2-digit',
                                                 minute: '2-digit'
                                             }) : '—'}
-                                        </Typography>
-                                    </Stack>
+                                                </Typography>
+                                            </Stack>
 
                                     {/* Status */}
-                                    <Stack direction="row" spacing={2}>
-                                        <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, width: '160px', flexShrink: 0 }}>
+                                            <Stack direction="row" spacing={2}>
+                                                <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, width: '160px', flexShrink: 0 }}>
                                             Trạng thái
                                         </Typography>
                                         <Chip
-                                            label={selectedItem.status === 'COMPLETED' ? 'Đã hoàn thành' : 'Đã lên lịch'}
+                                            label={getStatusLabel(selectedItem.status)}
                                             size="small"
                                             sx={{
-                                                background: selectedItem.status === 'COMPLETED'
-                                                    ? alpha(COLORS.SUCCESS[100], 0.7)
-                                                    : alpha(COLORS.WARNING[100], 0.7),
-                                                color: selectedItem.status === 'COMPLETED'
-                                                    ? COLORS.SUCCESS[800]
-                                                    : COLORS.WARNING[800],
+                                                background: alpha(getStatusColor(selectedItem.status).bg, 0.7),
+                                                color: getStatusColor(selectedItem.status).color,
                                                 fontWeight: 700
                                             }}
                                         />
@@ -1488,18 +1504,18 @@ const VaccinationsPage = () => {
                                         <Stack direction="row" spacing={2}>
                                             <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, width: '160px', flexShrink: 0 }}>
                                                 Ngày hoàn thành
-                                            </Typography>
-                                            <Typography variant="body1" sx={{ fontWeight: 600, lineHeight: 1.5 }}>
+                                                </Typography>
+                                                <Typography variant="body1" sx={{ fontWeight: 600, lineHeight: 1.5 }}>
                                                 {new Date(selectedItem.completed_date).toLocaleDateString('vi-VN', {
                                                     weekday: 'long',
-                                                    year: 'numeric',
-                                                    month: 'long',
+                                                        year: 'numeric',
+                                                        month: 'long',
                                                     day: 'numeric',
                                                     hour: '2-digit',
                                                     minute: '2-digit'
-                                                })}
-                                            </Typography>
-                                        </Stack>
+                                                    })}
+                                                </Typography>
+                                            </Stack>
                                     )}
 
                                     {/* Record Information (if completed) */}
@@ -1512,11 +1528,11 @@ const VaccinationsPage = () => {
 
                                             {/* Vaccination Date from Record */}
                                             {selectedItem.record.vaccination_date && (
-                                                <Stack direction="row" spacing={2}>
-                                                    <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, width: '160px', flexShrink: 0 }}>
+                                            <Stack direction="row" spacing={2}>
+                                                <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, width: '160px', flexShrink: 0 }}>
                                                         Ngày đã tiêm
-                                                    </Typography>
-                                                    <Typography variant="body1" sx={{ fontWeight: 600, lineHeight: 1.5 }}>
+                                                </Typography>
+                                                <Typography variant="body1" sx={{ fontWeight: 600, lineHeight: 1.5 }}>
                                                         {new Date(selectedItem.record.vaccination_date).toLocaleDateString('vi-VN', {
                                                             weekday: 'long',
                                                             year: 'numeric',
@@ -1525,17 +1541,17 @@ const VaccinationsPage = () => {
                                                             hour: '2-digit',
                                                             minute: '2-digit'
                                                         })}
-                                                    </Typography>
-                                                </Stack>
+                                                </Typography>
+                                            </Stack>
                                             )}
 
                                             {/* Next Due Date */}
                                             {selectedItem.record.next_due_date && (
-                                                <Stack direction="row" spacing={2}>
-                                                    <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, width: '160px', flexShrink: 0 }}>
+                                            <Stack direction="row" spacing={2}>
+                                                <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, width: '160px', flexShrink: 0 }}>
                                                         Ngày cần tiêm lại
-                                                    </Typography>
-                                                    <Typography variant="body1" sx={{ fontWeight: 600, lineHeight: 1.5 }}>
+                                                </Typography>
+                                                <Typography variant="body1" sx={{ fontWeight: 600, lineHeight: 1.5 }}>
                                                         {new Date(selectedItem.record.next_due_date).toLocaleDateString('vi-VN', {
                                                             weekday: 'long',
                                                             year: 'numeric',
@@ -1544,8 +1560,8 @@ const VaccinationsPage = () => {
                                                             hour: '2-digit',
                                                             minute: '2-digit'
                                                         })}
-                                                    </Typography>
-                                                </Stack>
+                                                </Typography>
+                                            </Stack>
                                             )}
 
                                             {/* Veterinarian */}
@@ -1580,14 +1596,14 @@ const VaccinationsPage = () => {
 
                                             {/* Notes from Record */}
                                             {selectedItem.record.notes && (
-                                                <Stack direction="row" spacing={2}>
-                                                    <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, width: '160px', flexShrink: 0 }}>
+                                            <Stack direction="row" spacing={2}>
+                                                <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, width: '160px', flexShrink: 0 }}>
                                                         Ghi chú tiêm phòng
-                                                    </Typography>
+                                                </Typography>
                                                     <Typography variant="body2" sx={{ lineHeight: 1.6, color: COLORS.TEXT.PRIMARY, flex: 1 }}>
                                                         {selectedItem.record.notes}
-                                                    </Typography>
-                                                </Stack>
+                                                </Typography>
+                                            </Stack>
                                             )}
                                         </>
                                     )}
