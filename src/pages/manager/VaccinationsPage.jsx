@@ -9,9 +9,10 @@ import VaccinationCalendar from '../../components/vaccination/VaccinationCalenda
 import VaccineTypesTab from './VaccineTypesTab';
 import VaccinationScheduleModal from '../../components/modals/VaccinationScheduleModal';
 import { vaccinationApi } from '../../api/vaccinationApi';
-import { petApi } from '../../api/petApi';
-// Updated: species & breeds now exported from petApi if needed directly
-// (This page already fetches via petApi methods above, so static mocks aren't required.)
+import petsApi from '../../api/petsApi';
+import petSpeciesApi from '../../api/petSpeciesApi';
+import petBreedsApi from '../../api/petBreedsApi';
+import petGroupsApi from '../../api/petGroupsApi';
 
 const VaccinationsPage = () => {
     const [isLoading, setIsLoading] = useState(true);
@@ -58,17 +59,17 @@ const VaccinationsPage = () => {
 
             // Load pets, species, breeds, groups, vaccine types data
             const [petsRes, speciesRes, breedsRes, groupsRes, vaccineTypesRes] = await Promise.all([
-                petApi.getPets({ page_size: 1000 }), // Get all pets for vaccination data
-                petApi.getPetSpecies(),
-                petApi.getPetBreeds(),
-                petApi.getPetGroups(),
+                petsApi.getAllPets({ page_size: 0, page_index: 0 }), // Get all pets for vaccination data
+                petSpeciesApi.getAllSpecies({ page_size: 1000 }),
+                petBreedsApi.getAllBreeds({ page_size: 1000 }),
+                petGroupsApi.getAllGroups({ page_size: 1000 }),
                 vaccinationApi.getVaccineTypes()
             ]);
 
-            const petsData = petsRes.success ? petsRes.data : [];
-            const speciesData = speciesRes.success ? speciesRes.data : [];
-            const breedsData = breedsRes.success ? breedsRes.data : [];
-            const groupsData = groupsRes.success ? groupsRes.data : [];
+            const petsData = petsRes?.data || [];
+            const speciesData = speciesRes?.data || [];
+            const breedsData = breedsRes?.data || [];
+            const groupsData = groupsRes?.data || [];
             const vaccineTypesData = vaccineTypesRes.success ? vaccineTypesRes.data : [];
 
             setPets(petsData);
@@ -117,9 +118,11 @@ const VaccinationsPage = () => {
 
             // Load full pet details
             if (item.pet?.id) {
-                const petRes = await petApi.getPetById(item.pet.id);
-                if (petRes.success) {
-                    setSelectedPetDetails(petRes.data);
+                try {
+                    const petData = await petsApi.getPetById(item.pet.id);
+                    setSelectedPetDetails(petData);
+                } catch (error) {
+                    console.error('Error loading pet details:', error);
                 }
             }
         } catch (error) {
@@ -351,7 +354,7 @@ const VaccinationsPage = () => {
 
                     {/* Đã tiêm */}
                     <Grid item xs={12} sm={6} md={2}>
-                        <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.SUCCESS[500]}`, cursor: 'pointer' }} onClick={() => setCurrentTab(3)}>
+                        <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.SUCCESS[500]}` }}>
                             <Typography variant="body2" color="text.secondary" gutterBottom>
                                 Đã tiêm
                             </Typography>
@@ -432,11 +435,6 @@ const VaccinationsPage = () => {
                             icon={<Vaccines />}
                             iconPosition="start"
                             label="Quản lý Vaccines"
-                        />
-                        <Tab
-                            icon={<CheckCircle />}
-                            iconPosition="start"
-                            label={`Hồ sơ đã thực hiện (${vaccinationRecords.length})`}
                         />
                     </Tabs>
                 </Paper>
@@ -584,203 +582,6 @@ const VaccinationsPage = () => {
                 {/* Tab Content: Vaccine Types Management */}
                 {currentTab === 2 && (
                     <VaccineTypesTab species={species} />
-                )}
-
-                {/* Tab Content: Vaccination Records */}
-                {currentTab === 3 && (
-                    <Paper
-                        sx={{
-                            p: 3,
-                            borderRadius: 3,
-                            border: `2px solid ${alpha(COLORS.SUCCESS[200], 0.4)}`,
-                            boxShadow: `0 10px 24px ${alpha(COLORS.SUCCESS[200], 0.15)}`
-                        }}
-                    >
-                        {vaccinationRecords.length > 0 ? (
-                            <>
-                                <TableContainer
-                                    sx={{
-                                        borderRadius: 2,
-                                        border: `1px solid ${alpha(COLORS.SUCCESS[200], 0.3)}`,
-                                        overflowX: 'auto'
-                                    }}
-                                >
-                                    <Table size="medium" stickyHeader>
-                                        <TableHead>
-                                            <TableRow>
-                                                <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.SUCCESS[50], 0.5) }}>Thú cưng</TableCell>
-                                                <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.SUCCESS[50], 0.5) }}>Vaccine</TableCell>
-                                                <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.SUCCESS[50], 0.5), display: { xs: 'none', md: 'table-cell' } }}>Ngày tiêm</TableCell>
-                                                <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.SUCCESS[50], 0.5), display: { xs: 'none', lg: 'table-cell' } }}>Ngày tiêm lại</TableCell>
-                                                <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.SUCCESS[50], 0.5), display: { xs: 'none', sm: 'table-cell' } }}>Bác sĩ</TableCell>
-                                                <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.SUCCESS[50], 0.5), display: { xs: 'none', md: 'table-cell' } }}>Phòng khám</TableCell>
-                                                <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.SUCCESS[50], 0.5), display: { xs: 'none', xl: 'table-cell' } }}>Lô vaccine</TableCell>
-                                                <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.SUCCESS[50], 0.5), display: { xs: 'none', lg: 'table-cell' } }}>Ghi chú</TableCell>
-                                                <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.SUCCESS[50], 0.5) }}>Trạng thái</TableCell>
-                                                <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.SUCCESS[50], 0.5) }}>Thao tác</TableCell>
-                                            </TableRow>
-                                        </TableHead>
-                                        <TableBody>
-                                            {paginatedVaccinationRecords.map((record) => (
-                                                <TableRow
-                                                    key={record.id}
-                                                    hover
-                                                    sx={{
-                                                        '&:hover': {
-                                                            background: alpha(COLORS.SUCCESS[50], 0.3)
-                                                        }
-                                                    }}
-                                                >
-                                                    <TableCell>
-                                                        <Stack direction="row" alignItems="center" spacing={1.5}>
-                                                            <Avatar
-                                                                src={record.pet?.avatar}
-                                                                alt={record.pet?.name}
-                                                                sx={{ width: 40, height: 40 }}
-                                                            />
-                                                            <Box>
-                                                                <Typography sx={{ fontWeight: 600, fontSize: '0.95rem' }}>
-                                                                    {record.pet?.name || '—'}
-                                                                </Typography>
-                                                                <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY }}>
-                                                                    {(() => {
-                                                                        if (record.pet?.species) {
-                                                                            if (typeof record.pet.species === 'object' && record.pet.species.name) {
-                                                                                return record.pet.species.name;
-                                                                            }
-                                                                            if (typeof record.pet.species === 'string') {
-                                                                                return record.pet.species;
-                                                                            }
-                                                                        }
-                                                                        return '';
-                                                                    })()}
-                                                                </Typography>
-                                                            </Box>
-                                                        </Stack>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <Typography sx={{ fontWeight: 600, fontSize: '0.9rem' }}>
-                                                            {record.vaccine_type?.name || '—'}
-                                                        </Typography>
-                                                    </TableCell>
-                                                    <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
-                                                        <Typography variant="body2">
-                                                            {new Date(record.vaccination_date).toLocaleDateString('vi-VN')}
-                                                        </Typography>
-                                                    </TableCell>
-                                                    <TableCell sx={{ display: { xs: 'none', lg: 'table-cell' } }}>
-                                                        <Typography variant="body2" sx={{ color: COLORS.WARNING[700], fontWeight: 600 }}>
-                                                            {new Date(record.next_due_date).toLocaleDateString('vi-VN')}
-                                                        </Typography>
-                                                    </TableCell>
-                                                    <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
-                                                        <Typography variant="body2">
-                                                            {record.veterinarian || '—'}
-                                                        </Typography>
-                                                    </TableCell>
-                                                    <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
-                                                        <Typography variant="body2">
-                                                            {record.clinic_name || '—'}
-                                                        </Typography>
-                                                    </TableCell>
-                                                    <TableCell sx={{ display: { xs: 'none', xl: 'table-cell' } }}>
-                                                        <Chip
-                                                            label={record.batch_number || '—'}
-                                                            size="small"
-                                                            sx={{
-                                                                background: alpha(COLORS.INFO[100], 0.5),
-                                                                color: COLORS.INFO[800],
-                                                                fontWeight: 600,
-                                                                fontSize: '0.75rem'
-                                                            }}
-                                                        />
-                                                    </TableCell>
-                                                    <TableCell sx={{ display: { xs: 'none', lg: 'table-cell' }, maxWidth: 200 }}>
-                                                        <Typography
-                                                            variant="caption"
-                                                            sx={{
-                                                                color: COLORS.TEXT.SECONDARY,
-                                                                overflow: 'hidden',
-                                                                textOverflow: 'ellipsis',
-                                                                whiteSpace: 'nowrap',
-                                                                display: 'block'
-                                                            }}
-                                                        >
-                                                            {record.notes || '—'}
-                                                        </Typography>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {(() => {
-                                                            const status = getVaccinationStatus(record);
-                                                            if (!status) {
-                                                                return (
-                                                                    <Chip
-                                                                        label="Hoàn thành"
-                                                                        size="small"
-                                                                        icon={<CheckCircle sx={{ fontSize: 16 }} />}
-                                                                        sx={{
-                                                                            background: alpha(COLORS.SUCCESS[100], 0.7),
-                                                                            color: COLORS.SUCCESS[800],
-                                                                            fontWeight: 700,
-                                                                            fontSize: '0.75rem'
-                                                                        }}
-                                                                    />
-                                                                );
-                                                            }
-                                                            return (
-                                                                <Chip
-                                                                    label={status.label}
-                                                                    size="small"
-                                                                    icon={<span style={{ fontSize: '14px' }}>{status.icon}</span>}
-                                                                    sx={{
-                                                                        background: alpha(status.color[100], 0.7),
-                                                                        color: status.color[800],
-                                                                        fontWeight: 700,
-                                                                        fontSize: '0.75rem'
-                                                                    }}
-                                                                />
-                                                            );
-                                                        })()}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <IconButton
-                                                            size="small"
-                                                            onClick={() => handleViewDetails(record)}
-                                                            sx={{
-                                                                background: alpha(COLORS.INFO[100], 0.5),
-                                                                color: COLORS.INFO[700],
-                                                                '&:hover': {
-                                                                    background: alpha(COLORS.INFO[200], 0.7)
-                                                                }
-                                                            }}
-                                                        >
-                                                            <Visibility fontSize="small" />
-                                                        </IconButton>
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                </TableContainer>
-                                <Pagination
-                                    page={recordsPage}
-                                    totalPages={recordsTotalPages}
-                                    onPageChange={setRecordsPage}
-                                    itemsPerPage={recordsItemsPerPage}
-                                    onItemsPerPageChange={(newValue) => {
-                                        setRecordsItemsPerPage(newValue);
-                                        setRecordsPage(1);
-                                    }}
-                                    totalItems={vaccinationRecords.length}
-                                    itemsPerPageOptions={[5, 10, 20, 50]}
-                                />
-                            </>
-                        ) : (
-                            <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, textAlign: 'center', py: 3 }}>
-                                Chưa có hồ sơ tiêm phòng nào
-                            </Typography>
-                        )}
-                    </Paper>
                 )}
             </Box>
 

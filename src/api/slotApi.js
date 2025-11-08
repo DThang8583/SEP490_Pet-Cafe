@@ -1,9 +1,40 @@
 import { MOCK_SERVICES } from './serviceApi';
-import { MOCK_PET_GROUPS } from './petApi';
 import { getAreaById as getAreaByIdFromAPI } from './areasApi';
 import { MOCK_TEAMS } from './teamApi';
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+// Mock Pet Groups for slotApi (minimal data for mock slots)
+const MOCK_PET_GROUPS = [
+    {
+        id: 'ca287dab-96a8-4922-86d5-1c2a99cc34ed',
+        name: 'Mèo Cục Cưng Lông Dài',
+        description: 'Nhóm các giống mèo có bộ lông dài',
+        pet_species_id: 'b6988687-c027-4b63-b91f-e8652c7a54c6',
+        pet_breed_id: null,
+        pets: [],
+        slots: [],
+        created_at: '2025-10-27T06:31:04.595906+00:00',
+        created_by: '00000000-0000-0000-0000-000000000000',
+        updated_at: '2025-10-27T06:31:04.595906+00:00',
+        updated_by: null,
+        is_deleted: false
+    },
+    {
+        id: '7f0ede0f-a11a-47d2-a075-bc8500a4e321',
+        name: 'Chó Nhỏ Năng Động',
+        description: 'Bao gồm các giống chó nhỏ nhưng có mức năng lượng cao',
+        pet_species_id: '8d769794-167b-4458-a9a9-ac33748feee1',
+        pet_breed_id: null,
+        pets: [],
+        slots: [],
+        created_at: '2025-10-27T06:33:19.495131+00:00',
+        created_by: '00000000-0000-0000-0000-000000000000',
+        updated_at: '2025-10-27T06:33:19.495131+00:00',
+        updated_by: null,
+        is_deleted: false
+    }
+];
 
 // Helper functions for MOCK_SLOTS
 const getPetGroupById = (id) => MOCK_PET_GROUPS.find(pg => pg.id === id);

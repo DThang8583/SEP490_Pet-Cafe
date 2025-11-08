@@ -217,10 +217,6 @@ const AddPetBreedModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
         }
     };
 
-    const getCharacterCount = (text) => {
-        return text ? text.length : 0;
-    };
-
     return (
         <Dialog open={isOpen} onClose={handleClose} maxWidth="md" fullWidth>
             <Box
@@ -418,4 +414,3 @@ const AddPetBreedModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
 };
 
 export default AddPetBreedModal;
-
