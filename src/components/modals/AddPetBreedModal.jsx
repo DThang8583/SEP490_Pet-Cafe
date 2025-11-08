@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, FormControl, InputLabel, Select, MenuItem, Box, Typography, alpha, CircularProgress, Chip, Stack } from '@mui/material';
+import { useState, useEffect } from 'react';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, FormControl, InputLabel, Select, MenuItem, Box, Typography, alpha, CircularProgress, Stack } from '@mui/material';
 import { COLORS } from '../../constants/colors';
 import { Category } from '@mui/icons-material';
 
@@ -15,10 +15,16 @@ const AddPetBreedModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
     const [errors, setErrors] = useState({});
     const [touched, setTouched] = useState({});
 
+    // Helper function to capitalize first letter
+    const capitalizeName = (name) => {
+        if (!name) return name;
+        return name.charAt(0).toUpperCase() + name.slice(1);
+    };
+
     // Get species name
     const getSpeciesName = (speciesId) => {
         const sp = species.find(s => s.id === speciesId);
-        return sp ? sp.name : '';
+        return sp ? capitalizeName(sp.name) : '';
     };
 
     // Initialize form when modal opens or initialData changes
@@ -254,20 +260,9 @@ const AddPetBreedModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
                                 onChange={(e) => handleChange('species_id', e.target.value)}
                                 onBlur={() => handleBlur('species_id')}
                             >
-                                {species.map(s => (
+                                {species.filter(s => s.is_active === true).map(s => (
                                     <MenuItem key={s.id} value={s.id}>
-                                        <Stack direction="row" alignItems="center" spacing={1}>
-                                            <Typography>{s.name}</Typography>
-                                            <Chip
-                                                label={s.name === 'Chó' ? '🐕' : '🐱'}
-                                                size="small"
-                                                sx={{
-                                                    height: 20,
-                                                    fontSize: '0.75rem',
-                                                    background: alpha(COLORS.INFO[100], 0.5)
-                                                }}
-                                            />
-                                        </Stack>
+                                        {capitalizeName(s.name)}
                                     </MenuItem>
                                 ))}
                             </Select>

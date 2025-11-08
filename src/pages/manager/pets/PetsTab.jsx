@@ -34,10 +34,16 @@ const PetsTab = ({ pets, species, breeds, groups, onDataChange }) => {
     const [petDetailDialog, setPetDetailDialog] = useState({ open: false, pet: null, vaccinations: [], healthRecords: [] });
     const [detailLoading, setDetailLoading] = useState(false);
 
+    // Helper function to capitalize first letter
+    const capitalizeName = (name) => {
+        if (!name) return name;
+        return name.charAt(0).toUpperCase() + name.slice(1);
+    };
+
     // Get species name by ID
     const getSpeciesName = (speciesId) => {
         const sp = species.find(s => s.id === speciesId);
-        return sp ? sp.name : '—';
+        return sp ? capitalizeName(sp.name) : '—';
     };
 
     // Get breed name by ID
@@ -46,15 +52,19 @@ const PetsTab = ({ pets, species, breeds, groups, onDataChange }) => {
         return br ? br.name : '—';
     };
 
-    // Get pet health status
+    // Get pet health status from API health_status field
     const getPetHealthStatus = (pet) => {
-        if (pet.age < 1 || pet.age > 12) {
-            return { label: 'Cần theo dõi', color: COLORS.WARNING, bg: COLORS.WARNING[100] };
-        }
-        if (pet.weight < 2 || pet.weight > 50) {
-            return { label: 'Cần kiểm tra', color: COLORS.INFO, bg: COLORS.INFO[100] };
-        }
-        return { label: 'Khỏe mạnh', color: COLORS.SUCCESS, bg: COLORS.SUCCESS[100] };
+        const healthStatus = pet.health_status || 'HEALTHY';
+
+        const statusMap = {
+            'HEALTHY': { label: 'Khỏe mạnh', color: COLORS.SUCCESS, bg: COLORS.SUCCESS[100] },
+            'SICK': { label: 'Ốm', color: COLORS.ERROR, bg: COLORS.ERROR[100] },
+            'RECOVERING': { label: 'Đang hồi phục', color: COLORS.WARNING, bg: COLORS.WARNING[100] },
+            'UNDER_OBSERVATION': { label: 'Đang theo dõi', color: COLORS.WARNING, bg: COLORS.WARNING[100] },
+            'QUARANTINE': { label: 'Cách ly', color: COLORS.ERROR, bg: COLORS.ERROR[100] }
+        };
+
+        return statusMap[healthStatus] || statusMap['HEALTHY'];
     };
 
     // Statistics
@@ -64,8 +74,10 @@ const PetsTab = ({ pets, species, breeds, groups, onDataChange }) => {
             male: 0,
             female: 0,
             healthy: 0,
-            needMonitoring: 0,
-            needCheckup: 0
+            sick: 0,
+            recovering: 0,
+            underObservation: 0,
+            quarantine: 0
         };
 
         pets.forEach(pet => {
@@ -76,14 +88,18 @@ const PetsTab = ({ pets, species, breeds, groups, onDataChange }) => {
                 stats.female++;
             }
 
-            // Count health status
-            const healthStatus = getPetHealthStatus(pet);
-            if (healthStatus.label === 'Khỏe mạnh') {
+            // Count health status based on API health_status field
+            const healthStatus = pet.health_status || 'HEALTHY';
+            if (healthStatus === 'HEALTHY') {
                 stats.healthy++;
-            } else if (healthStatus.label === 'Cần theo dõi') {
-                stats.needMonitoring++;
-            } else if (healthStatus.label === 'Cần kiểm tra') {
-                stats.needCheckup++;
+            } else if (healthStatus === 'SICK') {
+                stats.sick++;
+            } else if (healthStatus === 'RECOVERING') {
+                stats.recovering++;
+            } else if (healthStatus === 'UNDER_OBSERVATION') {
+                stats.underObservation++;
+            } else if (healthStatus === 'QUARANTINE') {
+                stats.quarantine++;
             }
         });
 
@@ -101,13 +117,13 @@ const PetsTab = ({ pets, species, breeds, groups, onDataChange }) => {
 
             let matchHealthStatus = true;
             if (filterHealthStatus !== 'all') {
-                const healthStatus = getPetHealthStatus(pet);
+                const healthStatus = pet.health_status || 'HEALTHY';
                 if (filterHealthStatus === 'healthy') {
-                    matchHealthStatus = healthStatus.label === 'Khỏe mạnh';
+                    matchHealthStatus = healthStatus === 'HEALTHY';
                 } else if (filterHealthStatus === 'needMonitoring') {
-                    matchHealthStatus = healthStatus.label === 'Cần theo dõi';
+                    matchHealthStatus = healthStatus === 'UNDER_OBSERVATION';
                 } else if (filterHealthStatus === 'needCheckup') {
-                    matchHealthStatus = healthStatus.label === 'Cần kiểm tra';
+                    matchHealthStatus = healthStatus === 'SICK' || healthStatus === 'QUARANTINE';
                 }
             }
 
@@ -334,6 +350,24 @@ const PetsTab = ({ pets, species, breeds, groups, onDataChange }) => {
                 <Grid item xs={12} sm={6} md={2} sx={{ display: 'flex' }}>
                     <Paper sx={{
                         p: 2.5,
+                        borderTop: `4px solid ${COLORS.ERROR[500]}`,
+                        height: '100%',
+                        width: '100%',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        flex: 1
+                    }}>
+                        <Typography variant="body2" color="text.secondary" gutterBottom>
+                            Ốm
+                        </Typography>
+                        <Typography variant="h4" fontWeight={600} color={COLORS.ERROR[700]}>
+                            {stats.sick}
+                        </Typography>
+                    </Paper>
+                </Grid>
+                <Grid item xs={12} sm={6} md={2} sx={{ display: 'flex' }}>
+                    <Paper sx={{
+                        p: 2.5,
                         borderTop: `4px solid ${COLORS.WARNING[500]}`,
                         height: '100%',
                         width: '100%',
@@ -342,17 +376,17 @@ const PetsTab = ({ pets, species, breeds, groups, onDataChange }) => {
                         flex: 1
                     }}>
                         <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Cần theo dõi
+                            Đang hồi phục
                         </Typography>
                         <Typography variant="h4" fontWeight={600} color={COLORS.WARNING[700]}>
-                            {stats.needMonitoring}
+                            {stats.recovering}
                         </Typography>
                     </Paper>
                 </Grid>
                 <Grid item xs={12} sm={6} md={2} sx={{ display: 'flex' }}>
                     <Paper sx={{
                         p: 2.5,
-                        borderTop: `4px solid ${COLORS.INFO[500]}`,
+                        borderTop: `4px solid ${COLORS.WARNING[500]}`,
                         height: '100%',
                         width: '100%',
                         display: 'flex',
@@ -360,10 +394,28 @@ const PetsTab = ({ pets, species, breeds, groups, onDataChange }) => {
                         flex: 1
                     }}>
                         <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Cần kiểm tra
+                            Đang theo dõi
                         </Typography>
-                        <Typography variant="h4" fontWeight={600} color={COLORS.INFO[700]}>
-                            {stats.needCheckup}
+                        <Typography variant="h4" fontWeight={600} color={COLORS.WARNING[700]}>
+                            {stats.underObservation}
+                        </Typography>
+                    </Paper>
+                </Grid>
+                <Grid item xs={12} sm={6} md={2} sx={{ display: 'flex' }}>
+                    <Paper sx={{
+                        p: 2.5,
+                        borderTop: `4px solid ${COLORS.ERROR[500]}`,
+                        height: '100%',
+                        width: '100%',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        flex: 1
+                    }}>
+                        <Typography variant="body2" color="text.secondary" gutterBottom>
+                            Cách ly
+                        </Typography>
+                        <Typography variant="h4" fontWeight={600} color={COLORS.ERROR[700]}>
+                            {stats.quarantine}
                         </Typography>
                     </Paper>
                 </Grid>
