@@ -1,8 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import {
-    Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Stack, IconButton,
-    FormControl, InputLabel, Select, MenuItem, FormControlLabel, Switch, Typography, alpha
-} from '@mui/material';
+import { useState, useEffect } from 'react';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Stack, IconButton, FormControl, InputLabel, Select, MenuItem, FormControlLabel, Switch, Typography, alpha } from '@mui/material';
 import { Vaccines, Close } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 
@@ -83,6 +80,12 @@ const VaccineTypeModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
         onClose();
     };
 
+    // Helper function to capitalize first letter
+    const capitalizeName = (name) => {
+        if (!name) return name;
+        return name.charAt(0).toUpperCase() + name.slice(1);
+    };
+
     return (
         <Dialog
             open={isOpen}
@@ -150,11 +153,13 @@ const VaccineTypeModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
                             onChange={(e) => setFormData({ ...formData, species_id: e.target.value })}
                             label="Loài thú cưng"
                         >
-                            {Array.isArray(species) && species.filter(s => s.is_active === true).map(s => (
-                                <MenuItem key={s.id} value={s.id}>
-                                    {s.name || '—'}
-                                </MenuItem>
-                            ))}
+                            {Array.isArray(species) && species
+                                .filter(s => s.is_active === true)
+                                .map(s => (
+                                    <MenuItem key={s.id} value={s.id}>
+                                        {capitalizeName(s.name) || '—'}
+                                    </MenuItem>
+                                ))}
                         </Select>
                         {errors.species_id && (
                             <Typography variant="caption" sx={{ color: COLORS.ERROR[600], mt: 0.5, ml: 1.5 }}>
@@ -228,4 +233,3 @@ const VaccineTypeModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
 };
 
 export default VaccineTypeModal;
-

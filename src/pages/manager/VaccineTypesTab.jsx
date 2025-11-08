@@ -1,15 +1,13 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import {
-    Box, Typography, Paper, Stack, TextField, Button, IconButton, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-    Dialog, DialogTitle, DialogContent, DialogActions, FormControl, InputLabel, Select, MenuItem, Chip, alpha, Tooltip, InputAdornment, Menu, ListItemIcon, ListItemText
-} from '@mui/material';
+import { useState, useEffect, useMemo } from 'react';
+import { Box, Typography, Paper, Stack, TextField, Button, IconButton, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, FormControl, InputLabel, Select, MenuItem, Chip, alpha, InputAdornment, Menu, ListItemIcon, ListItemText } from '@mui/material';
 import { Add, Edit, Delete, Search, Vaccines, MoreVert } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 import Loading from '../../components/loading/Loading';
 import AlertModal from '../../components/modals/AlertModal';
+import ConfirmModal from '../../components/modals/ConfirmModal';
 import VaccineTypeModal from '../../components/modals/VaccineTypeModal';
 import Pagination from '../../components/common/Pagination';
-import { vaccinationApi } from '../../api/vaccinationApi';
+import vaccineTypesApi from '../../api/vaccineTypesApi';
 
 const VaccineTypesTab = ({ species: speciesProp = [] }) => {
     const [isLoading, setIsLoading] = useState(true);
@@ -19,18 +17,13 @@ const VaccineTypesTab = ({ species: speciesProp = [] }) => {
 
     // Ensure species is always an array
     const species = useMemo(() => {
-        if (!Array.isArray(speciesProp)) {
-            console.error('Species prop is not an array:', speciesProp);
-            return [];
-        }
-        return speciesProp;
+        return Array.isArray(speciesProp) ? speciesProp : [];
     }, [speciesProp]);
 
     // Pagination - Server-side
     const [page, setPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [totalPages, setTotalPages] = useState(1);
-    const [totalItems, setTotalItems] = useState(0);
 
     // Dialog states
     const [dialogOpen, setDialogOpen] = useState(false);
@@ -55,17 +48,15 @@ const VaccineTypesTab = ({ species: speciesProp = [] }) => {
     const loadVaccineTypes = async () => {
         try {
             setIsLoading(true);
-            const response = await vaccinationApi.getVaccineTypes(
-                filterSpecies || null,
-                page - 1, // API uses 0-based indexing
-                itemsPerPage
-            );
-            if (response.success) {
-                setVaccineTypes(response.data);
-                if (response.pagination) {
-                    setTotalPages(response.pagination.total_pages_count);
-                    setTotalItems(response.pagination.total_items_count);
-                }
+            const response = await vaccineTypesApi.getAllVaccineTypes({
+                page_index: page - 1, // API uses 0-based indexing
+                page_size: itemsPerPage,
+                species_id: filterSpecies || null
+            });
+
+            setVaccineTypes(response.data || []);
+            if (response.pagination) {
+                setTotalPages(response.pagination.total_pages_count);
             }
         } catch (error) {
             console.error('Error loading vaccine types:', error);
@@ -82,36 +73,36 @@ const VaccineTypesTab = ({ species: speciesProp = [] }) => {
 
     // Client-side search only (server handles species filtering & pagination)
     const filteredVaccineTypes = useMemo(() => {
-        if (searchQuery === '') {
+        if (!searchQuery) {
             return vaccineTypes;
         }
+        const searchLower = searchQuery.toLowerCase();
         return vaccineTypes.filter(vt => {
-            const matchSearch = vt.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                vt.description?.toLowerCase().includes(searchQuery.toLowerCase());
-            return matchSearch;
+            return vt.name.toLowerCase().includes(searchLower) ||
+                vt.description?.toLowerCase().includes(searchLower);
         });
     }, [vaccineTypes, searchQuery]);
 
+    // Helper function to capitalize first letter
+    const capitalizeName = (name) => {
+        if (!name) return name;
+        return name.charAt(0).toUpperCase() + name.slice(1);
+    };
+
     // Get species name - Use populated species object or fallback to prop
     const getSpeciesName = (vt) => {
-        // Safeguard: ensure we always return a string, not an object
         if (vt.species) {
-            // If species is populated, get name from it
             if (typeof vt.species === 'object' && vt.species !== null && vt.species.name) {
-                return String(vt.species.name);
+                return capitalizeName(String(vt.species.name));
             }
-            // If species is somehow just a string, return it
             if (typeof vt.species === 'string') {
-                return vt.species;
+                return capitalizeName(vt.species);
             }
-            // If species is an object but doesn't have name, log error
-            console.error('Invalid species object:', vt.species);
         }
-        // Fallback to finding species by ID
         if (vt.species_id) {
             const speciesObj = species.find(s => s.id === vt.species_id);
-            if (speciesObj && speciesObj.name) {
-                return String(speciesObj.name);
+            if (speciesObj?.name) {
+                return capitalizeName(String(speciesObj.name));
             }
         }
         return '—';
@@ -146,9 +137,9 @@ const VaccineTypesTab = ({ species: speciesProp = [] }) => {
 
             let response;
             if (editMode) {
-                response = await vaccinationApi.updateVaccineType(currentVaccineType.id, vaccineData);
+                response = await vaccineTypesApi.updateVaccineType(currentVaccineType.id, vaccineData);
             } else {
-                response = await vaccinationApi.createVaccineType(vaccineData);
+                response = await vaccineTypesApi.createVaccineType(vaccineData);
             }
 
             if (response.success) {
@@ -157,7 +148,7 @@ const VaccineTypesTab = ({ species: speciesProp = [] }) => {
                 setAlert({
                     open: true,
                     title: 'Thành công',
-                    message: editMode ? 'Cập nhật loại vaccine thành công' : 'Tạo loại vaccine thành công',
+                    message: response.message || (editMode ? 'Cập nhật loại vaccine thành công' : 'Tạo loại vaccine thành công'),
                     type: 'success'
                 });
             }
@@ -188,7 +179,7 @@ const VaccineTypesTab = ({ species: speciesProp = [] }) => {
     const handleConfirmDelete = async () => {
         try {
             setIsLoading(true);
-            const response = await vaccinationApi.deleteVaccineType(vaccineToDelete.id);
+            const response = await vaccineTypesApi.deleteVaccineType(vaccineToDelete.id);
 
             if (response.success) {
                 await loadVaccineTypes();
@@ -196,7 +187,7 @@ const VaccineTypesTab = ({ species: speciesProp = [] }) => {
                 setAlert({
                     open: true,
                     title: 'Thành công',
-                    message: 'Xóa vaccine type thành công',
+                    message: response.message || 'Xóa vaccine type thành công',
                     type: 'success'
                 });
             }
@@ -236,7 +227,7 @@ const VaccineTypesTab = ({ species: speciesProp = [] }) => {
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             size="small"
-                            sx={{ flex: 1, maxWidth: { md: 400 } }}
+                            sx={{ flex: 1, width: '800px' }}
                             InputProps={{
                                 startAdornment: (
                                     <InputAdornment position="start">
@@ -255,9 +246,9 @@ const VaccineTypesTab = ({ species: speciesProp = [] }) => {
                                 <MenuItem value="">
                                     <em>Tất cả</em>
                                 </MenuItem>
-                                {Array.isArray(species) && species.map(s => (
+                                {Array.isArray(species) && species.filter(s => s.is_active === true).map(s => (
                                     <MenuItem key={s.id} value={s.id}>
-                                        {s.name || '—'}
+                                        {capitalizeName(s.name) || '—'}
                                     </MenuItem>
                                 ))}
                             </Select>
@@ -446,62 +437,18 @@ const VaccineTypesTab = ({ species: speciesProp = [] }) => {
                 isLoading={isLoading}
             />
 
-            {/* Delete Confirmation Dialog */}
-            <Dialog
-                open={deleteDialogOpen}
+            {/* Delete Confirmation Modal */}
+            <ConfirmModal
+                isOpen={deleteDialogOpen}
                 onClose={handleCloseDeleteDialog}
-                maxWidth="sm"
-                fullWidth
-                PaperProps={{
-                    sx: {
-                        borderRadius: 3,
-                        boxShadow: `0 20px 60px ${alpha(COLORS.ERROR[900], 0.3)}`
-                    }
-                }}
-            >
-                <DialogTitle
-                    sx={{
-                        background: COLORS.ERROR[500],
-                        color: '#fff',
-                        fontWeight: 800
-                    }}
-                >
-                    <Stack direction="row" alignItems="center" spacing={2}>
-                        <Delete sx={{ fontSize: 28 }} />
-                        <Typography variant="h6" sx={{ fontWeight: 800 }}>
-                            Xác nhận xóa
-                        </Typography>
-                    </Stack>
-                </DialogTitle>
-                <DialogContent sx={{ p: 3, mt: 2 }}>
-                    <Typography variant="body1">
-                        Bạn có chắc chắn muốn xóa vaccine type <strong>{vaccineToDelete?.name}</strong>?
-                    </Typography>
-                    <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, mt: 1 }}>
-                        Hành động này không thể hoàn tác.
-                    </Typography>
-                </DialogContent>
-                <DialogActions sx={{ p: 2.5 }}>
-                    <Button onClick={handleCloseDeleteDialog} sx={{ fontWeight: 600 }}>
-                        Hủy
-                    </Button>
-                    <Button
-                        onClick={handleConfirmDelete}
-                        variant="contained"
-                        disabled={isLoading}
-                        sx={{
-                            bgcolor: COLORS.ERROR[500],
-                            color: '#fff',
-                            fontWeight: 700,
-                            '&:hover': {
-                                bgcolor: COLORS.ERROR[600]
-                            }
-                        }}
-                    >
-                        Xóa
-                    </Button>
-                </DialogActions>
-            </Dialog>
+                onConfirm={handleConfirmDelete}
+                title="Xóa vaccine type"
+                message={`Bạn có chắc chắn muốn xóa vaccine type "${vaccineToDelete?.name}"? Hành động này không thể hoàn tác.`}
+                confirmText="Xóa"
+                cancelText="Hủy"
+                type="error"
+                isLoading={isLoading}
+            />
 
             {/* Alert Modal */}
             <AlertModal
@@ -563,4 +510,3 @@ const VaccineTypesTab = ({ species: speciesProp = [] }) => {
 };
 
 export default VaccineTypesTab;
-

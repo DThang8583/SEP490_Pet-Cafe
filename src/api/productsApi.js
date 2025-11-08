@@ -25,7 +25,7 @@ const uploadImageFile = async (imageFile) => {
     } catch (uploadError) {
         console.error('Error uploading image:', uploadError);
         throw new Error('Không thể tải ảnh lên. Vui lòng thử lại.');
-    }
+        }
 };
 
 /**
@@ -104,11 +104,11 @@ export const getAllProducts = async (params = {}) => {
             data: [],
             pagination: createPagination(0, PageSize, PageIndex)
         };
-    } catch (error) {
+        } catch (error) {
         console.error('Error fetching products:', error);
         const message = error?.response?.data?.message || error?.message || 'Lỗi tải dữ liệu sản phẩm';
-        throw new Error(message);
-    }
+            throw new Error(message);
+        }
 };
 
 /**
@@ -117,16 +117,16 @@ export const getAllProducts = async (params = {}) => {
  * @returns {Promise<Object>}
  */
 export const getProductById = async (productId) => {
-    try {
+        try {
         const response = await apiClient.get(`/products/${productId}`, {
             timeout: 10000
         });
-        return response.data;
-    } catch (error) {
+            return response.data;
+        } catch (error) {
         console.error('Error fetching product by ID:', error);
         const message = error?.response?.data?.message || error?.message || 'Không thể tải thông tin sản phẩm';
-        throw new Error(message);
-    }
+            throw new Error(message);
+        }
 };
 
 /**
@@ -135,7 +135,7 @@ export const getProductById = async (productId) => {
  * @returns {Promise<Object>}
  */
 export const createProduct = async (productData) => {
-    try {
+        try {
         let imageUrl = productData.image_url || null;
 
         // If image_file is provided, upload it first
@@ -159,8 +159,8 @@ export const createProduct = async (productData) => {
         const response = await apiClient.post('/products', payload, {
             timeout: 30000
         });
-        return response.data;
-    } catch (error) {
+            return response.data;
+        } catch (error) {
         console.error('Error creating product:', error);
         const message = error?.response?.data?.message || error?.message || 'Không thể tạo sản phẩm';
         throw new Error(message);
@@ -199,12 +199,12 @@ export const updateProduct = async (productId, productData) => {
         const response = await apiClient.put(`/products/${productId}`, payload, {
             timeout: 30000
         });
-        return response.data;
-    } catch (error) {
+            return response.data;
+        } catch (error) {
         console.error('Error updating product:', error);
         const message = error?.response?.data?.message || error?.message || 'Không thể cập nhật sản phẩm';
         throw new Error(message);
-    }
+            }
 };
 
 /**
@@ -213,12 +213,12 @@ export const updateProduct = async (productId, productData) => {
  * @returns {Promise<Object>}
  */
 export const deleteProduct = async (productId) => {
-    try {
+        try {
         const response = await apiClient.delete(`/products/${productId}`, {
             timeout: 10000
         });
-        return response.data;
-    } catch (error) {
+            return response.data;
+        } catch (error) {
         console.error('Error deleting product:', error);
         const message = error?.response?.data?.message || error?.message || 'Không thể xóa sản phẩm';
         throw new Error(message);
@@ -245,7 +245,7 @@ export const toggleProductStatus = async (productId, disable) => {
         console.error('Error toggling product status:', error);
         const message = error?.response?.data?.message || error?.message || 'Không thể cập nhật trạng thái sản phẩm';
         throw new Error(message);
-    }
+            }
 };
 
 /**
@@ -269,7 +269,7 @@ export const updateStockQuantity = async (productId, stockQuantity) => {
         console.error('Error updating stock quantity:', error);
         const message = error?.response?.data?.message || error?.message || 'Không thể cập nhật số lượng tồn kho';
         throw new Error(message);
-    }
+        }
 };
 
 // Default export for backward compatibility

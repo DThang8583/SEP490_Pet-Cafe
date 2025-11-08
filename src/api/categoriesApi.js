@@ -93,9 +93,9 @@ export const getAllCategories = async (params = {}) => {
             data: [],
             pagination: createPagination(0, page_size, page_index)
         };
-    } catch (error) {
+        } catch (error) {
         console.error('Failed to fetch categories from API:', error);
-        return {
+            return {
             data: [],
             pagination: createPagination(0, page_size, page_index)
         };
@@ -108,19 +108,19 @@ export const getAllCategories = async (params = {}) => {
  * @returns {Promise<Object>} Category object
  */
 export const getCategoryById = async (categoryId) => {
-    try {
+        try {
         const response = await apiClient.get(`/product-categories/${categoryId}`, { timeout: 10000 });
 
         if (!response.data) {
             throw new Error('Không tìm thấy danh mục');
         }
 
-        return response.data;
-    } catch (error) {
+            return response.data;
+        } catch (error) {
         console.error('Failed to fetch category from API:', error);
         if (error.response?.status === 404) {
-            throw new Error('Không tìm thấy danh mục');
-        }
+                throw new Error('Không tìm thấy danh mục');
+            }
         throw error;
     }
 };
@@ -155,15 +155,15 @@ export const createCategory = async (categoryData) => {
 
         const response = await apiClient.post('/product-categories', requestData, { timeout: 10000 });
 
-        return {
-            success: true,
+            return {
+                success: true,
             data: response.data,
             message: 'Tạo danh mục thành công'
         };
     } catch (error) {
         console.error('Failed to create category:', error);
         throw error;
-    }
+        }
 };
 
 /**
@@ -199,20 +199,20 @@ export const updateCategory = async (categoryId, categoryData) => {
 
         if (imageUrl !== undefined) {
             requestData.image_url = imageUrl;
-        }
+            }
 
         const response = await apiClient.put(`/product-categories/${categoryId}`, requestData, { timeout: 10000 });
 
-        return {
-            success: true,
+            return {
+                success: true,
             data: response.data,
             message: 'Cập nhật danh mục thành công'
         };
-    } catch (error) {
+        } catch (error) {
         console.error('Failed to update category:', error);
         if (error.response?.status === 404) {
-            throw new Error('Không tìm thấy danh mục');
-        }
+                throw new Error('Không tìm thấy danh mục');
+            }
         throw error;
     }
 };
@@ -226,10 +226,10 @@ export const deleteCategory = async (categoryId) => {
     try {
         await apiClient.delete(`/product-categories/${categoryId}`, { timeout: 10000 });
 
-        return {
-            success: true,
-            message: 'Xóa danh mục thành công'
-        };
+            return {
+                success: true,
+                message: 'Xóa danh mục thành công'
+            };
     } catch (error) {
         console.error('Failed to delete category:', error);
         if (error.response?.status === 404) {

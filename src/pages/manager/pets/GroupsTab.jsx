@@ -196,8 +196,8 @@ const GroupsTab = ({ pets, species, breeds, groups, onDataChange }) => {
         } catch (error) {
             console.error('Error loading group details:', error);
             // Fallback: use props data if API fails
-            const groupPets = pets.filter(p => p.group_id === group.id);
-            setGroupDetailDialog({ open: true, group, pets: groupPets });
+        const groupPets = pets.filter(p => p.group_id === group.id);
+        setGroupDetailDialog({ open: true, group, pets: groupPets });
         }
     };
 
@@ -293,12 +293,12 @@ const GroupsTab = ({ pets, species, breeds, groups, onDataChange }) => {
             return;
         }
 
-        try {
-            // Fetch fresh data directly from API
-            const [petsResponse, groupsResponse] = await Promise.all([
+                    try {
+                        // Fetch fresh data directly from API
+                        const [petsResponse, groupsResponse] = await Promise.all([
                 petsApi.getAllPets({ page_size: 1000 }),
                 petGroupsApi.getAllGroups({ page_size: 1000 })
-            ]);
+                        ]);
 
             const allPets = petsResponse?.data || [];
             const allGroups = groupsResponse?.data || [];
@@ -306,11 +306,11 @@ const GroupsTab = ({ pets, species, breeds, groups, onDataChange }) => {
             const freshGroupPets = allPets.filter(p => p.group_id === groupId);
             const updatedGroup = allGroups.find(g => g.id === groupId);
 
-            if (updatedGroup) {
-                setGroupDetailDialog({ open: true, group: updatedGroup, pets: freshGroupPets });
-            }
-        } catch (error) {
-            console.error('Error refreshing group details:', error);
+                            if (updatedGroup) {
+                                setGroupDetailDialog({ open: true, group: updatedGroup, pets: freshGroupPets });
+                        }
+                    } catch (error) {
+                        console.error('Error refreshing group details:', error);
             // Fallback: try to refresh from props
             const freshGroupPets = pets.filter(p => p.group_id === groupId);
             const updatedGroup = groups.find(g => g.id === groupId);
@@ -371,7 +371,7 @@ const GroupsTab = ({ pets, species, breeds, groups, onDataChange }) => {
                 message: `Đã xóa ${pet.name} khỏi nhóm!`,
                 type: 'success'
             });
-        } catch (error) {
+                } catch (error) {
             setConfirmRemovePetOpen(false);
             setPetToRemove(null);
             setAlert({
@@ -590,8 +590,8 @@ const GroupsTab = ({ pets, species, breeds, groups, onDataChange }) => {
                         <Groups sx={{ fontSize: 32 }} />
                         <Box sx={{ flex: 1 }}>
                             <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                                Chi tiết nhóm
-                            </Typography>
+                            Chi tiết nhóm
+                        </Typography>
                             <Typography variant="body2" sx={{ opacity: 0.9, mt: 0.5 }}>
                                 {groupDetailDialog.group?.name || 'Thông tin chi tiết nhóm thú cưng'}
                             </Typography>
@@ -619,7 +619,7 @@ const GroupsTab = ({ pets, species, breeds, groups, onDataChange }) => {
                                 <Stack spacing={2}>
                                     <Typography variant="h5" sx={{ fontWeight: 700, color: COLORS.WARNING[700] }}>
                                         {groupDetailDialog.group.name}
-                                    </Typography>
+                                </Typography>
 
                                     <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
                                         <Chip
@@ -642,12 +642,12 @@ const GroupsTab = ({ pets, species, breeds, groups, onDataChange }) => {
 
                                     <Typography variant="body2" color="text.secondary">
                                         {groupDetailDialog.group.description || 'Không có mô tả'}
-                                    </Typography>
+                                        </Typography>
 
                                     <Box
-                                        sx={{
+                                sx={{
                                             p: 2,
-                                            borderRadius: 2,
+                                    borderRadius: 2,
                                             bgcolor: alpha(COLORS.WARNING[500], 0.1),
                                             border: '2px solid',
                                             borderColor: COLORS.WARNING[300],
@@ -772,9 +772,9 @@ const GroupsTab = ({ pets, species, breeds, groups, onDataChange }) => {
                                     >
                                         <PetsIcon sx={{ fontSize: 48, color: COLORS.TEXT.DISABLED, mb: 1 }} />
                                         <Typography variant="body1" color="text.secondary">
-                                            Chưa có thú cưng trong nhóm này
-                                        </Typography>
-                                    </Paper>
+                                        Chưa có thú cưng trong nhóm này
+                                    </Typography>
+                            </Paper>
                                 )}
                             </Box>
                         </Stack>
@@ -1019,7 +1019,7 @@ const AddPetsToGroupContent = ({ group, allPets, species, breeds, groups, onSubm
             }
             // Pet is not in any group (can be added)
             else if (!pet.group_id || pet.group_id === null) {
-                available.push(pet);
+                    available.push(pet);
             }
         });
 
