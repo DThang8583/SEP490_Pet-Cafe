@@ -174,7 +174,7 @@ const PetsPage = () => {
                 )}
 
                 {currentTab === 3 && (
-                    <SpeciesTab />
+                    <SpeciesTab onDataChange={loadAllData} />
                 )}
             </Box>
         </Box>

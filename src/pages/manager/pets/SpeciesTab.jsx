@@ -7,7 +7,7 @@ import ConfirmModal from '../../../components/modals/ConfirmModal';
 import AddSpeciesModal from '../../../components/modals/AddSpeciesModal';
 import petSpeciesApi from '../../../api/petSpeciesApi';
 
-const SpeciesTab = () => {
+const SpeciesTab = ({ onDataChange }) => {
     // Species state
     const [species, setSpecies] = useState([]);
     const [openSpeciesDialog, setOpenSpeciesDialog] = useState(false);
@@ -124,6 +124,10 @@ const SpeciesTab = () => {
             }
             handleCloseSpeciesDialog();
             loadSpecies();
+            // Refresh all data in PetsPage to update species list in other tabs
+            if (onDataChange) {
+                await onDataChange();
+            }
         } catch (error) {
             console.error('Error saving species:', error);
             setAlert({
@@ -150,6 +154,10 @@ const SpeciesTab = () => {
                 type: 'success'
             });
             loadSpecies();
+            // Refresh all data in PetsPage to update species list in other tabs
+            if (onDataChange) {
+                await onDataChange();
+            }
         } catch (error) {
             console.error('Error deleting species:', error);
             setAlert({
@@ -182,6 +190,10 @@ const SpeciesTab = () => {
                 type: 'success'
             });
             loadSpecies();
+            // Refresh all data in PetsPage to update species list in other tabs
+            if (onDataChange) {
+                await onDataChange();
+            }
         } catch (error) {
             console.error('Error toggling species status:', error);
             setAlert({

@@ -150,7 +150,7 @@ const VaccineTypeModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
                             onChange={(e) => setFormData({ ...formData, species_id: e.target.value })}
                             label="Loài thú cưng"
                         >
-                            {Array.isArray(species) && species.map(s => (
+                            {Array.isArray(species) && species.filter(s => s.is_active === true).map(s => (
                                 <MenuItem key={s.id} value={s.id}>
                                     {s.name || '—'}
                                 </MenuItem>

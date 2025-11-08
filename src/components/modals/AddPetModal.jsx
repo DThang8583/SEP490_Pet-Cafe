@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, FormControl, InputLabel, Select, MenuItem, Box, Typography, Avatar, alpha, CircularProgress, Chip, Stack, IconButton, FormHelperText } from '@mui/material';
+import { useState, useEffect, useMemo } from 'react';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, FormControl, InputLabel, Select, MenuItem, Box, Typography, Avatar, alpha, CircularProgress, Stack, IconButton, FormHelperText } from '@mui/material';
 import { COLORS } from '../../constants/colors';
 import { Pets, CloudUpload as CloudUploadIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { uploadFile } from '../../api/fileApi';
+import { getHealthStatusOptions } from '../../api/petsApi';
 
 const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData = null, isLoading = false, breeds = [], species = [], groups = [] }) => {
     const [formData, setFormData] = useState({
@@ -26,6 +27,7 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
     const [imagePreview, setImagePreview] = useState(null);
     const [imageFile, setImageFile] = useState(null);
     const [isUploadingImage, setIsUploadingImage] = useState(false);
+    const [healthStatusOptions, setHealthStatusOptions] = useState([]);
 
     // Get available breeds for selected species
     const availableBreeds = useMemo(() => {
@@ -40,11 +42,47 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
         return groups.filter(g => g.pet_species_id === formData.species_id);
     }, [groups, formData.species_id]);
 
+    // Helper function to capitalize first letter
+    const capitalizeName = (name) => {
+        if (!name) return name;
+        return name.charAt(0).toUpperCase() + name.slice(1);
+    };
+
     // Get species name
     const getSpeciesName = (speciesId) => {
         const sp = species.find(s => s.id === speciesId);
-        return sp ? sp.name : '';
+        return sp ? capitalizeName(sp.name) : '';
     };
+
+    // Get health status label in Vietnamese
+    const getHealthStatusLabel = (status) => {
+        const labels = {
+            'HEALTHY': 'Khỏe mạnh',
+            'SICK': 'Ốm',
+            'RECOVERING': 'Đang hồi phục',
+            'UNDER_OBSERVATION': 'Đang theo dõi',
+            'QUARANTINE': 'Cách ly'
+        };
+        return labels[status] || status;
+    };
+
+    // Load health status options from API
+    useEffect(() => {
+        const loadHealthStatusOptions = async () => {
+            try {
+                const options = await getHealthStatusOptions();
+                setHealthStatusOptions(options);
+            } catch (error) {
+                console.error('Failed to load health status options:', error);
+                // Fallback to default values
+                setHealthStatusOptions(['HEALTHY', 'SICK', 'RECOVERING', 'UNDER_OBSERVATION', 'QUARANTINE']);
+            }
+        };
+
+        if (isOpen) {
+            loadHealthStatusOptions();
+        }
+    }, [isOpen]);
 
     // Initialize form when modal opens or initialData changes
     useEffect(() => {
@@ -278,6 +316,8 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
             return 'Ngày đến quán là bắt buộc';
         }
         const arrivalDate = new Date(date);
+        arrivalDate.setHours(0, 0, 0, 0);
+
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
@@ -288,6 +328,7 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
         // Check if date is too far in the past (e.g., more than 20 years ago)
         const twentyYearsAgo = new Date();
         twentyYearsAgo.setFullYear(twentyYearsAgo.getFullYear() - 20);
+        twentyYearsAgo.setHours(0, 0, 0, 0);
         if (arrivalDate < twentyYearsAgo) {
             return 'Ngày đến quán không hợp lệ';
         }
@@ -514,20 +555,9 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
                                 onChange={(e) => handleChange('species_id', e.target.value)}
                                 onBlur={() => handleBlur('species_id')}
                             >
-                                {species.map(s => (
+                                {species.filter(s => s.is_active === true).map(s => (
                                     <MenuItem key={s.id} value={s.id}>
-                                        <Stack direction="row" alignItems="center" spacing={1}>
-                                            <Typography>{s.name}</Typography>
-                                            <Chip
-                                                label={s.name === 'Chó' ? '🐕' : '🐱'}
-                                                size="small"
-                                                sx={{
-                                                    height: 20,
-                                                    fontSize: '0.75rem',
-                                                    background: alpha(COLORS.ERROR[100], 0.5)
-                                                }}
-                                            />
-                                        </Stack>
+                                        {capitalizeName(s.name)}
                                     </MenuItem>
                                 ))}
                             </Select>
@@ -627,8 +657,8 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
                                 onChange={(e) => handleChange('gender', e.target.value)}
                                 onBlur={() => handleBlur('gender')}
                             >
-                                <MenuItem value="Male">♂ Đực</MenuItem>
-                                <MenuItem value="Female">♀ Cái</MenuItem>
+                                <MenuItem value="Male">Đực</MenuItem>
+                                <MenuItem value="Female">Cái</MenuItem>
                             </Select>
                             {touched.gender && errors.gender && (
                                 <FormHelperText>{errors.gender}</FormHelperText>
@@ -642,10 +672,11 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
                                 onChange={(e) => handleChange('health_status', e.target.value)}
                                 onBlur={() => handleBlur('health_status')}
                             >
-                                <MenuItem value="HEALTHY">Khỏe mạnh</MenuItem>
-                                <MenuItem value="SICK">Ốm</MenuItem>
-                                <MenuItem value="RECOVERING">Đang hồi phục</MenuItem>
-                                <MenuItem value="CRITICAL">Nghiêm trọng</MenuItem>
+                                {healthStatusOptions.map((status) => (
+                                    <MenuItem key={status} value={status}>
+                                        {getHealthStatusLabel(status)}
+                                    </MenuItem>
+                                ))}
                             </Select>
                             {touched.health_status && errors.health_status && (
                                 <FormHelperText>{errors.health_status}</FormHelperText>
@@ -900,11 +931,7 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
                                                         Tình trạng sức khỏe:
                                                     </Typography>
                                                     <Typography variant="body2" sx={{ fontWeight: 600, flex: 1 }}>
-                                                        {formData.health_status === 'HEALTHY' ? 'Khỏe mạnh' :
-                                                            formData.health_status === 'SICK' ? 'Ốm' :
-                                                                formData.health_status === 'RECOVERING' ? 'Đang hồi phục' :
-                                                                    formData.health_status === 'CRITICAL' ? 'Nghiêm trọng' :
-                                                                        formData.health_status}
+                                                        {getHealthStatusLabel(formData.health_status)}
                                                     </Typography>
                                                 </Stack>
                                             </Box>

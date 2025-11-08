@@ -226,7 +226,7 @@ const AddGroupPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
                                 onChange={(e) => handleChange('pet_species_id', e.target.value)}
                                 onBlur={() => handleBlur('pet_species_id')}
                             >
-                                {species.map(s => (
+                                {species.filter(s => s.is_active === true).map(s => (
                                     <MenuItem key={s.id} value={s.id}>
                                         <Typography>{capitalizeName(s.name)}</Typography>
                                     </MenuItem>

@@ -378,6 +378,36 @@ export const getPetVaccinationRecords = async (petId, params = {}) => {
     }
 };
 
+/**
+ * Get health status options from API
+ * This function should fetch the available health status enum values from the API
+ * @returns {Promise<Array>} Array of health status values: ['HEALTHY', 'SICK', 'RECOVERING', 'UNDER_OBSERVATION', 'QUARANTINE']
+ */
+export const getHealthStatusOptions = async () => {
+    try {
+        // Try to fetch from API endpoint if available
+        // For now, return the values as specified by the user
+        // TODO: Replace with actual API call when endpoint is available
+        const response = await apiClient.get('/pets/health-status-options', { timeout: 10000 });
+
+        if (response.data && Array.isArray(response.data)) {
+            return response.data;
+        }
+
+        if (response.data?.data && Array.isArray(response.data.data)) {
+            return response.data.data;
+        }
+
+        // Fallback: return the known values if API doesn't return them
+        // This should be removed once the API endpoint is confirmed
+        return ['HEALTHY', 'SICK', 'RECOVERING', 'UNDER_OBSERVATION', 'QUARANTINE'];
+    } catch (error) {
+        console.warn('Failed to fetch health status options from API, using default values:', error);
+        // Return the known values as fallback
+        return ['HEALTHY', 'SICK', 'RECOVERING', 'UNDER_OBSERVATION', 'QUARANTINE'];
+    }
+};
+
 export default {
     getAllPets,
     getPetById,
@@ -385,5 +415,6 @@ export default {
     updatePet,
     deletePet,
     getPetHealthRecords,
-    getPetVaccinationRecords
+    getPetVaccinationRecords,
+    getHealthStatusOptions
 };
