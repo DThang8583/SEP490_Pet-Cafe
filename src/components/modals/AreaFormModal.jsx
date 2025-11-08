@@ -79,30 +79,30 @@ const AreaFormModal = ({ open, onClose, onSubmit, area, workTypes, mode = 'creat
 
         setImageError('');
 
-        // Validate file type
-        if (!file.type.startsWith('image/')) {
+            // Validate file type
+            if (!file.type.startsWith('image/')) {
             setImageError('Vui lòng chọn file hình ảnh');
-            return;
-        }
+                return;
+            }
 
-        // Validate file size (max 5MB)
+            // Validate file size (max 5MB)
         const MAX_SIZE = 5 * 1024 * 1024;
         if (file.size > MAX_SIZE) {
             setImageError('Kích thước ảnh không được vượt quá 5MB');
-            return;
-        }
+                return;
+            }
 
-        setImageFile(file);
+            setImageFile(file);
 
-        // Create preview
-        const reader = new FileReader();
-        reader.onloadend = () => {
-            setImagePreview(reader.result);
-        };
+            // Create preview
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setImagePreview(reader.result);
+            };
         reader.onerror = () => {
             setImageError('Không thể đọc file ảnh');
         };
-        reader.readAsDataURL(file);
+            reader.readAsDataURL(file);
     };
 
     const handleRemoveImage = () => {

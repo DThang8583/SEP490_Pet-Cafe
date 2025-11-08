@@ -1,12 +1,8 @@
-import React, { useState, useMemo } from 'react';
-import {
-    Box, Typography, Paper, Stack, IconButton, Grid, alpha, Chip, Dialog,
-    DialogTitle, DialogContent, DialogActions, Button, Avatar, Divider
-} from '@mui/material';
-import {
-    ChevronLeft, ChevronRight, Close, Vaccines, Pets
-} from '@mui/icons-material';
+import { useState, useMemo } from 'react';
+import { Box, Typography, Paper, Stack, IconButton, Grid, alpha, Chip, Dialog, DialogTitle, DialogContent, DialogActions, Button, Avatar, Divider } from '@mui/material';
+import { ChevronLeft, ChevronRight, Close, Vaccines, Pets } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
+import { API_BASE_URL } from '../../config/config';
 
 const DAYS_OF_WEEK = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
 const MONTHS = [
@@ -18,6 +14,22 @@ const VaccinationCalendar = ({ upcomingVaccinations }) => {
     const [currentDate, setCurrentDate] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState(null);
     const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+
+    // Helper function to get image URL
+    const getImageUrl = (imageUrl) => {
+        if (!imageUrl) return null;
+        if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+            return imageUrl;
+        }
+        const baseUrl = API_BASE_URL.replace('/api', '');
+        return imageUrl.startsWith('/') ? `${baseUrl}${imageUrl}` : `${baseUrl}/${imageUrl}`;
+    };
+
+    // Helper function to get pet image URL
+    const getPetImageUrl = (pet) => {
+        const imageUrl = pet?.image || pet?.image_url || pet?.avatar;
+        return imageUrl ? getImageUrl(imageUrl) : undefined;
+    };
 
     const currentYear = currentDate.getFullYear();
     const currentMonth = currentDate.getMonth();
@@ -246,7 +258,7 @@ const VaccinationCalendar = ({ upcomingVaccinations }) => {
                 </Grid>
 
                 {/* Summary */}
-                {(() => {
+                {useMemo(() => {
                     const vaccinationsThisMonth = upcomingVaccinations.filter(v => {
                         const date = new Date(v.scheduled_date);
                         return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
@@ -293,7 +305,7 @@ const VaccinationCalendar = ({ upcomingVaccinations }) => {
                             </Typography>
                         </Stack>
                     );
-                })()}
+                }, [upcomingVaccinations, currentMonth, currentYear])}
             </Paper>
 
             {/* Detail Dialog */}
@@ -311,7 +323,7 @@ const VaccinationCalendar = ({ upcomingVaccinations }) => {
             >
                 <DialogTitle
                     sx={{
-                        background: `linear-gradient(135deg, ${COLORS.WARNING[500]} 0%, ${COLORS.WARNING[700]} 100%)`,
+                        background: COLORS.WARNING[500],
                         color: '#fff',
                         fontWeight: 800,
                         py: 2.5
@@ -355,14 +367,16 @@ const VaccinationCalendar = ({ upcomingVaccinations }) => {
                             >
                                 <Stack direction="row" alignItems="center" spacing={2}>
                                     <Avatar
-                                        src={vaccination.pet?.avatar}
+                                        src={getPetImageUrl(vaccination.pet)}
                                         alt={vaccination.pet?.name}
                                         sx={{
                                             width: 50,
                                             height: 50,
                                             border: `2px solid ${COLORS.WARNING[300]}`
                                         }}
-                                    />
+                                    >
+                                        <Pets />
+                                    </Avatar>
                                     <Box sx={{ flex: 1 }}>
                                         <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.5 }}>
                                             <Pets sx={{ fontSize: 18, color: COLORS.PRIMARY[600] }} />
@@ -401,12 +415,12 @@ const VaccinationCalendar = ({ upcomingVaccinations }) => {
                         onClick={() => setDetailDialogOpen(false)}
                         variant="contained"
                         sx={{
-                            background: `linear-gradient(135deg, ${COLORS.WARNING[500]} 0%, ${COLORS.WARNING[700]} 100%)`,
+                            background: COLORS.WARNING[500],
                             color: '#fff',
                             fontWeight: 700,
                             px: 3,
                             '&:hover': {
-                                background: `linear-gradient(135deg, ${COLORS.WARNING[600]} 0%, ${COLORS.WARNING[800]} 100%)`
+                                background: COLORS.WARNING[600]
                             }
                         }}
                     >
@@ -419,4 +433,3 @@ const VaccinationCalendar = ({ upcomingVaccinations }) => {
 };
 
 export default VaccinationCalendar;
-

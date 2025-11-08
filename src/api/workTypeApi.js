@@ -17,12 +17,12 @@ export const getWorkTypes = async () => {
             } else {
                 data = response.data;
             }
-        }
+    }
 
-        return {
-            success: true,
+    return {
+        success: true,
             data
-        };
+    };
     } catch (error) {
         console.error('Failed to fetch work types from API:', error);
         throw error;
@@ -39,11 +39,11 @@ export const getWorkTypeById = async (id) => {
         const response = await apiClient.get(`/work-types/${id}`, { timeout: 10000 });
 
         if (!response.data) {
-            throw new Error('Không tìm thấy loại công việc');
-        }
+        throw new Error('Không tìm thấy loại công việc');
+    }
 
-        return {
-            success: true,
+    return {
+        success: true,
             data: response.data
         };
     } catch (error) {
@@ -77,11 +77,11 @@ export const createWorkType = async (workTypeData) => {
             description
         }, { timeout: 10000 });
 
-        return {
-            success: true,
+    return {
+        success: true,
             data: response.data,
-            message: 'Tạo loại công việc thành công'
-        };
+        message: 'Tạo loại công việc thành công'
+    };
     } catch (error) {
         console.error('Failed to create work type:', error);
         throw error;
@@ -109,11 +109,11 @@ export const updateWorkType = async (id, workTypeData) => {
 
         const response = await apiClient.put(`/work-types/${id}`, requestData, { timeout: 10000 });
 
-        return {
-            success: true,
+    return {
+        success: true,
             data: response.data,
-            message: 'Cập nhật loại công việc thành công'
-        };
+        message: 'Cập nhật loại công việc thành công'
+    };
     } catch (error) {
         console.error('Failed to update work type:', error);
         if (error.response?.status === 404) {
@@ -132,10 +132,10 @@ export const deleteWorkType = async (id) => {
     try {
         await apiClient.delete(`/work-types/${id}`, { timeout: 10000 });
 
-        return {
-            success: true,
-            message: 'Xóa loại công việc thành công'
-        };
+    return {
+        success: true,
+        message: 'Xóa loại công việc thành công'
+    };
     } catch (error) {
         console.error('Failed to delete work type:', error);
         if (error.response?.status === 404) {

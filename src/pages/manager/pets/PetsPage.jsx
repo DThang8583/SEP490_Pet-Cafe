@@ -108,7 +108,7 @@ const PetsPage = () => {
         } catch (error) {
             console.error('Error loading groups:', error);
             setGroups([]);
-        }
+            }
     };
 
     if (isLoading) {
