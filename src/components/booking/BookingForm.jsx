@@ -39,7 +39,7 @@ import { alpha } from '@mui/material/styles';
 import { COLORS } from '../../constants/colors';
 import Loading from '../../components/loading/Loading';
 import { bookingApi } from '../../api/bookingApi';
-import { petApi } from '../../api/petApi';
+import petsApi from '../../api/petsApi';
 import { formatPrice } from '../../utils/formatPrice';
 import CalendarGrid from './CalendarGrid';
 
@@ -104,8 +104,8 @@ const BookingForm = ({ service, onBack, onSubmit }) => {
 
         setLoadingPets(true);
         try {
-            const response = await petApi.getMyPets();
-            setPets(response.data || []);
+            const response = await petsApi.getAllPets({ page_size: 1000 });
+            setPets(response?.data || []);
         } catch (error) {
             console.warn('Không thể tải danh sách thú cưng:', error.message);
             // Nếu không có quyền truy cập, vẫn cho phép người dùng nhập thông tin thủ công

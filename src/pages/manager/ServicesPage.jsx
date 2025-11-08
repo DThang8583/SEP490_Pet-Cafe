@@ -14,7 +14,9 @@ import taskTemplateApi from '../../api/taskTemplateApi';
 import serviceApi from '../../api/serviceApi';
 import slotApi from '../../api/slotApi';
 import * as areasApi from '../../api/areasApi';
-import petApi from '../../api/petApi';
+import petSpeciesApi from '../../api/petSpeciesApi';
+import petBreedsApi from '../../api/petBreedsApi';
+import petGroupsApi from '../../api/petGroupsApi';
 import { MOCK_TEAMS } from '../../api/teamApi';
 import { formatPrice } from '../../utils/formatPrice';
 
@@ -376,11 +378,11 @@ const ServicesPage = () => {
     const loadPetSpeciesAndBreeds = async () => {
         try {
             const [speciesRes, breedsRes] = await Promise.all([
-                petApi.getPetSpecies(),
-                petApi.getPetBreeds()
+                petSpeciesApi.getAllSpecies({ page_size: 1000 }),
+                petBreedsApi.getAllBreeds({ page_size: 1000 })
             ]);
-            setPetSpecies(speciesRes.data || []);
-            setPetBreeds(breedsRes.data || []);
+            setPetSpecies(speciesRes?.data || []);
+            setPetBreeds(breedsRes?.data || []);
         } catch (error) {
             console.error('Error loading species/breeds:', error);
         }
@@ -388,8 +390,8 @@ const ServicesPage = () => {
 
     const loadPetGroups = async () => {
         try {
-            const response = await petApi.getPetGroups();
-            setPetGroups(response.data || []);
+            const response = await petGroupsApi.getAllGroups({ page_size: 1000 });
+            setPetGroups(response?.data || []);
         } catch (error) {
             console.error('Error loading pet groups:', error);
         }

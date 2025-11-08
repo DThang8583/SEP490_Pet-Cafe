@@ -2,7 +2,7 @@ import taskTemplateApi, { TASK_TYPES } from './taskTemplateApi';
 import slotApi, { WEEKDAYS, WEEKDAY_LABELS, SLOT_STATUS } from './slotApi';
 import serviceApi, { SERVICE_STATUS } from './serviceApi';
 import * as areasApi from './areasApi';
-import petApi from './petApi';
+import petGroupsApi from './petGroupsApi';
 import userApi from './userApi';
 import workshiftApi from './workshiftApi';
 
@@ -26,7 +26,7 @@ export const getAllTasksData = async () => {
             slotApi.getAllSlots(),
             serviceApi.getAllServices(),
             areasApi.getAllAreas(),
-            petApi.getPetGroups(),
+            petGroupsApi.getAllGroups({ page_size: 1000 }),
             workshiftApi.getAllShifts()
         ]);
 
@@ -119,7 +119,7 @@ export const getSlotWithDetails = async (slotId) => {
         const [taskResponse, areaResponse, petGroupResponse, shiftResponse] = await Promise.all([
             taskTemplateApi.getTaskTemplateById(slot.task_id),
             areasApi.getAreaById(slot.area_id),
-            petApi.getPetGroups({ id: slot.pet_group_id }),
+            slot.pet_group_id ? petGroupsApi.getGroupById(slot.pet_group_id).catch(() => null) : Promise.resolve(null),
             workshiftApi.getShiftById(slot.work_shift_id)
         ]);
 
@@ -131,7 +131,7 @@ export const getSlotWithDetails = async (slotId) => {
             ...slot,
             task: taskResponse.data,
             area: areaResponse.data,
-            pet_group: petGroupResponse.data?.find(pg => pg.id === slot.pet_group_id) || null,
+            pet_group: petGroupResponse || null,
             shift: shift,
             team: team
         };

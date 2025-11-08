@@ -15,7 +15,7 @@ import taskTemplateApi, { TASK_STATUS, TASK_PRIORITY } from '../../../api/taskTe
 import slotApi, { SLOT_STATUS, WEEKDAY_LABELS } from '../../../api/slotApi';
 import serviceApi from '../../../api/serviceApi';
 import * as areasApi from '../../../api/areasApi';
-import petApi from '../../../api/petApi';
+import petGroupsApi from '../../../api/petGroupsApi';
 import * as teamApi from '../../../api/teamApi';
 import DailyTasksTab from './DailyTasksTab';
 import WorkTypeTab from './WorkTypeTab';
@@ -262,8 +262,8 @@ const TasksPage = () => {
 
     const loadPetGroups = async () => {
         try {
-            const response = await petApi.getPetGroups();
-            setPetGroups(response.data || []);
+            const response = await petGroupsApi.getAllGroups({ page_size: 1000 });
+            setPetGroups(response?.data || []);
         } catch (error) {
             console.error('Error loading pet groups:', error);
         }

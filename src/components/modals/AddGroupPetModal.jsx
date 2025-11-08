@@ -1,9 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import {
-    Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField,
-    FormControl, InputLabel, Select, MenuItem, Box, Typography,
-    alpha, CircularProgress, Chip, Stack
-} from '@mui/material';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, FormControl, InputLabel, Select, MenuItem, Box, Typography, alpha, CircularProgress, Stack } from '@mui/material';
 import { COLORS } from '../../constants/colors';
 import { Groups } from '@mui/icons-material';
 
@@ -24,10 +20,16 @@ const AddGroupPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
         return breeds.filter(b => b.species_id === formData.pet_species_id);
     }, [breeds, formData.pet_species_id]);
 
+    // Helper function to capitalize first letter
+    const capitalizeName = (name) => {
+        if (!name) return name;
+        return name.charAt(0).toUpperCase() + name.slice(1);
+    };
+
     // Get species name
     const getSpeciesName = (speciesId) => {
         const sp = species.find(s => s.id === speciesId);
-        return sp ? sp.name : '';
+        return sp ? capitalizeName(sp.name) : '';
     };
 
     // Get breed name
@@ -187,11 +189,6 @@ const AddGroupPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
         }
     };
 
-    const getCharacterCount = (text) => {
-        return text ? text.length : 0;
-    };
-
-
     return (
         <Dialog open={isOpen} onClose={handleClose} maxWidth="md" fullWidth>
             <Box
@@ -231,18 +228,7 @@ const AddGroupPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
                             >
                                 {species.map(s => (
                                     <MenuItem key={s.id} value={s.id}>
-                                        <Stack direction="row" alignItems="center" spacing={1}>
-                                            <Typography>{s.name}</Typography>
-                                            <Chip
-                                                label={s.name === 'Chó' ? '🐕' : '🐱'}
-                                                size="small"
-                                                sx={{
-                                                    height: 20,
-                                                    fontSize: '0.75rem',
-                                                    background: alpha(COLORS.WARNING[100], 0.5)
-                                                }}
-                                            />
-                                        </Stack>
+                                        <Typography>{capitalizeName(s.name)}</Typography>
                                     </MenuItem>
                                 ))}
                             </Select>
@@ -373,4 +359,3 @@ const AddGroupPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
 };
 
 export default AddGroupPetModal;
-

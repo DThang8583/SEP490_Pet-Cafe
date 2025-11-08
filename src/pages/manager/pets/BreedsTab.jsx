@@ -1,12 +1,12 @@
-import React, { useMemo, useState } from 'react';
-import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Stack, Toolbar, TextField, Select, MenuItem, InputLabel, FormControl, IconButton, Button, Avatar, alpha, Dialog, DialogTitle, DialogContent, DialogActions, Divider, Menu, ListItemIcon, ListItemText } from '@mui/material';
+import { useMemo, useState } from 'react';
+import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Stack, Toolbar, TextField, Select, MenuItem, InputLabel, FormControl, IconButton, Button, Avatar, alpha, Dialog, DialogTitle, DialogContent, DialogActions, Divider, Grid, Menu, ListItemIcon, ListItemText } from '@mui/material';
 import { Add, Edit, Delete, Category, Pets as PetsIcon, Visibility, Close, MoreVert } from '@mui/icons-material';
 import { COLORS } from '../../../constants/colors';
 import Pagination from '../../../components/common/Pagination';
 import ConfirmModal from '../../../components/modals/ConfirmModal';
 import AlertModal from '../../../components/modals/AlertModal';
 import AddPetBreedModal from '../../../components/modals/AddPetBreedModal';
-import { petApi } from '../../../api/petApi';
+import petBreedsApi from '../../../api/petBreedsApi';
 
 const BreedsTab = ({ pets, species, breeds, onDataChange }) => {
     const [searchBreed, setSearchBreed] = useState('');
@@ -29,16 +29,16 @@ const BreedsTab = ({ pets, species, breeds, onDataChange }) => {
 
     const [breedDetailDialog, setBreedDetailDialog] = useState({ open: false, breed: null, pets: [] });
 
+    // Helper function to capitalize first letter
+    const capitalizeName = (name) => {
+        if (!name) return name;
+        return name.charAt(0).toUpperCase() + name.slice(1);
+    };
+
     // Get species name by ID
     const getSpeciesName = (speciesId) => {
         const sp = species.find(s => s.id === speciesId);
-        return sp ? sp.name : '—';
-    };
-
-    // Get breed name by ID
-    const getBreedName = (breedId) => {
-        const br = breeds.find(b => b.id === breedId);
-        return br ? br.name : '—';
+        return sp ? capitalizeName(sp.name) : '—';
     };
 
     // Get pet health status
@@ -51,6 +51,13 @@ const BreedsTab = ({ pets, species, breeds, onDataChange }) => {
         }
         return { label: 'Khỏe mạnh', color: COLORS.SUCCESS, bg: COLORS.SUCCESS[100] };
     };
+
+    // Statistics
+    const stats = useMemo(() => ({
+        total: breeds.length,
+        active: breeds.filter(b => b.is_active !== false).length,
+        inactive: breeds.filter(b => b.is_active === false).length
+    }), [breeds]);
 
     // Filtered breeds
     const filteredBreeds = useMemo(() => {
@@ -94,9 +101,9 @@ const BreedsTab = ({ pets, species, breeds, onDataChange }) => {
 
             let response;
             if (editMode && selectedBreed) {
-                response = await petApi.updatePetBreed(selectedBreed.id, breedData);
+                response = await petBreedsApi.updateBreed(selectedBreed.id, breedData);
             } else {
-                response = await petApi.createPetBreed(breedData);
+                response = await petBreedsApi.createBreed(breedData);
             }
 
             if (response.success) {
@@ -105,7 +112,7 @@ const BreedsTab = ({ pets, species, breeds, onDataChange }) => {
                 setAlert({
                     open: true,
                     title: 'Thành công',
-                    message: editMode ? 'Cập nhật giống thành công!' : 'Thêm giống mới thành công!',
+                    message: response.message || (editMode ? 'Cập nhật giống thành công!' : 'Thêm giống mới thành công!'),
                     type: 'success'
                 });
             }
@@ -129,13 +136,13 @@ const BreedsTab = ({ pets, species, breeds, onDataChange }) => {
 
     const confirmDelete = async () => {
         try {
-            const response = await petApi.deletePetBreed(deleteTarget);
+            const response = await petBreedsApi.deleteBreed(deleteTarget);
             if (response.success) {
                 await onDataChange();
                 setAlert({
                     open: true,
                     title: 'Thành công',
-                    message: 'Xóa giống thành công!',
+                    message: response.message || 'Xóa giống thành công!',
                     type: 'success'
                 });
             }
@@ -160,6 +167,40 @@ const BreedsTab = ({ pets, species, breeds, onDataChange }) => {
 
     return (
         <Box>
+            {/* Statistics */}
+            <Grid container spacing={2} sx={{ mb: 3 }}>
+                <Grid item xs={12} sm={4}>
+                    <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.INFO[500]}` }}>
+                        <Typography variant="body2" color="text.secondary" gutterBottom>
+                            Tổng giống
+                        </Typography>
+                        <Typography variant="h4" fontWeight={600} color={COLORS.INFO[700]}>
+                            {stats.total}
+                        </Typography>
+                    </Paper>
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                    <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.SUCCESS[500]}` }}>
+                        <Typography variant="body2" color="text.secondary" gutterBottom>
+                            Đang hoạt động
+                        </Typography>
+                        <Typography variant="h4" fontWeight={600} color={COLORS.SUCCESS[700]}>
+                            {stats.active}
+                        </Typography>
+                    </Paper>
+                </Grid>
+                <Grid item xs={12} sm={4}>
+                    <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.WARNING[500]}` }}>
+                        <Typography variant="body2" color="text.secondary" gutterBottom>
+                            Vô hiệu hóa
+                        </Typography>
+                        <Typography variant="h4" fontWeight={600} color={COLORS.WARNING[700]}>
+                            {stats.inactive}
+                        </Typography>
+                    </Paper>
+                </Grid>
+            </Grid>
+
             {/* Toolbar */}
             <Toolbar disableGutters sx={{ gap: 2, flexWrap: 'wrap', mb: 2 }}>
                 <TextField
@@ -167,7 +208,7 @@ const BreedsTab = ({ pets, species, breeds, onDataChange }) => {
                     placeholder="Tìm theo tên giống..."
                     value={searchBreed}
                     onChange={(e) => setSearchBreed(e.target.value)}
-                    sx={{ minWidth: { xs: '100%', sm: 280 } }}
+                    sx={{ width: '1360px', flexShrink: 0 }}
                 />
                 <FormControl size="small" sx={{ minWidth: 150 }}>
                     <InputLabel>Loài</InputLabel>
@@ -570,4 +611,3 @@ const BreedsTab = ({ pets, species, breeds, onDataChange }) => {
 };
 
 export default BreedsTab;
-
