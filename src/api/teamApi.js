@@ -1,7 +1,63 @@
-import { MOCK_EMPLOYEES } from './employeeApi';
 // Note: MOCK_WORK_TYPES removed - use workTypeApi.getWorkTypeById() for API calls
 import { getWorkTypeById as getWorkTypeByIdFromAPI } from './workTypeApi';
 import { MOCK_WORK_SHIFTS } from './workShiftApi';
+import { getEmployeeById as getEmployeeByIdFromAPI, getAllEmployees as getAllEmployeesFromAPI } from './employeeApi';
+
+// Employee cache to avoid multiple API calls
+let employeeCache = new Map();
+let allEmployeesCache = null;
+let cacheTimestamp = null;
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+// Helper to get employee from cache or API
+const getEmployeeById = async (id) => {
+    if (!id) return null;
+
+    // Check cache first
+    if (employeeCache.has(id)) {
+        return employeeCache.get(id);
+    }
+
+    // If we have all employees cache, check there
+    if (allEmployeesCache && Date.now() - cacheTimestamp < CACHE_DURATION) {
+        const employee = allEmployeesCache.find(e => e.id === id);
+        if (employee) {
+            employeeCache.set(id, employee);
+            return employee;
+        }
+    }
+
+    // Fetch from API
+    try {
+        const employee = await getEmployeeByIdFromAPI(id);
+        if (employee) {
+            employeeCache.set(id, employee);
+            return employee;
+        }
+    } catch (error) {
+        console.error(`Failed to fetch employee ${id}:`, error);
+        return null;
+    }
+
+    return null;
+};
+
+// Load all employees into cache
+const loadAllEmployeesToCache = async () => {
+    try {
+        const response = await getAllEmployeesFromAPI({ page_index: 0, page_size: 1000 });
+        if (response && response.data) {
+            allEmployeesCache = response.data;
+            cacheTimestamp = Date.now();
+            // Populate individual cache
+            response.data.forEach(emp => {
+                employeeCache.set(emp.id, emp);
+            });
+        }
+    } catch (error) {
+        console.error('Failed to load employees to cache:', error);
+    }
+};
 
 // ========== TEAM MOCK DATA (moved from mockData) ==========
 const MOCK_TEAMS = [
@@ -235,11 +291,6 @@ const generateId = () => {
     });
 };
 
-// Helper: Get employee by ID
-const getEmployeeById = (id) => {
-    return MOCK_EMPLOYEES.find(e => e.id === id && !e.is_deleted);
-};
-
 // Helper: Get work type by ID
 // TODO: This is a sync helper but API is async - needs refactoring
 // For now, this will return null - update to use async getWorkTypeByIdFromAPI when needed
@@ -292,11 +343,11 @@ const populateTeamWorkShifts = (teamId) => {
     }).filter(Boolean);
 };
 
-// Helper: Populate leader info (for list view)
-const populateLeader = (team) => {
+// Helper: Populate leader info (for list view) - async version
+const populateLeader = async (team) => {
     if (!team.leader_id) return null;
 
-    const employee = getEmployeeById(team.leader_id);
+    const employee = await getEmployeeById(team.leader_id);
     if (!employee) return null;
 
     return {
@@ -359,52 +410,56 @@ const populateTeamWorkTypes = (teamId) => {
     }).filter(twt => twt !== null);
 };
 
-// Helper: Populate team_members (for detail view and list view)
-const populateTeamMembers = (teamId) => {
+// Helper: Populate team_members (for detail view and list view) - async version
+const populateTeamMembers = async (teamId) => {
     // Filter team members by team_id
     const teamMembers = MOCK_TEAM_MEMBERS.filter(tm => tm.team_id === teamId && !tm.is_deleted);
 
-    // Populate employee data for each member
-    return teamMembers.map(tm => {
-        const employee = getEmployeeById(tm.employee_id);
+    // Populate employee data for each member - use Promise.all for parallel fetching
+    const populatedMembers = await Promise.all(
+        teamMembers.map(async (tm) => {
+            const employee = await getEmployeeById(tm.employee_id);
 
-        if (!employee) return null;
+            if (!employee) return null;
 
-        return {
-            team_id: tm.team_id,
-            employee_id: tm.employee_id,
-            is_active: tm.is_active,
-            team: null,
-            employee: {
-                account_id: employee.account_id,
-                full_name: employee.full_name,
-                avatar_url: employee.avatar_url,
-                email: employee.email,
-                phone: employee.phone,
-                address: employee.address,
-                skills: employee.skills,
-                salary: employee.salary,
-                sub_role: employee.sub_role,
-                account: null,
-                team_members: [null],
-                orders: [],
+            return {
+                team_id: tm.team_id,
+                employee_id: tm.employee_id,
+                is_active: tm.is_active,
+                team: null,
+                employee: {
+                    account_id: employee.account_id,
+                    full_name: employee.full_name,
+                    avatar_url: employee.avatar_url,
+                    email: employee.email,
+                    phone: employee.phone,
+                    address: employee.address,
+                    skills: employee.skills,
+                    salary: employee.salary,
+                    sub_role: employee.sub_role,
+                    account: null,
+                    team_members: [null],
+                    orders: [],
+                    daily_schedules: [],
+                    id: employee.id,
+                    created_at: employee.created_at,
+                    created_by: employee.created_by,
+                    updated_at: employee.updated_at,
+                    updated_by: employee.updated_by,
+                    is_deleted: employee.is_deleted
+                },
                 daily_schedules: [],
-                id: employee.id,
-                created_at: employee.created_at,
-                created_by: employee.created_by,
-                updated_at: employee.updated_at,
-                updated_by: employee.updated_by,
-                is_deleted: employee.is_deleted
-            },
-            daily_schedules: [],
-            id: tm.id,
-            created_at: tm.created_at,
-            created_by: tm.created_by,
-            updated_at: tm.updated_at,
-            updated_by: tm.updated_by,
-            is_deleted: tm.is_deleted
-        };
-    }).filter(tm => tm !== null); // Remove null entries
+                id: tm.id,
+                created_at: tm.created_at,
+                created_by: tm.created_by,
+                updated_at: tm.updated_at,
+                updated_by: tm.updated_by,
+                is_deleted: tm.is_deleted
+            };
+        })
+    );
+
+    return populatedMembers.filter(tm => tm !== null); // Remove null entries
 };
 
 /**
@@ -418,13 +473,19 @@ export const getTeams = async () => {
         throw new Error('Không có quyền truy cập');
     }
 
-    const teams = MOCK_TEAMS.filter(t => !t.is_deleted).map(team => ({
-        ...team,
-        leader: populateLeader(team),
-        team_members: populateTeamMembers(team.id),
-        team_work_types: populateTeamWorkTypes(team.id),
-        team_work_shifts: populateTeamWorkShifts(team.id)
-    }));
+    // Load all employees to cache first for better performance
+    await loadAllEmployeesToCache();
+
+    // Populate teams with async employee data
+    const teams = await Promise.all(
+        MOCK_TEAMS.filter(t => !t.is_deleted).map(async (team) => ({
+            ...team,
+            leader: await populateLeader(team),
+            team_members: await populateTeamMembers(team.id),
+            team_work_types: populateTeamWorkTypes(team.id),
+            team_work_shifts: populateTeamWorkShifts(team.id)
+        }))
+    );
 
     return {
         success: true,
@@ -456,12 +517,15 @@ export const getTeamById = async (id) => {
         throw new Error('Không tìm thấy nhóm');
     }
 
+    // Load employees to cache if needed
+    await loadAllEmployeesToCache();
+
     return {
         success: true,
         data: {
             ...team,
-            leader: populateLeader(team),
-            team_members: populateTeamMembers(team.id),
+            leader: await populateLeader(team),
+            team_members: await populateTeamMembers(team.id),
             team_work_types: populateTeamWorkTypes(team.id)
         }
     };
@@ -664,7 +728,7 @@ export const createTeam = async (teamData) => {
     }
 
     // Verify leader exists
-    const leader = getEmployeeById(teamData.leader_id);
+    const leader = await getEmployeeById(teamData.leader_id);
     if (!leader) throw new Error('Trưởng nhóm không tồn tại');
 
     // Verify work types exist
@@ -741,7 +805,7 @@ export const updateTeam = async (id, teamData) => {
 
     // If leader_id is being updated, verify it exists
     if (teamData.leader_id && teamData.leader_id !== team.leader_id) {
-        const leader = getEmployeeById(teamData.leader_id);
+        const leader = await getEmployeeById(teamData.leader_id);
         if (!leader) throw new Error('Trưởng nhóm không tồn tại');
     }
 
@@ -820,14 +884,17 @@ export const getTeamMembers = async (teamId) => {
         throw new Error('Không tìm thấy nhóm');
     }
 
-    let members = populateTeamMembers(teamId);
+    // Load employees to cache if needed
+    await loadAllEmployeesToCache();
+
+    let members = await populateTeamMembers(teamId);
 
     // IMPORTANT: Add leader to members list if not already there
     if (team.leader_id) {
         const leaderAlreadyInMembers = members.some(m => m.employee_id === team.leader_id);
 
         if (!leaderAlreadyInMembers) {
-            const leader = getEmployeeById(team.leader_id);
+            const leader = await getEmployeeById(team.leader_id);
             if (leader) {
                 // Create a team_member entry for the leader
                 const leaderMember = {
@@ -903,7 +970,7 @@ export const addTeamMembers = async (teamId, members) => {
         }
 
         // Verify employee exists
-        const employee = getEmployeeById(member.employee_id);
+        const employee = await getEmployeeById(member.employee_id);
         if (!employee) {
             throw new Error(`Nhân viên ${member.employee_id} không tồn tại`);
         }
