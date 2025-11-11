@@ -31,9 +31,11 @@ export const getAllEmployees = async (params = {}) => {
         const response = await apiClient.get('/employees', {
             params: {
                 page_index,
-                page_size
+                page_size,
+                _t: Date.now()
             },
-            timeout: 10000
+            timeout: 10000,
+            headers: { 'Cache-Control': 'no-cache' }
         });
 
         const responseData = response.data;
@@ -83,10 +85,12 @@ export const getEmployeeById = async (employeeId) => {
 
         return response.data;
     } catch (error) {
-        console.error('Failed to fetch employee from API:', error);
+        // Don't log 404 errors as they are expected in some cases
         if (error.response?.status === 404) {
             throw new Error('Không tìm thấy nhân viên');
         }
+        // Only log non-404 errors
+        console.error('Failed to fetch employee from API:', error);
         throw error;
     }
 };
@@ -156,11 +160,17 @@ export const updateEmployee = async (employeeId, employeeData) => {
         if (employeeData.avatar_url !== undefined) {
             requestData.avatar_url = employeeData.avatar_url?.trim() || '';
         }
-        if (employeeData.password !== undefined && employeeData.password?.trim()) {
-            requestData.password = employeeData.password.trim();
+        if (employeeData.password !== undefined) {
+            // API requires password field, so we send it even if empty
+            // Empty string means "don't change password" in some APIs
+            requestData.password = employeeData.password?.trim() || '';
         }
         if (employeeData.sub_role !== undefined) {
             requestData.sub_role = employeeData.sub_role?.trim() || '';
+        }
+
+        if (employeeData.is_active !== undefined) {
+            requestData.is_active = Boolean(employeeData.is_active);
         }
 
         const response = await apiClient.put(`/employees/${employeeId}`, requestData, { timeout: 10000 });

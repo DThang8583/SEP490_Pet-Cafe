@@ -2,8 +2,8 @@
 // Quản lý tiến độ hoàn thành nhiệm vụ theo ngày
 
 import { generateId } from '../utils/generateId';
-import { MOCK_TEAMS } from './teamApi';
-import { MOCK_SLOTS } from './slotApi';
+// Team data should be fetched from official API; remove MOCK_TEAMS dependency
+// Slots are loaded from official APIs; no mock imports
 import { MOCK_TASK_TEMPLATES } from './taskTemplateApi';
 
 /**
@@ -42,8 +42,8 @@ export const DAY_OF_WEEK_MAP = {
 };
 
 // Helper functions
-const getSlotById = (id) => MOCK_SLOTS.find(s => s.id === id);
-const getTeamById = (id) => MOCK_TEAMS.find(t => t.id === id);
+const getSlotById = (_id) => null; // legacy mock removed
+const getTeamById = (_id) => null; // legacy helpers removed; callers should pass populated team if needed
 const getTaskById = (id) => MOCK_TASK_TEMPLATES.find(t => t.id === id);
 
 /**
@@ -1286,7 +1286,7 @@ export const getDailyTasksForDateRange = async (startDate, endDate, taskTemplate
                                 notes: null,
                                 task: taskTemplate,
                                 slot: slot,
-                                team: slot.team || MOCK_TEAMS.find(t => t.id === slot.team_id) || null,
+                                team: slot.team || null,
                                 created_at: new Date().toISOString(),
                                 created_by: '00000000-0000-0000-0000-000000000000',
                                 updated_at: new Date().toISOString(),
@@ -1513,7 +1513,7 @@ export const createManualDailyTask = async (taskData) => {
                     day_of_week: new Date(taskData.assigned_date).toLocaleDateString('en-US', { weekday: 'long' }).toUpperCase(),
                     special_notes: null
                 } : null,
-                team: MOCK_TEAMS.find(t => t.id === taskData.team_id) || null,
+                team: null,
                 created_at: new Date().toISOString(),
                 created_by: taskData.created_by || '00000000-0000-0000-0000-000000000000',
                 updated_at: new Date().toISOString(),

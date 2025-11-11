@@ -1,7 +1,7 @@
 import React from 'react';
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Box, Stack, Typography, TextField, FormControl, InputLabel, Select, MenuItem, List, ListItem, ListItemAvatar, ListItemText, Avatar, Divider, Checkbox, Chip, IconButton } from '@mui/material';
 import { alpha } from '@mui/material/styles';
-import { Groups, Close, Search, People, Info, Save, Cancel, Person, Star, StarBorder } from '@mui/icons-material';
+import { Groups, Close, Search, People, Info, Save, Cancel, Person, Star } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 
 const roleLabel = (r) => {
@@ -30,9 +30,11 @@ const TeamMembersModal = ({
     allStaff,
     searchQuery,
     roleFilter,
+    skillFilter,
     loading,
     onSearchChange,
     onRoleFilterChange,
+    onSkillFilterChange,
     onAddMember,
     onRemoveMember,
     onToggleMemberStatus,
@@ -72,6 +74,21 @@ const TeamMembersModal = ({
         return assignedStaffIds;
     }, [currentShift, team?.id]);
 
+    // Get all unique skills from allStaff
+    const allSkills = React.useMemo(() => {
+        const skillsSet = new Set();
+        allStaff.forEach(s => {
+            if (Array.isArray(s.skills)) {
+                s.skills.forEach(skill => {
+                    if (skill && skill.trim()) {
+                        skillsSet.add(skill.trim());
+                    }
+                });
+            }
+        });
+        return Array.from(skillsSet).sort();
+    }, [allStaff]);
+
     const filteredStaff = allStaff.filter(s => {
         const employeeId = s.id;
         const inTeam = memberEmployeeIds.includes(employeeId);
@@ -86,7 +103,11 @@ const TeamMembersModal = ({
             s.email?.toLowerCase().includes(searchQuery.toLowerCase());
         const matchRole = roleFilter === 'all' || s.sub_role === roleFilter;
 
-        return matchSearch && matchRole;
+        // Match skill filter
+        const matchSkill = skillFilter === 'all' ||
+            (Array.isArray(s.skills) && s.skills.some(skill => skill?.trim() === skillFilter));
+
+        return matchSearch && matchRole && matchSkill;
     });
 
     return (
@@ -161,19 +182,35 @@ const TeamMembersModal = ({
                                     }}
                                 />
 
-                                <FormControl fullWidth>
-                                    <InputLabel>Lọc vai trò</InputLabel>
-                                    <Select
-                                        value={roleFilter}
-                                        onChange={(e) => onRoleFilterChange(e.target.value)}
-                                        label="Lọc vai trò"
-                                        sx={{ bgcolor: 'white', height: 48 }}
-                                    >
-                                        <MenuItem value="all">Tất cả</MenuItem>
-                                        <MenuItem value="WORKING_STAFF">Working Staff</MenuItem>
-                                        <MenuItem value="SALE_STAFF">Sale Staff</MenuItem>
-                                    </Select>
-                                </FormControl>
+                                <Stack direction="row" spacing={2}>
+                                    <FormControl fullWidth>
+                                        <InputLabel>Lọc vai trò</InputLabel>
+                                        <Select
+                                            value={roleFilter}
+                                            onChange={(e) => onRoleFilterChange(e.target.value)}
+                                            label="Lọc vai trò"
+                                            sx={{ bgcolor: 'white', height: 48 }}
+                                        >
+                                            <MenuItem value="all">Tất cả</MenuItem>
+                                            <MenuItem value="WORKING_STAFF">Working Staff</MenuItem>
+                                            <MenuItem value="SALE_STAFF">Sale Staff</MenuItem>
+                                        </Select>
+                                    </FormControl>
+                                    <FormControl fullWidth>
+                                        <InputLabel>Lọc kỹ năng</InputLabel>
+                                        <Select
+                                            value={skillFilter}
+                                            onChange={(e) => onSkillFilterChange(e.target.value)}
+                                            label="Lọc kỹ năng"
+                                            sx={{ bgcolor: 'white', height: 48 }}
+                                        >
+                                            <MenuItem value="all">Tất cả</MenuItem>
+                                            {allSkills.map(skill => (
+                                                <MenuItem key={skill} value={skill}>{skill}</MenuItem>
+                                            ))}
+                                        </Select>
+                                    </FormControl>
+                                </Stack>
                             </Stack>
                         </Box>
 
@@ -220,16 +257,35 @@ const TeamMembersModal = ({
                                                     </Typography>
                                                 }
                                                 secondary={
-                                                    <Chip
-                                                        label={roleLabel(staffMember.sub_role)}
-                                                        size="small"
-                                                        sx={{
-                                                            height: 22,
-                                                            fontSize: '0.75rem',
-                                                            mt: 0.5,
-                                                            ...roleColor(staffMember.sub_role)
-                                                        }}
-                                                    />
+                                                    <Stack direction="row" spacing={1} flexWrap="wrap" gap={0.5} sx={{ mt: 0.5 }}>
+                                                        <Chip
+                                                            label={roleLabel(staffMember.sub_role)}
+                                                            size="small"
+                                                            sx={{
+                                                                height: 22,
+                                                                fontSize: '0.75rem',
+                                                                ...roleColor(staffMember.sub_role)
+                                                            }}
+                                                        />
+                                                        {Array.isArray(staffMember.skills) && staffMember.skills.length > 0 && (
+                                                            staffMember.skills.map((skill, idx) => (
+                                                                skill && skill.trim() && (
+                                                                    <Chip
+                                                                        key={idx}
+                                                                        label={skill.trim()}
+                                                                        size="small"
+                                                                        sx={{
+                                                                            height: 22,
+                                                                            fontSize: '0.7rem',
+                                                                            bgcolor: alpha(COLORS.PRIMARY[100], 0.6),
+                                                                            color: COLORS.PRIMARY[700],
+                                                                            fontWeight: 500
+                                                                        }}
+                                                                    />
+                                                                )
+                                                            ))
+                                                        )}
+                                                    </Stack>
                                                 }
                                             />
                                         </ListItem>
@@ -283,12 +339,12 @@ const TeamMembersModal = ({
                                                     borderRadius: 1.5,
                                                     mb: 0.5,
                                                     bgcolor: isNew ? alpha(COLORS.SUCCESS[50], 0.6) :
-                                                        !member.is_active ? alpha(COLORS.GRAY[100], 0.5) : 'transparent',
+                                                        (member.is_active === false || member.is_active === null) ? alpha(COLORS.GRAY[100], 0.5) : 'transparent',
                                                     borderLeft: isNew ? `5px solid ${COLORS.SUCCESS[500]}` :
                                                         isLeader ? `5px solid ${COLORS.WARNING[500]}` :
                                                             statusChanged ? `5px solid ${COLORS.INFO[500]}` :
                                                                 '5px solid transparent',
-                                                    opacity: member.is_active ? 1 : 0.6
+                                                    opacity: (member.is_active ?? true) ? 1 : 0.6
                                                 }}
                                             >
                                                 <ListItemAvatar sx={{ minWidth: 0, mr: 2.5 }}>
@@ -344,7 +400,7 @@ const TeamMembersModal = ({
                                                                     }}
                                                                 />
                                                             )}
-                                                            {!member.is_active && (
+                                                            {(member.is_active === false || member.is_active === null) && (
                                                                 <Chip
                                                                     label="Không hoạt động"
                                                                     size="small"
@@ -369,6 +425,28 @@ const TeamMembersModal = ({
                                                                         fontWeight: 700
                                                                     }}
                                                                 />
+                                                            )}
+                                                        </Stack>
+                                                    }
+                                                    secondary={
+                                                        <Stack direction="row" spacing={1} flexWrap="wrap" gap={0.5} sx={{ mt: 0.5 }}>
+                                                            {Array.isArray(member.employee?.skills) && member.employee.skills.length > 0 && (
+                                                                member.employee.skills.map((skill, idx) => (
+                                                                    skill && skill.trim() && (
+                                                                        <Chip
+                                                                            key={idx}
+                                                                            label={skill.trim()}
+                                                                            size="small"
+                                                                            sx={{
+                                                                                height: 22,
+                                                                                fontSize: '0.7rem',
+                                                                                bgcolor: alpha(COLORS.PRIMARY[100], 0.6),
+                                                                                color: COLORS.PRIMARY[700],
+                                                                                fontWeight: 500
+                                                                            }}
+                                                                        />
+                                                                    )
+                                                                ))
                                                             )}
                                                         </Stack>
                                                     }

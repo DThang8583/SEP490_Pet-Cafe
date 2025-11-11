@@ -155,11 +155,10 @@ const serviceApi = {
         const end = start + page_size;
         const paginatedServices = services.slice(start, end);
 
-        // For each service, populate slots (lazy import to avoid circular deps)
-        const { MOCK_SLOTS } = await import('./slotApi');
+        // Do not populate slots from mocks; return services only
         const servicesWithSlots = paginatedServices.map(service => ({
             ...service,
-            slots: MOCK_SLOTS.filter(slot => slot.service_id === service.id)
+            slots: []
         }));
 
         return {
@@ -189,13 +188,9 @@ const serviceApi = {
             throw new Error('Không tìm thấy dịch vụ');
         }
 
-        // Populate slots (lazy import)
-        const { MOCK_SLOTS } = await import('./slotApi');
-        const serviceSlots = MOCK_SLOTS.filter(slot => slot.service_id === serviceId);
-
         return {
             ...service,
-            slots: serviceSlots
+            slots: []
         };
     },
 
@@ -219,9 +214,10 @@ const serviceApi = {
             throw new Error('Không tìm thấy dịch vụ');
         }
 
-        // Get slots for this service (lazy import)
-        const { MOCK_SLOTS } = await import('./slotApi');
-        let slots = MOCK_SLOTS.filter(slot => slot.service_id === serviceId);
+        // Get slots for this service using official slot aggregator
+        const slotApi = (await import('./slotApi')).default;
+        const allSlotsResp = await slotApi.getAllSlots();
+        let slots = (allSlotsResp?.data || []).filter(slot => slot.service_id === serviceId);
 
         // Calculate pagination
         const total_items_count = slots.length;
