@@ -10,9 +10,8 @@ const TaskTemplateFormModal = ({ open, onClose, onSubmit, initialData = null, mo
         priority: 'MEDIUM',
         status: 'ACTIVE',
         is_public: false,
-        is_recurring: true,
-        estimated_hours: 1,
-        image_url: null
+        estimated_hours: 0,
+        image_url: ''
     });
 
     const [errors, setErrors] = useState({});
@@ -30,9 +29,8 @@ const TaskTemplateFormModal = ({ open, onClose, onSubmit, initialData = null, mo
                     priority: initialData.priority || 'MEDIUM',
                     status: initialData.status || 'ACTIVE',
                     is_public: initialData.is_public || false,
-                    is_recurring: initialData.is_recurring !== undefined ? initialData.is_recurring : true,
-                    estimated_hours: initialData.estimated_hours || 1,
-                    image_url: initialData.image_url || null
+                    estimated_hours: initialData.estimated_hours ?? 0,
+                    image_url: initialData.image_url || ''
                 });
             } else {
                 // Reset form for create mode
@@ -44,9 +42,8 @@ const TaskTemplateFormModal = ({ open, onClose, onSubmit, initialData = null, mo
                     priority: 'MEDIUM',
                     status: 'ACTIVE',
                     is_public: false,
-                    is_recurring: true,
-                    estimated_hours: 1,
-                    image_url: null
+                    estimated_hours: 0,
+                    image_url: ''
                 });
             }
             setErrors({});
@@ -85,8 +82,8 @@ const TaskTemplateFormModal = ({ open, onClose, onSubmit, initialData = null, mo
             newErrors.work_type_id = 'Loại công việc là bắt buộc';
         }
 
-        if (!formData.estimated_hours || formData.estimated_hours <= 0) {
-            newErrors.estimated_hours = 'Thời gian ước tính phải lớn hơn 0';
+        if (formData.estimated_hours < 0) {
+            newErrors.estimated_hours = 'Thời gian ước tính không được âm';
         }
 
         setErrors(newErrors);
@@ -109,9 +106,10 @@ const TaskTemplateFormModal = ({ open, onClose, onSubmit, initialData = null, mo
                 priority: formData.priority,
                 status: formData.status,
                 estimated_hours: formData.estimated_hours,
-                is_recurring: formData.is_recurring,
                 is_public: formData.is_public,
-                work_type_id: formData.work_type_id
+                work_type_id: formData.work_type_id,
+                service_id: formData.service_id || null,
+                image_url: formData.image_url?.trim() || null
             };
 
             await onSubmit(submitData);
@@ -136,9 +134,8 @@ const TaskTemplateFormModal = ({ open, onClose, onSubmit, initialData = null, mo
                 priority: 'MEDIUM',
                 status: 'ACTIVE',
                 is_public: false,
-                is_recurring: true,
-                estimated_hours: 1,
-                image_url: null
+                estimated_hours: 0,
+                image_url: ''
             });
             setErrors({});
             onClose();
@@ -273,7 +270,7 @@ const TaskTemplateFormModal = ({ open, onClose, onSubmit, initialData = null, mo
                                 fullWidth
                                 required
                                 type="number"
-                            inputProps={{ min: 0.5, step: 0.5 }}
+                            inputProps={{ min: 0, step: 0.5 }}
                             value={formData.estimated_hours}
                             onChange={(e) => handleChange('estimated_hours', parseFloat(e.target.value) || 0)}
                             error={!!errors.estimated_hours}
@@ -305,17 +302,17 @@ const TaskTemplateFormModal = ({ open, onClose, onSubmit, initialData = null, mo
                                 }
                                 label="Công khai"
                             />
-                            <FormControlLabel
-                                control={
-                                    <Switch
-                                        checked={formData.is_recurring}
-                                        onChange={(e) => handleChange('is_recurring', e.target.checked)}
-                                    />
-                                }
-                                label="Lặp lại"
-                            />
                         </Box>
                     </Stack>
+
+                    {/* Image URL */}
+                    <TextField
+                        label="Ảnh đại diện (URL)"
+                        fullWidth
+                        value={formData.image_url}
+                        onChange={(e) => handleChange('image_url', e.target.value)}
+                        helperText="Tùy chọn: sử dụng URL hình ảnh để hiển thị thumbnail cho nhiệm vụ"
+                    />
 
                     {/* Info box */}
                     <Box
@@ -328,8 +325,8 @@ const TaskTemplateFormModal = ({ open, onClose, onSubmit, initialData = null, mo
                         }}
                     >
                         <Typography variant="body2" color="info.dark">
-                            💡 <strong>Lưu ý:</strong> Nhiệm vụ "Lặp lại" sẽ được tự động tạo daily task hàng tuần.
-                            Nhiệm vụ "Công khai" có thể được khách hàng xem trong booking.
+                            💡 <strong>Lưu ý:</strong> Nhiệm vụ công khai sẽ xuất hiện trong trải nghiệm đặt dịch vụ của khách hàng.
+                            Hãy đảm bảo mô tả rõ ràng và thời gian ước tính phù hợp để hỗ trợ việc sắp ca.
                                     </Typography>
                                 </Box>
                 </Stack>

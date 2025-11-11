@@ -35,15 +35,38 @@ const SlotFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, 
     useEffect(() => {
         const ensureTeams = async () => {
             if (!open) return;
-            if (teams && teams.length > 0) {
-                setLocalTeams(teams);
-                return;
-            }
+            // If parent already passed teams, still enrich with work shifts if missing
+            const hasTeams = Array.isArray(teams) && teams.length > 0;
+            let baseTeams = hasTeams ? teams : [];
+
             try {
-                const res = await teamApi.getTeams();
-                setLocalTeams(res.data || []);
-            } catch (e) {
-                setLocalTeams([]);
+                if (!hasTeams) {
+                    const res = await teamApi.getTeams({ page_index: 0, page_size: 1000 });
+                    baseTeams = res.data || [];
+                }
+
+                // Enrich each team with work shifts so we can filter by time range
+                const enriched = await Promise.allSettled(
+                    baseTeams.map(async (team) => {
+                        try {
+                            const wsRes = await teamApi.getTeamWorkShifts(team.id, { page_index: 0, page_size: 100 });
+                            const workShifts = wsRes.data || [];
+                            return {
+                                ...team,
+                                team_work_shifts: workShifts.map(ws => ({ work_shift: ws }))
+                            };
+                        } catch {
+                            return { ...team, team_work_shifts: [] };
+                        }
+                    })
+                );
+
+                setLocalTeams(enriched
+                    .filter(r => r.status === 'fulfilled')
+                    .map(r => r.value)
+                );
+            } catch {
+                setLocalTeams(baseTeams || []);
             }
         };
         ensureTeams();
@@ -51,33 +74,37 @@ const SlotFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, 
 
     // Filter teams based on selected time range
     const filteredTeams = useMemo(() => {
-        const sourceTeams = localTeams && localTeams.length > 0 ? localTeams : teams;
-        if (!formData.start_time || !formData.end_time || !sourceTeams || sourceTeams.length === 0) {
-            return sourceTeams || [];
+        const sourceTeams = (localTeams && localTeams.length > 0 ? localTeams : teams) || [];
+
+        // If missing inputs, or View All toggle is on, return all teams
+        if (sourceTeams.length === 0 || !formData.start_time || !formData.end_time || !formData.day_of_week) {
+            return sourceTeams;
         }
 
-        // Convert time strings to comparable format (HH:MM:SS)
+        // Normalize slot time
         const slotStart = formData.start_time.length === 5 ? `${formData.start_time}:00` : formData.start_time;
         const slotEnd = formData.end_time.length === 5 ? `${formData.end_time}:00` : formData.end_time;
 
-        return sourceTeams.filter(team => {
-            // Team must have at least one work shift that covers the slot time range
-            if (!team.team_work_shifts || team.team_work_shifts.length === 0) {
-                return false;
-            }
-
-            return team.team_work_shifts.some(tws => {
-                if (!tws.work_shift) return false;
-
+        const withMatchFlag = sourceTeams.map(team => {
+            const matches = team.team_work_shifts?.some(tws => {
+                if (!tws?.work_shift) return false;
                 const shiftStart = tws.work_shift.start_time;
                 const shiftEnd = tws.work_shift.end_time;
+                const applicableDays = Array.isArray(tws.work_shift.applicable_days) ? tws.work_shift.applicable_days : [];
+                const timeCovered = shiftStart <= slotStart && shiftEnd >= slotEnd;
+                const dayMatches = applicableDays.includes(formData.day_of_week);
+                return timeCovered && dayMatches;
+            }) ?? false;
 
-                // Check if work shift covers or overlaps with the slot time
-                // Work shift must start at or before slot start AND end at or after slot end
-                return shiftStart <= slotStart && shiftEnd >= slotEnd;
-            });
+            return {
+                ...team,
+                __matchesSlot: matches
+            };
         });
-    }, [teams, localTeams, formData.start_time, formData.end_time]);
+
+        // Show matching teams first, followed by the rest
+        return withMatchFlag.sort((a, b) => Number(b.__matchesSlot) - Number(a.__matchesSlot));
+    }, [teams, localTeams, formData.start_time, formData.end_time, formData.day_of_week]);
 
     // Initialize form when modal opens
     useEffect(() => {
@@ -242,7 +269,8 @@ const SlotFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, 
                 end_time: formData.end_time,
                 max_capacity: parseInt(formData.max_capacity) || 0,
                 special_notes: formData.special_notes || null,
-                day_of_week: formData.day_of_week
+                day_of_week: formData.day_of_week || null
+                // specific_date will be calculated by slotApi if recurring, or should be provided if not recurring
             };
 
             // Add price and service_status for edit mode
@@ -286,7 +314,7 @@ const SlotFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, 
             }}
         >
             <DialogTitle sx={{ pb: 1 }}>
-                <Typography variant="h6" fontWeight={600}>
+                <Typography variant="h6" component="div" fontWeight={600}>
                     {mode === 'edit' ? 'Chỉnh sửa Ca làm việc' : 'Tạo Ca làm việc mới'}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
@@ -399,7 +427,16 @@ const SlotFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, 
                             </MenuItem>
                             {filteredTeams.map(team => (
                                 <MenuItem key={team.id} value={team.id}>
-                                    {team.name}
+                                    <Stack direction="row" justifyContent="space-between" alignItems="center" width="100%">
+                                        <Typography variant="body2">
+                                            {team.name}
+                                        </Typography>
+                                        {formData.start_time && formData.end_time && formData.day_of_week && team.__matchesSlot === false && (
+                                            <Typography variant="caption" color="text.secondary">
+                                                Không khớp ca
+                                            </Typography>
+                                        )}
+                                    </Stack>
                                 </MenuItem>
                             ))}
                         </Select>

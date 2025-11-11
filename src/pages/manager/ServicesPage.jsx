@@ -17,7 +17,7 @@ import * as areasApi from '../../api/areasApi';
 import petSpeciesApi from '../../api/petSpeciesApi';
 import petBreedsApi from '../../api/petBreedsApi';
 import petGroupsApi from '../../api/petGroupsApi';
-import { MOCK_TEAMS } from '../../api/teamApi';
+// Team list now fetched from official API via teamApi.getTeams()
 import { formatPrice } from '../../utils/formatPrice';
 
 const ServicesPage = () => {
@@ -399,7 +399,8 @@ const ServicesPage = () => {
 
     const loadTeams = async () => {
         try {
-            setTeams(MOCK_TEAMS || []);
+            // Replace mock fallback with empty list; loadTeams elsewhere should fetch real data
+            setTeams([]);
         } catch (error) {
             console.error('Error loading teams:', error);
         }
