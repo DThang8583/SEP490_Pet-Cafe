@@ -7,7 +7,7 @@ import Pagination from '../../components/common/Pagination';
 import AddStaffModal from '../../components/modals/AddStaffModal';
 import AlertModal from '../../components/modals/AlertModal';
 import { Edit, MoreVert, Visibility, VisibilityOff, People, Assignment } from '@mui/icons-material';
-import employeeApi from '../../api/employeeApi';
+import employeeApi, { updateEmployeeStatus } from '../../api/employeeApi';
 import AttendanceTab from './AttendanceTab';
 
 const formatSalary = (salary) => {
@@ -67,6 +67,17 @@ const StaffPage = () => {
     // Pagination state
     const [page, setPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
+    const [pagination, setPagination] = useState({
+        total_items_count: 0,
+        page_size: 999,
+        total_pages_count: 0,
+        page_index: 0,
+        has_next: false,
+        has_previous: false
+    });
+
+    // Store all staff for statistics (load all pages in background)
+    const [allStaffForStats, setAllStaffForStats] = useState([]);
 
     // Modal states
     const [addStaffModalOpen, setAddStaffModalOpen] = useState(false);
@@ -88,66 +99,43 @@ const StaffPage = () => {
     // Toggle status loading state
     const [togglingStatus, setTogglingStatus] = useState({});
 
-    // Load ALL staff data from API (excluding managers)
-    const loadAllStaff = async ({ showSpinner = false } = {}) => {
+    // Load staff data from API with pagination (excluding managers)
+    const loadStaff = async ({ showSpinner = false } = {}) => {
         try {
             if (showSpinner) {
                 setIsLoading(true);
             }
             setError('');
 
-            const aggregatedEmployees = [];
-            let pageIndex = 0;
-            let safetyCounter = 0;
+            const pageIndex = page - 1; // Convert to 0-based index
+            console.log(`[loadStaff] Loading page ${page} (page_index: ${pageIndex}), itemsPerPage: ${itemsPerPage}`);
 
-            while (safetyCounter < 20) { // guard against infinite loops
-                let response;
-                try {
-                    response = await employeeApi.getAllEmployees({
-                        page_index: pageIndex,
-                        page_size: 10
-                    });
-                } catch (_) {
-                    // If a page fails, break to avoid locking the UI
-                    break;
-                }
+            const response = await employeeApi.getAllEmployees({
+                page_index: pageIndex,
+                page_size: itemsPerPage
+            });
 
-                const pageData = response?.data || [];
-                aggregatedEmployees.push(...pageData);
-
-                const pagination = response?.pagination || {};
-                const hasNextRaw = pagination?.has_next;
-                const hasNext = typeof hasNextRaw === 'string'
-                    ? hasNextRaw.toLowerCase() === 'true'
-                    : Boolean(hasNextRaw);
-
-                if (!hasNext || pageData.length === 0) {
-                    break;
-                }
-
-                pageIndex = (pagination.page_index ?? pageIndex) + 1;
-                safetyCounter += 1;
-            }
-
-            // Deduplicate employees by ID (API pages can overlap)
-            const uniqueEmployees = Array.from(
-                new Map((aggregatedEmployees || []).map(emp => [emp.id, emp])).values()
-            );
+            const pageData = response?.data || [];
+            console.log(`[loadStaff] Received ${pageData.length} employees from API`);
+            console.log(`[loadStaff] API pagination:`, response?.pagination);
 
             // Filter out MANAGER role - Manager cannot manage other Managers
-            const nonManagerStaff = uniqueEmployees.filter(s => {
+            const nonManagerStaff = pageData.filter(s => {
                 const displayRole = getDisplayRole(s);
                 return displayRole !== 'MANAGER';
             });
 
-            // Sort by created_at descending so latest employees appear first
-            nonManagerStaff.sort((a, b) => {
-                const dateA = new Date(a.created_at || 0);
-                const dateB = new Date(b.created_at || 0);
-                return dateB - dateA;
-            });
+            console.log(`[loadStaff] After filtering MANAGER: ${nonManagerStaff.length} employees`);
 
             setAllStaff(nonManagerStaff);
+
+            // Update pagination from API response
+            if (response?.pagination) {
+                // We need to adjust total_items_count because we filter out MANAGERs
+                // But we can't know the exact count without loading all pages
+                // So we'll use the API pagination and adjust it in stats calculation
+                setPagination(response.pagination);
+            }
         } catch (e) {
             setError(e.message || 'Không thể tải danh sách nhân viên');
             setAlert({
@@ -163,10 +151,96 @@ const StaffPage = () => {
         }
     };
 
-    // Load on mount
+    // Load all staff for statistics (in background, without blocking UI)
+    const loadAllStaffForStats = async () => {
+        try {
+            const aggregatedEmployees = [];
+            const seenIds = new Set(); // Track seen employee IDs to avoid duplicates
+            let pageIndex = 0;
+            let safetyCounter = 0;
+            const largePageSize = 999; // Try to get all employees in one request (but API may limit to 10)
+
+            while (safetyCounter < 20) { // guard against infinite loops
+                let response;
+                try {
+                    response = await employeeApi.getAllEmployees({
+                        page_index: pageIndex,
+                        page_size: largePageSize // Use large page size (API may still limit to 10)
+                    });
+                } catch (_) {
+                    break;
+                }
+
+                const pageData = response?.data || [];
+                const pagination = response?.pagination || {};
+
+                console.log(`[loadAllStaffForStats] Page ${pageIndex}: Loaded ${pageData.length} employees, Total so far: ${aggregatedEmployees.length}, has_next: ${pagination?.has_next}`);
+
+                // Add only new employees (not seen before) to avoid duplicates
+                let newEmployeesCount = 0;
+                pageData.forEach(emp => {
+                    if (!seenIds.has(emp.id)) {
+                        seenIds.add(emp.id);
+                        aggregatedEmployees.push(emp);
+                        newEmployeesCount++;
+                    }
+                });
+
+                // Check pagination to see if there are more pages
+                const hasNextRaw = pagination?.has_next;
+                const hasNext = typeof hasNextRaw === 'string'
+                    ? hasNextRaw.toLowerCase() === 'true'
+                    : Boolean(hasNextRaw);
+
+                const totalItems = pagination?.total_items_count ?? 0;
+
+                // Stop conditions:
+                // 1. No more pages (has_next = false)
+                // 2. No data returned
+                // 3. We've collected all items (aggregatedEmployees.length >= totalItems)
+                // 4. We got no new employees and there's no next page (duplicate data)
+                if (!hasNext || pageData.length === 0 || (totalItems > 0 && aggregatedEmployees.length >= totalItems)) {
+                    console.log(`[loadAllStaffForStats] Stopping: has_next=${hasNext}, pageData.length=${pageData.length}, aggregated=${aggregatedEmployees.length}, total=${totalItems}`);
+                    break;
+                }
+
+                // If we got no new employees but has_next is true, continue (might be API pagination issue)
+                if (newEmployeesCount === 0 && pageData.length > 0 && !hasNext) {
+                    console.log(`[loadAllStaffForStats] Stopping: No new employees and no next page`);
+                    break;
+                }
+
+                // Move to next page
+                pageIndex = (pagination.page_index ?? pageIndex) + 1;
+                safetyCounter += 1;
+            }
+
+            console.log(`[loadAllStaffForStats] Final: Loaded ${aggregatedEmployees.length} total employees`);
+
+            // Filter out MANAGER role
+            const nonManagerStaff = aggregatedEmployees.filter(s => {
+                const displayRole = getDisplayRole(s);
+                return displayRole !== 'MANAGER';
+            });
+
+            console.log(`[loadAllStaffForStats] After filtering MANAGER: ${nonManagerStaff.length} employees`);
+
+            setAllStaffForStats(nonManagerStaff);
+        } catch (e) {
+            // Silently fail for stats - not critical
+            console.warn('Failed to load all staff for statistics:', e);
+        }
+    };
+
+    // Load on mount and when page/itemsPerPage changes
     useEffect(() => {
-        loadAllStaff({ showSpinner: true });
-    }, []); // Only load once on mount, not when page/itemsPerPage change
+        loadStaff({ showSpinner: true });
+    }, [page, itemsPerPage]);
+
+    // Load all staff for statistics in background
+    useEffect(() => {
+        loadAllStaffForStats();
+    }, []);
 
     const filtered = useMemo(() => {
         return allStaff.filter(s => {
@@ -178,7 +252,8 @@ const StaffPage = () => {
                 if (displayRole !== filterRole) return false;
             }
             if (filterStatus !== 'all') {
-                const isActive = s.account?.is_active;
+                // Use is_active from root level (as per API), fallback to account.is_active if not available
+                const isActive = s.is_active !== undefined ? s.is_active : s.account?.is_active;
                 if (filterStatus === 'active' && !isActive) return false;
                 if (filterStatus === 'inactive' && isActive) return false;
             }
@@ -187,32 +262,56 @@ const StaffPage = () => {
         });
     }, [allStaff, q, filterRole, filterStatus]);
 
-    // Statistics - exclude MANAGER from counts
+    // Statistics - use allStaffForStats if available, otherwise use current page data
     const stats = useMemo(() => {
+        const sourceData = allStaffForStats.length > 0 ? allStaffForStats : allStaff;
         return {
-            total: allStaff.length,
-            saleStaff: allStaff.filter(s => getDisplayRole(s) === 'SALE_STAFF').length,
-            workingStaff: allStaff.filter(s => getDisplayRole(s) === 'WORKING_STAFF').length,
-            active: allStaff.filter(s => s.account?.is_active === true).length,
-            inactive: allStaff.filter(s => s.account?.is_active === false).length
+            total: sourceData.length,
+            saleStaff: sourceData.filter(s => getDisplayRole(s) === 'SALE_STAFF').length,
+            workingStaff: sourceData.filter(s => getDisplayRole(s) === 'WORKING_STAFF').length,
+            // Use is_active from root level (as per API), fallback to account.is_active if not available
+            active: sourceData.filter(s => {
+                const isActive = s.is_active !== undefined ? s.is_active : s.account?.is_active;
+                return isActive === true;
+            }).length,
+            inactive: sourceData.filter(s => {
+                const isActive = s.is_active !== undefined ? s.is_active : s.account?.is_active;
+                return isActive === false;
+            }).length
         };
-    }, [allStaff]);
+    }, [allStaffForStats, allStaff]);
 
-    // Pagination calculations - use filtered results for display
-    const totalPages = Math.ceil(filtered.length / itemsPerPage);
-    const currentPageStaff = useMemo(() => {
-        const startIndex = (page - 1) * itemsPerPage;
-        return filtered.slice(startIndex, startIndex + itemsPerPage);
-    }, [page, itemsPerPage, filtered]);
-
-    // Reset to page 1 when filters change
-    useEffect(() => {
-        if (page > 1 && filtered.length > 0) {
-            const maxPage = Math.ceil(filtered.length / itemsPerPage);
-            if (page > maxPage) {
-                setPage(1);
-            }
+    // Pagination calculations - use API pagination but adjust for filtered data
+    // Since we filter MANAGERs client-side, we need to calculate total pages correctly
+    const totalPages = useMemo(() => {
+        // If we have stats from allStaffForStats (after filtering MANAGERs), use that for accurate pagination
+        if (allStaffForStats.length > 0) {
+            return Math.ceil(allStaffForStats.length / itemsPerPage);
         }
+        // Otherwise, use API pagination but adjust for MANAGERs
+        // API says total_items_count = 18, but we filter out MANAGERs
+        // We estimate: if there's 1 MANAGER, then non-manager count = 18 - 1 = 17
+        // But we can't know exact count without loading all pages, so we use API's total_pages_count
+        // and adjust based on the fact that we're filtering MANAGERs
+        if (pagination.total_pages_count > 0) {
+            // Use API's total_pages_count as base, but it might be slightly off due to MANAGER filtering
+            return pagination.total_pages_count;
+        }
+        // Fallback: estimate based on total_items_count
+        const estimatedNonManagerCount = Math.max(0, pagination.total_items_count - 1); // Assume 1 MANAGER
+        return Math.ceil(estimatedNonManagerCount / itemsPerPage) || 1;
+    }, [allStaffForStats, pagination, itemsPerPage]);
+
+    const currentPageStaff = useMemo(() => {
+        // Use filtered data from current page (already filtered for MANAGERs)
+        return filtered;
+    }, [filtered]);
+
+    // Reset to page 1 when filters change (but keep current page if data exists)
+    useEffect(() => {
+        // Only reset if we're on a page that would be empty
+        // Since we're using server-side pagination, we don't need to reset on filter changes
+        // The filter is applied client-side on the current page data
     }, [filtered.length, itemsPerPage, page]);
 
     // Parse API error response to extract field-specific errors
@@ -356,12 +455,14 @@ const StaffPage = () => {
                     skills: staffData.skills || [],
                     area_id: staffData.area_id || null,
                     avatar_url: staffData.avatar_url || selectedStaff.avatar_url || '',
-                    password: staffData.password || undefined
+                    password: staffData.password || undefined,
+                    is_active: staffData.is_active !== undefined ? Boolean(staffData.is_active) : true
                 });
 
                 if (response.success) {
-                    // Reload all staff data
-                    await loadAllStaff();
+                    // Reload current page and stats
+                    await loadStaff();
+                    await loadAllStaffForStats();
 
                     setAlert({
                         open: true,
@@ -392,8 +493,9 @@ const StaffPage = () => {
                 });
 
                 if (response.success) {
-                    // Reload all staff data
-                    await loadAllStaff();
+                    // Reload current page and stats
+                    await loadStaff();
+                    await loadAllStaffForStats();
 
                     setAlert({
                         open: true,
@@ -434,35 +536,26 @@ const StaffPage = () => {
     // Handle toggle employee status
     const handleToggleStatus = async (employee) => {
         const employeeId = employee.id;
-        const currentStatus = employee.account?.is_active;
+        // Use is_active from root level (as per API), fallback to account.is_active if not available
+        const currentStatus = employee.is_active !== undefined ? employee.is_active : employee.account?.is_active;
         const newStatus = !currentStatus;
 
         try {
             setTogglingStatus(prev => ({ ...prev, [employeeId]: true }));
 
-            // Get current employee data first
-            const currentEmployee = await employeeApi.getEmployeeById(employeeId);
+            // Try to use status-only update endpoint first (if available)
+            try {
+                await updateEmployeeStatus(employeeId, newStatus);
+            } catch (statusError) {
+                // If status-only endpoint doesn't exist, we need to use full update
+                // But this requires password, which we don't have
+                // Show error message to user
+                throw new Error('Không thể thay đổi trạng thái nhân viên. Vui lòng sử dụng chức năng chỉnh sửa để cập nhật trạng thái.');
+            }
 
-            // Update employee with new is_active status
-            // API requires password field, so we need to include it even if we're only updating status
-            // Since we don't have the actual password, we'll send an empty string or use a placeholder
-            // The API should handle this appropriately (either ignore it or require actual password)
-            await employeeApi.updateEmployee(employeeId, {
-                full_name: currentEmployee.full_name,
-                phone: currentEmployee.phone,
-                address: currentEmployee.address || '',
-                salary: currentEmployee.salary,
-                skills: currentEmployee.skills || [],
-                area_id: currentEmployee.area_id || null,
-                email: currentEmployee.email,
-                avatar_url: currentEmployee.avatar_url || '',
-                sub_role: currentEmployee.sub_role,
-                password: '', // Send empty string as placeholder since API requires this field
-                is_active: newStatus
-            });
-
-            // Reload all staff data to ensure consistency
-            await loadAllStaff();
+            // Reload current page and stats to ensure consistency
+            await loadStaff();
+            await loadAllStaffForStats();
 
             setAlert({
                 open: true,
@@ -478,8 +571,9 @@ const StaffPage = () => {
                 type: 'error'
             });
 
-            // Reload all staff data to revert any changes
-            await loadAllStaff();
+            // Reload current page and stats to revert any changes
+            await loadStaff();
+            await loadAllStaffForStats();
         } finally {
             setTogglingStatus(prev => {
                 const newState = { ...prev };
@@ -607,7 +701,7 @@ const StaffPage = () => {
                                 placeholder="Tìm theo tên, email, số điện thoại..."
                                 value={q}
                                 onChange={(e) => setQ(e.target.value)}
-                                sx={{ minWidth: { xs: '100%', sm: 280 } }}
+                                sx={{ minWidth: { xs: '100%', sm: 1120 }, flexGrow: { xs: 1, sm: 0 } }}
                             />
                             <FormControl size="small" sx={{ minWidth: 180 }}>
                                 <InputLabel>Vai trò</InputLabel>
@@ -678,7 +772,9 @@ const StaffPage = () => {
                                     {currentPageStaff.map((s) => {
                                         const displayRole = getDisplayRole(s);
                                         const rColor = roleColor(displayRole);
-                                        const st = statusColor(s.account?.is_active);
+                                        // Use is_active from root level (as per API), fallback to account.is_active if not available
+                                        const isActive = s.is_active !== undefined ? s.is_active : s.account?.is_active;
+                                        const st = statusColor(isActive);
                                         return (
                                             <TableRow key={s.id} hover>
                                                 <TableCell>
@@ -737,7 +833,7 @@ const StaffPage = () => {
                                                 <TableCell>
                                                     <Stack direction="row" alignItems="center" spacing={1.5}>
                                                         <Switch
-                                                            checked={s.account?.is_active === true}
+                                                            checked={(s.is_active !== undefined ? s.is_active : s.account?.is_active) === true}
                                                             onChange={() => handleToggleStatus(s)}
                                                             disabled={togglingStatus[s.id]}
                                                             size="small"
@@ -780,7 +876,7 @@ const StaffPage = () => {
                         </TableContainer>
 
                         {/* Pagination */}
-                        {filtered.length > 0 && (
+                        {(currentPageStaff.length > 0 || page === 1) && (
                             <Pagination
                                 page={page}
                                 totalPages={totalPages}
@@ -790,7 +886,11 @@ const StaffPage = () => {
                                     setItemsPerPage(newValue);
                                     setPage(1);
                                 }}
-                                totalItems={filtered.length}
+                                totalItems={
+                                    allStaffForStats.length > 0
+                                        ? allStaffForStats.length
+                                        : Math.max(0, pagination.total_items_count - 1) // Estimate: subtract 1 for MANAGER
+                                }
                             />
                         )}
 

@@ -497,8 +497,19 @@ const TasksPage = () => {
         }
     };
 
-    const handleDeleteSlot = (slot) => {
-        setDeleteTarget({ type: 'slot', data: slot });
+    const handleDeleteSlot = (slotOrId) => {
+        // Handle both cases: slot object or slot ID
+        const slotId = typeof slotOrId === 'string' ? slotOrId : slotOrId?.id;
+        if (!slotId) {
+            setAlert({
+                open: true,
+                title: 'Lỗi',
+                message: 'Không tìm thấy ID của slot cần xóa',
+                type: 'error'
+            });
+            return;
+        }
+        setDeleteTarget({ type: 'slot', data: { id: slotId } });
         setConfirmDeleteOpen(true);
     };
 

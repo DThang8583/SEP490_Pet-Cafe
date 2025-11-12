@@ -101,14 +101,49 @@ const getWorkShiftById = async (id) => {
  */
 export const getTeams = async (params = {}) => {
     try {
-        const { page_index = 0, page_size = 10 } = params;
+        const {
+            page_index = 0,
+            page_size = 10,
+            page = undefined,
+            limit = undefined,
+            is_active = undefined,
+            working_day = undefined,
+            start_working_time = undefined,
+            end_working_time = undefined,
+            work_type_id = undefined
+        } = params;
+
+        // Convert page_index to page (0-based) if page is not provided
+        const actualPage = page !== undefined ? page : page_index;
+        const actualLimit = limit !== undefined ? limit : page_size;
+
+        const requestParams = {
+            page: actualPage,
+            limit: actualLimit,
+            _t: Date.now()
+        };
+
+        // Add optional filters
+        if (is_active !== undefined) {
+            requestParams.is_active = is_active;
+        }
+        if (working_day !== undefined) {
+            requestParams.working_day = working_day;
+        }
+        if (start_working_time !== undefined) {
+            requestParams.start_working_time = start_working_time;
+        }
+        if (end_working_time !== undefined) {
+            requestParams.end_working_time = end_working_time;
+        }
+        if (work_type_id !== undefined) {
+            requestParams.work_type_id = work_type_id;
+        }
 
         const response = await apiClient.get('/teams', {
-            params: {
-                page_index,
-                page_size
-            },
-            timeout: 10000
+            params: requestParams,
+            timeout: 10000,
+            headers: { 'Cache-Control': 'no-cache' }
         });
 
         // API returns data directly with pagination
@@ -117,9 +152,9 @@ export const getTeams = async (params = {}) => {
             data: response.data?.data || [],
             pagination: response.data?.pagination || {
                 total_items_count: 0,
-                page_size: page_size,
+                page_size: actualLimit,
                 total_pages_count: 0,
-                page_index: page_index,
+                page_index: actualPage,
                 has_next: false,
                 has_previous: false
             }
@@ -224,6 +259,7 @@ export const getTeamWorkTypes = async (teamId) => {
 /**
  * Get work shifts of a team
  * Official API: GET /api/teams/{id}/work-shifts
+ * Parameters: id, page, limit
  * Response: { data: [...], pagination: {...} }
  */
 export const getTeamWorkShifts = async (teamId, params = {}) => {
@@ -232,28 +268,46 @@ export const getTeamWorkShifts = async (teamId, params = {}) => {
             throw new Error('ID nhóm là bắt buộc');
         }
 
-        const { page_index = 0, page_size = 10 } = params;
+        const {
+            page_index = 0,
+            page_size = 10,
+            page = undefined,
+            limit = undefined,
+            id = undefined
+        } = params;
+
+        // Convert page_index to page (0-based) if page is not provided
+        const actualPage = page !== undefined ? page : page_index;
+        const actualLimit = limit !== undefined ? limit : page_size;
+
+        const requestParams = {
+            page: actualPage,
+            limit: actualLimit
+        };
+
+        // Add optional id parameter if provided
+        if (id !== undefined) {
+            requestParams.id = id;
+        }
 
         const response = await apiClient.get(`/teams/${teamId}/work-shifts`, {
-            params: {
-                page_index,
-                page_size
-            },
-            timeout: 10000
+            params: requestParams,
+            timeout: 10000,
+            headers: { 'Cache-Control': 'no-cache' }
         });
 
-        // Extract work_shift objects from team_work_shifts
+        // Return full team_work_shifts data including working_days
+        // API response structure: { team_id, work_shift_id, working_days, work_shift, ... }
         const teamWorkShifts = response.data?.data || [];
-        const shifts = teamWorkShifts.map(tws => tws.work_shift).filter(ws => ws !== null && ws !== undefined);
 
         return {
             success: true,
-            data: shifts,
+            data: teamWorkShifts, // Return full team_work_shift objects with working_days
             pagination: response.data?.pagination || {
-                total_items_count: shifts.length,
-                page_size: page_size,
+                total_items_count: teamWorkShifts.length,
+                page_size: actualLimit,
                 total_pages_count: 1,
-                page_index: page_index,
+                page_index: actualPage,
                 has_next: false,
                 has_previous: false
             }
@@ -282,6 +336,7 @@ export const getTeamWorkShifts = async (teamId, params = {}) => {
 /**
  * Get slots of a team
  * Official API: GET /api/teams/{id}/slots
+ * Parameters: id, day_of_week, start_time, end_time, is_recurring, specific_date, page, limit
  * Response: { data: [...], pagination: {...} }
  */
 export const getTeamSlots = async (teamId, params = {}) => {
@@ -290,14 +345,52 @@ export const getTeamSlots = async (teamId, params = {}) => {
             throw new Error('ID nhóm là bắt buộc');
         }
 
-        const { page_index = 0, page_size = 10 } = params;
+        const {
+            page_index = 0,
+            page_size = 10,
+            page = undefined,
+            limit = undefined,
+            id = undefined,
+            day_of_week = undefined,
+            start_time = undefined,
+            end_time = undefined,
+            is_recurring = undefined,
+            specific_date = undefined
+        } = params;
+
+        // Convert page_index to page (0-based) if page is not provided
+        const actualPage = page !== undefined ? page : page_index;
+        const actualLimit = limit !== undefined ? limit : page_size;
+
+        const requestParams = {
+            page: actualPage,
+            limit: actualLimit
+        };
+
+        // Add optional filter parameters
+        if (id !== undefined) {
+            requestParams.id = id;
+        }
+        if (day_of_week !== undefined) {
+            requestParams.day_of_week = day_of_week;
+        }
+        if (start_time !== undefined) {
+            requestParams.start_time = start_time;
+        }
+        if (end_time !== undefined) {
+            requestParams.end_time = end_time;
+        }
+        if (is_recurring !== undefined) {
+            requestParams.is_recurring = is_recurring;
+        }
+        if (specific_date !== undefined) {
+            requestParams.specific_date = specific_date;
+        }
 
         const response = await apiClient.get(`/teams/${teamId}/slots`, {
-            params: {
-                page_index,
-                page_size
-            },
-            timeout: 10000
+            params: requestParams,
+            timeout: 10000,
+            headers: { 'Cache-Control': 'no-cache' }
         });
 
         return {
@@ -305,9 +398,9 @@ export const getTeamSlots = async (teamId, params = {}) => {
             data: response.data?.data || [],
             pagination: response.data?.pagination || {
                 total_items_count: 0,
-                page_size: page_size,
+                page_size: actualLimit,
                 total_pages_count: 0,
-                page_index: page_index,
+                page_index: actualPage,
                 has_next: false,
                 has_previous: false
             }

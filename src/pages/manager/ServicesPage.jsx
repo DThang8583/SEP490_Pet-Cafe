@@ -1,13 +1,14 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Box, Typography, Button, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, IconButton, TextField, Stack, Toolbar, Grid, FormControl, InputLabel, Select, MenuItem, Switch, Tooltip, Tabs, Tab, Menu, ListItemIcon, ListItemText, Avatar, OutlinedInput } from '@mui/material';
 import { alpha } from '@mui/material/styles';
-import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, Refresh as RefreshIcon, Schedule as ScheduleIcon, Check as CheckIcon, Close as CloseIcon, MiscellaneousServices as ServicesIcon, MoreVert as MoreVertIcon } from '@mui/icons-material';
+import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, Refresh as RefreshIcon, Schedule as ScheduleIcon, Check as CheckIcon, Close as CloseIcon, MiscellaneousServices as ServicesIcon, MoreVert as MoreVertIcon, Visibility as VisibilityIcon } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 import Loading from '../../components/loading/Loading';
 import Pagination from '../../components/common/Pagination';
 import ConfirmModal from '../../components/modals/ConfirmModal';
 import AlertModal from '../../components/modals/AlertModal';
 import ServiceFormModal from '../../components/modals/ServiceFormModal';
+import ServiceDetailModal from '../../components/modals/ServiceDetailModal';
 import SlotDetailsModal from '../../components/modals/SlotDetailsModal';
 import SlotFormModal from '../../components/modals/SlotFormModal';
 import taskTemplateApi from '../../api/taskTemplateApi';
@@ -55,9 +56,12 @@ const ServicesPage = () => {
     // Pagination
     const [page, setPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
+    const [totalPages, setTotalPages] = useState(1);
+    const [totalItems, setTotalItems] = useState(0);
 
     // Modals
     const [serviceFormOpen, setServiceFormOpen] = useState(false);
+    const [serviceDetailOpen, setServiceDetailOpen] = useState(false);
     const [slotDetailsOpen, setSlotDetailsOpen] = useState(false);
     const [slotFormOpen, setSlotFormOpen] = useState(false);
     const [slotFormMode, setSlotFormMode] = useState('create');
@@ -126,85 +130,47 @@ const ServicesPage = () => {
         });
     }, [availableTasks, searchQuery]);
 
-    // Filter services
+    // Filter services - only apply client-side filtering for search query
+    // Other filters are already applied server-side via API
     const filteredServices = useMemo(() => {
+        if (!searchQuery || searchQuery.trim().length === 0) {
+            // No search query, return services as-is (already filtered by API)
+            return services;
+        }
+
+        // Only filter by search query (client-side)
+        const searchLower = searchQuery.toLowerCase();
         return services.filter(service => {
-            // Search filter
-            if (searchQuery) {
-                const searchLower = searchQuery.toLowerCase();
-                const matchSearch = service.name.toLowerCase().includes(searchLower) ||
-                    service.description.toLowerCase().includes(searchLower);
-                if (!matchSearch) return false;
-            }
-
-            // Status filter
-            if (filterServiceStatus === 'active') {
-                return service.is_active === true;
-            } else if (filterServiceStatus === 'inactive') {
-                return service.is_active === false;
-            }
-
-            // Task filter (client-side safeguard)
-            if (filterTaskId !== 'all' && service.task_id !== filterTaskId) {
-                return false;
-            }
-
-            // Price range filter (client-side safeguard)
-            if (filterMinPrice !== '' && Number(service.base_price) < filterMinPrice) {
-                return false;
-            }
-            if (filterMaxPrice !== '' && Number(service.base_price) > filterMaxPrice) {
-                return false;
-            }
-
-            // Slot-related client-side filters (time/species/breed/area)
-            const needSlotFilters =
-                (filterStartTime && filterStartTime.length > 0) ||
-                (filterEndTime && filterEndTime.length > 0) ||
-                (filterSpeciesIds && filterSpeciesIds.length > 0) ||
-                (filterBreedIds && filterBreedIds.length > 0) ||
-                (filterAreaIds && filterAreaIds.length > 0);
-
-            if (needSlotFilters) {
-                const norm = (t) => (t && t.length === 5 ? `${t}:00` : t);
-                const startT = norm(filterStartTime);
-                const endT = norm(filterEndTime);
-
-                const slots = service.slots || [];
-                if (slots.length === 0) return false;
-
-                const slotOk = slots.some(slot => {
-                    if (startT && slot.start_time < startT) return false;
-                    if (endT && slot.end_time > endT) return false;
-                    if (filterAreaIds && filterAreaIds.length && !filterAreaIds.includes(slot.area_id)) return false;
-                    if (filterSpeciesIds && filterSpeciesIds.length) {
-                        const speciesId = slot.pet_group?.pet_species_id || slot.pet_group?.pet_species?.id;
-                        if (!speciesId || !filterSpeciesIds.includes(speciesId)) return false;
-                    }
-                    if (filterBreedIds && filterBreedIds.length) {
-                        const breedId = slot.pet_group?.pet_breed_id || slot.pet_group?.pet_breed?.id;
-                        if (!breedId || !filterBreedIds.includes(breedId)) return false;
-                    }
-                    return true;
-                });
-
-                if (!slotOk) return false;
-            }
-
-            return true;
+            const matchSearch = service.name.toLowerCase().includes(searchLower) ||
+                service.description.toLowerCase().includes(searchLower);
+            return matchSearch;
         });
-    }, [services, searchQuery, filterServiceStatus, filterTaskId, filterMinPrice, filterMaxPrice, filterStartTime, filterEndTime, filterSpeciesIds, filterBreedIds, filterAreaIds]);
+    }, [services, searchQuery]);
 
-    // Pagination
+    // Pagination - for Services tab, use filteredServices with client-side pagination for search; for Available Tasks tab, use client-side pagination
     const currentPageItems = useMemo(() => {
-        const items = currentTab === 0 ? filteredServices : filteredAvailableTasks;
-        const startIndex = (page - 1) * itemsPerPage;
-        return items.slice(startIndex, startIndex + itemsPerPage);
+        if (currentTab === 0) {
+            // Services tab: use filteredServices and apply client-side pagination
+            // Note: API filters are applied in loadServices, but search query needs client-side filtering
+            const items = filteredServices;
+            const startIndex = (page - 1) * itemsPerPage;
+            return items.slice(startIndex, startIndex + itemsPerPage);
+        } else {
+            // Available Tasks tab: use client-side pagination
+            const items = filteredAvailableTasks;
+            const startIndex = (page - 1) * itemsPerPage;
+            return items.slice(startIndex, startIndex + itemsPerPage);
+        }
     }, [currentTab, filteredAvailableTasks, filteredServices, page, itemsPerPage]);
 
-    const totalPages = useMemo(() => {
-        const items = currentTab === 0 ? filteredServices : filteredAvailableTasks;
-        return Math.ceil(items.length / itemsPerPage);
+    const totalPagesForDisplay = useMemo(() => {
+        if (currentTab === 0) {
+            // Services tab: calculate from filteredServices
+            return Math.ceil(filteredServices.length / itemsPerPage);
+        } else {
+            // Available Tasks tab: use client-side pagination
+            return Math.ceil(filteredAvailableTasks.length / itemsPerPage);
+        }
     }, [currentTab, filteredAvailableTasks, filteredServices, itemsPerPage]);
 
     // Load all data
@@ -246,33 +212,54 @@ const ServicesPage = () => {
 
     const loadServices = async () => {
         try {
+            // If there's a search query, load all data (no pagination) for client-side filtering
+            // Otherwise, use server-side pagination
+            const shouldLoadAll = searchQuery && searchQuery.trim().length > 0;
+
             const response = await serviceApi.getAllServices({
-                search: searchQuery,
-                is_active: filterServiceStatus === 'active' ? true : filterServiceStatus === 'inactive' ? false : null,
-                task_id: filterTaskId !== 'all' ? filterTaskId : null,
-                start_time: filterStartTime || null,
-                end_time: filterEndTime || null,
-                pet_species_ids: filterSpeciesIds,
-                pet_breed_ids: filterBreedIds,
-                area_ids: filterAreaIds,
-                min_price: filterMinPrice === '' ? null : filterMinPrice,
-                max_price: filterMaxPrice === '' ? null : filterMaxPrice
+                task_id: filterTaskId !== 'all' ? filterTaskId : undefined,
+                start_time: filterStartTime || undefined,
+                end_time: filterEndTime || undefined,
+                pet_species_ids: filterSpeciesIds.length > 0 ? filterSpeciesIds : undefined,
+                pet_breed_ids: filterBreedIds.length > 0 ? filterBreedIds : undefined,
+                area_ids: filterAreaIds.length > 0 ? filterAreaIds : undefined,
+                min_price: filterMinPrice === '' ? undefined : Number(filterMinPrice),
+                max_price: filterMaxPrice === '' ? undefined : Number(filterMaxPrice),
+                is_active: filterServiceStatus === 'active' ? true : filterServiceStatus === 'inactive' ? false : undefined,
+                page: shouldLoadAll ? 0 : page - 1, // Convert to 0-based
+                limit: shouldLoadAll ? 9999 : itemsPerPage // Load all if searching
             });
             setServices(response.data || []);
+            // Update pagination from API response
+            if (response.pagination && !shouldLoadAll) {
+                setTotalPages(response.pagination.total_pages_count || 1);
+                setTotalItems(response.pagination.total_items_count || 0);
+            } else {
+                // When loading all for search, pagination will be calculated from filteredServices
+                setTotalPages(1);
+                setTotalItems(response.data?.length || 0);
+            }
         } catch (error) {
             console.error('Error loading services:', error);
             setServices([]);
+            setTotalPages(1);
+            setTotalItems(0);
         }
     };
 
-    // Auto-refresh services when filters change (debounced)
+    // Auto-refresh services when filters or pagination change (debounced)
     useEffect(() => {
-        const id = setTimeout(() => {
-            loadServices();
-        }, 250);
-        return () => clearTimeout(id);
+        if (currentTab === 0) {
+            const id = setTimeout(() => {
+                loadServices();
+            }, 250);
+            return () => clearTimeout(id);
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [
+        currentTab,
+        page,
+        itemsPerPage,
         searchQuery,
         filterServiceStatus,
         filterTaskId,
@@ -740,12 +727,18 @@ const ServicesPage = () => {
                     {/* Toolbar */}
                     <Paper sx={{ mb: 2 }}>
                         <Toolbar sx={{ py: 2, flexDirection: 'column', gap: 1 }}>
-                            {/* Row 1 - fixed layout (no responsive) */}
+                            {/* Row 1 - Search and main filters */}
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%' }}>
-                                <Box sx={{ flex: '0 0 1040px' }}>
-                                    <TextField placeholder="Tìm dịch vụ..." value={searchQuery} onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }} size="small" fullWidth />
-                                </Box>
-                                <Box sx={{ flex: '0 0 24px' }} />
+                                <TextField
+                                    placeholder="Tìm dịch vụ..."
+                                    value={searchQuery}
+                                    onChange={(e) => {
+                                        setSearchQuery(e.target.value);
+                                        setPage(1);
+                                    }}
+                                    size="small"
+                                    sx={{ flex: 1, minWidth: 300 }}
+                                />
                                 <FormControl size="small" sx={{ width: 200 }}>
                                     <InputLabel>Trạng thái</InputLabel>
                                     <Select value={filterServiceStatus} onChange={(e) => { setFilterServiceStatus(e.target.value); setPage(1); loadServices(); }} label="Trạng thái">
@@ -754,7 +747,7 @@ const ServicesPage = () => {
                                         <MenuItem value="inactive">Không hoạt động</MenuItem>
                                     </Select>
                                 </FormControl>
-                                <FormControl size="small" sx={{ width: 240, ml: 1 }}>
+                                <FormControl size="small" sx={{ width: 240 }}>
                                     <InputLabel>Nhiệm vụ</InputLabel>
                                     <Select value={filterTaskId} onChange={(e) => { setFilterTaskId(e.target.value); setPage(1); loadServices(); }} label="Nhiệm vụ">
                                         <MenuItem value="all">Tất cả</MenuItem>
@@ -763,13 +756,13 @@ const ServicesPage = () => {
                                 </FormControl>
                             </Box>
 
-                            {/* Row 2 - fixed layout (no responsive) */}
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%', flexWrap: 'nowrap' }}>
-                                <TextField label="Giá từ" size="small" value={filterMinPriceText} onChange={handleMinPriceInputChange} onBlur={handleMinPriceBlur} onFocus={handleMinPriceFocus} inputMode="numeric" InputLabelProps={{ shrink: true }} sx={{ width: 200 }} />
-                                <TextField label="đến" size="small" value={filterMaxPriceText} onChange={handleMaxPriceInputChange} onBlur={handleMaxPriceBlur} onFocus={handleMaxPriceFocus} inputMode="numeric" InputLabelProps={{ shrink: true }} sx={{ width: 200 }} />
-                                <TextField label="Giờ bắt đầu" type="time" size="small" value={filterStartTime} onChange={(e) => { setFilterStartTime(e.target.value); loadServices(); }} InputLabelProps={{ shrink: true }} sx={{ width: 200 }} />
-                                <TextField label="Giờ kết thúc" type="time" size="small" value={filterEndTime} onChange={(e) => { setFilterEndTime(e.target.value); loadServices(); }} InputLabelProps={{ shrink: true }} sx={{ width: 200 }} />
-                                <FormControl size="small" sx={{ width: 240 }}>
+                            {/* Row 2 - Additional filters */}
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%', flexWrap: 'wrap' }}>
+                                <TextField label="Giá từ" size="small" value={filterMinPriceText} onChange={handleMinPriceInputChange} onBlur={handleMinPriceBlur} onFocus={handleMinPriceFocus} inputMode="numeric" InputLabelProps={{ shrink: true }} sx={{ width: 180 }} />
+                                <TextField label="đến" size="small" value={filterMaxPriceText} onChange={handleMaxPriceInputChange} onBlur={handleMaxPriceBlur} onFocus={handleMaxPriceFocus} inputMode="numeric" InputLabelProps={{ shrink: true }} sx={{ width: 180 }} />
+                                <TextField label="Giờ bắt đầu" type="time" size="small" value={filterStartTime} onChange={(e) => { setFilterStartTime(e.target.value); loadServices(); }} InputLabelProps={{ shrink: true }} sx={{ width: 180 }} />
+                                <TextField label="Giờ kết thúc" type="time" size="small" value={filterEndTime} onChange={(e) => { setFilterEndTime(e.target.value); loadServices(); }} InputLabelProps={{ shrink: true }} sx={{ width: 180 }} />
+                                <FormControl size="small" sx={{ width: 220 }}>
                                     <InputLabel shrink>Loài</InputLabel>
                                     <Select multiple displayEmpty value={filterSpeciesIds} onChange={(e) => { const val = (e.target.value || []).filter(v => v !== '__ALL__'); setFilterSpeciesIds(val); loadServices(); }} input={<OutlinedInput label="Loài" />} renderValue={(selected) => {
                                         const arr = Array.isArray(selected) ? selected : [];
@@ -780,7 +773,7 @@ const ServicesPage = () => {
                                         {petSpecies.map(sp => (<MenuItem key={sp.id} value={sp.id}>{sp.name}</MenuItem>))}
                                     </Select>
                                 </FormControl>
-                                <FormControl size="small" sx={{ width: 240 }}>
+                                <FormControl size="small" sx={{ width: 220 }}>
                                     <InputLabel shrink>Giống</InputLabel>
                                     <Select multiple displayEmpty value={filterBreedIds} onChange={(e) => { const val = (e.target.value || []).filter(v => v !== '__ALL__'); setFilterBreedIds(val); loadServices(); }} input={<OutlinedInput label="Giống" />} renderValue={(selected) => {
                                         const arr = Array.isArray(selected) ? selected : [];
@@ -791,7 +784,7 @@ const ServicesPage = () => {
                                         {petBreeds.map(br => (<MenuItem key={br.id} value={br.id}>{br.name}</MenuItem>))}
                                     </Select>
                                 </FormControl>
-                                <FormControl size="small" sx={{ width: 240 }}>
+                                <FormControl size="small" sx={{ width: 220 }}>
                                     <InputLabel shrink>Khu vực</InputLabel>
                                     <Select multiple displayEmpty value={filterAreaIds} onChange={(e) => { const val = (e.target.value || []).filter(v => v !== '__ALL__'); setFilterAreaIds(val); loadServices(); }} input={<OutlinedInput label="Khu vực" />} renderValue={(selected) => {
                                         const arr = Array.isArray(selected) ? selected : [];
@@ -802,8 +795,6 @@ const ServicesPage = () => {
                                         {areas.map(a => (<MenuItem key={a.id} value={a.id}>{a.name}</MenuItem>))}
                                     </Select>
                                 </FormControl>
-                                <Box sx={{ flex: 1 }} />
-                                <Button variant="text" size="small" onClick={() => { setFilterTaskId('all'); setFilterStartTime(''); setFilterEndTime(''); setFilterSpeciesIds([]); setFilterBreedIds([]); setFilterAreaIds([]); setFilterMinPrice(''); setFilterMaxPrice(''); setFilterMinPriceText(''); setFilterMaxPriceText(''); setFilterServiceStatus('all'); setSearchQuery(''); setPage(1); loadServices(); }}>Xóa bộ lọc</Button>
                             </Box>
                         </Toolbar>
                     </Paper>
@@ -813,22 +804,21 @@ const ServicesPage = () => {
                         <Table>
                             <TableHead sx={{ bgcolor: alpha(COLORS.GRAY[100], 0.5) }}>
                                 <TableRow>
-                                    <TableCell width="4%">STT</TableCell>
-                                    <TableCell width="6%">Ảnh</TableCell>
-                                    <TableCell width="9%">Loại</TableCell>
-                                    <TableCell width="16%">Tên Dịch vụ</TableCell>
-                                    <TableCell width="23%">Mô tả</TableCell>
-                                    <TableCell width="8%" align="center">Thời gian</TableCell>
-                                    <TableCell width="9%" align="right">Giá</TableCell>
-                                    <TableCell width="8%" align="center">Ca</TableCell>
-                                    <TableCell width="10%" align="center">Trạng thái</TableCell>
-                                    <TableCell width="7%" align="center">Thao tác</TableCell>
+                                    <TableCell width="5%">STT</TableCell>
+                                    <TableCell width="7%">Ảnh</TableCell>
+                                    <TableCell width="10%">Loại</TableCell>
+                                    <TableCell width="20%">Tên Dịch vụ</TableCell>
+                                    <TableCell width="9%" align="center">Thời gian</TableCell>
+                                    <TableCell width="10%" align="right">Giá</TableCell>
+                                    <TableCell width="9%" align="center">Ca</TableCell>
+                                    <TableCell width="12%" align="center">Trạng thái</TableCell>
+                                    <TableCell width="8%" align="center">Thao tác</TableCell>
                                 </TableRow>
                             </TableHead>
                             <TableBody>
                                 {currentPageItems.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={10} align="center" sx={{ py: 4 }}>
+                                        <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
                                             <Typography color="text.secondary">
                                                 Không có dịch vụ nào
                                             </Typography>
@@ -884,16 +874,6 @@ const ServicesPage = () => {
                                                             Nhiệm vụ: {task.title || task.name}
                                                         </Typography>
                                                     )}
-                                                </TableCell>
-
-                                                {/* Mô tả */}
-                                                <TableCell>
-                                                    <Typography variant="body2" color="text.secondary" noWrap>
-                                                        {service.description.length > 80
-                                                            ? `${service.description.substring(0, 80)}...`
-                                                            : service.description
-                                                        }
-                                                    </Typography>
                                                 </TableCell>
 
                                                 {/* Thời gian */}
@@ -1008,14 +988,26 @@ const ServicesPage = () => {
                     <Box sx={{ mt: 2 }}>
                         <Pagination
                             page={page}
-                            totalPages={totalPages}
-                            onPageChange={setPage}
+                            totalPages={totalPagesForDisplay}
+                            onPageChange={(newPage) => {
+                                setPage(newPage);
+                                // Don't reload if we're using client-side pagination (when search is active)
+                                if (currentTab === 0 && (!searchQuery || searchQuery.trim().length === 0)) {
+                                    // Only reload if not searching (server-side pagination)
+                                    loadServices();
+                                }
+                            }}
                             itemsPerPage={itemsPerPage}
                             onItemsPerPageChange={(value) => {
                                 setItemsPerPage(value);
                                 setPage(1);
+                                // Don't reload if we're using client-side pagination (when search is active)
+                                if (currentTab === 0 && (!searchQuery || searchQuery.trim().length === 0)) {
+                                    // Only reload if not searching (server-side pagination)
+                                    loadServices();
+                                }
                             }}
-                            totalItems={filteredServices.length}
+                            totalItems={currentTab === 0 ? filteredServices.length : filteredAvailableTasks.length}
                         />
                     </Box>
                 </>
@@ -1175,6 +1167,15 @@ const ServicesPage = () => {
                 mode={editingService ? 'edit' : 'create'}
             />
 
+            <ServiceDetailModal
+                open={serviceDetailOpen}
+                onClose={() => {
+                    setServiceDetailOpen(false);
+                    setSelectedService(null);
+                }}
+                service={selectedService}
+            />
+
             <SlotDetailsModal
                 open={slotDetailsOpen}
                 onClose={() => setSlotDetailsOpen(false)}
@@ -1263,6 +1264,21 @@ const ServicesPage = () => {
                     horizontal: 'right',
                 }}
             >
+                <MenuItem
+                    onClick={() => {
+                        if (menuService) {
+                            setSelectedService(menuService);
+                            setServiceDetailOpen(true);
+                        }
+                        setServiceMenuAnchor(null);
+                        setMenuService(null);
+                    }}
+                >
+                    <ListItemIcon>
+                        <VisibilityIcon fontSize="small" sx={{ color: COLORS.INFO[600] }} />
+                    </ListItemIcon>
+                    <ListItemText>Xem chi tiết</ListItemText>
+                </MenuItem>
                 <MenuItem
                     onClick={() => {
                         if (menuService) {

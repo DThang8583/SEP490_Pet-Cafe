@@ -18,55 +18,87 @@ const createPagination = (totalItems, pageSize, pageIndex) => ({
 
 /**
  * Get all employees from official API
- * @param {Object} params - { page_index, page_size }
+ * @param {Object} params - { page_index, page_size, page (optional alias for page_index) }
  * @returns {Promise<Object>} { data, pagination }
  */
 export const getAllEmployees = async (params = {}) => {
     const {
         page_index = 0,
-        page_size = 10
+        page_size = 999,
+        page = undefined // Optional: support 'page' as alias for page_index (1-based)
     } = params;
 
+    // Use page_index if provided, otherwise use page (convert from 1-based to 0-based)
+    const actualPageIndex = page_index !== undefined && page_index !== null
+        ? page_index
+        : (page !== undefined && page !== null ? page - 1 : 0);
+
     try {
+        // API uses 'page' (0-based) and 'limit' according to Swagger documentation
+        const params = {
+            page: actualPageIndex, // API uses 'page' (0-based), not 'page_index'
+            limit: page_size, // API uses 'limit' instead of 'page_size'
+            _t: Date.now()
+        };
+
+        console.log(`[getAllEmployees] Request params:`, params);
+
         const response = await apiClient.get('/employees', {
-            params: {
-                page_index,
-                page_size,
-                _t: Date.now()
-            },
+            params,
             timeout: 10000,
             headers: { 'Cache-Control': 'no-cache' }
         });
 
         const responseData = response.data;
+        console.log(responseData);
+        // Check if response has the expected structure: { data: [...], pagination: {...} }
         if (responseData?.data && Array.isArray(responseData.data)) {
+            // Use pagination from API response if available, otherwise create one
+            const apiPagination = responseData.pagination;
+            if (apiPagination && typeof apiPagination === 'object') {
+                return {
+                    data: responseData.data,
+                    pagination: {
+                        total_items_count: apiPagination.total_items_count ?? responseData.data.length,
+                        page_size: apiPagination.page_size ?? page_size,
+                        total_pages_count: apiPagination.total_pages_count ?? Math.ceil((apiPagination.total_items_count ?? responseData.data.length) / page_size),
+                        page_index: apiPagination.page_index ?? actualPageIndex,
+                        has_next: apiPagination.has_next ?? false,
+                        has_previous: apiPagination.has_previous ?? (actualPageIndex > 0)
+                    }
+                };
+            }
+
+            // Fallback: create pagination from data length
             return {
                 data: responseData.data,
-                pagination: responseData.pagination || createPagination(
+                pagination: createPagination(
                     responseData.data.length,
                     page_size,
-                    page_index
+                    actualPageIndex
                 )
             };
         }
 
+        // Fallback: if response is directly an array
         if (Array.isArray(responseData)) {
             return {
                 data: responseData,
-                pagination: createPagination(responseData.length, page_size, page_index)
+                pagination: createPagination(responseData.length, page_size, actualPageIndex)
             };
         }
 
+        // No data found
         return {
             data: [],
-            pagination: createPagination(0, page_size, page_index)
+            pagination: createPagination(0, page_size, actualPageIndex)
         };
     } catch (error) {
         console.error('Failed to fetch employees from API:', error);
-        return {
-            data: [],
-            pagination: createPagination(0, page_size, page_index)
-        };
+
+        // Re-throw error so calling code can handle it appropriately
+        // Some callers might want to show error messages, others might want to use empty data
+        throw error;
     }
 };
 
@@ -129,7 +161,7 @@ export const createEmployee = async (employeeData) => {
 /**
  * Update employee
  * @param {string} employeeId - Employee ID
- * @param {Object} employeeData - { full_name, phone, address, salary, skills, area_id, email, avatar_url, password, sub_role }
+ * @param {Object} employeeData - { full_name, phone, address, salary, skills, area_id, email, avatar_url, password, sub_role, is_active }
  * @returns {Promise<Object>} { success, data, message }
  */
 export const updateEmployee = async (employeeId, employeeData) => {
@@ -160,17 +192,22 @@ export const updateEmployee = async (employeeId, employeeData) => {
         if (employeeData.avatar_url !== undefined) {
             requestData.avatar_url = employeeData.avatar_url?.trim() || '';
         }
-        if (employeeData.password !== undefined) {
-            // API requires password field, so we send it even if empty
-            // Empty string means "don't change password" in some APIs
-            requestData.password = employeeData.password?.trim() || '';
-        }
         if (employeeData.sub_role !== undefined) {
             requestData.sub_role = employeeData.sub_role?.trim() || '';
         }
-
         if (employeeData.is_active !== undefined) {
             requestData.is_active = Boolean(employeeData.is_active);
+        }
+
+        // API requires password field to be present and valid
+        // If password is not provided, we cannot update (API will reject empty/invalid password)
+        // Caller must provide password when updating, or use a separate endpoint for status-only updates
+        if (employeeData.password !== undefined && employeeData.password !== null && employeeData.password !== '') {
+            requestData.password = employeeData.password.trim();
+        } else {
+            // If password is not provided, throw an error to inform caller
+            // This prevents silent failures when password is required
+            throw new Error('Password is required for employee update. Please provide a valid password or use updateEmployeeStatus for status-only updates.');
         }
 
         const response = await apiClient.put(`/employees/${employeeId}`, requestData, { timeout: 10000 });
@@ -186,6 +223,39 @@ export const updateEmployee = async (employeeId, employeeData) => {
             throw new Error('Không tìm thấy nhân viên');
         }
         throw error;
+    }
+};
+
+/**
+ * Update only employee status (is_active) without requiring password
+ * This is a convenience function for toggling employee status
+ * @param {string} employeeId - Employee ID
+ * @param {boolean} isActive - New active status
+ * @returns {Promise<Object>} { success, data, message }
+ */
+export const updateEmployeeStatus = async (employeeId, isActive) => {
+    try {
+        // Try PATCH method first (if API supports it)
+        try {
+            const response = await apiClient.patch(`/employees/${employeeId}/status`, {
+                is_active: Boolean(isActive)
+            }, { timeout: 10000 });
+
+            return {
+                success: true,
+                data: response.data,
+                message: 'Cập nhật trạng thái nhân viên thành công'
+            };
+        } catch (patchError) {
+            // If PATCH endpoint doesn't exist, fall back to full update
+            // But this requires getting current employee data and password
+            console.warn('PATCH endpoint not available, falling back to PUT');
+            throw patchError;
+        }
+    } catch (error) {
+        // If status-only endpoint doesn't exist, we need to use full update
+        // This requires all fields including password
+        throw new Error('API không hỗ trợ cập nhật trạng thái riêng. Vui lòng sử dụng chức năng chỉnh sửa để cập nhật.');
     }
 };
 
@@ -226,6 +296,7 @@ export default {
     getEmployeeById,
     createEmployee,
     updateEmployee,
+    updateEmployeeStatus,
     deleteEmployee,
     getEmployees
 };

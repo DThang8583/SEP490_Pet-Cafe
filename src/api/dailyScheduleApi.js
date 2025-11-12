@@ -32,9 +32,11 @@ export const getDailySchedules = async (params = {}) => {
     } = params;
 
     try {
+        // API uses 'page' (0-based) and 'limit' according to Swagger documentation
         const queryParams = {
-            page_index,
-            page_size
+            page: page_index, // API uses 'page' (0-based), not 'page_index'
+            limit: page_size, // API uses 'limit' instead of 'page_size'
+            _t: Date.now() // Cache busting
         };
 
         if (TeamId) {
@@ -54,10 +56,7 @@ export const getDailySchedules = async (params = {}) => {
 
         // Add timestamp to prevent caching
         const response = await apiClient.get('/daily-schedules', {
-            params: {
-                ...queryParams,
-                _t: Date.now() // Cache busting
-            },
+            params: queryParams,
             timeout: 10000,
             headers: {
                 'Cache-Control': 'no-cache'
@@ -68,8 +67,8 @@ export const getDailySchedules = async (params = {}) => {
             status: response.status,
             dataLength: response.data?.data?.length,
             pagination: response.data?.pagination,
-            pageIndex: queryParams.page_index,
-            pageSize: queryParams.page_size,
+            page: queryParams.page,
+            limit: queryParams.limit,
             firstItemId: response.data?.data?.[0]?.id,
             lastItemId: response.data?.data?.[response.data?.data?.length - 1]?.id
         });

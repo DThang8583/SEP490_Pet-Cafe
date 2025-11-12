@@ -10,8 +10,7 @@ const TaskTemplateFormModal = ({ open, onClose, onSubmit, initialData = null, mo
         priority: 'MEDIUM',
         status: 'ACTIVE',
         is_public: false,
-        estimated_hours: 0,
-        image_url: ''
+        estimated_hours: ''
     });
 
     const [errors, setErrors] = useState({});
@@ -29,8 +28,8 @@ const TaskTemplateFormModal = ({ open, onClose, onSubmit, initialData = null, mo
                     priority: initialData.priority || 'MEDIUM',
                     status: initialData.status || 'ACTIVE',
                     is_public: initialData.is_public || false,
-                    estimated_hours: initialData.estimated_hours ?? 0,
-                    image_url: initialData.image_url || ''
+                    estimated_hours: initialData.estimated_hours ?? '',
+                    // image_url removed - not in API spec
                 });
             } else {
                 // Reset form for create mode
@@ -42,8 +41,8 @@ const TaskTemplateFormModal = ({ open, onClose, onSubmit, initialData = null, mo
                     priority: 'MEDIUM',
                     status: 'ACTIVE',
                     is_public: false,
-                    estimated_hours: 0,
-                    image_url: ''
+                    estimated_hours: '',
+                    // image_url removed - not in API spec
                 });
             }
             setErrors({});
@@ -82,8 +81,12 @@ const TaskTemplateFormModal = ({ open, onClose, onSubmit, initialData = null, mo
             newErrors.work_type_id = 'Loại công việc là bắt buộc';
         }
 
-        if (formData.estimated_hours < 0) {
-            newErrors.estimated_hours = 'Thời gian ước tính không được âm';
+        const estimatedHours = formData.estimated_hours === '' || formData.estimated_hours === null || formData.estimated_hours === undefined ? 0 : Number(formData.estimated_hours);
+        if (isNaN(estimatedHours) || estimatedHours < 0) {
+            newErrors.estimated_hours = 'Thời gian ước tính không được âm và phải là số hợp lệ';
+        }
+        if (estimatedHours === 0) {
+            newErrors.estimated_hours = 'Thời gian ước tính là bắt buộc';
         }
 
         setErrors(newErrors);
@@ -105,11 +108,11 @@ const TaskTemplateFormModal = ({ open, onClose, onSubmit, initialData = null, mo
                 description: formData.description,
                 priority: formData.priority,
                 status: formData.status,
-                estimated_hours: formData.estimated_hours,
+                estimated_hours: formData.estimated_hours === '' || formData.estimated_hours === null || formData.estimated_hours === undefined ? 0 : Number(formData.estimated_hours),
                 is_public: formData.is_public,
                 work_type_id: formData.work_type_id,
                 service_id: formData.service_id || null,
-                image_url: formData.image_url?.trim() || null
+                // image_url removed - not in API POST /api/tasks specification
             };
 
             await onSubmit(submitData);
@@ -134,8 +137,8 @@ const TaskTemplateFormModal = ({ open, onClose, onSubmit, initialData = null, mo
                 priority: 'MEDIUM',
                 status: 'ACTIVE',
                 is_public: false,
-                estimated_hours: 0,
-                image_url: ''
+                estimated_hours: ''
+                // image_url removed - not in API spec
             });
             setErrors({});
             onClose();
@@ -166,14 +169,14 @@ const TaskTemplateFormModal = ({ open, onClose, onSubmit, initialData = null, mo
 
             <DialogContent dividers>
                 <Stack spacing={3}>
-                {errors.submit && (
+                    {errors.submit && (
                         <Alert severity="error" onClose={() => setErrors(prev => ({ ...prev, submit: '' }))}>
-                        {errors.submit}
-                    </Alert>
-                )}
+                            {errors.submit}
+                        </Alert>
+                    )}
 
                     {/* Title */}
-                            <TextField
+                    <TextField
                         label="Tên nhiệm vụ"
                         fullWidth
                         required
@@ -265,16 +268,47 @@ const TaskTemplateFormModal = ({ open, onClose, onSubmit, initialData = null, mo
                             </Select>
                         </FormControl>
 
-                            <TextField
+                        <TextField
                             label="Thời gian ước tính (giờ)"
-                                fullWidth
-                                required
-                                type="number"
+                            fullWidth
+                            required
+                            type="number"
                             inputProps={{ min: 0, step: 0.5 }}
-                            value={formData.estimated_hours}
-                            onChange={(e) => handleChange('estimated_hours', parseFloat(e.target.value) || 0)}
+                            value={formData.estimated_hours === '' || formData.estimated_hours === 0 ? '' : formData.estimated_hours}
+                            onChange={(e) => {
+                                const value = e.target.value;
+                                // Allow empty string for clearing
+                                if (value === '') {
+                                    handleChange('estimated_hours', '');
+                                    return;
+                                }
+
+                                // Remove leading zeros and parse
+                                const cleanedValue = value.replace(/^0+/, '') || '0';
+                                const numValue = parseFloat(cleanedValue);
+
+                                // Only update if it's a valid number
+                                if (!isNaN(numValue) && numValue >= 0) {
+                                    handleChange('estimated_hours', numValue);
+                                }
+                            }}
+                            onBlur={(e) => {
+                                // Normalize the value on blur (remove leading zeros, keep empty if empty)
+                                const value = e.target.value;
+                                if (value === '' || value === null || value === undefined) {
+                                    handleChange('estimated_hours', '');
+                                } else {
+                                    const numValue = parseFloat(value);
+                                    if (!isNaN(numValue) && numValue >= 0) {
+                                        handleChange('estimated_hours', numValue);
+                                    } else {
+                                        handleChange('estimated_hours', '');
+                                    }
+                                }
+                            }}
                             error={!!errors.estimated_hours}
                             helperText={errors.estimated_hours}
+                            placeholder="Nhập số giờ"
                         />
                     </Stack>
 
@@ -305,21 +339,14 @@ const TaskTemplateFormModal = ({ open, onClose, onSubmit, initialData = null, mo
                         </Box>
                     </Stack>
 
-                    {/* Image URL */}
-                    <TextField
-                        label="Ảnh đại diện (URL)"
-                        fullWidth
-                        value={formData.image_url}
-                        onChange={(e) => handleChange('image_url', e.target.value)}
-                        helperText="Tùy chọn: sử dụng URL hình ảnh để hiển thị thumbnail cho nhiệm vụ"
-                    />
+                    {/* Image URL field removed - not in official API POST /api/tasks specification */}
 
                     {/* Info box */}
                     <Box
                         sx={{
                             p: 2,
                             bgcolor: 'info.lighter',
-                                    borderRadius: 1,
+                            borderRadius: 1,
                             border: '1px dashed',
                             borderColor: 'info.main'
                         }}
@@ -327,8 +354,8 @@ const TaskTemplateFormModal = ({ open, onClose, onSubmit, initialData = null, mo
                         <Typography variant="body2" color="info.dark">
                             💡 <strong>Lưu ý:</strong> Nhiệm vụ công khai sẽ xuất hiện trong trải nghiệm đặt dịch vụ của khách hàng.
                             Hãy đảm bảo mô tả rõ ràng và thời gian ước tính phù hợp để hỗ trợ việc sắp ca.
-                                    </Typography>
-                                </Box>
+                        </Typography>
+                    </Box>
                 </Stack>
             </DialogContent>
 

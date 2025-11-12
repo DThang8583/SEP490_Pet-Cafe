@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Dialog, DialogTitle, DialogContent, DialogActions, Box, Typography, Button, IconButton, TextField, FormControl, InputLabel, Select, MenuItem, Avatar, Stack, InputAdornment, Alert, alpha, Chip, CircularProgress } from '@mui/material';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Box, Typography, Button, IconButton, TextField, FormControl, InputLabel, Select, MenuItem, Avatar, Stack, InputAdornment, Alert, alpha, Chip, CircularProgress, Switch, FormControlLabel } from '@mui/material';
 import { Close, Person, Email, Phone, Home, PhotoCamera, Visibility, VisibilityOff, WorkOutline } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 import * as areasApi from '../../api/areasApi';
@@ -24,7 +24,8 @@ const AddStaffModal = ({
         skills: [],
         area_id: '',
         avatar_url: '',
-        password: ''
+        password: '',
+        is_active: true // Default to active when creating new employee
     });
 
     const [errors, setErrors] = useState({});
@@ -69,6 +70,8 @@ const AddStaffModal = ({
     useEffect(() => {
         if (isOpen) {
             if (editMode && initialData) {
+                // Use is_active from root level (as per API), fallback to account.is_active if not available
+                const isActive = initialData.is_active !== undefined ? initialData.is_active : initialData.account?.is_active;
                 setFormData({
                     full_name: initialData.full_name || '',
                     email: initialData.email || '',
@@ -79,7 +82,8 @@ const AddStaffModal = ({
                     skills: initialData.skills || [],
                     area_id: initialData.area_id || '',
                     avatar_url: initialData.avatar_url || '',
-                    password: ''
+                    password: '',
+                    is_active: isActive !== undefined ? Boolean(isActive) : true
                 });
                 setPreviewAvatar(initialData.avatar_url || '');
             } else {
@@ -94,7 +98,8 @@ const AddStaffModal = ({
                     skills: [],
                     area_id: '',
                     avatar_url: '',
-                    password: ''
+                    password: '',
+                    is_active: true // Default to active when creating new employee
                 });
                 setPreviewAvatar('');
             }
@@ -648,6 +653,42 @@ const AddStaffModal = ({
                                     </IconButton>
                                 </InputAdornment>
                             )
+                        }}
+                    />
+
+                    {/* Active Status Switch */}
+                    <FormControlLabel
+                        control={
+                            <Switch
+                                checked={formData.is_active}
+                                onChange={(e) => handleChange('is_active', e.target.checked)}
+                                disabled={isLoading}
+                                sx={{
+                                    '& .MuiSwitch-switchBase.Mui-checked': {
+                                        color: COLORS.SUCCESS[600],
+                                    },
+                                    '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                                        backgroundColor: COLORS.SUCCESS[600],
+                                    },
+                                }}
+                            />
+                        }
+                        label={
+                            <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                                Trạng thái hoạt động
+                            </Typography>
+                        }
+                        sx={{
+                            mt: 1,
+                            mb: 1,
+                            px: 2,
+                            py: 1.5,
+                            borderRadius: 2,
+                            bgcolor: formData.is_active ? alpha(COLORS.SUCCESS[500], 0.1) : alpha(COLORS.ERROR[500], 0.1),
+                            border: `1px solid ${formData.is_active ? COLORS.SUCCESS[200] : COLORS.ERROR[200]}`,
+                            '&:hover': {
+                                bgcolor: formData.is_active ? alpha(COLORS.SUCCESS[500], 0.15) : alpha(COLORS.ERROR[500], 0.15),
+                            }
                         }}
                     />
 

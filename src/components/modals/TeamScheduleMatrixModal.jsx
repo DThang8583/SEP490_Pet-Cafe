@@ -50,14 +50,16 @@ const TeamScheduleMatrixModal = ({
         if (open && team) {
             const matrix = {};
 
-            // Find all shifts that have this team and use their working_days
+            // Find all shifts that have this team and use their applicable_days from API
+            // API chính thức chỉ có applicable_days, không có working_days
             allShifts.forEach(shift => {
                 const teams = Array.isArray(shift.team_work_shifts) ? shift.team_work_shifts : [];
                 const teamInShift = teams.find(t => t.name === team?.name);
 
                 if (teamInShift) {
                     const timeKey = `${shift.start_time}-${shift.end_time}`;
-                    const workingDays = teamInShift.working_days || [];
+                    // Use applicable_days from shift (API chính thức)
+                    const workingDays = Array.isArray(shift.applicable_days) ? shift.applicable_days : [];
 
                     workingDays.forEach(day => {
                         const cellKey = `${day}-${timeKey}`;
@@ -112,11 +114,13 @@ const TeamScheduleMatrixModal = ({
                 teamWillBeInShifts.push(shift);
 
                 if (!currentlyHasTeam) {
-                    // ADD: Team not in shift → add with working_days
+                    // ADD: Team not in shift → add with selectedDays
+                    // Note: API POST /api/teams/{id}/work-shifts chỉ nhận work_shift_ids, không nhận working_days
                     shiftsToAddMap[shift.id] = { shift, working_days: selectedDays };
                 } else {
                     // UPDATE: Team already in shift → update working_days
-                    const currentWorkingDays = currentTeam.working_days || [];
+                    // Note: API hiện tại không hỗ trợ update working_days, chỉ có thể add/remove work_shift_ids
+                    const currentWorkingDays = Array.isArray(shift.applicable_days) ? shift.applicable_days : [];
                     const hasChanged =
                         selectedDays.length !== currentWorkingDays.length ||
                         !selectedDays.every(d => currentWorkingDays.includes(d));
