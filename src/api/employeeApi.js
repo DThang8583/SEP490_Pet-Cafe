@@ -161,7 +161,7 @@ export const createEmployee = async (employeeData) => {
 /**
  * Update employee
  * @param {string} employeeId - Employee ID
- * @param {Object} employeeData - { full_name, phone, address, salary, skills, area_id, email, avatar_url, password, sub_role, is_active }
+ * @param {Object} employeeData - { full_name, phone, address, salary, skills, area_id, email, avatar_url, password, new_password, sub_role, is_active }
  * @returns {Promise<Object>} { success, data, message }
  */
 export const updateEmployee = async (employeeId, employeeData) => {
@@ -199,16 +199,17 @@ export const updateEmployee = async (employeeId, employeeData) => {
             requestData.is_active = Boolean(employeeData.is_active);
         }
 
-        // API requires password field to be present and valid
-        // If password is not provided, we cannot update (API will reject empty/invalid password)
-        // Caller must provide password when updating, or use a separate endpoint for status-only updates
+        // Password fields: password (current) and new_password (new)
+        // Only include password if provided (for changing password)
         if (employeeData.password !== undefined && employeeData.password !== null && employeeData.password !== '') {
             requestData.password = employeeData.password.trim();
-        } else {
-            // If password is not provided, throw an error to inform caller
-            // This prevents silent failures when password is required
-            throw new Error('Password is required for employee update. Please provide a valid password or use updateEmployeeStatus for status-only updates.');
         }
+        if (employeeData.new_password !== undefined && employeeData.new_password !== null && employeeData.new_password !== '') {
+            requestData.new_password = employeeData.new_password.trim();
+        }
+
+        // Note: API allows updating without password when only changing is_active
+        // Password is only required when changing password or other sensitive fields
 
         const response = await apiClient.put(`/employees/${employeeId}`, requestData, { timeout: 10000 });
 
@@ -235,27 +236,22 @@ export const updateEmployee = async (employeeId, employeeData) => {
  */
 export const updateEmployeeStatus = async (employeeId, isActive) => {
     try {
-        // Try PATCH method first (if API supports it)
-        try {
-            const response = await apiClient.patch(`/employees/${employeeId}/status`, {
-                is_active: Boolean(isActive)
-            }, { timeout: 10000 });
+        // Use PUT endpoint with only is_active field (API allows this without password)
+        const response = await apiClient.put(`/employees/${employeeId}`, {
+            is_active: Boolean(isActive)
+        }, { timeout: 10000 });
 
-            return {
-                success: true,
-                data: response.data,
-                message: 'Cập nhật trạng thái nhân viên thành công'
-            };
-        } catch (patchError) {
-            // If PATCH endpoint doesn't exist, fall back to full update
-            // But this requires getting current employee data and password
-            console.warn('PATCH endpoint not available, falling back to PUT');
-            throw patchError;
-        }
+        return {
+            success: true,
+            data: response.data,
+            message: 'Cập nhật trạng thái nhân viên thành công'
+        };
     } catch (error) {
-        // If status-only endpoint doesn't exist, we need to use full update
-        // This requires all fields including password
-        throw new Error('API không hỗ trợ cập nhật trạng thái riêng. Vui lòng sử dụng chức năng chỉnh sửa để cập nhật.');
+        console.error('Failed to update employee status:', error);
+        if (error.response?.status === 404) {
+            throw new Error('Không tìm thấy nhân viên');
+        }
+        throw error;
     }
 };
 

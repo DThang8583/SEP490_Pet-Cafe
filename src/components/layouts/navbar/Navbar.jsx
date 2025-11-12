@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AppBar, Toolbar, Typography, Button, Box, IconButton, Avatar, Menu, MenuItem, useTheme, alpha, Container, Stack, Drawer, List, ListItemButton, ListItemIcon, ListItemText, Divider, Tooltip, ListSubheader, useMediaQuery } from '@mui/material';
-import { LocalCafe, Restaurant, ConfirmationNumber, LocationOn, AccountCircle, Menu as MenuIcon, Close, Pets, Schedule, Dashboard, People, Assignment, DesignServices, Inventory2, Logout, Vaccines, ShoppingCart, ReceiptLong, HealthAndSafety } from '@mui/icons-material';
+import { LocalCafe, Restaurant, ConfirmationNumber, LocationOn, AccountCircle, Menu as MenuIcon, Close, Pets, Schedule, Dashboard, People, Assignment, DesignServices, Inventory2, Logout, Vaccines, ShoppingCart, ReceiptLong, HealthAndSafety, Person } from '@mui/icons-material';
 import { COLORS } from '../../../constants/colors';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { authApi } from '../../../api/authApi';
@@ -67,6 +67,7 @@ const Navbar = () => {
         { label: 'Tiêm phòng', icon: <Vaccines />, path: '/manager/vaccinations' },
         { label: 'Khu vực', icon: <LocationOn />, path: '/manager/areas' },
         { label: 'Nhân viên', icon: <People />, path: '/manager/staff' },
+        { label: 'Khách hàng', icon: <Person />, path: '/manager/customers' },
         { label: 'Ca làm việc', icon: <Schedule />, path: '/manager/work-shifts' },
         { label: 'Nhiệm vụ', icon: <Assignment />, path: '/manager/tasks' },
         { label: 'Dịch vụ', icon: <DesignServices />, path: '/manager/services' },
@@ -142,7 +143,7 @@ const Navbar = () => {
                                 background: `linear-gradient(135deg, ${COLORS.ERROR[300]}, ${COLORS.SECONDARY[300]}, ${COLORS.WARNING[300]})`,
                                 boxShadow: `0 8px 20px ${alpha(COLORS.ERROR[300], 0.25)}`
                             }}>
-                            <LocalCafe sx={{ color: 'white' }} />
+                                <LocalCafe sx={{ color: 'white' }} />
                             </Box>
                             {!collapsed && (
                                 <Box>

@@ -679,7 +679,7 @@ const TasksPage = () => {
                                     setPage(1);
                                 }}
                                 size="small"
-                                sx={{ minWidth: 250 }}
+                                sx={{ minWidth: { xs: '100%', sm: 720 }, flexGrow: { xs: 1, sm: 0 } }}
                             />
 
                             <FormControl size="small" sx={{ minWidth: 200 }}>

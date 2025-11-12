@@ -219,7 +219,20 @@ const AddStaffModal = ({
         newErrors.address = validateField('address', formData.address);
         newErrors.salary = validateField('salary', formData.salary);
         newErrors.sub_role = validateField('sub_role', formData.sub_role);
-        newErrors.password = validateField('password', formData.password);
+
+        // Password validation: only required when creating new employee
+        // When editing, password is optional (only required if user wants to change password)
+        // If only is_active is changed, password is not required
+        if (!editMode) {
+            // Creating new employee: password is required
+            newErrors.password = validateField('password', formData.password);
+        } else {
+            // Editing employee: password is optional
+            // Only validate if password is provided (user wants to change password)
+            if (formData.password && formData.password.length > 0) {
+                newErrors.password = validateField('password', formData.password);
+            }
+        }
 
         // Remove empty errors
         Object.keys(newErrors).forEach(key => {
