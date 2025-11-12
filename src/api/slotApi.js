@@ -134,38 +134,8 @@ const slotApi = {
     },
 
     async createSlot(slotData) {
-        if (!slotData?.task_id) throw new Error('Task ID là bắt buộc');
-        if (!slotData?.day_of_week && !slotData?.specific_date) throw new Error('Phải có day_of_week hoặc specific_date');
-        if (!slotData?.start_time || !slotData?.end_time) throw new Error('Thiếu thời gian bắt đầu/kết thúc');
-
-        // Determine if recurring based on day_of_week presence
-        const isRecurring = !!slotData.day_of_week;
-
-        // Calculate specific_date for recurring slots (first occurrence date)
-        let specificDate = slotData.specific_date;
-        if (isRecurring && !specificDate) {
-            // Calculate the next occurrence of the selected day_of_week
-            const today = new Date();
-            today.setHours(0, 0, 0, 0); // Reset time to start of day
-            const dayNames = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
-            const dayIndex = dayNames.indexOf(slotData.day_of_week);
-            const currentDay = today.getDay();
-
-            let daysUntilNext = dayIndex - currentDay;
-            // If the day has passed this week, schedule for next week
-            if (daysUntilNext <= 0) {
-                daysUntilNext += 7;
-            }
-
-            const nextDate = new Date(today);
-            nextDate.setDate(today.getDate() + daysUntilNext);
-            // Format as local date (YYYY-MM-DD) to avoid timezone shifting
-            const y = nextDate.getFullYear();
-            const m = String(nextDate.getMonth() + 1).padStart(2, '0');
-            const d = String(nextDate.getDate()).padStart(2, '0');
-            specificDate = `${y}-${m}-${d}`;
-        }
-
+        // Build payload exactly as per official API specification
+        // No extra validation or auto-calculation - let backend handle it
         const payload = {
             task_id: slotData.task_id,
             area_id: slotData.area_id || null,
@@ -176,12 +146,12 @@ const slotApi = {
             end_time: slotData.end_time,
             max_capacity: slotData.max_capacity ?? 0,
             special_notes: slotData.special_notes || null,
-            is_recurring: isRecurring,
-            day_of_week: isRecurring ? slotData.day_of_week : null,
-            specific_date: specificDate || null
+            is_recurring: slotData.is_recurring !== undefined ? slotData.is_recurring : !!slotData.day_of_week,
+            specific_date: slotData.specific_date || null,
+            day_of_week: slotData.day_of_week || null
         };
 
-        // Add optional fields
+        // Add optional fields if provided
         if (slotData.price !== undefined && slotData.price !== null) {
             payload.price = slotData.price;
         }
@@ -190,19 +160,46 @@ const slotApi = {
         }
 
         try {
+            console.log('[createSlot] Request payload:', payload);
             const response = await apiClient.post('/slots', payload, { timeout: 10000 });
+            console.log('[createSlot] Response:', response.data);
             return { success: true, data: response.data, message: 'Tạo slot thành công' };
         } catch (error) {
+            console.error('[createSlot] Error:', error);
             throw new Error(extractErrorMessage(error, 'Không thể tạo slot'));
         }
     },
 
     async updateSlot(slotId, updates) {
         if (!slotId) throw new Error('Slot ID là bắt buộc');
+
+        // Build payload according to official API PUT specification
+        // All fields from the API spec should be included
+        const payload = {
+            task_id: updates.task_id,
+            area_id: updates.area_id || null,
+            pet_group_id: updates.pet_group_id || null,
+            team_id: updates.team_id || null,
+            pet_id: updates.pet_id || null,
+            start_time: updates.start_time,
+            end_time: updates.end_time,
+            max_capacity: updates.max_capacity ?? 0,
+            special_notes: updates.special_notes || null,
+            is_recurring: updates.is_recurring !== undefined ? updates.is_recurring : (updates.day_of_week ? true : false),
+            specific_date: updates.specific_date || null,
+            day_of_week: updates.day_of_week || null,
+            price: updates.price ?? 0,
+            service_status: updates.service_status || null,
+            is_update_related_data: updates.is_update_related_data !== undefined ? updates.is_update_related_data : true
+        };
+
         try {
-            const response = await apiClient.put(`/slots/${slotId}`, { ...updates }, { timeout: 10000 });
+            console.log('[updateSlot] Request slotId:', slotId, 'payload:', payload);
+            const response = await apiClient.put(`/slots/${slotId}`, payload, { timeout: 10000 });
+            console.log('[updateSlot] Response:', response.data);
             return { success: true, data: response.data, message: 'Cập nhật slot thành công' };
         } catch (error) {
+            console.error('[updateSlot] Error:', error);
             if (error.response?.status === 404) throw new Error('Không tìm thấy slot');
             throw new Error(extractErrorMessage(error, 'Không thể cập nhật slot'));
         }

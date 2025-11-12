@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Box, Typography, Button, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, IconButton, TextField, Stack, Toolbar, Grid, Menu, MenuItem, ListItemIcon, ListItemText, Tooltip, Avatar, Switch, FormControl, InputLabel, Select } from '@mui/material';
+import { Box, Typography, Button, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, IconButton, TextField, Stack, Toolbar, Grid, Menu, MenuItem, ListItemIcon, ListItemText, Avatar, Switch, FormControl, InputLabel, Select } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, LocationOn as LocationIcon, People as PeopleIcon, MoreVert as MoreVertIcon, Assignment as AssignmentIcon, MeetingRoom as RoomIcon } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
@@ -7,7 +7,7 @@ import Loading from '../../components/loading/Loading';
 import Pagination from '../../components/common/Pagination';
 import AlertModal from '../../components/modals/AlertModal';
 import ConfirmModal from '../../components/modals/ConfirmModal';
-import AreaWorkTypesModal from '../../components/modals/AreaWorkTypesModal';
+import AreaDetailModal from '../../components/modals/AreaDetailModal';
 import AreaFormModal from '../../components/modals/AreaFormModal';
 import * as areasApi from '../../api/areasApi';
 import * as workTypeApi from '../../api/workTypeApi';
@@ -269,33 +269,6 @@ const AreasPage = () => {
         setWorkTypesModal({ open: false, area: null });
     };
 
-    const handleSaveWorkTypes = async (areaId, selectedWorkTypeIds) => {
-        try {
-            const updatedArea = await areasApi.updateAreaWorkTypes(areaId, selectedWorkTypeIds);
-
-            // Update areas state locally without reload
-            setAreas(prevAreas =>
-                prevAreas.map(a => a.id === areaId ? updatedArea : a)
-            );
-
-            setAlert({
-                open: true,
-                title: 'Thành công',
-                message: 'Cập nhật Work Types thành công!',
-                type: 'success'
-            });
-        } catch (error) {
-            console.error('Error updating work types:', error);
-            setAlert({
-                open: true,
-                title: 'Lỗi',
-                message: error.message || 'Không thể cập nhật Work Types',
-                type: 'error'
-            });
-            throw error;
-        }
-    };
-
     const handleOpenCreateModal = () => {
         setFormModal({ open: true, mode: 'create', area: null });
     };
@@ -476,20 +449,19 @@ const AreasPage = () => {
                 <Table>
                     <TableHead sx={{ bgcolor: alpha(COLORS.GRAY[100], 0.5) }}>
                         <TableRow>
-                            <TableCell width="4%">STT</TableCell>
-                            <TableCell width="5%">Ảnh</TableCell>
-                            <TableCell width="18%">Tên khu vực</TableCell>
-                            <TableCell width="25%">Mô tả</TableCell>
-                            <TableCell width="15%">Vị trí</TableCell>
-                            <TableCell width="8%" align="center">Sức chứa</TableCell>
-                            <TableCell width="18%" align="center">Trạng thái</TableCell>
-                            <TableCell width="7%" align="center">Thao tác</TableCell>
+                            <TableCell width="5%">STT</TableCell>
+                            <TableCell width="6%">Ảnh</TableCell>
+                            <TableCell width="25%">Tên khu vực</TableCell>
+                            <TableCell width="20%">Vị trí</TableCell>
+                            <TableCell width="10%" align="center">Sức chứa</TableCell>
+                            <TableCell width="20%" align="center">Trạng thái</TableCell>
+                            <TableCell width="14%" align="center">Thao tác</TableCell>
                         </TableRow>
                     </TableHead>
                     <TableBody>
                         {paginatedAreas.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
+                                <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
                                     <Typography color="text.secondary">
                                         Không có khu vực nào
                                     </Typography>
@@ -519,17 +491,6 @@ const AreasPage = () => {
                                         <Typography variant="body2" fontWeight={500}>
                                             {area.name || ''}
                                         </Typography>
-                                    </TableCell>
-
-                                    {/* Mô tả */}
-                                    <TableCell>
-                                        <Tooltip title={area.description || ''}>
-                                            <Typography variant="body2" color="text.secondary" noWrap>
-                                                {area.description && area.description.length > 60
-                                                    ? `${area.description.substring(0, 60)}...`
-                                                    : (area.description || '')}
-                                            </Typography>
-                                        </Tooltip>
                                     </TableCell>
 
                                     {/* Vị trí */}
@@ -613,7 +574,7 @@ const AreasPage = () => {
                     <ListItemIcon>
                         <AssignmentIcon fontSize="small" />
                     </ListItemIcon>
-                    <ListItemText>Quản lý Loại công việc</ListItemText>
+                    <ListItemText>Xem chi tiết</ListItemText>
                 </MenuItem>
                 <MenuItem onClick={() => menuArea && handleOpenEditModal(menuArea)}>
                     <ListItemIcon>
@@ -666,13 +627,11 @@ const AreasPage = () => {
                 />
             )}
 
-            {/* Work Types Modal */}
-            <AreaWorkTypesModal
+            {/* Area Detail Modal */}
+            <AreaDetailModal
                 open={workTypesModal.open}
                 onClose={handleCloseWorkTypesModal}
                 area={workTypesModal.area}
-                allWorkTypes={workTypes}
-                onSave={handleSaveWorkTypes}
             />
 
             {/* Area Form Modal (Create/Edit) */}

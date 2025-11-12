@@ -43,10 +43,12 @@ export const getWorkShifts = async (params = {}) => {
     try {
         const response = await apiClient.get('/work-shifts', {
             params: {
-                page_index,
-                page_size
+                page: page_index, // API uses 'page' (0-based), not 'page_index'
+                limit: page_size, // API uses 'limit' instead of 'page_size'
+                _t: Date.now()
             },
-            timeout: 10000
+            timeout: 10000,
+            headers: { 'Cache-Control': 'no-cache' }
         });
 
         const responseData = response.data;

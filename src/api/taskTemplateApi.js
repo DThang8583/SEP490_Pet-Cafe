@@ -1,7 +1,7 @@
 import apiClient from '../config/config';
 import workTypeApi from './workTypeApi';
 
-let TASK_CACHE = [];
+// ========== CONSTANTS ==========
 
 export const TASK_STATUS = {
     ACTIVE: 'ACTIVE',
@@ -15,13 +15,15 @@ export const TASK_PRIORITY = {
     URGENT: 'URGENT'
 };
 
-export const TASK_TYPES = [
-    { key: 'cleaning', name: 'Dọn dẹp', icon: '🧹', color: '#4CAF50' },
-    { key: 'feeding', name: 'Cho pet ăn', icon: '🍖', color: '#FF9800' },
-    { key: 'cashier', name: 'Thu ngân', icon: '💰', color: '#2196F3' },
-    { key: 'service', name: 'Làm service', icon: '✨', color: '#9C27B0' },
-];
+// ========== CACHE ==========
 
+let TASK_CACHE = [];
+
+// ========== HELPER FUNCTIONS ==========
+
+/**
+ * Build pagination object from API response or calculate from data
+ */
 const buildPagination = (pagination, totalItems, pageSize, pageIndex) => {
     if (pagination) {
         return {
@@ -44,6 +46,9 @@ const buildPagination = (pagination, totalItems, pageSize, pageIndex) => {
     };
 };
 
+/**
+ * Normalize task data from API response
+ */
 const normalizeTask = (task) => {
     if (!task) return null;
     return {
@@ -57,6 +62,9 @@ const normalizeTask = (task) => {
     };
 };
 
+/**
+ * Normalize estimated hours value to a valid number
+ */
 const normalizeEstimatedHours = (value) => {
     if (value === null || value === undefined || value === '') {
         return 0;
@@ -65,6 +73,9 @@ const normalizeEstimatedHours = (value) => {
     return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
 };
 
+/**
+ * Extract error message from API error response
+ */
 const extractErrorMessage = (error, defaultMessage) => {
     if (error.response?.data) {
         const { message, error: errorMsg, errors } = error.response.data;
@@ -88,7 +99,13 @@ const extractErrorMessage = (error, defaultMessage) => {
     return error.message || defaultMessage;
 };
 
+// ========== API FUNCTIONS ==========
+
 const taskTemplateApi = {
+    /**
+     * Get all task templates with pagination and filters
+     * Official API: GET /api/tasks
+     */
     async getAllTaskTemplates(filters = {}) {
         try {
             const {
@@ -164,6 +181,10 @@ const taskTemplateApi = {
         }
     },
 
+    /**
+     * Get task template by ID
+     * Official API: GET /api/tasks/{id}
+     */
     async getTaskTemplateById(templateId) {
         if (!templateId) {
             throw new Error('ID nhiệm vụ là bắt buộc');
@@ -187,8 +208,14 @@ const taskTemplateApi = {
         }
     },
 
+    /**
+     * Create a new task template
+     * Official API: POST /api/tasks
+     * Payload: { title, description, priority, status, estimated_hours, is_public, work_type_id }
+     */
     async createTaskTemplate(templateData) {
         try {
+            // Build payload according to official API POST /api/tasks specification
             const payload = {
                 title: templateData.title?.trim(),
                 description: templateData.description?.trim(),
@@ -196,9 +223,7 @@ const taskTemplateApi = {
                 status: templateData.status || TASK_STATUS.ACTIVE,
                 estimated_hours: normalizeEstimatedHours(templateData.estimated_hours),
                 is_public: templateData.is_public ?? false,
-                work_type_id: templateData.work_type_id,
-                service_id: templateData.service_id || null,
-                image_url: templateData.image_url || null
+                work_type_id: templateData.work_type_id
             };
 
             if (!payload.title) {
@@ -230,6 +255,10 @@ const taskTemplateApi = {
         }
     },
 
+    /**
+     * Update an existing task template
+     * Official API: PUT /api/tasks/{id}
+     */
     async updateTaskTemplate(templateId, updates) {
         if (!templateId) {
             throw new Error('ID nhiệm vụ là bắt buộc');
@@ -305,6 +334,10 @@ const taskTemplateApi = {
         }
     },
 
+    /**
+     * Delete a task template
+     * Official API: DELETE /api/tasks/{id}
+     */
     async deleteTaskTemplate(templateId) {
         if (!templateId) {
             throw new Error('ID nhiệm vụ là bắt buộc');
@@ -332,6 +365,9 @@ const taskTemplateApi = {
         }
     },
 
+    /**
+     * Get task statistics
+     */
     async getStatistics() {
         try {
             const response = await this.getAllTaskTemplates({
@@ -365,6 +401,9 @@ const taskTemplateApi = {
         }
     },
 
+    /**
+     * Get all work types (delegates to workTypeApi)
+     */
     async getWorkTypes() {
         try {
             const response = await workTypeApi.getWorkTypes();
@@ -375,6 +414,6 @@ const taskTemplateApi = {
     }
 };
 
-export const MOCK_TASK_TEMPLATES = TASK_CACHE;
+// ========== EXPORTS ==========
 
 export default taskTemplateApi;
