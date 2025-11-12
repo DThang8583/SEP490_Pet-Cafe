@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Stack, Toolbar, TextField, Select, MenuItem, InputLabel, FormControl, IconButton, Button, Avatar, Grid, Menu, ListItemIcon, ListItemText, Tooltip, Switch, Tabs, Tab } from '@mui/material';
+import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Stack, Toolbar, TextField, Select, MenuItem, InputLabel, FormControl, IconButton, Button, Avatar, Grid, Menu, ListItemIcon, ListItemText, Tooltip, Tabs, Tab } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import { COLORS } from '../../constants/colors';
 import Loading from '../../components/loading/Loading';
@@ -7,7 +7,7 @@ import Pagination from '../../components/common/Pagination';
 import AddStaffModal from '../../components/modals/AddStaffModal';
 import AlertModal from '../../components/modals/AlertModal';
 import { Edit, MoreVert, Visibility, VisibilityOff, People, Assignment } from '@mui/icons-material';
-import employeeApi, { updateEmployeeStatus } from '../../api/employeeApi';
+import employeeApi from '../../api/employeeApi';
 import AttendanceTab from './AttendanceTab';
 
 const formatSalary = (salary) => {
@@ -96,8 +96,6 @@ const StaffPage = () => {
     // Salary visibility state
     const [showSalaries, setShowSalaries] = useState(false);
 
-    // Toggle status loading state
-    const [togglingStatus, setTogglingStatus] = useState({});
 
     // Load staff data from API with pagination (excluding managers)
     const loadStaff = async ({ showSpinner = false } = {}) => {
@@ -533,55 +531,6 @@ const StaffPage = () => {
         }
     };
 
-    // Handle toggle employee status
-    const handleToggleStatus = async (employee) => {
-        const employeeId = employee.id;
-        // Use is_active from root level (as per API), fallback to account.is_active if not available
-        const currentStatus = employee.is_active !== undefined ? employee.is_active : employee.account?.is_active;
-        const newStatus = !currentStatus;
-
-        try {
-            setTogglingStatus(prev => ({ ...prev, [employeeId]: true }));
-
-            // Try to use status-only update endpoint first (if available)
-            try {
-                await updateEmployeeStatus(employeeId, newStatus);
-            } catch (statusError) {
-                // If status-only endpoint doesn't exist, we need to use full update
-                // But this requires password, which we don't have
-                // Show error message to user
-                throw new Error('Không thể thay đổi trạng thái nhân viên. Vui lòng sử dụng chức năng chỉnh sửa để cập nhật trạng thái.');
-            }
-
-            // Reload current page and stats to ensure consistency
-            await loadStaff();
-            await loadAllStaffForStats();
-
-            setAlert({
-                open: true,
-                title: 'Thành công',
-                message: `Đã ${newStatus ? 'kích hoạt' : 'vô hiệu hóa'} nhân viên thành công!`,
-                type: 'success'
-            });
-        } catch (error) {
-            setAlert({
-                open: true,
-                title: 'Lỗi',
-                message: error.response?.data?.message || error.message || 'Không thể thay đổi trạng thái nhân viên',
-                type: 'error'
-            });
-
-            // Reload current page and stats to revert any changes
-            await loadStaff();
-            await loadAllStaffForStats();
-        } finally {
-            setTogglingStatus(prev => {
-                const newState = { ...prev };
-                delete newState[employeeId];
-                return newState;
-            });
-        }
-    };
 
     if (isLoading) {
         return (
@@ -695,15 +644,28 @@ const StaffPage = () => {
                             </Grid>
                         </Grid>
 
-                        <Toolbar disableGutters sx={{ gap: 2, flexWrap: 'wrap', mb: 2 }}>
+                        <Toolbar
+                            disableGutters
+                            sx={{
+                                gap: 2,
+                                flexWrap: 'wrap',
+                                mb: 2,
+                                alignItems: 'center',
+                                position: 'relative',
+                                minHeight: '64px !important',
+                                '& > *': {
+                                    flexShrink: 0
+                                }
+                            }}
+                        >
                             <TextField
                                 size="small"
                                 placeholder="Tìm theo tên, email, số điện thoại..."
                                 value={q}
                                 onChange={(e) => setQ(e.target.value)}
-                                sx={{ minWidth: { xs: '100%', sm: 1120 }, flexGrow: { xs: 1, sm: 0 } }}
+                                sx={{ minWidth: { xs: '100%', sm: 1100 }, flexGrow: { xs: 1, sm: 0 }, flexShrink: 0 }}
                             />
-                            <FormControl size="small" sx={{ minWidth: 180 }}>
+                            <FormControl size="small" sx={{ minWidth: 180, flexShrink: 0 }}>
                                 <InputLabel>Vai trò</InputLabel>
                                 <Select label="Vai trò" value={filterRole} onChange={(e) => setFilterRole(e.target.value)}>
                                     <MenuItem value="all">Tất cả</MenuItem>
@@ -711,7 +673,7 @@ const StaffPage = () => {
                                     <MenuItem value="WORKING_STAFF">Working Staff</MenuItem>
                                 </Select>
                             </FormControl>
-                            <FormControl size="small" sx={{ minWidth: 160 }}>
+                            <FormControl size="small" sx={{ minWidth: 160, flexShrink: 0 }}>
                                 <InputLabel>Trạng thái</InputLabel>
                                 <Select label="Trạng thái" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
                                     <MenuItem value="all">Tất cả</MenuItem>
@@ -719,7 +681,7 @@ const StaffPage = () => {
                                     <MenuItem value="inactive">Không hoạt động</MenuItem>
                                 </Select>
                             </FormControl>
-                            <Box sx={{ flexGrow: 1 }} />
+                            <Box sx={{ flexGrow: 1, flexShrink: 0, minWidth: 0 }} />
                             <Button
                                 variant="contained"
                                 onClick={() => {
@@ -728,7 +690,12 @@ const StaffPage = () => {
                                     setApiErrors(null);
                                     setAddStaffModalOpen(true);
                                 }}
-                                sx={{ backgroundColor: COLORS.ERROR[500], '&:hover': { backgroundColor: COLORS.ERROR[600] } }}
+                                sx={{
+                                    backgroundColor: COLORS.ERROR[500],
+                                    '&:hover': { backgroundColor: COLORS.ERROR[600] },
+                                    flexShrink: 0,
+                                    whiteSpace: 'nowrap'
+                                }}
                             >
                                 Thêm nhân viên
                             </Button>
@@ -831,31 +798,15 @@ const StaffPage = () => {
                                                     <Chip size="small" label={roleLabel(displayRole)} sx={{ background: rColor.bg, color: rColor.color, fontWeight: 700 }} />
                                                 </TableCell>
                                                 <TableCell>
-                                                    <Stack direction="row" alignItems="center" spacing={1.5}>
-                                                        <Switch
-                                                            checked={(s.is_active !== undefined ? s.is_active : s.account?.is_active) === true}
-                                                            onChange={() => handleToggleStatus(s)}
-                                                            disabled={togglingStatus[s.id]}
-                                                            size="small"
-                                                            sx={{
-                                                                '& .MuiSwitch-switchBase.Mui-checked': {
-                                                                    color: COLORS.SUCCESS[600],
-                                                                },
-                                                                '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                                                                    backgroundColor: COLORS.SUCCESS[600],
-                                                                },
-                                                            }}
-                                                        />
-                                                        <Chip
-                                                            size="small"
-                                                            label={st.label}
-                                                            sx={{
-                                                                background: st.bg,
-                                                                color: st.color,
-                                                                fontWeight: 700
-                                                            }}
-                                                        />
-                                                    </Stack>
+                                                    <Chip
+                                                        size="small"
+                                                        label={st.label}
+                                                        sx={{
+                                                            background: st.bg,
+                                                            color: st.color,
+                                                            fontWeight: 700
+                                                        }}
+                                                    />
                                                 </TableCell>
                                                 <TableCell align="right">
                                                     <IconButton
@@ -935,6 +886,19 @@ const StaffPage = () => {
                             transformOrigin={{
                                 vertical: 'top',
                                 horizontal: 'right',
+                            }}
+                            disablePortal={false}
+                            container={() => document.body}
+                            MenuListProps={{
+                                sx: {
+                                    py: 0.5,
+                                }
+                            }}
+                            PaperProps={{
+                                sx: {
+                                    mt: 0.5,
+                                    position: 'absolute',
+                                }
                             }}
                         >
                             <MenuItem
