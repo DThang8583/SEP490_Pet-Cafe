@@ -98,8 +98,9 @@ const Navbar = () => {
     const workingItems = useMemo(() => ([
         { label: 'Tổng quan', icon: <Dashboard />, path: '/staff/dashboard' },
         { label: 'Lịch & nhóm', icon: <Groups />, path: '/staff/teams' },
-        { label: 'Nhiệm vụ đội', icon: <Assignment />, path: '/staff/daily-tasks' },
-        { label: 'Điểm danh', icon: <ChecklistRtl />, path: '/staff/attendance' }
+        { label: 'Nhiệm vụ hằng ngày', icon: <Assignment />, path: '/staff/daily-tasks' },
+        { label: 'Điểm danh', icon: <ChecklistRtl />, path: '/staff/attendance' },
+        { label: 'Tiêm phòng', icon: <Vaccines />, path: '/staff/vaccination-records' }
     ]), []);
 
     const leaderItems = useMemo(() => ([

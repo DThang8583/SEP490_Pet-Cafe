@@ -155,6 +155,24 @@ const workingStaffApi = {
         }
     },
 
+    async getTeamDailyTasksInRange(teamId, fromDate, toDate) {
+        const from = normalizeDate(fromDate);
+        const to = normalizeDate(toDate);
+        try {
+            const response = await getDailyTasksFromAPI({
+                page_index: 0,
+                page_size: 1000,
+                TeamId: teamId || undefined,
+                FromDate: from,
+                ToDate: to
+            });
+            return response.data || [];
+        } catch (error) {
+            console.warn('workingStaffApi.getTeamDailyTasksInRange error', error);
+            return [];
+        }
+    },
+
     async getAttendance(teamId, date) {
         if (!teamId) return [];
         const targetDate = normalizeDate(date);
