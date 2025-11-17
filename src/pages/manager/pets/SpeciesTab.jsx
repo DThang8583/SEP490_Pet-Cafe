@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Box, Typography, Button, TextField, IconButton, Chip, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Toolbar, Grid, alpha, Menu, MenuItem, ListItemIcon, ListItemText, Stack } from '@mui/material';
+import { Box, Typography, Button, TextField, IconButton, Chip, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Toolbar, alpha, Menu, MenuItem, ListItemIcon, ListItemText, Stack } from '@mui/material';
 import { Add, Edit, Delete, Search, Pets, Block, MoreVert } from '@mui/icons-material';
 import { COLORS } from '../../../constants/colors';
 import AlertModal from '../../../components/modals/AlertModal';
@@ -211,40 +211,50 @@ const SpeciesTab = ({ onDataChange }) => {
     return (
         <Box>
             {/* Statistics */}
-            <Grid container spacing={2} sx={{ mb: 3 }}>
-                <Grid item xs={12} sm={4}>
-                    <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.ERROR[500]}` }}>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Tổng loài
-                        </Typography>
-                        <Typography variant="h4" fontWeight={600} color={COLORS.ERROR[700]}>
-                            {stats.total}
-                        </Typography>
-                    </Paper>
-                </Grid>
-
-                <Grid item xs={12} sm={4}>
-                    <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.SUCCESS[500]}` }}>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Đang hoạt động
-                        </Typography>
-                        <Typography variant="h4" fontWeight={600} color={COLORS.SUCCESS[700]}>
-                            {stats.active}
-                        </Typography>
-                    </Paper>
-                </Grid>
-
-                <Grid item xs={12} sm={4}>
-                    <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.WARNING[500]}` }}>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Vô hiệu hóa
-                        </Typography>
-                        <Typography variant="h4" fontWeight={600} color={COLORS.WARNING[700]}>
-                            {stats.inactive}
-                        </Typography>
-                    </Paper>
-                </Grid>
-            </Grid>
+            <Box
+                sx={{
+                    display: 'flex',
+                    flexWrap: 'nowrap',
+                    gap: 2,
+                    mb: 4,
+                    width: '100%',
+                    overflow: 'visible'
+                }}
+            >
+                {[
+                    { label: 'Tổng loài', value: stats.total, color: COLORS.ERROR[500], valueColor: COLORS.ERROR[700] },
+                    { label: 'Đang hoạt động', value: stats.active, color: COLORS.SUCCESS[500], valueColor: COLORS.SUCCESS[700] },
+                    { label: 'Vô hiệu hóa', value: stats.inactive, color: COLORS.WARNING[500], valueColor: COLORS.WARNING[700] }
+                ].map((stat, index) => {
+                    const cardWidth = `calc((100% - ${2 * 16}px) / 3)`;
+                    return (
+                        <Box
+                            key={index}
+                            sx={{
+                                flex: `0 0 ${cardWidth}`,
+                                width: cardWidth,
+                                maxWidth: cardWidth,
+                                minWidth: 0
+                            }}
+                        >
+                            <Paper sx={{
+                                p: 2.5,
+                                borderTop: `4px solid ${stat.color}`,
+                                borderRadius: 2,
+                                height: '100%',
+                                boxShadow: `4px 6px 12px ${alpha(COLORS.SHADOW.LIGHT, 0.25)}, 0 4px 8px ${alpha(COLORS.SHADOW.LIGHT, 0.1)}, 2px 2px 4px ${alpha(COLORS.SHADOW.LIGHT, 0.15)}`
+                            }}>
+                                <Typography variant="body2" color="text.secondary" gutterBottom>
+                                    {stat.label}
+                                </Typography>
+                                <Typography variant="h4" fontWeight={600} color={stat.valueColor}>
+                                    {stat.value}
+                                </Typography>
+                            </Paper>
+                        </Box>
+                    );
+                })}
+            </Box>
 
             {/* Toolbar */}
             <Toolbar
@@ -306,7 +316,8 @@ const SpeciesTab = ({ onDataChange }) => {
                 sx={{
                     borderRadius: 3,
                     border: `2px solid ${alpha(COLORS.ERROR[200], 0.4)}`,
-                    boxShadow: `0 10px 24px ${alpha(COLORS.ERROR[200], 0.15)}`
+                    boxShadow: `0 10px 24px ${alpha(COLORS.ERROR[200], 0.15)}`,
+                    overflowX: 'auto'
                 }}
             >
                 <Table size="medium" stickyHeader>

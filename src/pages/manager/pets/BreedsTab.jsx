@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Stack, Toolbar, TextField, Select, MenuItem, InputLabel, FormControl, IconButton, Button, Avatar, alpha, Dialog, DialogTitle, DialogContent, DialogActions, Divider, Grid, Menu, ListItemIcon, ListItemText } from '@mui/material';
+import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Stack, Toolbar, TextField, Select, MenuItem, InputLabel, FormControl, IconButton, Button, Avatar, alpha, Dialog, DialogTitle, DialogContent, DialogActions, Divider, Menu, ListItemIcon, ListItemText } from '@mui/material';
 import { Add, Edit, Delete, Category, Pets as PetsIcon, Visibility, Close, MoreVert } from '@mui/icons-material';
 import { COLORS } from '../../../constants/colors';
 import Pagination from '../../../components/common/Pagination';
@@ -168,49 +168,61 @@ const BreedsTab = ({ pets, species, breeds, onDataChange }) => {
     return (
         <Box>
             {/* Statistics */}
-            <Grid container spacing={2} sx={{ mb: 3 }}>
-                <Grid item xs={12} sm={4}>
-                    <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.INFO[500]}` }}>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Tổng giống
-                        </Typography>
-                        <Typography variant="h4" fontWeight={600} color={COLORS.INFO[700]}>
-                            {stats.total}
-                        </Typography>
-                    </Paper>
-                </Grid>
-                <Grid item xs={12} sm={4}>
-                    <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.SUCCESS[500]}` }}>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Đang hoạt động
-                        </Typography>
-                        <Typography variant="h4" fontWeight={600} color={COLORS.SUCCESS[700]}>
-                            {stats.active}
-                        </Typography>
-                    </Paper>
-                </Grid>
-                <Grid item xs={12} sm={4}>
-                    <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.WARNING[500]}` }}>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Vô hiệu hóa
-                        </Typography>
-                        <Typography variant="h4" fontWeight={600} color={COLORS.WARNING[700]}>
-                            {stats.inactive}
-                        </Typography>
-                    </Paper>
-                </Grid>
-            </Grid>
+            <Box
+                sx={{
+                    display: 'flex',
+                    flexWrap: 'nowrap',
+                    gap: 2,
+                    mb: 4,
+                    width: '100%',
+                    overflow: 'visible'
+                }}
+            >
+                {[
+                    { label: 'Tổng giống', value: stats.total, color: COLORS.INFO[500], valueColor: COLORS.INFO[700] },
+                    { label: 'Đang hoạt động', value: stats.active, color: COLORS.SUCCESS[500], valueColor: COLORS.SUCCESS[700] },
+                    { label: 'Vô hiệu hóa', value: stats.inactive, color: COLORS.WARNING[500], valueColor: COLORS.WARNING[700] }
+                ].map((stat, index) => {
+                    const cardWidth = `calc((100% - ${2 * 16}px) / 3)`;
+                    return (
+                        <Box
+                            key={index}
+                            sx={{
+                                flex: `0 0 ${cardWidth}`,
+                                width: cardWidth,
+                                maxWidth: cardWidth,
+                                minWidth: 0
+                            }}
+                        >
+                            <Paper sx={{
+                                p: 2.5,
+                                borderTop: `4px solid ${stat.color}`,
+                                borderRadius: 2,
+                                height: '100%',
+                                boxShadow: `4px 6px 12px ${alpha(COLORS.SHADOW.LIGHT, 0.25)}, 0 4px 8px ${alpha(COLORS.SHADOW.LIGHT, 0.1)}, 2px 2px 4px ${alpha(COLORS.SHADOW.LIGHT, 0.15)}`
+                            }}>
+                                <Typography variant="body2" color="text.secondary" gutterBottom>
+                                    {stat.label}
+                                </Typography>
+                                <Typography variant="h4" fontWeight={600} color={stat.valueColor}>
+                                    {stat.value}
+                                </Typography>
+                            </Paper>
+                        </Box>
+                    );
+                })}
+            </Box>
 
             {/* Toolbar */}
-            <Toolbar disableGutters sx={{ gap: 2, flexWrap: 'wrap', mb: 2 }}>
+            <Toolbar disableGutters sx={{ gap: 2, flexWrap: 'nowrap', mb: 2, alignItems: 'center' }}>
                 <TextField
                     size="small"
                     placeholder="Tìm theo tên giống..."
                     value={searchBreed}
                     onChange={(e) => setSearchBreed(e.target.value)}
-                    sx={{ width: '1360px', flexShrink: 0 }}
+                    sx={{ flex: 1, minWidth: 0 }}
                 />
-                <FormControl size="small" sx={{ minWidth: 150 }}>
+                <FormControl size="small" sx={{ minWidth: 150, flexShrink: 0 }}>
                     <InputLabel>Loài</InputLabel>
                     <Select label="Loài" value={breedFilterSpecies} onChange={(e) => setBreedFilterSpecies(e.target.value)}>
                         <MenuItem value="all">Tất cả</MenuItem>
@@ -219,12 +231,16 @@ const BreedsTab = ({ pets, species, breeds, onDataChange }) => {
                         ))}
                     </Select>
                 </FormControl>
-                <Box sx={{ flexGrow: 1 }} />
                 <Button
                     variant="contained"
                     startIcon={<Add />}
                     onClick={() => handleOpenBreedDialog()}
-                    sx={{ backgroundColor: COLORS.ERROR[500], '&:hover': { backgroundColor: COLORS.ERROR[600] } }}
+                    sx={{
+                        backgroundColor: COLORS.ERROR[500],
+                        '&:hover': { backgroundColor: COLORS.ERROR[600] },
+                        flexShrink: 0,
+                        whiteSpace: 'nowrap'
+                    }}
                 >
                     Thêm giống
                 </Button>
@@ -255,21 +271,23 @@ const BreedsTab = ({ pets, species, breeds, onDataChange }) => {
                     />
                 </Stack>
                 <TableContainer
+                    component={Paper}
                     sx={{
-                        borderRadius: 2,
-                        border: `1px solid ${alpha(COLORS.INFO[200], 0.3)}`,
+                        borderRadius: 3,
+                        border: `2px solid ${alpha(COLORS.INFO[200], 0.4)}`,
+                        boxShadow: `0 10px 24px ${alpha(COLORS.INFO[200], 0.15)}`,
                         overflowX: 'auto'
                     }}
                 >
                     <Table size="medium" stickyHeader>
                         <TableHead>
                             <TableRow>
-                                <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.INFO[50], 0.5) }}>Tên giống</TableCell>
-                                <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.INFO[50], 0.5) }}>Loài</TableCell>
-                                <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.INFO[50], 0.5), display: { xs: 'none', md: 'table-cell' } }}>Mô tả</TableCell>
-                                <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.INFO[50], 0.5), display: { xs: 'none', sm: 'table-cell' } }}>Cân nặng TB</TableCell>
-                                <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.INFO[50], 0.5), display: { xs: 'none', lg: 'table-cell' } }}>Tuổi thọ TB</TableCell>
-                                <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.INFO[50], 0.5), textAlign: 'right' }}>Thao tác</TableCell>
+                                <TableCell sx={{ fontWeight: 800 }}>Tên giống</TableCell>
+                                <TableCell sx={{ fontWeight: 800 }}>Loài</TableCell>
+                                <TableCell sx={{ fontWeight: 800, display: { xs: 'none', md: 'table-cell' } }}>Mô tả</TableCell>
+                                <TableCell sx={{ fontWeight: 800, display: { xs: 'none', sm: 'table-cell' } }}>Cân nặng TB</TableCell>
+                                <TableCell sx={{ fontWeight: 800, display: { xs: 'none', lg: 'table-cell' } }}>Tuổi thọ TB</TableCell>
+                                <TableCell sx={{ fontWeight: 800, textAlign: 'right' }}>Thao tác</TableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>

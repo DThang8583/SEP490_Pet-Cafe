@@ -1,5 +1,5 @@
 import React from 'react';
-import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Stack, FormControl, InputLabel, Select, MenuItem, IconButton, Typography, Box } from '@mui/material';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Stack, FormControl, InputLabel, Select, MenuItem, IconButton, Typography, Box, alpha } from '@mui/material';
 import { Schedule, Close } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 
@@ -22,20 +22,33 @@ const ShiftFormModal = ({
     onSave
 }) => {
     return (
-        <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth PaperProps={{ sx: { minWidth: 600 } }}>
-            <DialogTitle sx={{ bgcolor: COLORS.PRIMARY[500], color: 'white', py: 2.5, px: 3 }}>
-                <Stack direction="row" spacing={2} alignItems="center">
-                    <Schedule sx={{ fontSize: 28 }} />
-                    <Typography variant="h5" sx={{ fontWeight: 700, flex: 1 }}>
-                        {editingShift ? 'Sửa ca làm việc' : 'Tạo ca làm việc mới'}
-                    </Typography>
-                    <IconButton onClick={onClose} size="medium" sx={{ color: 'white' }}>
-                        <Close sx={{ fontSize: 24 }} />
-                    </IconButton>
-                </Stack>
-            </DialogTitle>
-            <DialogContent sx={{ pt: 4, pb: 2, px: 3 }}>
-                <Stack spacing={3} sx={{ mt: 3 }}>
+        <Dialog
+            open={open}
+            onClose={onClose}
+            maxWidth="md"
+            fullWidth
+            disableScrollLock
+            PaperProps={{
+                sx: {
+                    borderRadius: 3,
+                    boxShadow: `0 20px 60px ${alpha(COLORS.SHADOW.DARK, 0.3)}`,
+                    minWidth: 600
+                }
+            }}
+        >
+            <Box
+                sx={{
+                    background: `linear-gradient(135deg, ${alpha(COLORS.PRIMARY[50], 0.3)}, ${alpha(COLORS.SECONDARY[50], 0.2)})`,
+                    borderBottom: `3px solid ${COLORS.PRIMARY[500]}`
+                }}
+            >
+                <DialogTitle sx={{ fontWeight: 800, color: COLORS.PRIMARY[700], pb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Schedule />
+                    {editingShift ? '✏️ Sửa ca làm việc' : '➕ Tạo ca làm việc mới'}
+                </DialogTitle>
+            </Box>
+            <DialogContent sx={{ pt: 3, pb: 2, px: 3 }}>
+                <Stack spacing={3}>
                     <TextField
                         label="Tên ca làm việc"
                         fullWidth
@@ -100,7 +113,7 @@ const ShiftFormModal = ({
                     </FormControl>
                 </Stack>
             </DialogContent>
-            <DialogActions sx={{ px: 3, py: 2.5, gap: 2 }}>
+            <DialogActions sx={{ px: 3, py: 2, borderTop: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.1)}`, gap: 2 }}>
                 <Button
                     onClick={onClose}
                     variant="outlined"

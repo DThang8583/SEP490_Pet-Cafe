@@ -112,12 +112,12 @@ export const getVaccinationScheduleById = async (scheduleId) => {
 
 /**
  * Create new vaccination schedule using official API
- * @param {Object} scheduleData - { pet_id, vaccine_type_id, scheduled_date, notes }
+ * @param {Object} scheduleData - { pet_id, vaccine_type_id, scheduled_date, notes, team_id }
  * @returns {Promise<Object>} Created vaccination schedule
  */
 export const createVaccinationSchedule = async (scheduleData) => {
     try {
-        const { pet_id, vaccine_type_id, scheduled_date, notes } = scheduleData;
+        const { pet_id, vaccine_type_id, scheduled_date, notes, team_id } = scheduleData;
 
         if (!pet_id) {
             throw new Error('Thú cưng là bắt buộc');
@@ -129,12 +129,19 @@ export const createVaccinationSchedule = async (scheduleData) => {
             throw new Error('Ngày tiêm dự kiến là bắt buộc');
         }
 
-        const response = await apiClient.post('/vaccination-schedules', {
+        const requestData = {
             pet_id,
             vaccine_type_id,
             scheduled_date,
             notes: notes?.trim() || ''
-        }, { timeout: 10000 });
+        };
+
+        // Add team_id if provided
+        if (team_id) {
+            requestData.team_id = team_id;
+        }
+
+        const response = await apiClient.post('/vaccination-schedules', requestData, { timeout: 10000 });
 
         return {
             success: true,
@@ -150,7 +157,7 @@ export const createVaccinationSchedule = async (scheduleData) => {
 /**
  * Update vaccination schedule using official API
  * @param {string} scheduleId
- * @param {Object} scheduleData - { pet_id?, vaccine_type_id?, scheduled_date?, notes?, status? }
+ * @param {Object} scheduleData - { pet_id?, vaccine_type_id?, scheduled_date?, notes?, status?, team_id? }
  * @returns {Promise<Object>} Updated vaccination schedule
  */
 export const updateVaccinationSchedule = async (scheduleId, scheduleData) => {
@@ -184,6 +191,10 @@ export const updateVaccinationSchedule = async (scheduleId, scheduleData) => {
 
         if (scheduleData.status !== undefined) {
             requestData.status = scheduleData.status;
+        }
+
+        if (scheduleData.team_id !== undefined) {
+            requestData.team_id = scheduleData.team_id || null;
         }
 
         const response = await apiClient.put(`/vaccination-schedules/${scheduleId}`, requestData, { timeout: 10000 });

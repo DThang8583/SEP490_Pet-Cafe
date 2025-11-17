@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Box, Typography, Stack, IconButton, Alert, FormControl, InputLabel, Select, MenuItem, OutlinedInput, Chip, Checkbox, ListItemText, FormControlLabel, Switch, Avatar, Paper } from '@mui/material';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Box, Typography, Stack, IconButton, Alert, FormControl, InputLabel, Select, MenuItem, OutlinedInput, Chip, Checkbox, ListItemText, FormControlLabel, Switch, Avatar, Paper, alpha } from '@mui/material';
 import { Close as CloseIcon, Add as AddIcon, Edit as EditIcon, MeetingRoom as RoomIcon, CloudUpload as UploadIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 
@@ -79,30 +79,30 @@ const AreaFormModal = ({ open, onClose, onSubmit, area, workTypes, mode = 'creat
 
         setImageError('');
 
-            // Validate file type
-            if (!file.type.startsWith('image/')) {
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
             setImageError('Vui lòng chọn file hình ảnh');
-                return;
-            }
+            return;
+        }
 
-            // Validate file size (max 5MB)
+        // Validate file size (max 5MB)
         const MAX_SIZE = 5 * 1024 * 1024;
         if (file.size > MAX_SIZE) {
             setImageError('Kích thước ảnh không được vượt quá 5MB');
-                return;
-            }
+            return;
+        }
 
-            setImageFile(file);
+        setImageFile(file);
 
-            // Create preview
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setImagePreview(reader.result);
-            };
+        // Create preview
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            setImagePreview(reader.result);
+        };
         reader.onerror = () => {
             setImageError('Không thể đọc file ảnh');
         };
-            reader.readAsDataURL(file);
+        reader.readAsDataURL(file);
     };
 
     const handleRemoveImage = () => {
@@ -171,46 +171,28 @@ const AreaFormModal = ({ open, onClose, onSubmit, area, workTypes, mode = 'creat
             onClose={onClose}
             maxWidth="md"
             fullWidth
+            disableScrollLock
             PaperProps={{
                 sx: {
-                    borderRadius: 2,
+                    borderRadius: 3,
+                    boxShadow: `0 20px 60px ${alpha(COLORS.SHADOW.DARK, 0.3)}`,
                     minHeight: '60vh'
                 }
             }}
         >
-            {/* Title */}
-            <DialogTitle
+            <Box
                 sx={{
-                    bgcolor: COLORS.PRIMARY[50],
-                    borderBottom: `1px solid ${COLORS.GRAY[200]}`,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    pb: 2
+                    background: `linear-gradient(135deg, ${alpha(COLORS.PRIMARY[50], 0.3)}, ${alpha(COLORS.SECONDARY[50], 0.2)})`,
+                    borderBottom: `3px solid ${COLORS.PRIMARY[500]}`
                 }}
             >
-                <Stack direction="row" alignItems="center" spacing={1.5}>
-                    {isEdit ? (
-                        <EditIcon sx={{ color: COLORS.PRIMARY[600], fontSize: 28 }} />
-                    ) : (
-                        <AddIcon sx={{ color: COLORS.PRIMARY[600], fontSize: 28 }} />
-                    )}
-                    <Box>
-                        <Typography variant="h5" fontWeight={600}>
-                            {isEdit ? 'Chỉnh sửa Khu vực' : 'Tạo Khu vực mới'}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                            {isEdit ? 'Cập nhật thông tin khu vực' : 'Thêm khu vực mới vào hệ thống'}
-                        </Typography>
-                    </Box>
-                </Stack>
-                <IconButton onClick={onClose} size="small">
-                    <CloseIcon />
-                </IconButton>
-            </DialogTitle>
+                <DialogTitle sx={{ fontWeight: 800, color: COLORS.PRIMARY[700], pb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    {isEdit ? <EditIcon /> : <AddIcon />}
+                    {isEdit ? '✏️ Chỉnh sửa Khu vực' : '➕ Tạo Khu vực mới'}
+                </DialogTitle>
+            </Box>
 
-            {/* Content */}
-            <DialogContent sx={{ pt: 3, pb: 2 }}>
+            <DialogContent sx={{ pt: 3, pb: 2, px: 3 }}>
                 <Stack spacing={2.5}>
                     {/* Info Alert */}
                     <Alert severity="info" icon={<RoomIcon />}>
@@ -425,7 +407,7 @@ const AreaFormModal = ({ open, onClose, onSubmit, area, workTypes, mode = 'creat
             </DialogContent>
 
             {/* Actions */}
-            <DialogActions sx={{ p: 2.5, bgcolor: COLORS.GRAY[50], borderTop: `1px solid ${COLORS.GRAY[200]}` }}>
+            <DialogActions sx={{ px: 3, py: 2, borderTop: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.1)}` }}>
                 <Button
                     onClick={onClose}
                     variant="outlined"

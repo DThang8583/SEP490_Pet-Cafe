@@ -42,42 +42,28 @@ const AreaDetailModal = ({ open, onClose, area }) => {
             onClose={onClose}
             maxWidth="md"
             fullWidth
+            disableScrollLock
             PaperProps={{
                 sx: {
-                    borderRadius: 2,
+                    borderRadius: 3,
+                    boxShadow: `0 20px 60px ${alpha(COLORS.SHADOW.DARK, 0.3)}`,
                     minHeight: '60vh'
                 }
             }}
         >
-            {/* Title */}
-            <DialogTitle
+            <Box
                 sx={{
-                    bgcolor: COLORS.PRIMARY[50],
-                    borderBottom: `1px solid ${COLORS.GRAY[200]}`,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    pb: 2
+                    background: `linear-gradient(135deg, ${alpha(COLORS.PRIMARY[50], 0.3)}, ${alpha(COLORS.SECONDARY[50], 0.2)})`,
+                    borderBottom: `3px solid ${COLORS.PRIMARY[500]}`
                 }}
             >
-                <Stack direction="row" alignItems="center" spacing={1.5}>
-                    <InfoIcon sx={{ color: COLORS.PRIMARY[600], fontSize: 28 }} />
-                    <Box>
-                        <Typography variant="h5" fontWeight={600}>
-                            Chi tiết khu vực
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                            {area.name}
-                        </Typography>
-                    </Box>
-                </Stack>
-                <IconButton onClick={onClose} size="small">
-                    <CloseIcon />
-                </IconButton>
-            </DialogTitle>
+                <DialogTitle sx={{ fontWeight: 800, color: COLORS.PRIMARY[700], pb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <LocationIcon />
+                    📍 Chi tiết khu vực: {area.name}
+                </DialogTitle>
+            </Box>
 
-            {/* Content */}
-            <DialogContent sx={{ p: 3 }}>
+            <DialogContent sx={{ pt: 3, pb: 2, px: 3 }}>
                 {loading ? (
                     <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
                         <Loading />
@@ -252,7 +238,7 @@ const AreaDetailModal = ({ open, onClose, area }) => {
             </DialogContent>
 
             {/* Actions */}
-            <DialogActions sx={{ p: 2.5, bgcolor: COLORS.GRAY[50], borderTop: `1px solid ${COLORS.GRAY[200]}` }}>
+            <DialogActions sx={{ px: 3, py: 2, borderTop: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.1)}` }}>
                 <Button
                     onClick={onClose}
                     variant="contained"

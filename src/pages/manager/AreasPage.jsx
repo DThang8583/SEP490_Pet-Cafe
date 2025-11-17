@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Box, Typography, Button, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, IconButton, TextField, Stack, Toolbar, Grid, Menu, MenuItem, ListItemIcon, ListItemText, Avatar, Switch, FormControl, InputLabel, Select } from '@mui/material';
+import { Box, Typography, Button, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, IconButton, TextField, Stack, Toolbar, Menu, MenuItem, ListItemIcon, ListItemText, Avatar, Switch, FormControl, InputLabel, Select } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, LocationOn as LocationIcon, People as PeopleIcon, MoreVert as MoreVertIcon, Assignment as AssignmentIcon, MeetingRoom as RoomIcon } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
@@ -348,48 +348,51 @@ const AreasPage = () => {
             </Box>
 
             {/* Statistics */}
-            <Grid container spacing={2} sx={{ mb: 3 }}>
-                <Grid item xs={12} sm={6} md={3}>
-                    <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.PRIMARY[500]}` }}>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Tổng khu vực
-                        </Typography>
-                        <Typography variant="h4" fontWeight={600} color={COLORS.PRIMARY[700]}>
-                            {stats.total ?? 0}
-                        </Typography>
-                    </Paper>
-                </Grid>
-                <Grid item xs={12} sm={6} md={3}>
-                    <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.SUCCESS[500]}` }}>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Đang hoạt động
-                        </Typography>
-                        <Typography variant="h4" fontWeight={600} color={COLORS.SUCCESS[700]}>
-                            {stats.active ?? 0}
-                        </Typography>
-                    </Paper>
-                </Grid>
-                <Grid item xs={12} sm={6} md={3}>
-                    <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.WARNING[500]}` }}>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Không hoạt động
-                        </Typography>
-                        <Typography variant="h4" fontWeight={600} color={COLORS.WARNING[700]}>
-                            {stats.inactive ?? 0}
-                        </Typography>
-                    </Paper>
-                </Grid>
-                <Grid item xs={12} sm={6} md={3}>
-                    <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.INFO[500]}` }}>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Tổng sức chứa
-                        </Typography>
-                        <Typography variant="h4" fontWeight={600} color={COLORS.INFO[700]}>
-                            {stats.totalCapacity ?? 0}
-                        </Typography>
-                    </Paper>
-                </Grid>
-            </Grid>
+            <Box
+                sx={{
+                    display: 'flex',
+                    flexWrap: 'nowrap',
+                    gap: 2,
+                    mb: 4,
+                    width: '100%',
+                    overflow: 'visible'
+                }}
+            >
+                {[
+                    { label: 'Tổng khu vực', value: stats.total ?? 0, color: COLORS.PRIMARY[500], valueColor: COLORS.PRIMARY[700] },
+                    { label: 'Đang hoạt động', value: stats.active ?? 0, color: COLORS.SUCCESS[500], valueColor: COLORS.SUCCESS[700] },
+                    { label: 'Không hoạt động', value: stats.inactive ?? 0, color: COLORS.WARNING[500], valueColor: COLORS.WARNING[700] },
+                    { label: 'Tổng sức chứa', value: stats.totalCapacity ?? 0, color: COLORS.INFO[500], valueColor: COLORS.INFO[700] }
+                ].map((stat, index) => {
+                    const cardWidth = `calc((100% - ${3 * 16}px) / 4)`;
+                    return (
+                        <Box
+                            key={index}
+                            sx={{
+                                flex: `0 0 ${cardWidth}`,
+                                width: cardWidth,
+                                maxWidth: cardWidth,
+                                minWidth: 0
+                            }}
+                        >
+                            <Paper sx={{
+                                p: 2.5,
+                                borderTop: `4px solid ${stat.color}`,
+                                borderRadius: 2,
+                                height: '100%',
+                                boxShadow: `4px 6px 12px ${alpha(COLORS.SHADOW.LIGHT, 0.25)}, 0 4px 8px ${alpha(COLORS.SHADOW.LIGHT, 0.1)}, 2px 2px 4px ${alpha(COLORS.SHADOW.LIGHT, 0.15)}`
+                            }}>
+                                <Typography variant="body2" color="text.secondary" gutterBottom>
+                                    {stat.label}
+                                </Typography>
+                                <Typography variant="h4" fontWeight={600} color={stat.valueColor}>
+                                    {stat.value}
+                                </Typography>
+                            </Paper>
+                        </Box>
+                    );
+                })}
+            </Box>
 
             {/* Toolbar */}
             <Paper sx={{ mb: 2 }}>
@@ -445,17 +448,17 @@ const AreasPage = () => {
             </Paper>
 
             {/* Table */}
-            <TableContainer component={Paper}>
-                <Table>
-                    <TableHead sx={{ bgcolor: alpha(COLORS.GRAY[100], 0.5) }}>
+            <TableContainer component={Paper} sx={{ borderRadius: 3, border: `2px solid ${alpha(COLORS.PRIMARY[200], 0.4)}`, boxShadow: `0 10px 24px ${alpha(COLORS.PRIMARY[200], 0.15)}`, overflowX: 'auto' }}>
+                <Table size="medium" stickyHeader>
+                    <TableHead>
                         <TableRow>
-                            <TableCell width="5%">STT</TableCell>
-                            <TableCell width="6%">Ảnh</TableCell>
-                            <TableCell width="25%">Tên khu vực</TableCell>
-                            <TableCell width="20%">Vị trí</TableCell>
-                            <TableCell width="10%" align="center">Sức chứa</TableCell>
-                            <TableCell width="20%" align="center">Trạng thái</TableCell>
-                            <TableCell width="14%" align="center">Thao tác</TableCell>
+                            <TableCell sx={{ fontWeight: 800 }} width="5%">STT</TableCell>
+                            <TableCell sx={{ fontWeight: 800 }} width="6%">Ảnh</TableCell>
+                            <TableCell sx={{ fontWeight: 800 }} width="25%">Tên khu vực</TableCell>
+                            <TableCell sx={{ fontWeight: 800 }} width="20%">Vị trí</TableCell>
+                            <TableCell sx={{ fontWeight: 800 }} align="center" width="10%">Sức chứa</TableCell>
+                            <TableCell sx={{ fontWeight: 800 }} align="center" width="20%">Trạng thái</TableCell>
+                            <TableCell sx={{ fontWeight: 800 }} align="center" width="14%">Thao tác</TableCell>
                         </TableRow>
                     </TableHead>
                     <TableBody>

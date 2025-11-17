@@ -300,20 +300,22 @@ const VaccineTypesTab = ({ species: speciesProp = [] }) => {
                 {filteredVaccineTypes.length > 0 ? (
                     <>
                         <TableContainer
+                            component={Paper}
                             sx={{
-                                borderRadius: 2,
-                                border: `1px solid ${alpha(COLORS.SUCCESS[200], 0.3)}`,
+                                borderRadius: 3,
+                                border: `2px solid ${alpha(COLORS.SUCCESS[200], 0.4)}`,
+                                boxShadow: `0 10px 24px ${alpha(COLORS.SUCCESS[200], 0.15)}`,
                                 overflowX: 'auto'
                             }}
                         >
                             <Table size="medium" stickyHeader>
                                 <TableHead>
                                     <TableRow>
-                                        <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.SUCCESS[50], 0.5) }}>Tên vaccine</TableCell>
-                                        <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.SUCCESS[50], 0.5) }}>Loài</TableCell>
-                                        <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.SUCCESS[50], 0.5), display: { xs: 'none', md: 'table-cell' } }}>Chu kỳ tiêm lại</TableCell>
-                                        <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.SUCCESS[50], 0.5) }}>Bắt buộc</TableCell>
-                                        <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.SUCCESS[50], 0.5) }}>Thao tác</TableCell>
+                                        <TableCell sx={{ fontWeight: 800 }}>Tên vaccine</TableCell>
+                                        <TableCell sx={{ fontWeight: 800 }}>Loài</TableCell>
+                                        <TableCell sx={{ fontWeight: 800, display: { xs: 'none', md: 'table-cell' } }}>Chu kỳ tiêm lại</TableCell>
+                                        <TableCell sx={{ fontWeight: 800 }}>Bắt buộc</TableCell>
+                                        <TableCell sx={{ fontWeight: 800 }}>Thao tác</TableCell>
                                     </TableRow>
                                 </TableHead>
                                 <TableBody>

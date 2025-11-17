@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Stack, Toolbar, TextField, Select, MenuItem, InputLabel, FormControl, Avatar, alpha, Grid, Button, Divider, IconButton } from '@mui/material';
+import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Stack, Toolbar, TextField, Select, MenuItem, InputLabel, FormControl, Avatar, alpha, Button, Divider, IconButton } from '@mui/material';
 import { COLORS } from '../../constants/colors';
 import Loading from '../../components/loading/Loading';
 import Pagination from '../../components/common/Pagination';
@@ -267,68 +267,53 @@ const AttendanceTab = () => {
     return (
         <Box>
             {/* Statistics Cards */}
-            <Grid container spacing={2.5} sx={{ mb: 3 }}>
-                <Grid item xs={6} sm={4} md={2}>
-                    <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.PRIMARY[500]}`, borderRadius: 2, boxShadow: `0 2px 8px ${alpha(COLORS.SHADOW?.LIGHT || COLORS.GRAY[200], 0.1)}` }}>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Tổng số
-                        </Typography>
-                        <Typography variant="h4" fontWeight={700} color={COLORS.PRIMARY[700]}>
-                            {statistics.total}
-                        </Typography>
-                    </Paper>
-                </Grid>
-                <Grid item xs={6} sm={4} md={2}>
-                    <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.WARNING[500]}`, borderRadius: 2, boxShadow: `0 2px 8px ${alpha(COLORS.SHADOW?.LIGHT || COLORS.GRAY[200], 0.1)}` }}>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Chờ điểm danh
-                        </Typography>
-                        <Typography variant="h4" fontWeight={700} color={COLORS.WARNING[700]}>
-                            {statistics.pending}
-                        </Typography>
-                    </Paper>
-                </Grid>
-                <Grid item xs={6} sm={4} md={2}>
-                    <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.SUCCESS[500]}`, borderRadius: 2, boxShadow: `0 2px 8px ${alpha(COLORS.SHADOW?.LIGHT || COLORS.GRAY[200], 0.1)}` }}>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Có mặt
-                        </Typography>
-                        <Typography variant="h4" fontWeight={700} color={COLORS.SUCCESS[700]}>
-                            {statistics.present}
-                        </Typography>
-                    </Paper>
-                </Grid>
-                <Grid item xs={6} sm={4} md={2}>
-                    <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.ERROR[500]}`, borderRadius: 2, boxShadow: `0 2px 8px ${alpha(COLORS.SHADOW?.LIGHT || COLORS.GRAY[200], 0.1)}` }}>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Vắng mặt
-                        </Typography>
-                        <Typography variant="h4" fontWeight={700} color={COLORS.ERROR[700]}>
-                            {statistics.absent}
-                        </Typography>
-                    </Paper>
-                </Grid>
-                <Grid item xs={6} sm={4} md={2}>
-                    <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.INFO[500]}`, borderRadius: 2, boxShadow: `0 2px 8px ${alpha(COLORS.SHADOW?.LIGHT || COLORS.GRAY[200], 0.1)}` }}>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Đi muộn
-                        </Typography>
-                        <Typography variant="h4" fontWeight={700} color={COLORS.INFO[700]}>
-                            {statistics.late}
-                        </Typography>
-                    </Paper>
-                </Grid>
-                <Grid item xs={6} sm={4} md={2}>
-                    <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.WARNING[500]}`, borderRadius: 2, boxShadow: `0 2px 8px ${alpha(COLORS.SHADOW?.LIGHT || COLORS.GRAY[200], 0.1)}` }}>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Về sớm
-                        </Typography>
-                        <Typography variant="h4" fontWeight={700} color={COLORS.WARNING[700]}>
-                            {statistics.earlyLeave}
-                        </Typography>
-                    </Paper>
-                </Grid>
-            </Grid>
+            <Box
+                sx={{
+                    display: 'flex',
+                    flexWrap: 'nowrap',
+                    gap: 2.5,
+                    mb: 4,
+                    width: '100%',
+                    overflow: 'visible'
+                }}
+            >
+                {[
+                    { label: 'Tổng số', value: statistics.total, color: COLORS.PRIMARY[500], valueColor: COLORS.PRIMARY[700] },
+                    { label: 'Chờ điểm danh', value: statistics.pending, color: COLORS.WARNING[500], valueColor: COLORS.WARNING[700] },
+                    { label: 'Có mặt', value: statistics.present, color: COLORS.SUCCESS[500], valueColor: COLORS.SUCCESS[700] },
+                    { label: 'Vắng mặt', value: statistics.absent, color: COLORS.ERROR[500], valueColor: COLORS.ERROR[700] },
+                    { label: 'Đi muộn', value: statistics.late, color: COLORS.INFO[500], valueColor: COLORS.INFO[700] },
+                    { label: 'Về sớm', value: statistics.earlyLeave, color: COLORS.WARNING[500], valueColor: COLORS.WARNING[700] }
+                ].map((stat, index) => {
+                    const cardWidth = `calc((100% - ${5 * 20}px) / 6)`;
+                    return (
+                        <Box
+                            key={index}
+                            sx={{
+                                flex: `0 0 ${cardWidth}`,
+                                width: cardWidth,
+                                maxWidth: cardWidth,
+                                minWidth: 0
+                            }}
+                        >
+                            <Paper sx={{
+                                p: 2.5,
+                                borderTop: `4px solid ${stat.color}`,
+                                borderRadius: 2,
+                                height: '100%',
+                                boxShadow: `4px 6px 12px ${alpha(COLORS.SHADOW.LIGHT, 0.25)}, 0 4px 8px ${alpha(COLORS.SHADOW.LIGHT, 0.1)}, 2px 2px 4px ${alpha(COLORS.SHADOW.LIGHT, 0.15)}`
+                            }}>
+                                <Typography variant="body2" color="text.secondary" gutterBottom>
+                                    {stat.label}
+                                </Typography>
+                                <Typography variant="h4" fontWeight={700} color={stat.valueColor}>
+                                    {stat.value}
+                                </Typography>
+                            </Paper>
+                        </Box>
+                    );
+                })}
+            </Box>
 
             {/* Filters */}
             <Paper sx={{ p: 2.5, mb: 3, borderRadius: 2, boxShadow: `0 2px 8px ${alpha(COLORS.GRAY[200], 0.1)}` }}>

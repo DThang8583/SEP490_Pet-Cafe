@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Box, Typography, Button, Stack, TextField, IconButton, Chip, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Toolbar, Grid, Avatar, alpha, Menu, MenuItem, ListItemIcon, ListItemText } from '@mui/material';
+import { Box, Typography, Button, Stack, TextField, IconButton, Chip, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Toolbar, Avatar, alpha, Menu, MenuItem, ListItemIcon, ListItemText } from '@mui/material';
 import { Add, Edit, Delete, Restaurant, Search, LocalCafe, Pets, Visibility, Block, Check, Close, MoreVert } from '@mui/icons-material';
 import { COLORS } from '../../../constants/colors';
 import Pagination from '../../../components/common/Pagination';
@@ -315,62 +315,52 @@ const ProductsTab = () => {
     return (
         <Box>
             {/* Statistics */}
-            <Grid container spacing={2} sx={{ mb: 3 }}>
-                <Grid item xs={12} sm={6} md={2.4}>
-                    <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.PRIMARY[500]}` }}>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Tổng sản phẩm
-                        </Typography>
-                        <Typography variant="h4" fontWeight={600} color={COLORS.PRIMARY[700]}>
-                            {stats.total}
-                        </Typography>
-                    </Paper>
-                </Grid>
-
-                <Grid item xs={12} sm={6} md={2.4}>
-                    <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.SUCCESS[500]}` }}>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Đang bán
-                        </Typography>
-                        <Typography variant="h4" fontWeight={600} color={COLORS.SUCCESS[700]}>
-                            {stats.active}
-                        </Typography>
-                    </Paper>
-                </Grid>
-
-                <Grid item xs={12} sm={6} md={2.4}>
-                    <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.ERROR[500]}` }}>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Ngừng bán
-                        </Typography>
-                        <Typography variant="h4" fontWeight={600} color={COLORS.ERROR[700]}>
-                            {stats.inactive}
-                        </Typography>
-                    </Paper>
-                </Grid>
-
-                <Grid item xs={12} sm={6} md={2.4}>
-                    <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.INFO[500]}` }}>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Sản phẩm Khách hàng
-                        </Typography>
-                        <Typography variant="h4" fontWeight={600} color={COLORS.INFO[700]}>
-                            {stats.forCustomers}
-                        </Typography>
-                    </Paper>
-                </Grid>
-
-                <Grid item xs={12} sm={6} md={2.4}>
-                    <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.WARNING[500]}` }}>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Sản phẩm Pet
-                        </Typography>
-                        <Typography variant="h4" fontWeight={600} color={COLORS.WARNING[700]}>
-                            {stats.forPets}
-                        </Typography>
-                    </Paper>
-                </Grid>
-            </Grid>
+            <Box
+                sx={{
+                    display: 'flex',
+                    flexWrap: 'nowrap',
+                    gap: 2,
+                    mb: 4,
+                    width: '100%',
+                    overflow: 'visible'
+                }}
+            >
+                {[
+                    { label: 'Tổng sản phẩm', value: stats.total, color: COLORS.PRIMARY[500], valueColor: COLORS.PRIMARY[700] },
+                    { label: 'Đang bán', value: stats.active, color: COLORS.SUCCESS[500], valueColor: COLORS.SUCCESS[700] },
+                    { label: 'Ngừng bán', value: stats.inactive, color: COLORS.ERROR[500], valueColor: COLORS.ERROR[700] },
+                    { label: 'Sản phẩm Khách hàng', value: stats.forCustomers, color: COLORS.INFO[500], valueColor: COLORS.INFO[700] },
+                    { label: 'Sản phẩm Pet', value: stats.forPets, color: COLORS.WARNING[500], valueColor: COLORS.WARNING[700] }
+                ].map((stat, index) => {
+                    const cardWidth = `calc((100% - ${4 * 16}px) / 5)`;
+                    return (
+                        <Box
+                            key={index}
+                            sx={{
+                                flex: `0 0 ${cardWidth}`,
+                                width: cardWidth,
+                                maxWidth: cardWidth,
+                                minWidth: 0
+                            }}
+                        >
+                            <Paper sx={{
+                                p: 2.5,
+                                borderTop: `4px solid ${stat.color}`,
+                                borderRadius: 2,
+                                height: '100%',
+                                boxShadow: `4px 6px 12px ${alpha(COLORS.SHADOW.LIGHT, 0.25)}, 0 4px 8px ${alpha(COLORS.SHADOW.LIGHT, 0.1)}, 2px 2px 4px ${alpha(COLORS.SHADOW.LIGHT, 0.15)}`
+                            }}>
+                                <Typography variant="body2" color="text.secondary" gutterBottom>
+                                    {stat.label}
+                                </Typography>
+                                <Typography variant="h4" fontWeight={600} color={stat.valueColor}>
+                                    {stat.value}
+                                </Typography>
+                            </Paper>
+                        </Box>
+                    );
+                })}
+            </Box>
 
             {/* Search and Filter Toolbar */}
             <Paper

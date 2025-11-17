@@ -505,6 +505,13 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
             onClose={handleClose}
             maxWidth="lg"
             fullWidth
+            disableScrollLock
+            PaperProps={{
+                sx: {
+                    borderRadius: 3,
+                    boxShadow: `0 20px 60px ${alpha(COLORS.SHADOW.DARK, 0.3)}`
+                }
+            }}
         >
             <Box
                 sx={{
@@ -518,7 +525,7 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
                 </DialogTitle>
             </Box>
 
-            <DialogContent sx={{ pt: 3 }}>
+            <DialogContent sx={{ pt: 3, pb: 2, px: 3 }}>
                 {/* Info message */}
                 <Box
                     sx={{

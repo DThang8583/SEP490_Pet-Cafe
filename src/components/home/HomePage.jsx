@@ -17,7 +17,7 @@ const HomePage = () => {
             try {
                 const role = authApi.getUserRole();
                 setUserRole(role);
-                
+
                 // Redirect non-customer users to appropriate dashboard
                 if (role === 'manager') {
                     navigate('/manager/dashboard', { replace: true });
@@ -28,7 +28,7 @@ const HomePage = () => {
                     return;
                 }
                 if (role === 'working_staff') {
-                    navigate('/manager/dashboard', { replace: true });
+                    navigate('/staff/dashboard', { replace: true });
                     return;
                 }
             } catch (error) {
@@ -280,11 +280,11 @@ const HomePage = () => {
                         animation: 'bounce 4s ease-in-out infinite',
                         filter: 'drop-shadow(0 0 10px rgba(0,0,0,0.1))',
                         '@keyframes bounce': {
-                            '0%, 100%': { 
+                            '0%, 100%': {
                                 transform: 'translateY(0px) scale(1) rotate(0deg)',
                                 opacity: 0.8
                             },
-                            '50%': { 
+                            '50%': {
                                 transform: 'translateY(-20px) scale(1.15) rotate(5deg)',
                                 opacity: 1
                             }
@@ -301,11 +301,11 @@ const HomePage = () => {
                         animation: 'bounce 5s ease-in-out infinite 1s',
                         filter: 'drop-shadow(0 0 10px rgba(0,0,0,0.1))',
                         '@keyframes bounce': {
-                            '0%, 100%': { 
+                            '0%, 100%': {
                                 transform: 'translateY(0px) scale(1) rotate(0deg)',
                                 opacity: 0.8
                             },
-                            '50%': { 
+                            '50%': {
                                 transform: 'translateY(-18px) scale(1.15) rotate(-5deg)',
                                 opacity: 1
                             }
@@ -322,11 +322,11 @@ const HomePage = () => {
                         animation: 'bounce 6s ease-in-out infinite 2s',
                         filter: 'drop-shadow(0 0 10px rgba(0,0,0,0.1))',
                         '@keyframes bounce': {
-                            '0%, 100%': { 
+                            '0%, 100%': {
                                 transform: 'translateY(0px) scale(1) rotate(0deg)',
                                 opacity: 0.8
                             },
-                            '50%': { 
+                            '50%': {
                                 transform: 'translateY(-15px) scale(1.15) rotate(3deg)',
                                 opacity: 1
                             }
@@ -344,11 +344,11 @@ const HomePage = () => {
                         right: '25%',
                         animation: 'sparkle 3s ease-in-out infinite',
                         '@keyframes sparkle': {
-                            '0%, 100%': { 
+                            '0%, 100%': {
                                 transform: 'scale(0.8) rotate(0deg)',
                                 opacity: 0.3
                             },
-                            '50%': { 
+                            '50%': {
                                 transform: 'scale(1.2) rotate(180deg)',
                                 opacity: 1
                             }
@@ -364,11 +364,11 @@ const HomePage = () => {
                         right: '20%',
                         animation: 'sparkle 4s ease-in-out infinite 1.5s',
                         '@keyframes sparkle': {
-                            '0%, 100%': { 
+                            '0%, 100%': {
                                 transform: 'scale(0.8) rotate(0deg)',
                                 opacity: 0.3
                             },
-                            '50%': { 
+                            '50%': {
                                 transform: 'scale(1.2) rotate(180deg)',
                                 opacity: 1
                             }
@@ -589,8 +589,8 @@ const HomePage = () => {
                                             }
                                         }}
                                     >
-                                        <LocalCafe sx={{ 
-                                            fontSize: { xs: 90, md: 130 }, 
+                                        <LocalCafe sx={{
+                                            fontSize: { xs: 90, md: 130 },
                                             color: 'white',
                                             filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.2))',
                                             animation: 'iconFloat 4s ease-in-out infinite'
@@ -632,8 +632,8 @@ const HomePage = () => {
             </Box>
 
             {/* Features Section */}
-            <Box sx={{ 
-                py: 10, 
+            <Box sx={{
+                py: 10,
                 background: `linear-gradient(135deg, ${alpha(COLORS.BACKGROUND.NEUTRAL, 0.8)} 0%, ${alpha(COLORS.SECONDARY[50], 0.6)} 100%)`,
                 position: 'relative',
                 '&::before': {
@@ -774,8 +774,8 @@ const HomePage = () => {
             </Box>
 
             {/* Menu Section */}
-            <Box sx={{ 
-                py: 10, 
+            <Box sx={{
+                py: 10,
                 background: `linear-gradient(135deg, ${alpha(COLORS.BACKGROUND.DEFAULT, 0.9)} 0%, ${alpha(COLORS.PRIMARY[50], 0.8)} 100%)`,
                 minHeight: '90vh',
                 position: 'relative',
@@ -938,23 +938,23 @@ const HomePage = () => {
                                                         }
                                                     }}>
                                                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                                                            <Typography variant="subtitle1" sx={{ 
-                                                                fontWeight: 'bold', 
+                                                            <Typography variant="subtitle1" sx={{
+                                                                fontWeight: 'bold',
                                                                 color: COLORS.ERROR[500],
                                                                 fontSize: '1.1rem'
                                                             }}>
                                                                 {item.name}
                                                             </Typography>
-                                                            <Typography variant="subtitle2" sx={{ 
-                                                                fontWeight: 'bold', 
+                                                            <Typography variant="subtitle2" sx={{
+                                                                fontWeight: 'bold',
                                                                 color: COLORS.SECONDARY[600],
                                                                 fontSize: '1rem'
                                                             }}>
                                                                 {item.price}
                                                             </Typography>
                                                         </Box>
-                                                        <Typography variant="body2" sx={{ 
-                                                            color: COLORS.TEXT.SECONDARY, 
+                                                        <Typography variant="body2" sx={{
+                                                            color: COLORS.TEXT.SECONDARY,
                                                             fontSize: '0.9rem',
                                                             lineHeight: 1.5
                                                         }}>

@@ -101,45 +101,27 @@ const DailyTaskDetailsModal = ({ open, onClose, dailyTask }) => {
             onClose={onClose}
             maxWidth="md"
             fullWidth
+            disableScrollLock
             PaperProps={{
                 sx: {
                     borderRadius: 3,
-                    boxShadow: 24
+                    boxShadow: `0 20px 60px ${alpha(COLORS.SHADOW.DARK, 0.3)}`
                 }
             }}
         >
-            <DialogTitle sx={{
-                borderBottom: `2px solid ${COLORS.PRIMARY[100]}`,
-                pb: 2.5,
-                pt: 2.5,
-                background: `linear-gradient(135deg, ${alpha(COLORS.PRIMARY[50], 0.5)} 0%, ${alpha(COLORS.PRIMARY[100], 0.3)} 100%)`
-            }}>
-                <Stack direction="row" alignItems="center" justifyContent="space-between">
-                    <Stack direction="row" alignItems="center" spacing={2}>
-                        <Box sx={{
-                            width: 48,
-                            height: 48,
-                            borderRadius: 2,
-                            bgcolor: COLORS.PRIMARY[100],
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center'
-                        }}>
-                            <Assignment sx={{ color: COLORS.PRIMARY[600], fontSize: 28 }} />
-                        </Box>
-                        <Box>
-                            <Typography variant="h6" fontWeight={700} color={COLORS.PRIMARY[700]}>
-                                Chi tiết nhiệm vụ
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary">
-                                Thông tin đầy đủ về nhiệm vụ hằng ngày
-                            </Typography>
-                        </Box>
-                    </Stack>
-                </Stack>
-            </DialogTitle>
+            <Box
+                sx={{
+                    background: `linear-gradient(135deg, ${alpha(COLORS.PRIMARY[50], 0.3)}, ${alpha(COLORS.SECONDARY[50], 0.2)})`,
+                    borderBottom: `3px solid ${COLORS.PRIMARY[500]}`
+                }}
+            >
+                <DialogTitle sx={{ fontWeight: 800, color: COLORS.PRIMARY[700], pb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Assignment />
+                    📋 Chi tiết nhiệm vụ: {taskTitle}
+                </DialogTitle>
+            </Box>
 
-            <DialogContent sx={{ pt: 3, pb: 3, px: 4 }}>
+            <DialogContent sx={{ pt: 3, pb: 2, px: 3 }}>
                 <Stack spacing={3}>
                     {/* Title & Status */}
                     <Box>
@@ -681,9 +663,9 @@ const DailyTaskDetailsModal = ({ open, onClose, dailyTask }) => {
             </DialogContent>
 
             <DialogActions sx={{
-                borderTop: `1px solid ${COLORS.GRAY[200]}`,
-                px: 4,
-                py: 2.5,
+                borderTop: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.1)}`,
+                px: 3,
+                py: 2,
                 bgcolor: alpha(COLORS.GRAY[50], 0.5)
             }}>
                 <Button

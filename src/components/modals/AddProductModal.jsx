@@ -221,40 +221,28 @@ const AddProductModal = ({ open, onClose, onSave, editingProduct = null }) => {
             onClose={onClose}
             maxWidth="md"
             fullWidth
+            disableScrollLock
             PaperProps={{
                 sx: {
                     borderRadius: 3,
-                    boxShadow: '0 8px 32px rgba(0,0,0,0.12)'
+                    boxShadow: `0 20px 60px ${alpha(COLORS.SHADOW.DARK, 0.3)}`
                 }
             }}
         >
-            {/* Header */}
-            <DialogTitle
+            <Box
                 sx={{
-                    bgcolor: COLORS.WARNING[500],
-                    color: 'white',
-                    pb: 2
+                    background: `linear-gradient(135deg, ${alpha(COLORS.WARNING[50], 0.3)}, ${alpha(COLORS.SECONDARY[50], 0.2)})`,
+                    borderBottom: `3px solid ${COLORS.WARNING[500]}`
                 }}
             >
-                <Stack direction="row" spacing={2} alignItems="center">
-                    <Restaurant sx={{ fontSize: 32 }} />
-                    <Box sx={{ flex: 1 }}>
-                        <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                            {editingProduct ? 'Sửa sản phẩm' : 'Thêm sản phẩm mới'}
-                        </Typography>
-                        <Typography variant="body2" sx={{ opacity: 0.9, mt: 0.5 }}>
-                            {editingProduct ? 'Cập nhật thông tin sản phẩm' : 'Thêm sản phẩm vào menu quán'}
-                        </Typography>
-                    </Box>
-                    <IconButton onClick={onClose} sx={{ color: 'white' }}>
-                        <Close />
-                    </IconButton>
-                </Stack>
-            </DialogTitle>
+                <DialogTitle sx={{ fontWeight: 800, color: COLORS.WARNING[700], pb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Restaurant />
+                    {editingProduct ? '✏️ Sửa sản phẩm' : '➕ Thêm sản phẩm mới'}
+                </DialogTitle>
+            </Box>
 
-            {/* Content */}
-            <DialogContent sx={{ pt: 4, pb: 2 }}>
-                <Stack spacing={3} sx={{ mt: 2 }}>
+            <DialogContent sx={{ pt: 3, pb: 2, px: 3 }}>
+                <Stack spacing={3}>
                     {/* Basic Info */}
                     <Box>
                         <Typography
@@ -513,7 +501,7 @@ const AddProductModal = ({ open, onClose, onSave, editingProduct = null }) => {
             </DialogContent>
 
             {/* Actions */}
-            <DialogActions sx={{ px: 3, py: 2, bgcolor: alpha(COLORS.WARNING[500], 0.02) }}>
+            <DialogActions sx={{ px: 3, py: 2, borderTop: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.1)}` }}>
                 <Button onClick={onClose} variant="outlined" color="inherit">
                     Hủy
                 </Button>

@@ -113,45 +113,29 @@ const DailyTaskFormModal = ({ open, onClose, onSubmit, teams = [], tasks = [], s
             onClose={handleClose}
             maxWidth="lg"
             fullWidth
+            disableScrollLock
             PaperProps={{
                 sx: {
                     borderRadius: 3,
-                    boxShadow: 24,
+                    boxShadow: `0 20px 60px ${alpha(COLORS.SHADOW.DARK, 0.3)}`,
                     minHeight: '70vh'
                 }
             }}
         >
-            <DialogTitle sx={{
-                borderBottom: `2px solid ${COLORS.PRIMARY[100]}`,
-                pb: 2.5,
-                pt: 2.5,
-                background: `linear-gradient(135deg, ${alpha(COLORS.PRIMARY[50], 0.5)} 0%, ${alpha(COLORS.PRIMARY[100], 0.3)} 100%)`
-            }}>
-                <Stack direction="row" alignItems="center" spacing={2}>
-                    <Box sx={{
-                        width: 48,
-                        height: 48,
-                        borderRadius: 2,
-                        bgcolor: COLORS.PRIMARY[100],
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                    }}>
-                        <Assignment sx={{ color: COLORS.PRIMARY[600], fontSize: 28 }} />
-                    </Box>
-                    <Box>
-                        <Typography variant="h5" fontWeight={700} color={COLORS.PRIMARY[700]}>
-                            Tạo nhiệm vụ hằng ngày
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                            Giao nhiệm vụ cho team thực hiện
-                        </Typography>
-                    </Box>
-                </Stack>
-            </DialogTitle>
+            <Box
+                sx={{
+                    background: `linear-gradient(135deg, ${alpha(COLORS.PRIMARY[50], 0.3)}, ${alpha(COLORS.SECONDARY[50], 0.2)})`,
+                    borderBottom: `3px solid ${COLORS.PRIMARY[500]}`
+                }}
+            >
+                <DialogTitle sx={{ fontWeight: 800, color: COLORS.PRIMARY[700], pb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Assignment />
+                    ➕ Tạo nhiệm vụ hằng ngày
+                </DialogTitle>
+            </Box>
 
-            <DialogContent sx={{ pt: 3, pb: 3, px: 4 }}>
-                <Stack spacing={3} sx={{ mt: 1 }}>
+            <DialogContent sx={{ pt: 3, pb: 2, px: 3 }}>
+                <Stack spacing={3}>
                     {/* Row 1: Team + Priority + Status */}
                     <Stack direction="row" spacing={2}>
                         <FormControl fullWidth error={!!errors.team_id} required>
@@ -335,8 +319,8 @@ const DailyTaskFormModal = ({ open, onClose, onSubmit, teams = [], tasks = [], s
             </DialogContent>
 
             <DialogActions sx={{
-                borderTop: `1px solid ${COLORS.GRAY[200]}`,
-                px: 4,
+                borderTop: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.1)}`,
+                px: 3,
                 py: 2.5,
                 gap: 2,
                 bgcolor: alpha(COLORS.GRAY[50], 0.5)

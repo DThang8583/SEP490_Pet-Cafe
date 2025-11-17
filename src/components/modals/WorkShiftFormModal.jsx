@@ -1,25 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import {
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
-    TextField,
-    Button,
-    Box,
-    Typography,
-    IconButton,
-    Switch,
-    FormControlLabel,
-    Alert,
-    alpha,
-    Chip,
-    Stack,
-    FormGroup,
-    Checkbox,
-    FormControl,
-    FormLabel
-} from '@mui/material';
+import { Dialog, DialogTitle, DialogContent, DialogActions, TextField, Button, Box, Typography, IconButton, Switch, FormControlLabel, Alert, alpha, Chip, Stack, FormGroup, Checkbox, FormControl, FormLabel } from '@mui/material';
 import { Close, Schedule } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 import { WEEKDAY_LABELS, WEEKDAYS } from '../../api/workShiftApi';
@@ -174,6 +154,7 @@ const WorkShiftFormModal = ({
             onClose={handleClose}
             maxWidth="md"
             fullWidth
+            disableScrollLock
             PaperProps={{
                 sx: {
                     borderRadius: 3,
@@ -181,49 +162,19 @@ const WorkShiftFormModal = ({
                 }
             }}
         >
-            {/* Header */}
-            <DialogTitle
+            <Box
                 sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    pb: 2,
-                    borderBottom: `1px solid ${COLORS.GRAY[200]}`
+                    background: `linear-gradient(135deg, ${alpha(COLORS.PRIMARY[50], 0.3)}, ${alpha(COLORS.SECONDARY[50], 0.2)})`,
+                    borderBottom: `3px solid ${COLORS.PRIMARY[500]}`
                 }}
             >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                    <Box
-                        sx={{
-                            width: 40,
-                            height: 40,
-                            borderRadius: 2,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            bgcolor: alpha(COLORS.PRIMARY[500], 0.1)
-                        }}
-                    >
-                        <Schedule sx={{ color: COLORS.PRIMARY[600], fontSize: 24 }} />
-                    </Box>
-                    <Typography variant="h6" fontWeight={700} color={COLORS.TEXT.PRIMARY}>
-                        {mode === 'create' ? 'Tạo ca làm việc mới' : 'Chỉnh sửa ca làm việc'}
-                    </Typography>
-                </Box>
+                <DialogTitle sx={{ fontWeight: 800, color: COLORS.PRIMARY[700], pb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Schedule />
+                    {mode === 'create' ? '➕ Tạo ca làm việc mới' : '✏️ Chỉnh sửa ca làm việc'}
+                </DialogTitle>
+            </Box>
 
-                <IconButton
-                    onClick={handleClose}
-                    size="small"
-                    sx={{
-                        color: COLORS.GRAY[600],
-                        '&:hover': { bgcolor: alpha(COLORS.GRAY[100], 0.8) }
-                    }}
-                >
-                    <Close />
-                </IconButton>
-            </DialogTitle>
-
-            {/* Content */}
-            <DialogContent sx={{ pt: 3, pb: 2 }}>
+            <DialogContent sx={{ pt: 3, pb: 2, px: 3 }}>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
                     {/* Name */}
                     <TextField
@@ -362,7 +313,7 @@ const WorkShiftFormModal = ({
                 sx={{
                     px: 3,
                     py: 2,
-                    borderTop: `1px solid ${COLORS.GRAY[200]}`,
+                    borderTop: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.1)}`,
                     gap: 1.5
                 }}
             >

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Stack, Toolbar, TextField, Select, MenuItem, InputLabel, FormControl, IconButton, Button, Avatar, Grid, Menu, ListItemIcon, ListItemText, Tooltip, Tabs, Tab } from '@mui/material';
+import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Stack, Toolbar, TextField, Select, MenuItem, InputLabel, FormControl, IconButton, Button, Avatar, Menu, ListItemIcon, ListItemText, Tooltip, Tabs, Tab } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import { COLORS } from '../../constants/colors';
 import Loading from '../../components/loading/Loading';
@@ -587,62 +587,52 @@ const StaffPage = () => {
                 {currentTab === 0 && (
                     <>
                         {/* Status Badges */}
-                        <Grid container spacing={2} sx={{ mb: 3 }}>
-                            <Grid item xs={6} sm={6} md={2.4}>
-                                <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.PRIMARY[500]}` }}>
-                                    <Typography variant="body2" color="text.secondary" gutterBottom>
-                                        Tổng nhân viên
-                                    </Typography>
-                                    <Typography variant="h4" fontWeight={600} color={COLORS.PRIMARY[700]}>
-                                        {stats.total}
-                                    </Typography>
-                                </Paper>
-                            </Grid>
-
-                            <Grid item xs={6} sm={6} md={2.4}>
-                                <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.INFO[500]}` }}>
-                                    <Typography variant="body2" color="text.secondary" gutterBottom>
-                                        Sale Staff
-                                    </Typography>
-                                    <Typography variant="h4" fontWeight={600} color={COLORS.INFO[700]}>
-                                        {stats.saleStaff}
-                                    </Typography>
-                                </Paper>
-                            </Grid>
-
-                            <Grid item xs={6} sm={6} md={2.4}>
-                                <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.WARNING[500]}` }}>
-                                    <Typography variant="body2" color="text.secondary" gutterBottom>
-                                        Working Staff
-                                    </Typography>
-                                    <Typography variant="h4" fontWeight={600} color={COLORS.WARNING[700]}>
-                                        {stats.workingStaff}
-                                    </Typography>
-                                </Paper>
-                            </Grid>
-
-                            <Grid item xs={6} sm={6} md={2.4}>
-                                <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.SUCCESS[500]}` }}>
-                                    <Typography variant="body2" color="text.secondary" gutterBottom>
-                                        Hoạt động
-                                    </Typography>
-                                    <Typography variant="h4" fontWeight={600} color={COLORS.SUCCESS[700]}>
-                                        {stats.active}
-                                    </Typography>
-                                </Paper>
-                            </Grid>
-
-                            <Grid item xs={6} sm={6} md={2.4}>
-                                <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.ERROR[500]}` }}>
-                                    <Typography variant="body2" color="text.secondary" gutterBottom>
-                                        Không hoạt động
-                                    </Typography>
-                                    <Typography variant="h4" fontWeight={600} color={COLORS.ERROR[700]}>
-                                        {stats.inactive}
-                                    </Typography>
-                                </Paper>
-                            </Grid>
-                        </Grid>
+                        <Box
+                            sx={{
+                                display: 'flex',
+                                flexWrap: 'nowrap',
+                                gap: 2,
+                                mb: 4,
+                                width: '100%',
+                                overflow: 'visible'
+                            }}
+                        >
+                            {[
+                                { label: 'Tổng nhân viên', value: stats.total, color: COLORS.PRIMARY[500], valueColor: COLORS.PRIMARY[700] },
+                                { label: 'Sale Staff', value: stats.saleStaff, color: COLORS.INFO[500], valueColor: COLORS.INFO[700] },
+                                { label: 'Working Staff', value: stats.workingStaff, color: COLORS.WARNING[500], valueColor: COLORS.WARNING[700] },
+                                { label: 'Hoạt động', value: stats.active, color: COLORS.SUCCESS[500], valueColor: COLORS.SUCCESS[700] },
+                                { label: 'Không hoạt động', value: stats.inactive, color: COLORS.ERROR[500], valueColor: COLORS.ERROR[700] }
+                            ].map((stat, index) => {
+                                const cardWidth = `calc((100% - ${4 * 16}px) / 5)`;
+                                return (
+                                    <Box
+                                        key={index}
+                                        sx={{
+                                            flex: `0 0 ${cardWidth}`,
+                                            width: cardWidth,
+                                            maxWidth: cardWidth,
+                                            minWidth: 0
+                                        }}
+                                    >
+                                        <Paper sx={{
+                                            p: 2.5,
+                                            borderTop: `4px solid ${stat.color}`,
+                                            borderRadius: 2,
+                                            height: '100%',
+                                            boxShadow: `4px 6px 12px ${alpha(COLORS.SHADOW.LIGHT, 0.25)}, 0 4px 8px ${alpha(COLORS.SHADOW.LIGHT, 0.1)}, 2px 2px 4px ${alpha(COLORS.SHADOW.LIGHT, 0.15)}`
+                                        }}>
+                                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                                                {stat.label}
+                                            </Typography>
+                                            <Typography variant="h4" fontWeight={600} color={stat.valueColor}>
+                                                {stat.value}
+                                            </Typography>
+                                        </Paper>
+                                    </Box>
+                                );
+                            })}
+                        </Box>
 
                         <Toolbar
                             disableGutters
