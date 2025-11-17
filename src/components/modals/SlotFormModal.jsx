@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
 import * as teamApi from '../../api/teamApi';
 import * as petsApi from '../../api/petsApi';
-import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, FormControl, InputLabel, Select, MenuItem, Box, Alert, Typography, Stack, InputAdornment, FormHelperText } from '@mui/material';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, FormControl, InputLabel, Select, MenuItem, Box, Alert, Typography, Stack, InputAdornment, FormHelperText, alpha } from '@mui/material';
 import { WEEKDAYS, WEEKDAY_LABELS } from '../../api/slotApi';
 import { formatPrice } from '../../utils/formatPrice';
+import { COLORS } from '../../constants/colors';
 
 const SLOT_STATUS = {
     AVAILABLE: 'AVAILABLE',
@@ -461,23 +462,26 @@ const SlotFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, 
             onClose={handleClose}
             maxWidth="md"
             fullWidth
+            disableScrollLock
             PaperProps={{
                 sx: {
-                    borderRadius: 2,
-                    boxShadow: 24
+                    borderRadius: 3,
+                    boxShadow: `0 20px 60px ${alpha(COLORS.SHADOW.DARK, 0.3)}`
                 }
             }}
         >
-            <DialogTitle sx={{ pb: 1 }}>
-                <Typography variant="h6" component="div" fontWeight={600}>
-                    {mode === 'edit' ? 'Chỉnh sửa Ca làm việc' : 'Tạo Ca làm việc mới'}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                    {taskData?.title || taskData?.name || initialData?.task?.title}
-                </Typography>
-            </DialogTitle>
+            <Box
+                sx={{
+                    background: `linear-gradient(135deg, ${alpha(COLORS.PRIMARY[50], 0.3)}, ${alpha(COLORS.SECONDARY[50], 0.2)})`,
+                    borderBottom: `3px solid ${COLORS.PRIMARY[500]}`
+                }}
+            >
+                <DialogTitle sx={{ fontWeight: 800, color: COLORS.PRIMARY[700], pb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    📅 {mode === 'edit' ? '✏️ Chỉnh sửa Ca làm việc' : '➕ Tạo Ca làm việc mới'}
+                </DialogTitle>
+            </Box>
 
-            <DialogContent dividers>
+            <DialogContent sx={{ pt: 3, pb: 2, px: 3 }}>
                 <Stack spacing={3}>
                     {errors.submit && (
                         <Alert severity="error" onClose={() => setErrors(prev => ({ ...prev, submit: '' }))}>
@@ -820,7 +824,7 @@ const SlotFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, 
                 </Stack>
             </DialogContent>
 
-            <DialogActions sx={{ px: 3, py: 2 }}>
+            <DialogActions sx={{ px: 3, py: 2, borderTop: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.1)}` }}>
                 <Button onClick={handleClose} disabled={loading}>
                     Hủy
                 </Button>

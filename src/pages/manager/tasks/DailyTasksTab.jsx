@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, IconButton, Stack, Toolbar, Grid, Button, FormControl, InputLabel, Select, MenuItem, Tooltip, alpha, Menu, ListItemIcon, ListItemText, Tabs, Tab } from '@mui/material';
+import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, IconButton, Stack, Toolbar, Button, FormControl, InputLabel, Select, MenuItem, Tooltip, alpha, Menu, ListItemIcon, ListItemText, Tabs, Tab } from '@mui/material';
 import { CheckCircle, RadioButtonUnchecked, PlayArrow, Cancel, NavigateBefore, NavigateNext, TrendingUp, Notes as NotesIcon, Flag, Block, SkipNext, MoreVert as MoreVertIcon, Add as AddIcon, Visibility as VisibilityIcon, CalendarMonth, ViewWeek } from '@mui/icons-material';
 import { COLORS } from '../../../constants/colors';
 import Loading from '../../../components/loading/Loading';
@@ -525,80 +525,72 @@ const DailyTasksTab = ({ taskTemplates, slots, onRefresh }) => {
     return (
         <Box>
             {/* Statistics */}
-            <Grid container spacing={2} sx={{ mb: 3 }}>
-                <Grid item xs={12} sm={6} md={1.5}>
-                    <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.PRIMARY[500]}` }}>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Tổng số
-                        </Typography>
-                        <Typography variant="h4" fontWeight={600} color={COLORS.PRIMARY[700]}>
-                            {stats.total}
-                        </Typography>
-                    </Paper>
-                </Grid>
-                <Grid item xs={12} sm={6} md={1.5}>
-                    <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.SUCCESS[500]}` }}>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Hoàn thành
-                        </Typography>
-                        <Typography variant="h4" fontWeight={600} color={COLORS.SUCCESS[700]}>
-                            {stats.completed}
-                        </Typography>
-                    </Paper>
-                </Grid>
-                <Grid item xs={12} sm={6} md={1.5}>
-                    <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.INFO[500]}` }}>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Đang làm
-                        </Typography>
-                        <Typography variant="h4" fontWeight={600} color={COLORS.INFO[700]}>
-                            {stats.in_progress}
-                        </Typography>
-                    </Paper>
-                </Grid>
-                <Grid item xs={12} sm={6} md={1.5}>
-                    <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.GRAY[500]}` }}>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Chưa làm
-                        </Typography>
-                        <Typography variant="h4" fontWeight={600} color={COLORS.GRAY[700]}>
-                            {stats.scheduled}
-                        </Typography>
-                    </Paper>
-                </Grid>
-                <Grid item xs={12} sm={6} md={1.5}>
-                    <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.ERROR[500]}` }}>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Bỏ lỡ
-                        </Typography>
-                        <Typography variant="h4" fontWeight={600} color={COLORS.ERROR[700]}>
-                            {stats.missed}
-                        </Typography>
-                    </Paper>
-                </Grid>
-                <Grid item xs={12} sm={6} md={1.5}>
-                    <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.WARNING[500]}` }}>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Bỏ qua
-                        </Typography>
-                        <Typography variant="h4" fontWeight={600} color={COLORS.WARNING[700]}>
-                            {stats.skipped}
-                        </Typography>
-                    </Paper>
-                </Grid>
-                <Grid item xs={12} sm={6} md={1.5}>
-                    <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.WARNING[400]}` }}>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Đã hủy
-                        </Typography>
-                        <Typography variant="h4" fontWeight={600} color={COLORS.WARNING[700]}>
-                            {stats.cancelled}
-                        </Typography>
-                    </Paper>
-                </Grid>
+            <Box
+                sx={{
+                    display: 'flex',
+                    flexWrap: 'nowrap',
+                    gap: 2,
+                    mb: 4,
+                    width: '100%',
+                    overflow: 'visible'
+                }}
+            >
+                {[
+                    { label: 'Tổng số', value: stats.total, color: COLORS.PRIMARY[500], valueColor: COLORS.PRIMARY[700] },
+                    { label: 'Hoàn thành', value: stats.completed, color: COLORS.SUCCESS[500], valueColor: COLORS.SUCCESS[700] },
+                    { label: 'Đang làm', value: stats.in_progress, color: COLORS.INFO[500], valueColor: COLORS.INFO[700] },
+                    { label: 'Chưa làm', value: stats.scheduled, color: COLORS.GRAY[500], valueColor: COLORS.GRAY[700] },
+                    { label: 'Bỏ lỡ', value: stats.missed, color: COLORS.ERROR[500], valueColor: COLORS.ERROR[700] },
+                    { label: 'Bỏ qua', value: stats.skipped, color: COLORS.WARNING[500], valueColor: COLORS.WARNING[700] },
+                    { label: 'Đã hủy', value: stats.cancelled, color: COLORS.WARNING[400], valueColor: COLORS.WARNING[700] }
+                ].map((stat, index) => {
+                    const cardWidth = `calc((100% - ${8 * 16}px) / 9)`;
+                    return (
+                        <Box
+                            key={index}
+                            sx={{
+                                flex: `0 0 ${cardWidth}`,
+                                width: cardWidth,
+                                maxWidth: cardWidth,
+                                minWidth: 0
+                            }}
+                        >
+                            <Paper sx={{
+                                p: 2.5,
+                                borderTop: `4px solid ${stat.color}`,
+                                borderRadius: 2,
+                                height: '100%',
+                                boxShadow: `4px 6px 12px ${alpha(COLORS.SHADOW.LIGHT, 0.25)}, 0 4px 8px ${alpha(COLORS.SHADOW.LIGHT, 0.1)}, 2px 2px 4px ${alpha(COLORS.SHADOW.LIGHT, 0.15)}`
+                            }}>
+                                <Typography variant="body2" color="text.secondary" gutterBottom>
+                                    {stat.label}
+                                </Typography>
+                                <Typography variant="h4" fontWeight={600} color={stat.valueColor}>
+                                    {stat.value}
+                                </Typography>
+                            </Paper>
+                        </Box>
+                    );
+                })}
+
                 {/* Week Progress Card */}
-                <Grid item xs={12} sm={6} md={1.5}>
-                    <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.SUCCESS[400]}`, position: 'relative', overflow: 'hidden' }}>
+                <Box
+                    sx={{
+                        flex: `0 0 calc((100% - ${8 * 16}px) / 9)`,
+                        width: `calc((100% - ${8 * 16}px) / 9)`,
+                        maxWidth: `calc((100% - ${8 * 16}px) / 9)`,
+                        minWidth: 0
+                    }}
+                >
+                    <Paper sx={{
+                        p: 2.5,
+                        borderTop: `4px solid ${COLORS.SUCCESS[400]}`,
+                        borderRadius: 2,
+                        height: '100%',
+                        boxShadow: `4px 6px 12px ${alpha(COLORS.SHADOW.LIGHT, 0.25)}, 0 4px 8px ${alpha(COLORS.SHADOW.LIGHT, 0.1)}, 2px 2px 4px ${alpha(COLORS.SHADOW.LIGHT, 0.15)}`,
+                        position: 'relative',
+                        overflow: 'hidden'
+                    }}>
                         <Stack direction="row" alignItems="center" spacing={0.5} sx={{ mb: 1 }}>
                             <ViewWeek sx={{ fontSize: 18, color: COLORS.SUCCESS[600] }} />
                             <Typography variant="body2" color="text.secondary" fontWeight={500}>
@@ -632,11 +624,26 @@ const DailyTasksTab = ({ taskTemplates, slots, onRefresh }) => {
                             }} />
                         </Box>
                     </Paper>
-                </Grid>
+                </Box>
 
                 {/* Month Progress Card */}
-                <Grid item xs={12} sm={6} md={1.5}>
-                    <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.SUCCESS[500]}`, position: 'relative', overflow: 'hidden' }}>
+                <Box
+                    sx={{
+                        flex: `0 0 calc((100% - ${8 * 16}px) / 9)`,
+                        width: `calc((100% - ${8 * 16}px) / 9)`,
+                        maxWidth: `calc((100% - ${8 * 16}px) / 9)`,
+                        minWidth: 0
+                    }}
+                >
+                    <Paper sx={{
+                        p: 2.5,
+                        borderTop: `4px solid ${COLORS.SUCCESS[500]}`,
+                        borderRadius: 2,
+                        height: '100%',
+                        boxShadow: `4px 6px 12px ${alpha(COLORS.SHADOW.LIGHT, 0.25)}, 0 4px 8px ${alpha(COLORS.SHADOW.LIGHT, 0.1)}, 2px 2px 4px ${alpha(COLORS.SHADOW.LIGHT, 0.15)}`,
+                        position: 'relative',
+                        overflow: 'hidden'
+                    }}>
                         <Stack direction="row" alignItems="center" spacing={0.5} sx={{ mb: 1 }}>
                             <CalendarMonth sx={{ fontSize: 18, color: COLORS.SUCCESS[600] }} />
                             <Typography variant="body2" color="text.secondary" fontWeight={500}>
@@ -670,8 +677,8 @@ const DailyTasksTab = ({ taskTemplates, slots, onRefresh }) => {
                             }} />
                         </Box>
                     </Paper>
-                </Grid>
-            </Grid>
+                </Box>
+            </Box>
 
             {/* View Mode Tabs */}
             <Paper sx={{ mb: 2 }}>
@@ -794,19 +801,19 @@ const DailyTasksTab = ({ taskTemplates, slots, onRefresh }) => {
             </Toolbar>
 
             {/* Table */}
-            <TableContainer component={Paper}>
-                <Table>
-                    <TableHead sx={{ bgcolor: alpha(COLORS.GRAY[100], 0.5) }}>
+            <TableContainer component={Paper} sx={{ borderRadius: 3, border: `2px solid ${alpha(COLORS.PRIMARY[200], 0.4)}`, boxShadow: `0 10px 24px ${alpha(COLORS.PRIMARY[200], 0.15)}`, overflowX: 'auto' }}>
+                <Table size="medium" stickyHeader>
+                    <TableHead>
                         <TableRow>
-                            <TableCell width="3%">STT</TableCell>
-                            <TableCell width="7%">Ngày</TableCell>
-                            <TableCell width="15%">Nhiệm vụ</TableCell>
-                            <TableCell width="12%">Team</TableCell>
-                            <TableCell width="8%">Ưu tiên</TableCell>
-                            <TableCell width="10%">Thời gian</TableCell>
-                            <TableCell width="12%">Trạng thái</TableCell>
-                            <TableCell width="10%">Hoàn thành</TableCell>
-                            <TableCell width="5%" align="center">Thao tác</TableCell>
+                            <TableCell sx={{ fontWeight: 800 }} width="3%">STT</TableCell>
+                            <TableCell sx={{ fontWeight: 800 }} width="7%">Ngày</TableCell>
+                            <TableCell sx={{ fontWeight: 800 }} width="15%">Nhiệm vụ</TableCell>
+                            <TableCell sx={{ fontWeight: 800 }} width="12%">Team</TableCell>
+                            <TableCell sx={{ fontWeight: 800 }} width="8%">Ưu tiên</TableCell>
+                            <TableCell sx={{ fontWeight: 800 }} width="10%">Thời gian</TableCell>
+                            <TableCell sx={{ fontWeight: 800 }} width="12%">Trạng thái</TableCell>
+                            <TableCell sx={{ fontWeight: 800 }} width="10%">Hoàn thành</TableCell>
+                            <TableCell sx={{ fontWeight: 800 }} align="center" width="5%">Thao tác</TableCell>
                         </TableRow>
                     </TableHead>
                     <TableBody>

@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, FormControl, InputLabel, Select, MenuItem, Box, Alert, Chip, Typography, Paper, Divider, InputAdornment, FormHelperText, OutlinedInput } from '@mui/material';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, FormControl, InputLabel, Select, MenuItem, Box, Alert, Chip, Typography, Paper, Divider, InputAdornment, FormHelperText, OutlinedInput, alpha } from '@mui/material';
 import { WEEKDAYS, WEEKDAY_LABELS } from '../../api/slotApi';
 import { formatPrice } from '../../utils/formatPrice';
 import * as areasApi from '../../api/areasApi';
+import { COLORS } from '../../constants/colors';
 
 const SlotPublishModal = ({ open, onClose, onSubmit, slotData }) => {
     const [formData, setFormData] = useState({
@@ -158,22 +159,26 @@ const SlotPublishModal = ({ open, onClose, onSubmit, slotData }) => {
             onClose={handleClose}
             maxWidth="md"
             fullWidth
+            disableScrollLock
             PaperProps={{
                 sx: {
-                    borderRadius: 2,
-                    boxShadow: 24
+                    borderRadius: 3,
+                    boxShadow: `0 20px 60px ${alpha(COLORS.SHADOW.DARK, 0.3)}`
                 }
             }}
         >
-            <DialogTitle sx={{
-                borderBottom: '1px solid #e0e0e0',
-                pb: 2,
-                fontWeight: 600
-            }}>
-                🚀 Publish Slot cho khách hàng
-            </DialogTitle>
+            <Box
+                sx={{
+                    background: `linear-gradient(135deg, ${alpha(COLORS.PRIMARY[50], 0.3)}, ${alpha(COLORS.SECONDARY[50], 0.2)})`,
+                    borderBottom: `3px solid ${COLORS.PRIMARY[500]}`
+                }}
+            >
+                <DialogTitle sx={{ fontWeight: 800, color: COLORS.PRIMARY[700], pb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    🚀 Publish Slot cho khách hàng
+                </DialogTitle>
+            </Box>
 
-            <DialogContent sx={{ pt: 3 }}>
+            <DialogContent sx={{ pt: 3, pb: 2, px: 3 }}>
                 {errors.submit && (
                     <Alert severity="error" sx={{ mb: 2 }}>
                         {errors.submit}
@@ -403,7 +408,7 @@ const SlotPublishModal = ({ open, onClose, onSubmit, slotData }) => {
             </DialogContent>
 
             <DialogActions sx={{
-                borderTop: '1px solid #e0e0e0',
+                borderTop: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.1)}`,
                 px: 3,
                 py: 2,
                 gap: 1

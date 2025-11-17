@@ -900,83 +900,54 @@ const WorkShiftPage = () => {
             </Box>
 
             {/* Statistics Cards */}
-            <Grid container spacing={2.5} sx={{ mb: 3 }}>
-                <Grid item xs={12} sm={6} md={3}>
-                    <Card
-                        sx={{
-                            borderTop: `4px solid ${COLORS.PRIMARY[500]}`,
-                            borderRadius: 2,
-                            boxShadow: `0 2px 8px ${alpha(COLORS.SHADOW.LIGHT, 0.1)}`
-                        }}
-                    >
-                        <CardContent>
-                            <Typography variant="body2" color="text.secondary" gutterBottom>
-                                Tổng số ca
-                            </Typography>
-                            <Typography variant="h4" fontWeight={700} color={COLORS.PRIMARY[500]}>
-                                {stats.totalShifts}
-                            </Typography>
-                        </CardContent>
-                    </Card>
-                </Grid>
-
-                <Grid item xs={12} sm={6} md={3}>
-                    <Card
-                        sx={{
-                            borderTop: `4px solid ${COLORS.SUCCESS[500]}`,
-                            borderRadius: 2,
-                            boxShadow: `0 2px 8px ${alpha(COLORS.SHADOW.LIGHT, 0.1)}`
-                        }}
-                    >
-                        <CardContent>
-                            <Typography variant="body2" color="text.secondary" gutterBottom>
-                                Ca đang hoạt động
-                            </Typography>
-                            <Typography variant="h4" fontWeight={700} color={COLORS.SUCCESS[500]}>
-                                {stats.activeShifts}
-                            </Typography>
-                        </CardContent>
-                    </Card>
-                </Grid>
-
-                <Grid item xs={12} sm={6} md={3}>
-                    <Card
-                        sx={{
-                            borderTop: `4px solid ${COLORS.INFO[500]}`,
-                            borderRadius: 2,
-                            boxShadow: `0 2px 8px ${alpha(COLORS.SHADOW.LIGHT, 0.1)}`
-                        }}
-                    >
-                        <CardContent>
-                            <Typography variant="body2" color="text.secondary" gutterBottom>
-                                Tổng số nhóm
-                            </Typography>
-                            <Typography variant="h4" fontWeight={700} color={COLORS.INFO[600]}>
-                                {stats.totalTeams}
-                            </Typography>
-                        </CardContent>
-                    </Card>
-                </Grid>
-
-                <Grid item xs={12} sm={6} md={3}>
-                    <Card
-                        sx={{
-                            borderTop: `4px solid ${COLORS.WARNING[500]}`,
-                            borderRadius: 2,
-                            boxShadow: `0 2px 8px ${alpha(COLORS.SHADOW.LIGHT, 0.1)}`
-                        }}
-                    >
-                        <CardContent>
-                            <Typography variant="body2" color="text.secondary" gutterBottom>
-                                Nhân viên phân công
-                            </Typography>
-                            <Typography variant="h4" fontWeight={700} color={COLORS.WARNING[700]}>
-                                {stats.totalAssignments}
-                            </Typography>
-                        </CardContent>
-                    </Card>
-                </Grid>
-            </Grid>
+            <Box
+                sx={{
+                    display: 'flex',
+                    flexWrap: 'nowrap',
+                    gap: 2.5,
+                    mb: 4,
+                    width: '100%',
+                    overflow: 'visible'
+                }}
+            >
+                {[
+                    { label: 'Tổng số ca', value: stats.totalShifts, color: COLORS.PRIMARY[500], valueColor: COLORS.PRIMARY[500] },
+                    { label: 'Ca đang hoạt động', value: stats.activeShifts, color: COLORS.SUCCESS[500], valueColor: COLORS.SUCCESS[500] },
+                    { label: 'Tổng số nhóm', value: stats.totalTeams, color: COLORS.INFO[500], valueColor: COLORS.INFO[600] },
+                    { label: 'Nhân viên phân công', value: stats.totalAssignments, color: COLORS.WARNING[500], valueColor: COLORS.WARNING[700] }
+                ].map((stat, index) => {
+                    const cardWidth = `calc((100% - ${3 * 20}px) / 4)`;
+                    return (
+                        <Box
+                            key={index}
+                            sx={{
+                                flex: `0 0 ${cardWidth}`,
+                                width: cardWidth,
+                                maxWidth: cardWidth,
+                                minWidth: 0
+                            }}
+                        >
+                            <Card
+                                sx={{
+                                    borderTop: `4px solid ${stat.color}`,
+                                    borderRadius: 2,
+                                    height: '100%',
+                                    boxShadow: `4px 6px 12px ${alpha(COLORS.SHADOW.LIGHT, 0.25)}, 0 4px 8px ${alpha(COLORS.SHADOW.LIGHT, 0.1)}, 2px 2px 4px ${alpha(COLORS.SHADOW.LIGHT, 0.15)}`
+                                }}
+                            >
+                                <CardContent>
+                                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                                        {stat.label}
+                                    </Typography>
+                                    <Typography variant="h4" fontWeight={700} color={stat.valueColor}>
+                                        {stat.value}
+                                    </Typography>
+                                </CardContent>
+                            </Card>
+                        </Box>
+                    );
+                })}
+            </Box>
 
             {/* Filters and Actions */}
             <Stack direction="row" spacing={2} sx={{ mb: 3 }} alignItems="center">

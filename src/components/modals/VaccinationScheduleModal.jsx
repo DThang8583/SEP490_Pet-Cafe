@@ -12,13 +12,16 @@ const VaccinationScheduleModal = ({
     pets = [],
     vaccineTypes = [],
     species = [],
+    teams = [],
     isLoading = false
 }) => {
     const [formData, setFormData] = useState({
-        pet_id: '',
+        species_id: '',
         vaccine_type_id: '',
+        pet_id: '',
         scheduled_date: '',
         notes: '',
+        team_id: '',
         status: 'PENDING' // PENDING, COMPLETED, CANCELLED, IN_PROGRESS
     });
 
@@ -27,35 +30,47 @@ const VaccinationScheduleModal = ({
     useEffect(() => {
         if (isOpen) {
             if (editMode && initialData) {
+                // Get species_id from pet if available
+                const pet = pets.find(p => p.id === initialData.pet_id);
+                const speciesId = pet?.species_id || pet?.species?.id || '';
+
                 setFormData({
-                    pet_id: initialData.pet_id || '',
+                    species_id: speciesId,
                     vaccine_type_id: initialData.vaccine_type_id || '',
+                    pet_id: initialData.pet_id || '',
                     scheduled_date: initialData.scheduled_date ? new Date(initialData.scheduled_date).toISOString().split('T')[0] : '',
                     notes: initialData.notes || '',
+                    team_id: initialData.team_id || '',
                     status: initialData.status || 'PENDING'
                 });
             } else {
                 setFormData({
-                    pet_id: '',
+                    species_id: '',
                     vaccine_type_id: '',
+                    pet_id: '',
                     scheduled_date: '',
                     notes: '',
+                    team_id: '',
                     status: 'PENDING'
                 });
             }
             setErrors({});
         }
-    }, [isOpen, editMode, initialData]);
+    }, [isOpen, editMode, initialData, pets]);
 
     const validate = () => {
         const newErrors = {};
 
-        if (!formData.pet_id) {
-            newErrors.pet_id = 'Vui lòng chọn thú cưng';
+        if (!formData.species_id) {
+            newErrors.species_id = 'Vui lòng chọn loài';
         }
 
         if (!formData.vaccine_type_id) {
             newErrors.vaccine_type_id = 'Vui lòng chọn loại vaccine';
+        }
+
+        if (!formData.pet_id) {
+            newErrors.pet_id = 'Vui lòng chọn thú cưng';
         }
 
         if (!formData.scheduled_date) {
@@ -74,10 +89,12 @@ const VaccinationScheduleModal = ({
 
     const handleClose = () => {
         setFormData({
-            pet_id: '',
+            species_id: '',
             vaccine_type_id: '',
+            pet_id: '',
             scheduled_date: '',
             notes: '',
+            team_id: '',
             status: 'PENDING'
         });
         setErrors({});
@@ -108,24 +125,27 @@ const VaccinationScheduleModal = ({
         return vaccineType ? vaccineType.name : '';
     };
 
-    // Get available vaccine types for selected pet
+    // Get available vaccine types for selected species
     const availableVaccineTypes = useMemo(() => {
-        if (!formData.pet_id) {
-            return vaccineTypes;
-        }
-        const pet = pets.find(p => p.id === formData.pet_id);
-        if (!pet) {
-            return vaccineTypes;
-        }
-        const petSpeciesId = pet.species_id || pet.species?.id;
-        if (!petSpeciesId) {
-            return vaccineTypes;
+        if (!formData.species_id) {
+            return [];
         }
         return vaccineTypes.filter(vt => {
             const vtSpeciesId = vt.species_id || vt.species?.id;
-            return vtSpeciesId === petSpeciesId;
+            return vtSpeciesId === formData.species_id;
         });
-    }, [formData.pet_id, pets, vaccineTypes]);
+    }, [formData.species_id, vaccineTypes]);
+
+    // Get available pets for selected species
+    const availablePets = useMemo(() => {
+        if (!formData.species_id) {
+            return [];
+        }
+        return pets.filter(pet => {
+            const petSpeciesId = pet.species_id || pet.species?.id;
+            return petSpeciesId === formData.species_id;
+        });
+    }, [formData.species_id, pets]);
 
     if (!isOpen) return null;
 
@@ -146,74 +166,51 @@ const VaccinationScheduleModal = ({
                     maxHeight: '90vh',
                     overflow: 'auto',
                     borderRadius: 3,
-                    boxShadow: `0 20px 60px ${alpha(COLORS.WARNING[900], 0.3)}`,
+                    boxShadow: `0 20px 60px ${alpha(COLORS.SHADOW.DARK, 0.3)}`,
                     display: 'flex',
                     flexDirection: 'column'
                 }}
             >
-                {/* Header */}
                 <Box
                     sx={{
-                        background: COLORS.WARNING[500],
-                        color: '#fff',
-                        fontWeight: 800,
-                        py: 2.5,
-                        px: 3,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 2
+                        background: `linear-gradient(135deg, ${alpha(COLORS.WARNING[50], 0.3)}, ${alpha(COLORS.SECONDARY[50], 0.2)})`,
+                        borderBottom: `3px solid ${COLORS.WARNING[500]}`
                     }}
                 >
-                    <CalendarToday sx={{ fontSize: 32 }} />
-                    <Typography variant="h5" sx={{ fontWeight: 800, flexGrow: 1 }}>
-                        {editMode ? 'Chỉnh sửa Lịch tiêm' : 'Tạo Lịch tiêm mới'}
-                    </Typography>
-                    <IconButton
-                        onClick={handleClose}
-                        sx={{
-                            color: '#fff',
-                            '&:hover': {
-                                background: alpha('#fff', 0.2)
-                            }
-                        }}
-                    >
-                        <Close />
-                    </IconButton>
+                    <Box sx={{ fontWeight: 800, color: COLORS.WARNING[700], pb: 1, pt: 2, px: 3, display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <CalendarToday />
+                        {editMode ? '✏️ Chỉnh sửa Lịch tiêm' : '➕ Tạo Lịch tiêm mới'}
+                    </Box>
                 </Box>
 
-                {/* Content */}
-                <Box sx={{ p: 3, flex: 1, overflow: 'auto' }}>
+                <Box sx={{ pt: 3, pb: 2, px: 3, flex: 1, overflow: 'auto' }}>
                     <Stack spacing={3}>
-                        {/* Pet Selection */}
-                        <FormControl fullWidth required error={Boolean(errors.pet_id)}>
-                            <InputLabel>Chọn thú cưng</InputLabel>
+                        {/* Species Selection */}
+                        <FormControl fullWidth required error={Boolean(errors.species_id)}>
+                            <InputLabel>Loài</InputLabel>
                             <Select
-                                value={formData.pet_id}
+                                value={formData.species_id}
                                 onChange={(e) => {
-                                    const newPetId = e.target.value;
-                                    // Reset vaccine_type_id when pet changes to ensure filter works correctly
+                                    const newSpeciesId = e.target.value;
+                                    // Reset vaccine_type_id and pet_id when species changes
                                     setFormData({
                                         ...formData,
-                                        pet_id: newPetId,
-                                        vaccine_type_id: '' // Reset vaccine selection when pet changes
+                                        species_id: newSpeciesId,
+                                        vaccine_type_id: '',
+                                        pet_id: ''
                                     });
                                 }}
-                                label="Chọn thú cưng"
+                                label="Loài"
                             >
-                                {pets.map(pet => (
-                                    <MenuItem key={pet.id} value={pet.id}>
-                                        <Stack direction="row" alignItems="center" spacing={1}>
-                                            <Typography>{pet.name}</Typography>
-                                            <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY }}>
-                                                ({getSpeciesName(pet.species_id)})
-                                            </Typography>
-                                        </Stack>
+                                {species.map(sp => (
+                                    <MenuItem key={sp.id} value={sp.id}>
+                                        <Typography>{capitalizeName(sp.name)}</Typography>
                                     </MenuItem>
                                 ))}
                             </Select>
-                            {errors.pet_id && (
+                            {errors.species_id && (
                                 <Typography variant="caption" sx={{ color: COLORS.ERROR[600], mt: 0.5, ml: 1.5 }}>
-                                    {errors.pet_id}
+                                    {errors.species_id}
                                 </Typography>
                             )}
                         </FormControl>
@@ -223,14 +220,14 @@ const VaccinationScheduleModal = ({
                             fullWidth
                             required
                             error={Boolean(errors.vaccine_type_id)}
-                            disabled={!formData.pet_id}
+                            disabled={!formData.species_id}
                         >
                             <InputLabel>Loại vaccine</InputLabel>
                             <Select
                                 value={formData.vaccine_type_id}
                                 onChange={(e) => setFormData({ ...formData, vaccine_type_id: e.target.value })}
                                 label="Loại vaccine"
-                                disabled={!formData.pet_id}
+                                disabled={!formData.species_id}
                             >
                                 {availableVaccineTypes.length > 0 ? (
                                     availableVaccineTypes.map(vt => (
@@ -248,7 +245,7 @@ const VaccinationScheduleModal = ({
                                 ) : (
                                     <MenuItem disabled>
                                         <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
-                                            {formData.pet_id ? 'Không có vaccine phù hợp với loài thú cưng này' : 'Vui lòng chọn thú cưng trước'}
+                                            {formData.species_id ? 'Không có vaccine phù hợp với loài này' : 'Vui lòng chọn loài trước'}
                                         </Typography>
                                     </MenuItem>
                                 )}
@@ -256,6 +253,36 @@ const VaccinationScheduleModal = ({
                             {errors.vaccine_type_id && (
                                 <Typography variant="caption" sx={{ color: COLORS.ERROR[600], mt: 0.5, ml: 1.5 }}>
                                     {errors.vaccine_type_id}
+                                </Typography>
+                            )}
+                        </FormControl>
+
+                        {/* Pet Selection */}
+                        <FormControl fullWidth required error={Boolean(errors.pet_id)} disabled={!formData.species_id}>
+                            <InputLabel>Thú cưng</InputLabel>
+                            <Select
+                                value={formData.pet_id}
+                                onChange={(e) => setFormData({ ...formData, pet_id: e.target.value })}
+                                label="Thú cưng"
+                                disabled={!formData.species_id}
+                            >
+                                {availablePets.length > 0 ? (
+                                    availablePets.map(pet => (
+                                        <MenuItem key={pet.id} value={pet.id}>
+                                            <Typography>{pet.name}</Typography>
+                                        </MenuItem>
+                                    ))
+                                ) : (
+                                    <MenuItem disabled>
+                                        <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
+                                            {formData.species_id ? 'Không có thú cưng thuộc loài này' : 'Vui lòng chọn loài trước'}
+                                        </Typography>
+                                    </MenuItem>
+                                )}
+                            </Select>
+                            {errors.pet_id && (
+                                <Typography variant="caption" sx={{ color: COLORS.ERROR[600], mt: 0.5, ml: 1.5 }}>
+                                    {errors.pet_id}
                                 </Typography>
                             )}
                         </FormControl>
@@ -344,6 +371,29 @@ const VaccinationScheduleModal = ({
                             </FormControl>
                         )}
 
+                        {/* Team Selection - Optional */}
+                        {teams.length > 0 && (
+                            <FormControl fullWidth>
+                                <InputLabel>Nhóm (tùy chọn)</InputLabel>
+                                <Select
+                                    value={formData.team_id}
+                                    onChange={(e) => setFormData({ ...formData, team_id: e.target.value })}
+                                    label="Nhóm (tùy chọn)"
+                                >
+                                    <MenuItem value="">
+                                        <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
+                                            Không chọn
+                                        </Typography>
+                                    </MenuItem>
+                                    {teams.map(team => (
+                                        <MenuItem key={team.id} value={team.id}>
+                                            <Typography>{team.name}</Typography>
+                                        </MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+                        )}
+
                         {/* Notes */}
                         <TextField
                             label="Ghi chú"
@@ -390,15 +440,14 @@ const VaccinationScheduleModal = ({
                     </Stack>
                 </Box>
 
-                {/* Footer */}
                 <Box
                     sx={{
-                        p: 2.5,
-                        background: alpha(COLORS.BACKGROUND.NEUTRAL, 0.5),
+                        px: 3,
+                        py: 2,
+                        borderTop: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.1)}`,
                         display: 'flex',
                         justifyContent: 'flex-end',
-                        gap: 2,
-                        borderTop: `1px solid ${alpha(COLORS.WARNING[200], 0.3)}`
+                        gap: 2
                     }}
                 >
                     <Button

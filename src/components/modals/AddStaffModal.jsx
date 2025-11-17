@@ -398,22 +398,33 @@ const AddStaffModal = ({
     };
 
     return (
-        <Dialog open={isOpen} onClose={handleClose} maxWidth="md" fullWidth>
-            <DialogTitle sx={{ bgcolor: COLORS.PRIMARY[500], color: 'white', py: 2.5, px: 3 }}>
-                <Stack direction="row" spacing={2} alignItems="center">
-                    <Person sx={{ fontSize: 32 }} />
-                    <Typography variant="h5" sx={{ fontWeight: 700, flex: 1 }}>
-                        {editMode ? 'Chỉnh sửa nhân viên' : 'Thêm nhân viên mới'}
-                    </Typography>
-                    <IconButton onClick={handleClose} size="medium" sx={{ color: 'white' }} disabled={isLoading}>
-                        <Close sx={{ fontSize: 24 }} />
-                    </IconButton>
-                </Stack>
-            </DialogTitle>
+        <Dialog
+            open={isOpen}
+            onClose={handleClose}
+            maxWidth="md"
+            fullWidth
+            disableScrollLock
+            PaperProps={{
+                sx: {
+                    borderRadius: 3,
+                    boxShadow: `0 20px 60px ${alpha(COLORS.SHADOW.DARK, 0.3)}`
+                }
+            }}
+        >
+            <Box
+                sx={{
+                    background: `linear-gradient(135deg, ${alpha(COLORS.PRIMARY[50], 0.3)}, ${alpha(COLORS.SECONDARY[50], 0.2)})`,
+                    borderBottom: `3px solid ${COLORS.PRIMARY[500]}`
+                }}
+            >
+                <DialogTitle sx={{ fontWeight: 800, color: COLORS.PRIMARY[700], pb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Person />
+                    {editMode ? '✏️ Chỉnh sửa nhân viên' : '➕ Thêm nhân viên mới'}
+                </DialogTitle>
+            </Box>
 
-            {/* Content */}
             <DialogContent sx={{ pt: 3, pb: 2, px: 3 }}>
-                <Stack spacing={3} sx={{ mt: 2 }}>
+                <Stack spacing={3}>
                     {/* Avatar Upload */}
                     <Box sx={{ display: 'flex', justifyContent: 'center' }}>
                         <Box sx={{ position: 'relative' }}>
@@ -714,8 +725,7 @@ const AddStaffModal = ({
                 </Stack>
             </DialogContent>
 
-            {/* Footer Actions */}
-            <DialogActions sx={{ px: 3, py: 2 }}>
+            <DialogActions sx={{ px: 3, py: 2, borderTop: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.1)}` }}>
                 <Button onClick={handleClose} disabled={isLoading}>
                     Hủy
                 </Button>

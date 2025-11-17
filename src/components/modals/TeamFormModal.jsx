@@ -1,6 +1,5 @@
 import React from 'react';
-import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Stack, Box, IconButton, Typography, FormControl, InputLabel, Select, MenuItem, Alert, Chip, OutlinedInput, Switch, FormControlLabel, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Checkbox } from '@mui/material';
-import { alpha } from '@mui/material/styles';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Stack, Box, IconButton, Typography, FormControl, InputLabel, Select, MenuItem, Alert, Chip, OutlinedInput, Switch, FormControlLabel, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Checkbox, alpha } from '@mui/material';
 import { Groups, Close, Info } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 import { WEEKDAY_LABELS } from '../../api/workShiftApi';
@@ -89,20 +88,32 @@ const TeamFormModal = ({
     };
 
     return (
-        <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-            <DialogTitle sx={{ bgcolor: COLORS.PRIMARY[500], color: 'white', py: 2.5, px: 3 }}>
-                <Stack direction="row" spacing={2} alignItems="center">
-                    <Groups sx={{ fontSize: 32 }} />
-                    <Typography variant="h5" sx={{ fontWeight: 700, flex: 1 }}>
-                        {editingTeam ? 'Sửa nhóm' : 'Tạo nhóm mới'}
-                    </Typography>
-                    <IconButton onClick={onClose} size="medium" sx={{ color: 'white' }}>
-                        <Close sx={{ fontSize: 24 }} />
-                    </IconButton>
-                </Stack>
-            </DialogTitle>
+        <Dialog
+            open={open}
+            onClose={onClose}
+            maxWidth="md"
+            fullWidth
+            disableScrollLock
+            PaperProps={{
+                sx: {
+                    borderRadius: 3,
+                    boxShadow: `0 20px 60px ${alpha(COLORS.SHADOW.DARK, 0.3)}`
+                }
+            }}
+        >
+            <Box
+                sx={{
+                    background: `linear-gradient(135deg, ${alpha(COLORS.PRIMARY[50], 0.3)}, ${alpha(COLORS.SECONDARY[50], 0.2)})`,
+                    borderBottom: `3px solid ${COLORS.PRIMARY[500]}`
+                }}
+            >
+                <DialogTitle sx={{ fontWeight: 800, color: COLORS.PRIMARY[700], pb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Groups />
+                    {editingTeam ? '✏️ Sửa nhóm' : '➕ Tạo nhóm mới'}
+                </DialogTitle>
+            </Box>
             <DialogContent sx={{ pt: 3, pb: 2, px: 3 }}>
-                <Stack spacing={3} sx={{ mt: 2 }}>
+                <Stack spacing={3}>
                     {/* Tên nhóm */}
                     <TextField
                         label="Tên nhóm"
@@ -326,7 +337,7 @@ const TeamFormModal = ({
                     )}
                 </Stack>
             </DialogContent>
-            <DialogActions sx={{ px: 3, py: 2.5, gap: 2 }}>
+            <DialogActions sx={{ px: 3, py: 2, borderTop: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.1)}`, gap: 2 }}>
                 <Button onClick={onClose} variant="outlined" size="large" disabled={loading} sx={{ minWidth: 130, height: 44 }}>
                     Hủy
                 </Button>

@@ -86,40 +86,28 @@ const AddSpeciesModal = ({ open, onClose, onSave, editingSpecies = null }) => {
             onClose={onClose}
             maxWidth="sm"
             fullWidth
+            disableScrollLock
             PaperProps={{
                 sx: {
                     borderRadius: 3,
-                    boxShadow: '0 8px 32px rgba(0,0,0,0.12)'
+                    boxShadow: `0 20px 60px ${alpha(COLORS.SHADOW.DARK, 0.3)}`
                 }
             }}
         >
-            {/* Header */}
-            <DialogTitle
+            <Box
                 sx={{
-                    bgcolor: COLORS.ERROR[500],
-                    color: 'white',
-                    pb: 2
+                    background: `linear-gradient(135deg, ${alpha(COLORS.ERROR[50], 0.3)}, ${alpha(COLORS.SECONDARY[50], 0.2)})`,
+                    borderBottom: `3px solid ${COLORS.ERROR[500]}`
                 }}
             >
-                <Stack direction="row" spacing={2} alignItems="center">
-                    <Pets sx={{ fontSize: 32 }} />
-                    <Box sx={{ flex: 1 }}>
-                        <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                            {editingSpecies ? 'Sửa loài' : 'Thêm loài mới'}
-                        </Typography>
-                        <Typography variant="body2" sx={{ opacity: 0.9, mt: 0.5 }}>
-                            {editingSpecies ? 'Cập nhật thông tin loài thú cưng' : 'Thêm loài thú cưng mới'}
-                        </Typography>
-                    </Box>
-                    <IconButton onClick={onClose} sx={{ color: 'white' }}>
-                        <Close />
-                    </IconButton>
-                </Stack>
-            </DialogTitle>
+                <DialogTitle sx={{ fontWeight: 800, color: COLORS.ERROR[700], pb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Pets />
+                    {editingSpecies ? '✏️ Sửa loài' : '➕ Thêm loài mới'}
+                </DialogTitle>
+            </Box>
 
-            {/* Content */}
-            <DialogContent sx={{ pt: 4, pb: 2 }}>
-                <Stack spacing={3} sx={{ mt: 2 }}>
+            <DialogContent sx={{ pt: 3, pb: 2, px: 3 }}>
+                <Stack spacing={3}>
                     <TextField
                         fullWidth
                         size="medium"
@@ -145,8 +133,7 @@ const AddSpeciesModal = ({ open, onClose, onSave, editingSpecies = null }) => {
                 </Stack>
             </DialogContent>
 
-            {/* Actions */}
-            <DialogActions sx={{ px: 3, py: 2, bgcolor: alpha(COLORS.ERROR[500], 0.02) }}>
+            <DialogActions sx={{ px: 3, py: 2, borderTop: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.1)}` }}>
                 <Button onClick={onClose} variant="outlined" color="inherit">
                     Hủy
                 </Button>

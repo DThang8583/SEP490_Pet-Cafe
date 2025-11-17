@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Dialog, DialogTitle, DialogContent, DialogActions, TextField, Button, Box, Typography, IconButton, Switch, FormControlLabel, Alert, alpha } from '@mui/material';
+import { Dialog, DialogTitle, DialogContent, DialogActions, TextField, Button, Box, Typography, IconButton, Switch, FormControlLabel, Alert, alpha, Stack } from '@mui/material';
 import { Close, WorkOutline } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 
@@ -100,6 +100,7 @@ const WorkTypeFormModal = ({
             onClose={handleClose}
             maxWidth="sm"
             fullWidth
+            disableScrollLock
             PaperProps={{
                 sx: {
                     borderRadius: 3,
@@ -107,50 +108,19 @@ const WorkTypeFormModal = ({
                 }
             }}
         >
-            {/* Header */}
-            <DialogTitle
+            <Box
                 sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    pb: 2,
-                    borderBottom: `1px solid ${COLORS.GRAY[200]}`
+                    background: `linear-gradient(135deg, ${alpha(COLORS.PRIMARY[50], 0.3)}, ${alpha(COLORS.SECONDARY[50], 0.2)})`,
+                    borderBottom: `3px solid ${COLORS.PRIMARY[500]}`
                 }}
             >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                    <Box
-                        sx={{
-                            width: 40,
-                            height: 40,
-                            borderRadius: 2,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            bgcolor: alpha(COLORS.PRIMARY[500], 0.1)
-                        }}
-                    >
-                        <WorkOutline sx={{ color: COLORS.PRIMARY[600], fontSize: 24 }} />
-                    </Box>
-                    <Typography variant="h6" fontWeight={700} color={COLORS.TEXT.PRIMARY}>
-                        {mode === 'create' ? 'Tạo loại công việc mới' : 'Chỉnh sửa loại công việc'}
-                    </Typography>
-                </Box>
-
-                <IconButton
-                    onClick={handleClose}
-                    size="small"
-                    sx={{
-                        color: COLORS.GRAY[600],
-                        '&:hover': { bgcolor: alpha(COLORS.GRAY[100], 0.8) }
-                    }}
-                >
-                    <Close />
-                </IconButton>
-            </DialogTitle>
-
-            {/* Content */}
-            <DialogContent sx={{ pt: 3, pb: 2 }}>
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+                <DialogTitle sx={{ fontWeight: 800, color: COLORS.PRIMARY[700], pb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <WorkOutline />
+                    {mode === 'create' ? '➕ Tạo loại công việc mới' : '✏️ Chỉnh sửa loại công việc'}
+                </DialogTitle>
+            </Box>
+            <DialogContent sx={{ pt: 3, pb: 2, px: 3 }}>
+                <Stack spacing={3}>
                     {/* Name */}
                     <TextField
                         label="Tên loại công việc"
@@ -210,15 +180,14 @@ const WorkTypeFormModal = ({
                             Loại công việc mới sẽ được tạo ở trạng thái <strong>hoạt động</strong> mặc định.
                         </Alert>
                     )}
-                </Box>
+                </Stack>
             </DialogContent>
 
-            {/* Actions */}
             <DialogActions
                 sx={{
                     px: 3,
                     py: 2,
-                    borderTop: `1px solid ${COLORS.GRAY[200]}`,
+                    borderTop: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.1)}`,
                     gap: 1.5
                 }}
             >

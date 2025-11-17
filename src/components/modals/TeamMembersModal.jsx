@@ -116,43 +116,28 @@ const TeamMembersModal = ({
             onClose={onClose}
             maxWidth="xl"
             fullWidth
+            disableScrollLock
             PaperProps={{
                 sx: {
-                    borderRadius: 2,
+                    borderRadius: 3,
+                    boxShadow: `0 20px 60px ${alpha(COLORS.SHADOW.DARK, 0.3)}`,
                     minHeight: 700,
                     maxHeight: '90vh',
                     maxWidth: 1400
                 }
             }}
         >
-            <DialogTitle sx={{ borderBottom: `1px solid ${COLORS.BORDER.MAIN}`, py: 3, px: 3, bgcolor: alpha(COLORS.PRIMARY[50], 0.3) }}>
-                <Stack direction="row" alignItems="center" justifyContent="space-between">
-                    <Stack direction="row" spacing={2.5} alignItems="center">
-                        <Groups sx={{ fontSize: 36, color: COLORS.PRIMARY[600] }} />
-                        <Box>
-                            <Typography variant="h5" sx={{ fontWeight: 700 }}>
-                                {team?.name || 'Nhóm'}
-                            </Typography>
-                            <Stack direction="row" spacing={2} alignItems="center" sx={{ mt: 0.75 }}>
-                                <Typography variant="body1" sx={{ color: COLORS.TEXT.SECONDARY, fontWeight: 600 }}>
-                                    Leader: <strong>{team?.leader?.full_name || 'N/A'}</strong>
-                                </Typography>
-                                {hasChanges && (
-                                    <Chip
-                                        label={`${addedCount + removedCount} thay đổi`}
-                                        size="small"
-                                        color="warning"
-                                        sx={{ fontWeight: 700, height: 24, fontSize: '0.8rem' }}
-                                    />
-                                )}
-                            </Stack>
-                        </Box>
-                    </Stack>
-                    <IconButton onClick={onClose} size="medium">
-                        <Close sx={{ fontSize: 24 }} />
-                    </IconButton>
-                </Stack>
-            </DialogTitle>
+            <Box
+                sx={{
+                    background: `linear-gradient(135deg, ${alpha(COLORS.PRIMARY[50], 0.3)}, ${alpha(COLORS.SECONDARY[50], 0.2)})`,
+                    borderBottom: `3px solid ${COLORS.PRIMARY[500]}`
+                }}
+            >
+                <DialogTitle sx={{ fontWeight: 800, color: COLORS.PRIMARY[700], pb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Groups />
+                    👥 Thành viên nhóm: {team?.name || 'Nhóm'}
+                </DialogTitle>
+            </Box>
 
             <DialogContent sx={{ p: 0, overflow: 'hidden' }}>
                 <Stack direction="row" sx={{ height: 580 }}>
@@ -476,7 +461,7 @@ const TeamMembersModal = ({
                 </Stack>
             </DialogContent>
 
-            <DialogActions sx={{ px: 3, py: 3, bgcolor: alpha(COLORS.GRAY[50], 0.3), gap: 2, borderTop: `1px solid ${COLORS.BORDER.MAIN}` }}>
+            <DialogActions sx={{ px: 3, py: 2, borderTop: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.1)}`, gap: 2 }}>
                 <Box sx={{ flex: 1 }}>
                     <Typography variant="body1" sx={{ color: COLORS.TEXT.SECONDARY, fontWeight: 600 }}>
                         💡 Click checkbox để kích hoạt/vô hiệu hóa thành viên

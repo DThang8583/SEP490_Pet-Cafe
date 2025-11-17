@@ -1,6 +1,6 @@
 import React from "react";
 import { Route } from "react-router-dom";
-import DashboardPage from "../pages/manager/DashboardPage";
+import DashboardPage from "../pages/manager/dashboard/DashboardPage";
 import PetsPage from "../pages/manager/pets/PetsPage";
 import VaccinationsPage from "../pages/manager/VaccinationsPage";
 import StaffPage from "../pages/manager/StaffPage";

@@ -1,0 +1,1499 @@
+import React, { useEffect, useState, useMemo } from 'react';
+import { Box, Paper, Typography, Stack, TextField, MenuItem, Chip, Button, Table, TableHead, TableBody, TableRow, TableCell, Alert, Snackbar, Skeleton, Avatar, Divider, Select, FormControl, InputLabel, alpha, Grid, Dialog, DialogTitle, DialogContent, DialogActions, TableContainer, IconButton, Tooltip, Card, CardContent } from '@mui/material';
+import { ChecklistRtl, CheckCircle, AccessTime, Block, Person, Groups, Event, Close, Edit, CalendarToday, ChevronLeft, ChevronRight } from '@mui/icons-material';
+import workingStaffApi from '../../api/workingStaffApi';
+import { COLORS } from '../../constants/colors';
+import { getDailySchedules } from '../../api/dailyScheduleApi';
+import apiClient from '../../config/config';
+import { WEEKDAY_LABELS, WEEKDAYS } from '../../api/workShiftApi';
+
+const STATUS_OPTIONS = [
+    { value: 'PENDING', label: 'Chưa điểm danh', icon: <AccessTime fontSize="small" />, color: 'warning' },
+    { value: 'PRESENT', label: 'Có mặt', icon: <CheckCircle fontSize="small" />, color: 'success' },
+    { value: 'ABSENT', label: 'Vắng mặt', icon: <Block fontSize="small" />, color: 'error' },
+    { value: 'EXCUSED', label: 'Vắng có phép', icon: <CheckCircle fontSize="small" />, color: 'info' },
+    { value: 'LATE', label: 'Đi muộn', icon: <AccessTime fontSize="small" />, color: 'warning' }
+];
+
+const STATUS_COLORS = {
+    PENDING: { bg: alpha(COLORS.WARNING[100], 0.8), color: COLORS.WARNING[700] },
+    PRESENT: { bg: alpha(COLORS.SUCCESS[100], 0.8), color: COLORS.SUCCESS[700] },
+    ABSENT: { bg: alpha(COLORS.ERROR[100], 0.8), color: COLORS.ERROR[700] },
+    EXCUSED: { bg: alpha(COLORS.INFO[100], 0.8), color: COLORS.INFO[700] },
+    LATE: { bg: alpha(COLORS.WARNING[100], 0.8), color: COLORS.WARNING[700] }
+};
+
+const DAY_ALIASES = {
+    MONDAY: 'MONDAY',
+    TUESDAY: 'TUESDAY',
+    WEDNESDAY: 'WEDNESDAY',
+    THURSDAY: 'THURSDAY',
+    FRIDAY: 'FRIDAY',
+    SATURDAY: 'SATURDAY',
+    SUNDAY: 'SUNDAY',
+    THU2: 'MONDAY',
+    THU3: 'TUESDAY',
+    THU4: 'WEDNESDAY',
+    THU5: 'THURSDAY',
+    THU6: 'FRIDAY',
+    THU7: 'SATURDAY',
+    CHUNHAT: 'SUNDAY'
+};
+
+const normalizeWorkingDays = (workingDays) => {
+    if (!workingDays) return [];
+    if (Array.isArray(workingDays)) {
+        return workingDays
+            .map((day) => {
+                const key = day?.toString?.().replace(/\s+/g, '').toUpperCase();
+                return DAY_ALIASES[key] || key;
+            })
+            .filter((day) => WEEKDAYS.includes(day));
+    }
+    if (typeof workingDays === 'string') {
+        return workingDays
+            .split(',')
+            .map((day) => {
+                const key = day.trim().replace(/\s+/g, '').toUpperCase();
+                return DAY_ALIASES[key] || key;
+            })
+            .filter((day) => WEEKDAYS.includes(day));
+    }
+    return [];
+};
+
+const formatDate = (dateString) => {
+    if (!dateString) return '—';
+    const date = new Date(dateString);
+    const weekdays = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+    const weekday = weekdays[date.getDay()];
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${weekday}, ${day}/${month}/${year}`;
+};
+
+const formatTime = (timeString) => {
+    if (!timeString) return '—';
+    const parts = timeString.split(':');
+    return `${parts[0]}:${parts[1]}`;
+};
+
+const getDayKeyFromDate = (dateString) => {
+    if (!dateString) return null;
+    const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) return null;
+    const jsDay = date.getDay(); // 0 = Sunday
+    const index = jsDay === 0 ? 6 : jsDay - 1;
+    return WEEKDAYS[index];
+};
+
+const WorkingAttendancePage = () => {
+    const [profileData] = useState(() => {
+        const p = workingStaffApi.getProfile();
+        return {
+            id: p?.id,
+            employee_id: p?.employee_id,
+            account_id: p?.account_id,
+            leader: p?.leader || false
+        };
+    });
+    const isLeader = profileData.leader;
+    const [teams, setTeams] = useState([]);
+    const [attendance, setAttendance] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [snackbar, setSnackbar] = useState(null);
+    const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+    const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
+    const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+    const [viewMode, setViewMode] = useState('day');
+    const [attendanceDialog, setAttendanceDialog] = useState(null);
+    const [activeDayTab, setActiveDayTab] = useState({}); // { shiftId: dayKey }
+
+    // Load teams data
+    useEffect(() => {
+        let mounted = true;
+        const loadTeams = async () => {
+            try {
+                const data = await workingStaffApi.getMyTeams();
+                if (mounted) {
+                    setTeams(data);
+                }
+            } catch (error) {
+                console.error('Failed to load teams', error);
+            } finally {
+                if (mounted) setLoading(false);
+            }
+        };
+        loadTeams();
+        return () => {
+            mounted = false;
+        };
+    }, []);
+
+    // Calculate date range for month view
+    const dateRange = useMemo(() => {
+        if (viewMode === 'day') {
+            return { fromDate: selectedDate, toDate: selectedDate };
+        } else {
+            const firstDay = new Date(selectedYear, selectedMonth, 1);
+            const lastDay = new Date(selectedYear, selectedMonth + 1, 0);
+            return {
+                fromDate: firstDay.toISOString().split('T')[0],
+                toDate: lastDay.toISOString().split('T')[0]
+            };
+        }
+    }, [viewMode, selectedDate, selectedMonth, selectedYear]);
+
+    // Load attendance data
+    useEffect(() => {
+        if (teams.length === 0) return;
+        let mounted = true;
+        const loadAttendance = async () => {
+            try {
+                const params = {
+                    page_index: 0,
+                    page_size: 1000,
+                    FromDate: dateRange.fromDate,
+                    ToDate: dateRange.toDate
+                };
+
+                const response = await getDailySchedules(params);
+                let schedules = response.data || [];
+
+                // Filter for non-leaders: only show their own attendance
+                if (!isLeader) {
+                    const employeeId = profileData.id || profileData.employee_id || profileData.account_id;
+                    const accountId = profileData.account_id;
+                    schedules = schedules.filter((schedule) => {
+                        const scheduleEmployeeId = schedule.employee_id || schedule.employee?.id || schedule.team_member?.employee_id;
+                        const scheduleAccountId = schedule.employee?.account_id;
+                        return (
+                            scheduleEmployeeId === employeeId ||
+                            scheduleAccountId === accountId ||
+                            scheduleAccountId === employeeId
+                        );
+                    });
+                }
+
+                if (mounted) setAttendance(schedules);
+            } catch (error) {
+                console.error('Failed to load attendance', error);
+                if (mounted) setSnackbar({ message: 'Không thể tải dữ liệu điểm danh', severity: 'error' });
+            }
+        };
+        loadAttendance();
+        return () => {
+            mounted = false;
+        };
+    }, [teams.length, dateRange.fromDate, dateRange.toDate, isLeader, profileData.id, profileData.employee_id, profileData.account_id]);
+
+    // Get all team members including leader
+    const getAllTeamMembers = (team) => {
+        const members = [];
+        const leaderId = team.leader_id;
+        const leaderAccountId = team.leader?.account_id;
+        let leaderTeamMemberId = null;
+
+        // First, find if Leader is in team.members list
+        if (team.members && team.members.length > 0) {
+            const leaderMember = team.members.find(tm => {
+                const tmEmployeeId = tm.employee_id || tm.employee?.id;
+                const tmEmployeeAccountId = tm.employee?.account_id;
+                return (
+                    (leaderId && (tmEmployeeId === leaderId || tmEmployeeAccountId === leaderId)) ||
+                    (leaderAccountId && (tmEmployeeId === leaderAccountId || tmEmployeeAccountId === leaderAccountId))
+                );
+            });
+            if (leaderMember) {
+                leaderTeamMemberId = leaderMember.id;
+            }
+        }
+
+        // Add Leader to members list
+        if (team.leader) {
+            members.push({
+                ...team.leader,
+                isLeader: true,
+                team_member_id: leaderTeamMemberId
+            });
+        }
+
+        // Add other members (excluding Leader if already added)
+        (team.members || []).forEach((tm) => {
+            if (tm.employee) {
+                const tmEmployeeId = tm.employee_id || tm.employee?.id;
+                const tmEmployeeAccountId = tm.employee?.account_id;
+                const isLeaderMember =
+                    (leaderId && (tmEmployeeId === leaderId || tmEmployeeAccountId === leaderId)) ||
+                    (leaderAccountId && (tmEmployeeId === leaderAccountId || tmEmployeeAccountId === leaderAccountId));
+
+                // Only add if not the leader (leader already added above)
+                if (!isLeaderMember) {
+                    members.push({
+                        ...tm.employee,
+                        isLeader: false,
+                        team_member_id: tm.id
+                    });
+                }
+            }
+        });
+        return members;
+    };
+
+    // Calculate dates for a specific day of week in the date range
+    const getDatesForDayOfWeek = (dayKey, fromDate, toDate) => {
+        const dates = [];
+        const start = new Date(fromDate);
+        const end = new Date(toDate);
+        const targetDayIndex = WEEKDAYS.indexOf(dayKey);
+        if (targetDayIndex === -1) return dates;
+
+        const current = new Date(start);
+        while (current <= end) {
+            const dayIndex = current.getDay();
+            const adjustedIndex = dayIndex === 0 ? 6 : dayIndex - 1;
+            if (adjustedIndex === targetDayIndex) {
+                dates.push(new Date(current));
+            }
+            current.setDate(current.getDate() + 1);
+        }
+        return dates;
+    };
+
+    // Build candidate IDs for current user
+    const candidateIds = useMemo(() => {
+        const ids = [
+            profileData.id,
+            profileData.employee_id,
+            profileData.account_id
+        ];
+        return Array.from(new Set(ids.filter(Boolean)));
+    }, [profileData.id, profileData.employee_id, profileData.account_id]);
+
+    // Organize attendance by team -> shift -> day
+    const attendanceByTeam = useMemo(() => {
+        const result = [];
+        teams.forEach((team) => {
+            const leaderAccountId = team.leader?.account_id;
+            const leaderId = team.leader?.id;
+            const isTeamLeader = candidateIds.some(id =>
+                id === team.leader_id ||
+                id === leaderId ||
+                id === leaderAccountId
+            );
+
+            const allMembers = getAllTeamMembers(team);
+
+            const teamShifts = [];
+            (team.team_work_shifts || []).forEach((shiftInfo) => {
+                const shift = shiftInfo.work_shift || shiftInfo;
+                const workingDays = normalizeWorkingDays(
+                    shiftInfo.working_days?.length ? shiftInfo.working_days : shift?.applicable_days
+                );
+
+                const shiftDays = [];
+
+                // For day view, check if selected date matches any working day
+                if (viewMode === 'day') {
+                    const selected = new Date(selectedDate);
+                    const selectedDayIndex = selected.getDay();
+                    const adjustedIndex = selectedDayIndex === 0 ? 6 : selectedDayIndex - 1;
+                    const selectedDayKey = WEEKDAYS[adjustedIndex];
+
+                    // Check if selected day matches any working day
+                    if (workingDays.includes(selectedDayKey)) {
+                        const dateStr = selected.toISOString().split('T')[0];
+                        const dayMembers = allMembers.map((member) => {
+                            const existingRecord = attendance.find((schedule) => {
+                                const scheduleTeamId = schedule.team_member?.team_id || schedule.team_id;
+                                const scheduleShiftId = schedule.work_shift_id || schedule.work_shift?.id;
+                                const scheduleDate = schedule.date ? new Date(schedule.date).toISOString().split('T')[0] : null;
+                                const scheduleEmployeeId = schedule.employee_id || schedule.employee?.id || schedule.team_member?.employee_id;
+                                const scheduleAccountId = schedule.employee?.account_id;
+                                return (
+                                    scheduleTeamId === team.id &&
+                                    scheduleShiftId === shift.id &&
+                                    scheduleDate === dateStr &&
+                                    (scheduleEmployeeId === member.id ||
+                                        scheduleAccountId === member.account_id ||
+                                        scheduleEmployeeId === member.account_id)
+                                );
+                            });
+
+                            return {
+                                member,
+                                date: dateStr,
+                                schedule: existingRecord || null
+                            };
+                        });
+
+                        if (dayMembers.length > 0) {
+                            shiftDays.push({
+                                dayKey: selectedDayKey,
+                                dates: [selected],
+                                members: dayMembers
+                            });
+                        }
+                    }
+                } else {
+                    // Month view - process each working day
+                    workingDays.forEach((dayKey) => {
+                        const dates = getDatesForDayOfWeek(dayKey, dateRange.fromDate, dateRange.toDate);
+
+                        if (dates.length === 0) return;
+
+                        const dayMembers = dates.map((date) => {
+                            const dateStr = date.toISOString().split('T')[0];
+                            return allMembers.map((member) => {
+                                const existingRecord = attendance.find((schedule) => {
+                                    const scheduleTeamId = schedule.team_member?.team_id || schedule.team_id;
+                                    const scheduleShiftId = schedule.work_shift_id || schedule.work_shift?.id;
+                                    const scheduleDate = schedule.date ? new Date(schedule.date).toISOString().split('T')[0] : null;
+                                    const scheduleEmployeeId = schedule.employee_id || schedule.employee?.id || schedule.team_member?.employee_id;
+                                    const scheduleAccountId = schedule.employee?.account_id;
+                                    return (
+                                        scheduleTeamId === team.id &&
+                                        scheduleShiftId === shift.id &&
+                                        scheduleDate === dateStr &&
+                                        (scheduleEmployeeId === member.id ||
+                                            scheduleAccountId === member.account_id ||
+                                            scheduleEmployeeId === member.account_id)
+                                    );
+                                });
+
+                                return {
+                                    member,
+                                    date: dateStr,
+                                    schedule: existingRecord || null
+                                };
+                            });
+                        }).flat();
+
+                        if (dayMembers.length > 0) {
+                            shiftDays.push({
+                                dayKey,
+                                dates,
+                                members: dayMembers
+                            });
+                        }
+                    });
+                }
+
+                if (shiftDays.length > 0 || workingDays.length > 0) {
+                    teamShifts.push({
+                        shiftInfo,
+                        shift,
+                        workingDays,
+                        days: shiftDays
+                    });
+                }
+            });
+
+            if (teamShifts.length > 0 || allMembers.length > 0) {
+                result.push({
+                    team,
+                    isTeamLeader,
+                    allMembers,
+                    shifts: teamShifts
+                });
+            }
+        });
+        return result;
+    }, [teams, attendance, isLeader, profileData, viewMode, selectedDate, dateRange, candidateIds]);
+
+    // Calculate statistics
+    const attendanceStats = useMemo(() => {
+        const stats = {
+            total: 0,
+            present: 0,
+            absent: 0,
+            late: 0,
+            excused: 0,
+            pending: 0
+        };
+
+        attendance.forEach((schedule) => {
+            stats.total++;
+            const status = schedule.status || 'PENDING';
+            if (status === 'PRESENT') stats.present++;
+            else if (status === 'ABSENT') stats.absent++;
+            else if (status === 'LATE') stats.late++;
+            else if (status === 'EXCUSED') stats.excused++;
+            else stats.pending++;
+        });
+
+        return stats;
+    }, [attendance]);
+
+    const handleStatusClick = (memberData, newStatus, teamId, shiftId, date, isTeamLeaderForThisTeam = false) => {
+        if (!isTeamLeaderForThisTeam || !teamId) {
+            setSnackbar({ message: 'Bạn không có quyền điểm danh', severity: 'error' });
+            return;
+        }
+
+        setAttendanceDialog({
+            open: true,
+            memberData,
+            newStatus,
+            teamId,
+            shiftId,
+            date,
+            notes: memberData.schedule?.notes || ''
+        });
+    };
+
+    const handleStatusChange = async () => {
+        if (!attendanceDialog) return;
+
+        const { memberData, newStatus, teamId, shiftId, date, notes } = attendanceDialog;
+        const { member, schedule } = memberData;
+
+        try {
+            // Find team to get team_member_id for the member
+            const team = teams.find(t => t.id === teamId);
+            if (!team) {
+                setSnackbar({ message: 'Không tìm thấy thông tin team', severity: 'error' });
+                setAttendanceDialog(null);
+                return;
+            }
+
+            // Find team_member_id for this member (including Leader)
+            // First, try to get from schedule if it exists
+            let teamMemberId = schedule?.team_member_id || schedule?.team_member?.id;
+
+            // If not found, try from member object
+            if (!teamMemberId) {
+                teamMemberId = member.team_member_id;
+            }
+
+            // If still not found, search in team.members list
+            if (!teamMemberId && team.members && team.members.length > 0) {
+                const memberId = member.id || member.employee_id;
+                const memberAccountId = member.account_id;
+                const leaderId = team.leader_id;
+                const leaderAccountId = team.leader?.account_id;
+
+                // Try to find by matching employee_id or account_id
+                const foundMember = team.members.find(tm => {
+                    const tmEmployeeId = tm.employee_id || tm.employee?.id;
+                    const tmEmployeeAccountId = tm.employee?.account_id;
+
+                    // Match by member's ID
+                    if (memberId && (tmEmployeeId === memberId || tmEmployeeAccountId === memberId)) {
+                        return true;
+                    }
+                    // Match by member's account_id
+                    if (memberAccountId && (tmEmployeeId === memberAccountId || tmEmployeeAccountId === memberAccountId)) {
+                        return true;
+                    }
+                    // If member is Leader, also try matching by leader_id
+                    if (member.isLeader) {
+                        if (leaderId && (tmEmployeeId === leaderId || tmEmployeeAccountId === leaderId)) {
+                            return true;
+                        }
+                        if (leaderAccountId && (tmEmployeeId === leaderAccountId || tmEmployeeAccountId === leaderAccountId)) {
+                            return true;
+                        }
+                    }
+                    return false;
+                });
+
+                if (foundMember) {
+                    teamMemberId = foundMember.id;
+                }
+            }
+
+            // If still not found and member is Leader, try to find by checking if Leader is also a team member
+            if (!teamMemberId && member.isLeader && team.members && team.members.length > 0) {
+                // Check if any team member's employee matches the leader
+                const leaderAsMember = team.members.find(tm => {
+                    const tmEmployeeId = tm.employee_id || tm.employee?.id;
+                    const tmEmployeeAccountId = tm.employee?.account_id;
+                    const leaderId = team.leader_id;
+                    const leaderAccountId = team.leader?.account_id;
+                    const memberId = member.id || member.employee_id;
+                    const memberAccountId = member.account_id;
+
+                    return (
+                        (leaderId && (tmEmployeeId === leaderId || tmEmployeeAccountId === leaderId)) ||
+                        (leaderAccountId && (tmEmployeeId === leaderAccountId || tmEmployeeAccountId === leaderAccountId)) ||
+                        (memberId && (tmEmployeeId === memberId || tmEmployeeAccountId === memberId)) ||
+                        (memberAccountId && (tmEmployeeId === memberAccountId || tmEmployeeAccountId === memberAccountId))
+                    );
+                });
+
+                if (leaderAsMember) {
+                    teamMemberId = leaderAsMember.id;
+                }
+            }
+
+            // Debug logging (only in development)
+            if (process.env.NODE_ENV === 'development') {
+                console.log('Attendance Debug:', {
+                    member: {
+                        id: member.id,
+                        employeeId: member.employee_id,
+                        accountId: member.account_id,
+                        isLeader: member.isLeader,
+                        teamMemberIdFromMember: member.team_member_id
+                    },
+                    schedule: {
+                        exists: !!schedule,
+                        id: schedule?.id,
+                        teamMemberId: schedule?.team_member_id,
+                        teamMemberIdFromNested: schedule?.team_member?.id
+                    },
+                    team: {
+                        id: team.id,
+                        leaderId: team.leader_id,
+                        leaderAccountId: team.leader?.account_id,
+                        membersCount: (team.members || []).length
+                    },
+                    foundTeamMemberId: teamMemberId,
+                    shiftId,
+                    date
+                });
+            }
+
+            if (schedule && schedule.id) {
+                // Update existing record
+                const payload = [
+                    {
+                        id: schedule.id,
+                        status: newStatus,
+                        notes: notes || ''
+                    }
+                ];
+
+                const response = await apiClient.put(`/teams/${teamId}/daily-schedules`, payload, {
+                    timeout: 10000,
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                const updatedSchedule = Array.isArray(response.data) ? response.data[0] : response.data;
+                setAttendance((prev) => {
+                    const existing = prev.find(item => item.id === schedule.id);
+                    if (existing) {
+                        return prev.map((item) =>
+                            item.id === schedule.id ? { ...item, ...updatedSchedule, status: newStatus, notes: notes || '' } : item
+                        );
+                    } else {
+                        return [...prev, { ...schedule, ...updatedSchedule, status: newStatus, notes: notes || '' }];
+                    }
+                });
+
+                setSnackbar({ message: 'Cập nhật điểm danh thành công', severity: 'success' });
+                setAttendanceDialog(null);
+            } else {
+                // No existing schedule record - cannot create new one via PUT endpoint
+                // API PUT /teams/{id}/daily-schedules only supports updating existing records (requires id)
+                // New records must be created by Manager first
+                let errorMsg = 'Chưa có bản ghi điểm danh cho ngày này. ';
+                if (member.isLeader) {
+                    errorMsg += 'Vui lòng liên hệ quản lý để tạo lịch làm việc (daily schedule) cho team trước khi có thể điểm danh.';
+                } else {
+                    errorMsg += 'Vui lòng liên hệ quản lý hoặc Leader để tạo lịch làm việc trước.';
+                }
+
+                setSnackbar({
+                    message: errorMsg,
+                    severity: 'warning'
+                });
+                setAttendanceDialog(null);
+            }
+        } catch (error) {
+            console.error('Failed to update attendance', error);
+            const errorMsg = error.response?.data?.message || error.message || 'Không thể cập nhật điểm danh';
+            setSnackbar({ message: errorMsg, severity: 'error' });
+        }
+    };
+
+    const handleMonthChange = (delta) => {
+        if (selectedMonth + delta < 0) {
+            setSelectedMonth(11);
+            setSelectedYear(selectedYear - 1);
+        } else if (selectedMonth + delta > 11) {
+            setSelectedMonth(0);
+            setSelectedYear(selectedYear + 1);
+        } else {
+            setSelectedMonth(selectedMonth + delta);
+        }
+    };
+
+    return (
+        <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: COLORS.BACKGROUND.NEUTRAL, minHeight: '100vh' }}>
+            <Stack spacing={4}>
+                {/* Header Section */}
+                <Box>
+                    <Stack direction="row" spacing={2.5} alignItems="flex-start">
+                        <Avatar
+                            sx={{
+                                bgcolor: COLORS.ERROR[500],
+                                width: 56,
+                                height: 56,
+                                boxShadow: `0 4px 12px ${alpha(COLORS.ERROR[500], 0.3)}`
+                            }}
+                        >
+                            <ChecklistRtl sx={{ fontSize: 28 }} />
+                        </Avatar>
+                        <Box flex={1}>
+                            <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.TEXT.PRIMARY, mb: 1 }}>
+                                Điểm danh
+                            </Typography>
+                            <Typography variant="body1" sx={{ color: COLORS.TEXT.SECONDARY, lineHeight: 1.6 }}>
+                                {isLeader
+                                    ? 'Quản lý và đánh dấu điểm danh cho các thành viên trong team theo từng ca làm việc'
+                                    : 'Xem trạng thái điểm danh của bạn trong team theo từng ngày/tháng'}
+                            </Typography>
+                        </Box>
+                    </Stack>
+                </Box>
+
+                {/* Statistics Cards - Professional Design */}
+                {isLeader && attendanceStats.total > 0 && (
+                    <Grid container spacing={2.5}>
+                        <Grid item xs={6} sm={4} md={2}>
+                            <Paper
+                                sx={{
+                                    p: 2.5,
+                                    borderRadius: 2,
+                                    borderTop: `4px solid ${COLORS.INFO[500]}`,
+                                    height: '100%',
+                                    boxShadow: `4px 6px 12px ${alpha(COLORS.SHADOW.LIGHT, 0.25)}, 0 4px 8px ${alpha(COLORS.SHADOW.LIGHT, 0.1)}`,
+                                    transition: 'transform 0.2s, box-shadow 0.2s',
+                                    '&:hover': {
+                                        transform: 'translateY(-2px)',
+                                        boxShadow: `4px 8px 16px ${alpha(COLORS.SHADOW.LIGHT, 0.3)}, 0 6px 12px ${alpha(COLORS.SHADOW.LIGHT, 0.15)}`
+                                    }
+                                }}
+                            >
+                                <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, mb: 1, fontWeight: 500 }}>
+                                    Tổng số
+                                </Typography>
+                                <Typography variant="h4" sx={{ fontWeight: 700, color: COLORS.INFO[700] }}>
+                                    {attendanceStats.total}
+                                </Typography>
+                            </Paper>
+                        </Grid>
+                        <Grid item xs={6} sm={4} md={2}>
+                            <Paper
+                                sx={{
+                                    p: 2.5,
+                                    borderRadius: 2,
+                                    borderTop: `4px solid ${COLORS.SUCCESS[500]}`,
+                                    height: '100%',
+                                    boxShadow: `4px 6px 12px ${alpha(COLORS.SHADOW.LIGHT, 0.25)}, 0 4px 8px ${alpha(COLORS.SHADOW.LIGHT, 0.1)}`,
+                                    transition: 'transform 0.2s, box-shadow 0.2s',
+                                    '&:hover': {
+                                        transform: 'translateY(-2px)',
+                                        boxShadow: `4px 8px 16px ${alpha(COLORS.SHADOW.LIGHT, 0.3)}, 0 6px 12px ${alpha(COLORS.SHADOW.LIGHT, 0.15)}`
+                                    }
+                                }}
+                            >
+                                <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, mb: 1, fontWeight: 500 }}>
+                                    Có mặt
+                                </Typography>
+                                <Typography variant="h4" sx={{ fontWeight: 700, color: COLORS.SUCCESS[700] }}>
+                                    {attendanceStats.present}
+                                </Typography>
+                            </Paper>
+                        </Grid>
+                        <Grid item xs={6} sm={4} md={2}>
+                            <Paper
+                                sx={{
+                                    p: 2.5,
+                                    borderRadius: 2,
+                                    borderTop: `4px solid ${COLORS.ERROR[500]}`,
+                                    height: '100%',
+                                    boxShadow: `4px 6px 12px ${alpha(COLORS.SHADOW.LIGHT, 0.25)}, 0 4px 8px ${alpha(COLORS.SHADOW.LIGHT, 0.1)}`,
+                                    transition: 'transform 0.2s, box-shadow 0.2s',
+                                    '&:hover': {
+                                        transform: 'translateY(-2px)',
+                                        boxShadow: `4px 8px 16px ${alpha(COLORS.SHADOW.LIGHT, 0.3)}, 0 6px 12px ${alpha(COLORS.SHADOW.LIGHT, 0.15)}`
+                                    }
+                                }}
+                            >
+                                <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, mb: 1, fontWeight: 500 }}>
+                                    Vắng mặt
+                                </Typography>
+                                <Typography variant="h4" sx={{ fontWeight: 700, color: COLORS.ERROR[700] }}>
+                                    {attendanceStats.absent}
+                                </Typography>
+                            </Paper>
+                        </Grid>
+                        <Grid item xs={6} sm={4} md={2}>
+                            <Paper
+                                sx={{
+                                    p: 2.5,
+                                    borderRadius: 2,
+                                    borderTop: `4px solid ${COLORS.WARNING[500]}`,
+                                    height: '100%',
+                                    boxShadow: `4px 6px 12px ${alpha(COLORS.SHADOW.LIGHT, 0.25)}, 0 4px 8px ${alpha(COLORS.SHADOW.LIGHT, 0.1)}`,
+                                    transition: 'transform 0.2s, box-shadow 0.2s',
+                                    '&:hover': {
+                                        transform: 'translateY(-2px)',
+                                        boxShadow: `4px 8px 16px ${alpha(COLORS.SHADOW.LIGHT, 0.3)}, 0 6px 12px ${alpha(COLORS.SHADOW.LIGHT, 0.15)}`
+                                    }
+                                }}
+                            >
+                                <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, mb: 1, fontWeight: 500 }}>
+                                    Chưa điểm danh
+                                </Typography>
+                                <Typography variant="h4" sx={{ fontWeight: 700, color: COLORS.WARNING[700] }}>
+                                    {attendanceStats.pending}
+                                </Typography>
+                            </Paper>
+                        </Grid>
+                        <Grid item xs={6} sm={4} md={2}>
+                            <Paper
+                                sx={{
+                                    p: 2.5,
+                                    borderRadius: 2,
+                                    borderTop: `4px solid ${COLORS.WARNING[400]}`,
+                                    height: '100%',
+                                    boxShadow: `4px 6px 12px ${alpha(COLORS.SHADOW.LIGHT, 0.25)}, 0 4px 8px ${alpha(COLORS.SHADOW.LIGHT, 0.1)}`,
+                                    transition: 'transform 0.2s, box-shadow 0.2s',
+                                    '&:hover': {
+                                        transform: 'translateY(-2px)',
+                                        boxShadow: `4px 8px 16px ${alpha(COLORS.SHADOW.LIGHT, 0.3)}, 0 6px 12px ${alpha(COLORS.SHADOW.LIGHT, 0.15)}`
+                                    }
+                                }}
+                            >
+                                <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, mb: 1, fontWeight: 500 }}>
+                                    Đi muộn
+                                </Typography>
+                                <Typography variant="h4" sx={{ fontWeight: 700, color: COLORS.WARNING[700] }}>
+                                    {attendanceStats.late}
+                                </Typography>
+                            </Paper>
+                        </Grid>
+                        <Grid item xs={6} sm={4} md={2}>
+                            <Paper
+                                sx={{
+                                    p: 2.5,
+                                    borderRadius: 2,
+                                    borderTop: `4px solid ${COLORS.INFO[500]}`,
+                                    height: '100%',
+                                    boxShadow: `4px 6px 12px ${alpha(COLORS.SHADOW.LIGHT, 0.25)}, 0 4px 8px ${alpha(COLORS.SHADOW.LIGHT, 0.1)}`,
+                                    transition: 'transform 0.2s, box-shadow 0.2s',
+                                    '&:hover': {
+                                        transform: 'translateY(-2px)',
+                                        boxShadow: `4px 8px 16px ${alpha(COLORS.SHADOW.LIGHT, 0.3)}, 0 6px 12px ${alpha(COLORS.SHADOW.LIGHT, 0.15)}`
+                                    }
+                                }}
+                            >
+                                <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, mb: 1, fontWeight: 500 }}>
+                                    Vắng có phép
+                                </Typography>
+                                <Typography variant="h4" sx={{ fontWeight: 700, color: COLORS.INFO[700] }}>
+                                    {attendanceStats.excused}
+                                </Typography>
+                            </Paper>
+                        </Grid>
+                    </Grid>
+                )}
+
+                {/* Filters - Professional Design */}
+                <Card
+                    sx={{
+                        borderRadius: 3,
+                        boxShadow: `0px 4px 16px ${alpha(COLORS.SHADOW.LIGHT, 0.08)}`,
+                        border: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.2)}`
+                    }}
+                >
+                    <CardContent sx={{ p: 3 }}>
+                        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2.5}>
+                            <FormControl fullWidth>
+                                <InputLabel>Chế độ xem</InputLabel>
+                                <Select
+                                    value={viewMode}
+                                    onChange={(e) => setViewMode(e.target.value)}
+                                    label="Chế độ xem"
+                                >
+                                    <MenuItem value="day">Theo ngày</MenuItem>
+                                    <MenuItem value="month">Theo tháng</MenuItem>
+                                </Select>
+                            </FormControl>
+
+                            {viewMode === 'day' ? (
+                                <TextField
+                                    type="date"
+                                    label="Ngày"
+                                    value={selectedDate}
+                                    onChange={(e) => setSelectedDate(e.target.value)}
+                                    fullWidth
+                                    InputLabelProps={{ shrink: true }}
+                                    InputProps={{
+                                        startAdornment: <CalendarToday sx={{ mr: 1, color: COLORS.TEXT.SECONDARY }} />
+                                    }}
+                                />
+                            ) : (
+                                <Stack direction="row" spacing={1.5} alignItems="center" flex={1}>
+                                    <IconButton
+                                        onClick={() => handleMonthChange(-1)}
+                                        sx={{
+                                            border: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.3)}`,
+                                            '&:hover': { bgcolor: COLORS.BACKGROUND.NEUTRAL }
+                                        }}
+                                    >
+                                        <ChevronLeft />
+                                    </IconButton>
+                                    <TextField
+                                        select
+                                        value={selectedMonth}
+                                        onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                                        sx={{ flex: 1 }}
+                                        label="Tháng"
+                                        InputLabelProps={{ shrink: true }}
+                                    >
+                                        {Array.from({ length: 12 }, (_, i) => (
+                                            <MenuItem key={i} value={i}>
+                                                Tháng {i + 1}
+                                            </MenuItem>
+                                        ))}
+                                    </TextField>
+                                    <TextField
+                                        type="number"
+                                        value={selectedYear}
+                                        onChange={(e) => setSelectedYear(Number(e.target.value))}
+                                        sx={{ width: 120 }}
+                                        label="Năm"
+                                        InputLabelProps={{ shrink: true }}
+                                    />
+                                    <IconButton
+                                        onClick={() => handleMonthChange(1)}
+                                        sx={{
+                                            border: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.3)}`,
+                                            '&:hover': { bgcolor: COLORS.BACKGROUND.NEUTRAL }
+                                        }}
+                                    >
+                                        <ChevronRight />
+                                    </IconButton>
+                                </Stack>
+                            )}
+                        </Stack>
+                    </CardContent>
+                </Card>
+
+                {/* Teams with Shifts and Days */}
+                {loading ? (
+                    <Stack spacing={2.5}>
+                        {Array.from({ length: 2 }).map((_, idx) => (
+                            <Skeleton key={idx} variant="rounded" height={400} sx={{ borderRadius: 3 }} />
+                        ))}
+                    </Stack>
+                ) : attendanceByTeam.length === 0 ? (
+                    <Card
+                        sx={{
+                            borderRadius: 3,
+                            boxShadow: `0px 4px 16px ${alpha(COLORS.SHADOW.LIGHT, 0.08)}`,
+                            border: `1px dashed ${alpha(COLORS.BORDER.DEFAULT, 0.3)}`
+                        }}
+                    >
+                        <CardContent sx={{ p: 8, textAlign: 'center' }}>
+                            <ChecklistRtl sx={{ fontSize: 80, color: COLORS.TEXT.SECONDARY, mb: 3, opacity: 0.3 }} />
+                            <Typography variant="h6" sx={{ color: COLORS.TEXT.SECONDARY, mb: 1.5, fontWeight: 600 }}>
+                                {isLeader
+                                    ? 'Chưa có dữ liệu điểm danh'
+                                    : 'Bạn chưa có lịch điểm danh'}
+                            </Typography>
+                            <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
+                                {isLeader
+                                    ? 'Chưa có dữ liệu điểm danh cho các team bạn phụ trách trong khoảng thời gian này.'
+                                    : 'Bạn chưa có lịch điểm danh trong khoảng thời gian này.'}
+                            </Typography>
+                        </CardContent>
+                    </Card>
+                ) : (
+                    <Stack spacing={3}>
+                        {attendanceByTeam.map(({ team, isTeamLeader, shifts }) => (
+                            <Card
+                                key={team.id}
+                                sx={{
+                                    borderRadius: 3,
+                                    overflow: 'hidden',
+                                    boxShadow: `0px 8px 24px ${alpha(COLORS.SHADOW.LIGHT, 0.12)}`,
+                                    border: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.2)}`,
+                                    transition: 'box-shadow 0.3s',
+                                    '&:hover': {
+                                        boxShadow: `0px 12px 32px ${alpha(COLORS.SHADOW.LIGHT, 0.16)}`
+                                    }
+                                }}
+                            >
+                                {/* Team Header */}
+                                <Box
+                                    sx={{
+                                        bgcolor: isTeamLeader ? COLORS.ERROR[50] : COLORS.INFO[50],
+                                        p: 3.5,
+                                        borderBottom: `2px solid ${alpha(isTeamLeader ? COLORS.ERROR[200] : COLORS.INFO[200], 0.6)}`
+                                    }}
+                                >
+                                    <Stack direction="row" spacing={2.5} alignItems="center" justifyContent="space-between">
+                                        <Stack direction="row" spacing={2.5} alignItems="center" flex={1}>
+                                            <Avatar
+                                                sx={{
+                                                    bgcolor: isTeamLeader ? COLORS.ERROR[500] : COLORS.INFO[500],
+                                                    width: 64,
+                                                    height: 64,
+                                                    boxShadow: `0 4px 12px ${alpha(isTeamLeader ? COLORS.ERROR[500] : COLORS.INFO[500], 0.3)}`
+                                                }}
+                                            >
+                                                <Groups sx={{ fontSize: 32 }} />
+                                            </Avatar>
+                                            <Box flex={1}>
+                                                <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 1 }}>
+                                                    <Typography variant="h5" sx={{ fontWeight: 700 }}>
+                                                        {team.name}
+                                                    </Typography>
+                                                    {isTeamLeader && (
+                                                        <Chip
+                                                            label="Leader"
+                                                            color="error"
+                                                            size="small"
+                                                            sx={{ fontWeight: 700, height: 26 }}
+                                                        />
+                                                    )}
+                                                </Stack>
+                                                <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, mb: 1.5 }}>
+                                                    {team.work_type?.name || 'Nhóm dịch vụ'} • {team.area?.name || 'Khu vực chung'}
+                                                </Typography>
+                                                <Stack direction="row" spacing={1.5} flexWrap="wrap" sx={{ gap: 1 }}>
+                                                    <Chip
+                                                        icon={<Person fontSize="small" />}
+                                                        label={`Leader: ${team.leader?.full_name || team.leader?.name || 'N/A'}`}
+                                                        size="small"
+                                                        variant="outlined"
+                                                        sx={{ bgcolor: 'white', fontWeight: 500 }}
+                                                    />
+                                                    <Chip
+                                                        icon={<Groups fontSize="small" />}
+                                                        label={`${team.members?.length || 0} thành viên`}
+                                                        size="small"
+                                                        variant="outlined"
+                                                        sx={{ bgcolor: 'white', fontWeight: 500 }}
+                                                    />
+                                                </Stack>
+                                            </Box>
+                                        </Stack>
+                                    </Stack>
+                                </Box>
+
+                                {/* Shifts */}
+                                <CardContent sx={{ p: 3.5 }}>
+                                    <Stack spacing={3.5}>
+                                        {shifts.map(({ shiftInfo, shift, workingDays, days }, shiftIdx) => (
+                                            <Card
+                                                key={shift.id || shiftIdx}
+                                                variant="outlined"
+                                                sx={{
+                                                    borderRadius: 2,
+                                                    border: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.2)}`,
+                                                    borderLeft: `4px solid ${COLORS.ERROR[500]}`,
+                                                    bgcolor: alpha(COLORS.ERROR[50] || '#fff5f5', 0.3),
+                                                    boxShadow: `0 2px 8px ${alpha(COLORS.SHADOW.LIGHT, 0.05)}`
+                                                }}
+                                            >
+                                                <CardContent sx={{ p: 3 }}>
+                                                    <Stack spacing={3}>
+                                                        {/* Shift Header */}
+                                                        <Stack spacing={1.5}>
+                                                            <Stack direction="row" spacing={2} alignItems="center">
+                                                                <Box
+                                                                    sx={{
+                                                                        p: 1.5,
+                                                                        borderRadius: 2,
+                                                                        bgcolor: COLORS.ERROR[100],
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        justifyContent: 'center'
+                                                                    }}
+                                                                >
+                                                                    <AccessTime sx={{ color: COLORS.ERROR[600], fontSize: 28 }} />
+                                                                </Box>
+                                                                <Box flex={1}>
+                                                                    <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5 }}>
+                                                                        {shift.name || 'Ca làm việc'}
+                                                                    </Typography>
+                                                                    <Typography variant="body1" sx={{ color: COLORS.TEXT.SECONDARY, fontWeight: 500 }}>
+                                                                        {formatTime(shift.start_time)} - {formatTime(shift.end_time)}
+                                                                    </Typography>
+                                                                </Box>
+                                                            </Stack>
+                                                            {shift.description && (
+                                                                <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, pl: 7 }}>
+                                                                    {shift.description}
+                                                                </Typography>
+                                                            )}
+                                                            {workingDays.length > 0 && (
+                                                                <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ gap: 1, pl: 7 }}>
+                                                                    {workingDays.map((day) => (
+                                                                        <Chip
+                                                                            key={day}
+                                                                            label={WEEKDAY_LABELS[day]}
+                                                                            size="small"
+                                                                            variant="outlined"
+                                                                            sx={{ bgcolor: 'white', fontWeight: 500 }}
+                                                                        />
+                                                                    ))}
+                                                                </Stack>
+                                                            )}
+                                                        </Stack>
+
+                                                        <Divider />
+
+                                                        {/* Days with Attendance - Professional Tabs Design */}
+                                                        {days.length === 0 ? (
+                                                            <Box sx={{ textAlign: 'center', py: 6 }}>
+                                                                <Event sx={{ fontSize: 48, color: COLORS.TEXT.SECONDARY, mb: 2, opacity: 0.3 }} />
+                                                                <Typography variant="body1" sx={{ color: COLORS.TEXT.SECONDARY, fontWeight: 500 }}>
+                                                                    Chưa có dữ liệu điểm danh cho ca này.
+                                                                </Typography>
+                                                            </Box>
+                                                        ) : (
+                                                            <Box>
+                                                                {/* Day Tabs - Professional Design */}
+                                                                <Box sx={{ mb: 3 }}>
+                                                                    <Stack direction="row" spacing={1} sx={{
+                                                                        borderBottom: `2px solid ${alpha(COLORS.BORDER.DEFAULT, 0.2)}`,
+                                                                        pb: 0.5
+                                                                    }}>
+                                                                        {days.map(({ dayKey }, tabIdx) => {
+                                                                            const tabKey = `${shift.id}-${dayKey}`;
+                                                                            const isActive = activeDayTab[tabKey] !== undefined
+                                                                                ? activeDayTab[tabKey]
+                                                                                : tabIdx === 0;
+                                                                            return (
+                                                                                <Button
+                                                                                    key={dayKey}
+                                                                                    onClick={() => {
+                                                                                        setActiveDayTab(prev => ({
+                                                                                            ...prev,
+                                                                                            [tabKey]: true
+                                                                                        }));
+                                                                                        // Deactivate other tabs for this shift
+                                                                                        days.forEach((d, idx) => {
+                                                                                            if (idx !== tabIdx) {
+                                                                                                const otherKey = `${shift.id}-${d.dayKey}`;
+                                                                                                setActiveDayTab(prev => ({
+                                                                                                    ...prev,
+                                                                                                    [otherKey]: false
+                                                                                                }));
+                                                                                            }
+                                                                                        });
+                                                                                    }}
+                                                                                    sx={{
+                                                                                        px: 3,
+                                                                                        py: 1.5,
+                                                                                        borderRadius: 2,
+                                                                                        borderRadiusBottomLeft: 0,
+                                                                                        borderRadiusBottomRight: 0,
+                                                                                        textTransform: 'none',
+                                                                                        fontWeight: 700,
+                                                                                        fontSize: '0.95rem',
+                                                                                        color: isActive ? COLORS.ERROR[600] : COLORS.TEXT.SECONDARY,
+                                                                                        bgcolor: isActive ? COLORS.ERROR[50] : 'transparent',
+                                                                                        borderBottom: isActive ? `3px solid ${COLORS.ERROR[500]}` : '3px solid transparent',
+                                                                                        '&:hover': {
+                                                                                            bgcolor: isActive ? COLORS.ERROR[50] : alpha(COLORS.ERROR[50], 0.5),
+                                                                                            color: COLORS.ERROR[600]
+                                                                                        },
+                                                                                        transition: 'all 0.2s',
+                                                                                        position: 'relative',
+                                                                                        bottom: -2
+                                                                                    }}
+                                                                                >
+                                                                                    <Event sx={{ fontSize: 18, mr: 1 }} />
+                                                                                    {WEEKDAY_LABELS[dayKey]}
+                                                                                    {viewMode === 'month' && days[tabIdx]?.members?.length > 0 && (
+                                                                                        <Chip
+                                                                                            label={days[tabIdx].members.length}
+                                                                                            size="small"
+                                                                                            sx={{
+                                                                                                ml: 1,
+                                                                                                height: 20,
+                                                                                                fontSize: '0.7rem',
+                                                                                                fontWeight: 700,
+                                                                                                bgcolor: isActive ? COLORS.ERROR[200] : COLORS.GRAY[200],
+                                                                                                color: isActive ? COLORS.ERROR[700] : COLORS.TEXT.SECONDARY
+                                                                                            }}
+                                                                                        />
+                                                                                    )}
+                                                                                </Button>
+                                                                            );
+                                                                        })}
+                                                                    </Stack>
+                                                                </Box>
+
+                                                                {/* Attendance Tables for Each Day */}
+                                                                {days.map(({ dayKey, members: dayMembers, dates }, dayIdx) => {
+                                                                    const displayData = dayMembers || [];
+                                                                    const tabKey = `${shift.id}-${dayKey}`;
+                                                                    const isActive = activeDayTab[tabKey] !== undefined
+                                                                        ? activeDayTab[tabKey]
+                                                                        : dayIdx === 0;
+
+                                                                    return (
+                                                                        <Box key={dayKey} sx={{ display: isActive ? 'block' : 'none' }}>
+
+                                                                            {displayData.length === 0 ? (
+                                                                                <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, pl: 6 }}>
+                                                                                    {isTeamLeader
+                                                                                        ? 'Chưa có thành viên nào trong team này.'
+                                                                                        : 'Chưa có dữ liệu điểm danh cho ngày này.'}
+                                                                                </Typography>
+                                                                            ) : (
+                                                                                <TableContainer
+                                                                                    component={Paper}
+                                                                                    sx={{
+                                                                                        borderRadius: 2,
+                                                                                        border: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.2)}`,
+                                                                                        boxShadow: `0 4px 16px ${alpha(COLORS.SHADOW.LIGHT, 0.08)}`,
+                                                                                        overflowX: 'auto',
+                                                                                        overflowY: 'hidden',
+                                                                                        bgcolor: 'white'
+                                                                                    }}
+                                                                                >
+                                                                                    <Table size="medium" stickyHeader>
+                                                                                        <TableHead>
+                                                                                            <TableRow>
+                                                                                                <TableCell sx={{
+                                                                                                    fontWeight: 800,
+                                                                                                    bgcolor: COLORS.ERROR[50],
+                                                                                                    py: 2.5,
+                                                                                                    borderBottom: `2px solid ${COLORS.ERROR[200]}`,
+                                                                                                    fontSize: '0.875rem',
+                                                                                                    color: COLORS.ERROR[700]
+                                                                                                }}>
+                                                                                                    Thành viên
+                                                                                                </TableCell>
+                                                                                                <TableCell sx={{
+                                                                                                    fontWeight: 800,
+                                                                                                    bgcolor: COLORS.ERROR[50],
+                                                                                                    py: 2.5,
+                                                                                                    borderBottom: `2px solid ${COLORS.ERROR[200]}`,
+                                                                                                    fontSize: '0.875rem',
+                                                                                                    color: COLORS.ERROR[700]
+                                                                                                }}>
+                                                                                                    Ngày làm việc
+                                                                                                </TableCell>
+                                                                                                <TableCell sx={{
+                                                                                                    fontWeight: 800,
+                                                                                                    bgcolor: COLORS.ERROR[50],
+                                                                                                    py: 2.5,
+                                                                                                    borderBottom: `2px solid ${COLORS.ERROR[200]}`,
+                                                                                                    fontSize: '0.875rem',
+                                                                                                    color: COLORS.ERROR[700]
+                                                                                                }}>
+                                                                                                    Ghi chú
+                                                                                                </TableCell>
+                                                                                                <TableCell align="center" sx={{
+                                                                                                    fontWeight: 800,
+                                                                                                    bgcolor: COLORS.ERROR[50],
+                                                                                                    py: 2.5,
+                                                                                                    borderBottom: `2px solid ${COLORS.ERROR[200]}`,
+                                                                                                    fontSize: '0.875rem',
+                                                                                                    color: COLORS.ERROR[700],
+                                                                                                    minWidth: 500
+                                                                                                }}>
+                                                                                                    Trạng thái điểm danh
+                                                                                                </TableCell>
+                                                                                            </TableRow>
+                                                                                        </TableHead>
+                                                                                        <TableBody>
+                                                                                            {displayData.map((item, idx) => {
+                                                                                                const isMemberView = item.member !== undefined;
+                                                                                                const member = isMemberView ? item.member : (item.employee || item.team_member?.employee || {});
+                                                                                                const schedule = isMemberView ? item.schedule : item;
+                                                                                                const dateStr = isMemberView ? item.date : (schedule?.date || '');
+                                                                                                const currentStatus = schedule?.status || 'PENDING';
+                                                                                                const memberData = isMemberView ? item : { member, date: dateStr, schedule };
+
+                                                                                                return (
+                                                                                                    <TableRow
+                                                                                                        key={isMemberView ? `${member.id}-${dateStr}-${idx}` : (schedule?.id || idx)}
+                                                                                                        hover
+                                                                                                        sx={{
+                                                                                                            '&:hover': {
+                                                                                                                bgcolor: alpha(COLORS.PRIMARY[50], 0.3)
+                                                                                                            }
+                                                                                                        }}
+                                                                                                    >
+                                                                                                        <TableCell sx={{ py: 2 }}>
+                                                                                                            <Stack direction="row" spacing={2} alignItems="center">
+                                                                                                                <Avatar
+                                                                                                                    src={member.avatar_url}
+                                                                                                                    sx={{
+                                                                                                                        width: 44,
+                                                                                                                        height: 44,
+                                                                                                                        border: `2px solid ${alpha(COLORS.BORDER.DEFAULT, 0.2)}`
+                                                                                                                    }}
+                                                                                                                >
+                                                                                                                    {member.full_name?.charAt(0) || '?'}
+                                                                                                                </Avatar>
+                                                                                                                <Box>
+                                                                                                                    <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
+                                                                                                                        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                                                                                                                            {member.full_name || 'N/A'}
+                                                                                                                        </Typography>
+                                                                                                                        {isMemberView && member.isLeader && (
+                                                                                                                            <Chip
+                                                                                                                                label="Leader"
+                                                                                                                                size="small"
+                                                                                                                                color="error"
+                                                                                                                                sx={{ height: 22, fontSize: '0.7rem', fontWeight: 700 }}
+                                                                                                                            />
+                                                                                                                        )}
+                                                                                                                    </Stack>
+                                                                                                                    {member.sub_role && (
+                                                                                                                        <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, fontWeight: 500 }}>
+                                                                                                                            {member.sub_role}
+                                                                                                                        </Typography>
+                                                                                                                    )}
+                                                                                                                </Box>
+                                                                                                            </Stack>
+                                                                                                        </TableCell>
+                                                                                                        <TableCell sx={{ py: 2 }}>
+                                                                                                            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                                                                                                {formatDate(dateStr)}
+                                                                                                            </Typography>
+                                                                                                        </TableCell>
+                                                                                                        <TableCell sx={{ py: 2 }}>
+                                                                                                            <Typography
+                                                                                                                variant="body2"
+                                                                                                                sx={{
+                                                                                                                    color: schedule?.notes ? COLORS.TEXT.PRIMARY : COLORS.TEXT.SECONDARY,
+                                                                                                                    fontStyle: schedule?.notes ? 'normal' : 'italic',
+                                                                                                                    maxWidth: 300,
+                                                                                                                    overflow: 'hidden',
+                                                                                                                    textOverflow: 'ellipsis',
+                                                                                                                    whiteSpace: 'nowrap',
+                                                                                                                    fontWeight: schedule?.notes ? 500 : 400
+                                                                                                                }}
+                                                                                                            >
+                                                                                                                {schedule?.notes || '—'}
+                                                                                                            </Typography>
+                                                                                                        </TableCell>
+                                                                                                        <TableCell align="center" sx={{ py: 2.5 }}>
+                                                                                                            {isTeamLeader ? (
+                                                                                                                <Stack direction="row" spacing={1.5} alignItems="center" justifyContent="center" flexWrap="wrap" sx={{ gap: 1 }}>
+                                                                                                                    {/* Current Status Chip */}
+                                                                                                                    <Chip
+                                                                                                                        icon={STATUS_OPTIONS.find((opt) => opt.value === currentStatus)?.icon}
+                                                                                                                        label={STATUS_OPTIONS.find((opt) => opt.value === currentStatus)?.label || currentStatus}
+                                                                                                                        sx={{
+                                                                                                                            bgcolor: STATUS_COLORS[currentStatus]?.bg || COLORS.GRAY[100],
+                                                                                                                            color: STATUS_COLORS[currentStatus]?.color || COLORS.GRAY[700],
+                                                                                                                            fontWeight: 700,
+                                                                                                                            height: 36,
+                                                                                                                            fontSize: '0.875rem',
+                                                                                                                            border: `2px solid ${alpha(STATUS_COLORS[currentStatus]?.color || COLORS.GRAY[700], 0.3)}`,
+                                                                                                                            boxShadow: currentStatus !== 'PENDING' ? `0 2px 8px ${alpha(STATUS_COLORS[currentStatus]?.color || COLORS.GRAY[700], 0.15)}` : 'none'
+                                                                                                                        }}
+                                                                                                                        size="medium"
+                                                                                                                    />
+                                                                                                                    {/* Action Buttons - Show all status options */}
+                                                                                                                    {STATUS_OPTIONS.filter(option =>
+                                                                                                                        option.value !== 'PENDING' &&
+                                                                                                                        option.value !== currentStatus
+                                                                                                                    ).map((option) => (
+                                                                                                                        <Tooltip key={option.value} title={`Đánh dấu: ${option.label}`} arrow placement="top">
+                                                                                                                            <Button
+                                                                                                                                variant="outlined"
+                                                                                                                                color={option.color}
+                                                                                                                                size="small"
+                                                                                                                                startIcon={option.icon}
+                                                                                                                                onClick={() => handleStatusClick(memberData || { member, date: dateStr, schedule }, option.value, team.id, shift.id, dateStr, isTeamLeader)}
+                                                                                                                                sx={{
+                                                                                                                                    borderRadius: 2,
+                                                                                                                                    minWidth: 110,
+                                                                                                                                    textTransform: 'none',
+                                                                                                                                    fontWeight: 600,
+                                                                                                                                    px: 2,
+                                                                                                                                    py: 0.75,
+                                                                                                                                    fontSize: '0.8rem',
+                                                                                                                                    borderWidth: 2,
+                                                                                                                                    '&:hover': {
+                                                                                                                                        borderWidth: 2,
+                                                                                                                                        boxShadow: `0 4px 12px ${alpha(COLORS[option.color.toUpperCase()]?.[500] || COLORS.PRIMARY[500], 0.25)}`,
+                                                                                                                                        transform: 'translateY(-2px)',
+                                                                                                                                        bgcolor: alpha(COLORS[option.color.toUpperCase()]?.[50] || COLORS.PRIMARY[50], 0.5)
+                                                                                                                                    },
+                                                                                                                                    transition: 'all 0.2s'
+                                                                                                                                }}
+                                                                                                                            >
+                                                                                                                                {option.label}
+                                                                                                                            </Button>
+                                                                                                                        </Tooltip>
+                                                                                                                    ))}
+                                                                                                                </Stack>
+                                                                                                            ) : (
+                                                                                                                <Chip
+                                                                                                                    icon={STATUS_OPTIONS.find((opt) => opt.value === currentStatus)?.icon}
+                                                                                                                    label={STATUS_OPTIONS.find((opt) => opt.value === currentStatus)?.label || currentStatus}
+                                                                                                                    sx={{
+                                                                                                                        bgcolor: STATUS_COLORS[currentStatus]?.bg || COLORS.GRAY[100],
+                                                                                                                        color: STATUS_COLORS[currentStatus]?.color || COLORS.GRAY[700],
+                                                                                                                        fontWeight: 700,
+                                                                                                                        height: 36,
+                                                                                                                        fontSize: '0.875rem',
+                                                                                                                        border: `2px solid ${alpha(STATUS_COLORS[currentStatus]?.color || COLORS.GRAY[700], 0.3)}`
+                                                                                                                    }}
+                                                                                                                    size="medium"
+                                                                                                                />
+                                                                                                            )}
+                                                                                                        </TableCell>
+                                                                                                    </TableRow>
+                                                                                                );
+                                                                                            })}
+                                                                                        </TableBody>
+                                                                                    </Table>
+                                                                                </TableContainer>
+                                                                            )}
+                                                                        </Box>
+                                                                    );
+                                                                })}
+                                                            </Box>
+                                                        )}
+                                                    </Stack>
+                                                </CardContent>
+                                            </Card>
+                                        ))}
+                                    </Stack>
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </Stack>
+                )}
+            </Stack>
+
+            <Snackbar
+                open={Boolean(snackbar)}
+                autoHideDuration={3500}
+                onClose={() => setSnackbar(null)}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+            >
+                {snackbar && <Alert severity={snackbar.severity} sx={{ borderRadius: 2 }}>{snackbar.message}</Alert>}
+            </Snackbar>
+
+            {/* Attendance Dialog for Notes */}
+            <Dialog
+                open={attendanceDialog?.open || false}
+                onClose={() => setAttendanceDialog(null)}
+                maxWidth="sm"
+                fullWidth
+                PaperProps={{
+                    sx: {
+                        borderRadius: 3,
+                        boxShadow: `0 12px 40px ${alpha(COLORS.SHADOW.LIGHT, 0.25)}`
+                    }
+                }}
+            >
+                <DialogTitle>
+                    <Stack direction="row" justifyContent="space-between" alignItems="center">
+                        <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                            Điểm danh - {attendanceDialog && STATUS_OPTIONS.find(opt => opt.value === attendanceDialog.newStatus)?.label}
+                        </Typography>
+                        <IconButton
+                            size="small"
+                            onClick={() => setAttendanceDialog(null)}
+                            sx={{
+                                color: COLORS.TEXT.SECONDARY,
+                                '&:hover': { bgcolor: COLORS.BACKGROUND.NEUTRAL }
+                            }}
+                        >
+                            <Close />
+                        </IconButton>
+                    </Stack>
+                </DialogTitle>
+                <DialogContent>
+                    <Stack spacing={3} sx={{ mt: 1 }}>
+                        {attendanceDialog && (
+                            <>
+                                <Paper
+                                    variant="outlined"
+                                    sx={{
+                                        p: 2.5,
+                                        borderRadius: 2,
+                                        bgcolor: COLORS.BACKGROUND.NEUTRAL,
+                                        borderColor: alpha(COLORS.BORDER.DEFAULT, 0.2)
+                                    }}
+                                >
+                                    <Stack spacing={1.5}>
+                                        <Stack direction="row" spacing={1.5} alignItems="center">
+                                            <Person sx={{ color: COLORS.TEXT.SECONDARY, fontSize: 20 }} />
+                                            <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
+                                                Thành viên:
+                                            </Typography>
+                                            <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                                                {attendanceDialog.memberData.member?.full_name || 'N/A'}
+                                            </Typography>
+                                        </Stack>
+                                        <Stack direction="row" spacing={1.5} alignItems="center">
+                                            <Event sx={{ color: COLORS.TEXT.SECONDARY, fontSize: 20 }} />
+                                            <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
+                                                Ngày:
+                                            </Typography>
+                                            <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                                                {formatDate(attendanceDialog.date)}
+                                            </Typography>
+                                        </Stack>
+                                    </Stack>
+                                </Paper>
+                                <TextField
+                                    label="Ghi chú"
+                                    multiline
+                                    rows={4}
+                                    fullWidth
+                                    value={attendanceDialog.notes}
+                                    onChange={(e) => setAttendanceDialog({ ...attendanceDialog, notes: e.target.value })}
+                                    placeholder="Nhập ghi chú (tùy chọn)"
+                                    variant="outlined"
+                                    sx={{
+                                        '& .MuiOutlinedInput-root': {
+                                            borderRadius: 2
+                                        }
+                                    }}
+                                />
+                            </>
+                        )}
+                    </Stack>
+                </DialogContent>
+                <DialogActions sx={{ p: 3, pt: 2, gap: 1.5 }}>
+                    <Button
+                        onClick={() => setAttendanceDialog(null)}
+                        variant="outlined"
+                        sx={{
+                            borderRadius: 2,
+                            textTransform: 'none',
+                            fontWeight: 600,
+                            minWidth: 100,
+                            borderColor: alpha(COLORS.BORDER.DEFAULT, 0.5)
+                        }}
+                    >
+                        Hủy
+                    </Button>
+                    <Button
+                        onClick={handleStatusChange}
+                        variant="contained"
+                        color="primary"
+                        sx={{
+                            borderRadius: 2,
+                            textTransform: 'none',
+                            fontWeight: 600,
+                            minWidth: 120,
+                            boxShadow: `0 4px 12px ${alpha(COLORS.PRIMARY[500], 0.3)}`,
+                            '&:hover': {
+                                boxShadow: `0 6px 16px ${alpha(COLORS.PRIMARY[500], 0.4)}`
+                            }
+                        }}
+                    >
+                        Xác nhận
+                    </Button>
+                </DialogActions>
+            </Dialog>
+        </Box>
+    );
+};
+
+export default WorkingAttendancePage;

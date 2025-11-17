@@ -224,20 +224,32 @@ const AddPetBreedModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
     };
 
     return (
-        <Dialog open={isOpen} onClose={handleClose} maxWidth="md" fullWidth>
+        <Dialog
+            open={isOpen}
+            onClose={handleClose}
+            maxWidth="md"
+            fullWidth
+            disableScrollLock
+            PaperProps={{
+                sx: {
+                    borderRadius: 3,
+                    boxShadow: `0 20px 60px ${alpha(COLORS.SHADOW.DARK, 0.3)}`
+                }
+            }}
+        >
             <Box
                 sx={{
-                    background: `linear-gradient(135deg, ${alpha(COLORS.INFO[50], 0.3)}, ${alpha(COLORS.SECONDARY[50], 0.2)})`,
-                    borderBottom: `3px solid ${COLORS.INFO[500]}`
+                    background: `linear-gradient(135deg, ${alpha(COLORS.ERROR[50], 0.3)}, ${alpha(COLORS.SECONDARY[50], 0.2)})`,
+                    borderBottom: `3px solid ${COLORS.ERROR[500]}`
                 }}
             >
-                <DialogTitle sx={{ fontWeight: 800, color: COLORS.INFO[700], pb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <DialogTitle sx={{ fontWeight: 800, color: COLORS.ERROR[700], pb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Category />
                     {editMode ? '✏️ Sửa thông tin giống' : '➕ Thêm giống mới'}
                 </DialogTitle>
             </Box>
 
-            <DialogContent sx={{ pt: 3 }}>
+            <DialogContent sx={{ pt: 3, pb: 2, px: 3 }}>
                 <Stack spacing={2}>
                     {/* Name + Species */}
                     <Stack direction="row" spacing={2}>
@@ -388,9 +400,9 @@ const AddPetBreedModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
                     onClick={handleSubmit}
                     disabled={isLoading}
                     sx={{
-                        backgroundColor: COLORS.INFO[500],
+                        backgroundColor: COLORS.ERROR[500],
                         fontWeight: 700,
-                        '&:hover': { backgroundColor: COLORS.INFO[600] },
+                        '&:hover': { backgroundColor: COLORS.ERROR[600] },
                         minWidth: 120
                     }}
                 >

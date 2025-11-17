@@ -12,6 +12,7 @@ import ProfilePage from "./pages/profile/ProfilePage";
 import BookingPage from "./pages/booking/BookingPage";
 import managerRoutes from "./routes/managerRoutes";
 import salesRoutes from "./routes/salesRoutes";
+import workingRoutes from "./routes/workingRoutes";
 
 function App() {
   return (
@@ -33,6 +34,7 @@ function App() {
           <Route path="/profile" element={<ProfilePage />} />
           {managerRoutes}
           {salesRoutes}
+          {workingRoutes}
         </Route>
       </Routes>
     </div>

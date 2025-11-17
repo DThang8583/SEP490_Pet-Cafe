@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, FormControl, InputLabel, Select, MenuItem, Box, Alert, Typography, Switch, FormControlLabel, Stack } from '@mui/material';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, FormControl, InputLabel, Select, MenuItem, Box, Alert, Typography, Switch, FormControlLabel, Stack, alpha } from '@mui/material';
+import { COLORS } from '../../constants/colors';
 
 const TaskTemplateFormModal = ({ open, onClose, onSubmit, initialData = null, mode = 'create', workTypes = [], services = [] }) => {
     const [formData, setFormData] = useState({
@@ -151,23 +152,26 @@ const TaskTemplateFormModal = ({ open, onClose, onSubmit, initialData = null, mo
             onClose={handleClose}
             maxWidth="md"
             fullWidth
+            disableScrollLock
             PaperProps={{
                 sx: {
-                    borderRadius: 2,
-                    boxShadow: 24
+                    borderRadius: 3,
+                    boxShadow: `0 20px 60px ${alpha(COLORS.SHADOW.DARK, 0.3)}`
                 }
             }}
         >
-            <DialogTitle sx={{ pb: 1 }}>
-                <Typography variant="h6" fontWeight={600}>
-                    {mode === 'edit' ? 'Chỉnh sửa nhiệm vụ' : 'Tạo nhiệm vụ mới'}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                    {mode === 'edit' ? 'Cập nhật thông tin nhiệm vụ' : 'Nhập thông tin nhiệm vụ mới'}
-                </Typography>
-            </DialogTitle>
+            <Box
+                sx={{
+                    background: `linear-gradient(135deg, ${alpha(COLORS.PRIMARY[50], 0.3)}, ${alpha(COLORS.SECONDARY[50], 0.2)})`,
+                    borderBottom: `3px solid ${COLORS.PRIMARY[500]}`
+                }}
+            >
+                <DialogTitle sx={{ fontWeight: 800, color: COLORS.PRIMARY[700], pb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    📋 {mode === 'edit' ? '✏️ Chỉnh sửa nhiệm vụ' : '➕ Tạo nhiệm vụ mới'}
+                </DialogTitle>
+            </Box>
 
-            <DialogContent dividers>
+            <DialogContent sx={{ pt: 3, pb: 2, px: 3 }}>
                 <Stack spacing={3}>
                     {errors.submit && (
                         <Alert severity="error" onClose={() => setErrors(prev => ({ ...prev, submit: '' }))}>
@@ -359,7 +363,7 @@ const TaskTemplateFormModal = ({ open, onClose, onSubmit, initialData = null, mo
                 </Stack>
             </DialogContent>
 
-            <DialogActions sx={{ px: 3, py: 2 }}>
+            <DialogActions sx={{ px: 3, py: 2, borderTop: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.1)}` }}>
                 <Button onClick={handleClose} disabled={loading}>
                     Hủy
                 </Button>

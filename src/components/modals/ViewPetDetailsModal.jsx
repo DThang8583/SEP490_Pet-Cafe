@@ -34,42 +34,27 @@ const ViewPetDetailsModal = ({
             onClose={onClose}
             maxWidth="xl"
             fullWidth
+            disableScrollLock
             PaperProps={{
                 sx: {
                     borderRadius: 3,
-                    boxShadow: `0 20px 60px ${alpha(COLORS.ERROR[900], 0.3)}`,
+                    boxShadow: `0 20px 60px ${alpha(COLORS.SHADOW.DARK, 0.3)}`,
                     maxHeight: '90vh'
                 }
             }}
         >
-            <DialogTitle
+            <Box
                 sx={{
-                    background: `linear-gradient(135deg, ${COLORS.ERROR[500]} 0%, ${COLORS.ERROR[700]} 100%)`,
-                    color: '#fff',
-                    fontWeight: 800,
-                    fontSize: '1.5rem',
-                    py: 2.5
+                    background: `linear-gradient(135deg, ${alpha(COLORS.ERROR[50], 0.3)}, ${alpha(COLORS.SECONDARY[50], 0.2)})`,
+                    borderBottom: `3px solid ${COLORS.ERROR[500]}`
                 }}
             >
-                <Stack direction="row" alignItems="center" spacing={2}>
-                    <PetsIcon sx={{ fontSize: 32 }} />
-                    <Typography variant="h5" sx={{ fontWeight: 800, flexGrow: 1 }}>
-                        Chi tiết thú cưng
-                    </Typography>
-                    <IconButton
-                        onClick={onClose}
-                        sx={{
-                            color: '#fff',
-                            '&:hover': {
-                                background: alpha('#fff', 0.2)
-                            }
-                        }}
-                    >
-                        <Close />
-                    </IconButton>
-                </Stack>
-            </DialogTitle>
-            <DialogContent sx={{ p: 3, mt: 2, overflow: 'auto' }}>
+                <DialogTitle sx={{ fontWeight: 800, color: COLORS.ERROR[700], pb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <PetsIcon />
+                    🐾 Chi tiết thú cưng: {pet.name}
+                </DialogTitle>
+            </Box>
+            <DialogContent sx={{ pt: 3, pb: 2, px: 3, overflow: 'auto' }}>
                 {isLoading ? (
                     <Box sx={{ textAlign: 'center', py: 4 }}>
                         <Loading message="Đang tải thông tin..." />
@@ -668,7 +653,7 @@ const ViewPetDetailsModal = ({
                     </Stack>
                 )}
             </DialogContent>
-            <DialogActions sx={{ p: 2.5, background: alpha(COLORS.BACKGROUND.NEUTRAL, 0.5) }}>
+            <DialogActions sx={{ px: 3, py: 2, borderTop: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.1)}` }}>
                 <Button
                     onClick={onClose}
                     variant="contained"
