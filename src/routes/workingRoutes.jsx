@@ -4,6 +4,7 @@ import WorkingDashboardPage from "../pages/working/WorkingDashboardPage";
 import WorkingTeamsPage from "../pages/working/WorkingTeamsPage";
 import WorkingTasksPage from "../pages/working/WorkingTasksPage";
 import WorkingAttendancePage from "../pages/working/WorkingAttendancePage";
+import WorkingVaccinationRecordsPage from "../pages/working/WorkingVaccinationRecordsPage";
 import LeaderTaskCenterPage from "../pages/working/LeaderTaskCenterPage";
 import LeaderTaskDetailPage from "../pages/working/LeaderTaskDetailPage";
 import LeaderBookingsPage from "../pages/working/LeaderBookingsPage";
@@ -14,6 +15,7 @@ const workingRoutes = (
         <Route path="/staff/teams" element={<WorkingTeamsPage />} />
         <Route path="/staff/daily-tasks" element={<WorkingTasksPage />} />
         <Route path="/staff/attendance" element={<WorkingAttendancePage />} />
+        <Route path="/staff/vaccination-records" element={<WorkingVaccinationRecordsPage />} />
 
         {/* Leader only */}
         <Route path="/staff/leader/task-center" element={<LeaderTaskCenterPage />} />
