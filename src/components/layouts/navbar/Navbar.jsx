@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AppBar, Toolbar, Typography, Button, Box, IconButton, Avatar, Menu, MenuItem, useTheme, alpha, Container, Stack, Drawer, List, ListItemButton, ListItemIcon, ListItemText, Divider, Tooltip, ListSubheader, useMediaQuery } from '@mui/material';
-import { LocalCafe, Restaurant, ConfirmationNumber, LocationOn, AccountCircle, Menu as MenuIcon, Close, Pets, Schedule, Dashboard, People, Assignment, DesignServices, Inventory2, Logout, Vaccines, ShoppingCart, ReceiptLong, HealthAndSafety } from '@mui/icons-material';
+import { LocalCafe, Restaurant, ConfirmationNumber, LocationOn, AccountCircle, Menu as MenuIcon, Close, Pets, Schedule, Dashboard, People, Assignment, DesignServices, Inventory2, Logout, Vaccines, ShoppingCart, ReceiptLong, HealthAndSafety, Group } from '@mui/icons-material';
 import { COLORS } from '../../../constants/colors';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { authApi } from '../../../api/authApi';
@@ -172,6 +172,7 @@ const Navbar = () => {
                             { label: 'Bán hàng', icon: <ShoppingCart />, path: '/sales/sales' },
                             { label: 'Bán dịch vụ', icon: <DesignServices />, path: '/sales/services' },
                             { label: 'Điểm danh', icon: <Schedule />, path: '/sales/attendance' },
+                            { label: 'Nhóm đã tham gia', icon: <Group />, path: '/sales/joined-groups' },
                             { label: 'Hóa đơn', icon: <ReceiptLong />, path: '/sales/invoices' },
                             { label: 'Tài khoản', icon: <AccountCircle />, path: '/profile' }
                         ]).map((item) => {

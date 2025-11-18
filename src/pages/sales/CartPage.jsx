@@ -54,20 +54,108 @@ const CartPage = () => {
                 .filter(i => !String(i.id).startsWith('svc-'))
                 .map(i => ({ product_id: i.id, quantity: i.quantity, notes: '' }));
 
-            const serviceItems = items
+            // Calculate booking_date based on slot's day_of_week, start_time, and end_time
+            const getBookingDateForSlot = async (slotId) => {
+                try {
+                    const token = localStorage.getItem('authToken');
+                    const resp = await fetch(`https://petcafe-htc6dadbayh6h4dz.southeastasia-01.azurewebsites.net/api/slots/${slotId}`, {
+                        headers: {
+                            'Authorization': token ? `Bearer ${token}` : '',
+                            'Accept': 'application/json'
+                        }
+                    });
+                    if (resp.ok) {
+                        const json = await resp.json();
+                        const slot = json?.data || json;
+                        const dayOfWeek = slot?.day_of_week;
+                        const startTime = slot?.start_time; // Format: "HH:mm:ss" or "HH:mm"
+                        
+                        if (dayOfWeek) {
+                            // Map day_of_week to JavaScript day number
+                            const dayMap = {
+                                'MONDAY': 1,
+                                'TUESDAY': 2,
+                                'WEDNESDAY': 3,
+                                'THURSDAY': 4,
+                                'FRIDAY': 5,
+                                'SATURDAY': 6,
+                                'SUNDAY': 0
+                            };
+                            
+                            const targetDay = dayMap[dayOfWeek];
+                            if (targetDay !== undefined) {
+                                // Calculate the nearest target day
+                                const today = new Date();
+                                const currentDay = today.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+                                
+                                let daysUntilTarget = (targetDay - currentDay + 7) % 7;
+                                if (daysUntilTarget === 0) daysUntilTarget = 7; // If today is the target day, get next week
+                                
+                                const targetDate = new Date(today);
+                                targetDate.setDate(today.getDate() + daysUntilTarget);
+                                
+                                // Parse start_time
+                                let hours = 0, minutes = 0, seconds = 0;
+                                if (startTime) {
+                                    const timeParts = startTime.split(':');
+                                    hours = parseInt(timeParts[0]) || 0;
+                                    minutes = parseInt(timeParts[1]) || 0;
+                                    seconds = parseInt(timeParts[2]) || 0;
+                                }
+                                
+                                // Get date components (using local date, not UTC)
+                                const year = targetDate.getFullYear();
+                                const month = String(targetDate.getMonth() + 1).padStart(2, '0');
+                                const day = String(targetDate.getDate()).padStart(2, '0');
+                                const hh = String(hours).padStart(2, '0');
+                                const mm = String(minutes).padStart(2, '0');
+                                const ss = String(seconds).padStart(2, '0');
+                                
+                                // Format: YYYY-MM-DDTHH:mm:ss.000Z (keep time as-is, treat as UTC)
+                                return `${year}-${month}-${day}T${hh}:${mm}:${ss}.000Z`;
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.warn('[Cart] Could not fetch slot info:', e);
+                }
+                
+                // Default: 21/11
+                const bookingDateObj = new Date();
+                bookingDateObj.setMonth(10); // November (0-indexed, so 10 = November)
+                bookingDateObj.setDate(21);
+                bookingDateObj.setHours(0, 0, 0, 0);
+                return bookingDateObj.toISOString();
+            };
+
+            // Process service items with their booking dates
+            const serviceItemsPromises = items
                 .filter(i => String(i.id).startsWith('svc-'))
-                .map(i => ({
-                    slot_id: String(i.id).replace('svc-',''),
-                    notes: '',
-                    booking_date: new Date().toISOString()
-                }));
+                .map(async (i) => {
+                    const slotId = i.slot_id || String(i.id).replace('svc-','');
+                    const bookingDate = await getBookingDateForSlot(slotId);
+                    return {
+                        slot_id: slotId,
+                        notes: '',
+                        booking_date: bookingDate
+                    };
+                });
+            
+            const serviceItems = await Promise.all(serviceItemsPromises);
+
+            // Map payment method: cash -> AT_COUNTER, bank_transfer -> ONLINE
+            const paymentMethodMap = {
+                'cash': 'AT_COUNTER',
+                'bank_transfer': 'ONLINE'
+            };
+            const mappedPaymentMethod = paymentMethodMap[paymentMethod] || 'AT_COUNTER';
 
             const payload = {
                 full_name: '',
                 address: '',
                 phone: '',
                 notes: '',
-                payment_method: (paymentMethod || 'cash').toUpperCase(),
+                payment_method: mappedPaymentMethod,
                 ...(productItems.length ? { products: productItems } : {}),
                 ...(serviceItems.length ? { services: serviceItems } : {})
             };

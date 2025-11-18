@@ -11,6 +11,7 @@ import ProductConfirmPage from "../pages/sales/ProductConfirmPage";
 import PetGroupsPage from "../pages/sales/PetGroupsPage";
 import PetStatusPage from "../pages/sales/PetStatusPage";
 import AttendancePage from "../pages/sales/AttendancePage";
+import JoinedGroupsPage from "../pages/sales/JoinedGroupsPage";
 
 const salesRoutes = (
     <>
@@ -25,6 +26,7 @@ const salesRoutes = (
         <Route path="/sales/pet-groups" element={<PetGroupsPage />} />
         <Route path="/sales/pet-status" element={<PetStatusPage />} />
         <Route path="/sales/attendance" element={<AttendancePage />} />
+        <Route path="/sales/joined-groups" element={<JoinedGroupsPage />} />
     </>
 );
 
