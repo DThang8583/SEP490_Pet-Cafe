@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Box, Typography, Button, Tabs, Tab, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, IconButton, TextField, Stack, Toolbar, Grid, Avatar, Select, MenuItem, FormControl, InputLabel, Tooltip, Menu, ListItemIcon, ListItemText } from '@mui/material';
+import { Box, Typography, Button, Tabs, Tab, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, IconButton, TextField, Stack, Toolbar, Avatar, Select, MenuItem, FormControl, InputLabel, Tooltip, Menu, ListItemIcon, ListItemText } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, Schedule as ScheduleIcon, Public as PublicIcon, Lock as LockIcon, Visibility as VisibilityIcon, Assignment as AssignmentIcon, MoreVert as MoreVertIcon } from '@mui/icons-material';
 import { COLORS } from '../../../constants/colors';
@@ -12,10 +12,10 @@ import SlotFormModal from '../../../components/modals/SlotFormModal';
 import SlotPublishModal from '../../../components/modals/SlotPublishModal';
 import SlotDetailsModal from '../../../components/modals/SlotDetailsModal';
 import taskTemplateApi, { TASK_STATUS, TASK_PRIORITY } from '../../../api/taskTemplateApi';
-import slotApi, { SLOT_STATUS, WEEKDAY_LABELS } from '../../../api/slotApi';
+import slotApi, { SLOT_STATUS } from '../../../api/slotApi';
 import serviceApi from '../../../api/serviceApi';
 import * as areasApi from '../../../api/areasApi';
-import petApi from '../../../api/petApi';
+import petGroupsApi from '../../../api/petGroupsApi';
 import * as teamApi from '../../../api/teamApi';
 import DailyTasksTab from './DailyTasksTab';
 import WorkTypeTab from './WorkTypeTab';
@@ -42,7 +42,6 @@ const TasksPage = () => {
     const [filterStatus, setFilterStatus] = useState('all');
     const [filterPriority, setFilterPriority] = useState('all');
     const [filterIsPublic, setFilterIsPublic] = useState('all');
-    const [filterIsRecurring, setFilterIsRecurring] = useState('all');
     const [filterSlotStatus, setFilterSlotStatus] = useState('all');
     const [filterSlotTask, setFilterSlotTask] = useState('all');
 
@@ -104,6 +103,54 @@ const TasksPage = () => {
         };
     }, [taskTemplates, slots, workTypes]);
 
+    const PRIORITY_CONFIG = {
+        [TASK_PRIORITY.URGENT]: {
+            label: 'Khẩn cấp',
+            color: COLORS.ERROR[700],
+            bg: alpha(COLORS.ERROR[100], 0.85)
+        },
+        [TASK_PRIORITY.HIGH]: {
+            label: 'Cao',
+            color: COLORS.WARNING[700],
+            bg: alpha(COLORS.WARNING[100], 0.85)
+        },
+        [TASK_PRIORITY.MEDIUM]: {
+            label: 'Trung bình',
+            color: COLORS.INFO[700],
+            bg: alpha(COLORS.INFO[100], 0.85)
+        },
+        [TASK_PRIORITY.LOW]: {
+            label: 'Thấp',
+            color: COLORS.GRAY[700],
+            bg: alpha(COLORS.GRAY[200], 0.75)
+        }
+    };
+
+    const resolveWorkType = (task) => {
+        if (task?.work_type) return task.work_type;
+        return workTypes.find(wt => wt.id === task?.work_type_id) || null;
+    };
+
+    const resolveService = (task) => {
+        if (!task) return null;
+        if (task.service) return task.service;
+        if (!task.service_id) return null;
+        return services.find(service => service.id === task.service_id) || null;
+    };
+
+    const formatDateTime = (value) => {
+        if (!value) return '—';
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return '—';
+        return date.toLocaleString('vi-VN', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    };
+
     // Filter task templates
     const filteredTemplates = useMemo(() => {
         return taskTemplates.filter(t => {
@@ -138,17 +185,9 @@ const TasksPage = () => {
                 }
             }
 
-            // Is Recurring filter
-            if (filterIsRecurring !== 'all') {
-                const isRecurring = filterIsRecurring === 'true';
-                if (t.is_recurring !== isRecurring) {
-                    return false;
-                }
-            }
-
             return true;
         });
-    }, [taskTemplates, searchQuery, filterTaskType, filterStatus, filterPriority, filterIsPublic, filterIsRecurring]);
+    }, [taskTemplates, searchQuery, filterTaskType, filterStatus, filterPriority, filterIsPublic]);
 
     // Filter slots
     const filteredSlots = useMemo(() => {
@@ -156,13 +195,15 @@ const TasksPage = () => {
             // Search filter
             if (searchQuery) {
                 const searchLower = searchQuery.toLowerCase();
-                const matchSearch = s.start_time.includes(searchLower) ||
-                    s.end_time.includes(searchLower);
+                const matchSearch = (s.start_time || '').includes(searchLower) ||
+                    (s.end_time || '').includes(searchLower) ||
+                    (s.task?.title || '').toLowerCase().includes(searchLower) ||
+                    (s.team?.name || '').toLowerCase().includes(searchLower);
                 if (!matchSearch) return false;
             }
 
-            // Status filter
-            if (filterSlotStatus !== 'all' && s.status !== filterSlotStatus) {
+            // Status filter - use service_status from API
+            if (filterSlotStatus !== 'all' && s.service_status !== filterSlotStatus) {
                 return false;
             }
 
@@ -187,30 +228,29 @@ const TasksPage = () => {
         return Math.ceil(items.length / itemsPerPage);
     }, [currentTab, filteredTemplates, filteredSlots, itemsPerPage]);
 
-    // Load all data
+    // Load all data (resilient: don't block others if one fails)
     const loadData = async () => {
-        try {
-            setLoading(true);
-            await Promise.all([
-                loadTaskTemplates(),
-                loadSlots(),
-                loadWorkTypes(),
-                loadServices(),
-                loadAreas(),
-                loadPetGroups(),
-                loadTeams()
-            ]);
-        } catch (error) {
-            console.error('Error loading data:', error);
+        setLoading(true);
+        const results = await Promise.allSettled([
+            loadTaskTemplates(),
+            loadSlots(),
+            loadWorkTypes(),
+            loadServices(),
+            loadAreas(),
+            loadPetGroups(),
+            loadTeams()
+        ]);
+
+        const rejected = results.filter(r => r.status === 'rejected');
+        if (rejected.length > 0) {
             setAlert({
                 open: true,
-                title: 'Lỗi',
-                message: error.message || 'Không thể tải dữ liệu',
-                type: 'error'
+                title: 'Cảnh báo',
+                message: 'Một số dữ liệu không tải được. Các phần khác vẫn hiển thị bình thường.',
+                type: 'warning'
             });
-        } finally {
-            setLoading(false);
         }
+        setLoading(false);
     };
 
     const loadTaskTemplates = async () => {
@@ -247,6 +287,8 @@ const TasksPage = () => {
             const response = await slotApi.getAllSlots();
             setSlots(response.data || []);
         } catch (error) {
+            console.error('Error loading slots:', error);
+            setSlots([]);
             throw error;
         }
     };
@@ -262,8 +304,8 @@ const TasksPage = () => {
 
     const loadPetGroups = async () => {
         try {
-            const response = await petApi.getPetGroups();
-            setPetGroups(response.data || []);
+            const response = await petGroupsApi.getAllGroups({ page_size: 1000 });
+            setPetGroups(response?.data || []);
         } catch (error) {
             console.error('Error loading pet groups:', error);
         }
@@ -271,7 +313,7 @@ const TasksPage = () => {
 
     const loadTeams = async () => {
         try {
-            const response = await teamApi.getTeams();
+            const response = await teamApi.getTeams({ page_index: 0, page_size: 1000 });
             if (response.success) {
                 setTeams(response.data || []);
             }
@@ -368,7 +410,8 @@ const TasksPage = () => {
                     }
                 }
 
-                // Reload slots after creation
+                // Reload slots after creation (with small delay to ensure backend is ready)
+                await new Promise(resolve => setTimeout(resolve, 500));
                 await loadSlots();
 
                 // Show result message
@@ -454,8 +497,19 @@ const TasksPage = () => {
         }
     };
 
-    const handleDeleteSlot = (slot) => {
-        setDeleteTarget({ type: 'slot', data: slot });
+    const handleDeleteSlot = (slotOrId) => {
+        // Handle both cases: slot object or slot ID
+        const slotId = typeof slotOrId === 'string' ? slotOrId : slotOrId?.id;
+        if (!slotId) {
+            setAlert({
+                open: true,
+                title: 'Lỗi',
+                message: 'Không tìm thấy ID của slot cần xóa',
+                type: 'error'
+            });
+            return;
+        }
+        setDeleteTarget({ type: 'slot', data: { id: slotId } });
         setConfirmDeleteOpen(true);
     };
 
@@ -495,14 +549,18 @@ const TasksPage = () => {
         }
     };
 
-    // Get work type color (simple color assignment based on work type name)
+    // Get work type color (simple deterministic assignment based on name hash)
     const getWorkTypeColor = (workTypeName) => {
-        const colorMap = {
-            'Quản lý Khu Vực Mèo': COLORS.PRIMARY[500],
-            'Quản lý Khu Vực Chó': COLORS.SUCCESS[500],
-            'Thực phẩm & Đồ uống': COLORS.INFO[500],
-        };
-        return colorMap[workTypeName] || COLORS.GRAY[500];
+        if (!workTypeName) return COLORS.GRAY[500];
+        const palette = [
+            COLORS.PRIMARY[500],
+            COLORS.SUCCESS[500],
+            COLORS.INFO[500],
+            COLORS.WARNING[500],
+            COLORS.SECONDARY?.[500] || COLORS.PRIMARY[400]
+        ];
+        const hash = [...workTypeName].reduce((acc, char) => acc + char.charCodeAt(0), 0);
+        return palette[hash % palette.length] || COLORS.PRIMARY[500];
     };
 
     // Get task for slot
@@ -515,8 +573,9 @@ const TasksPage = () => {
         const taskSlots = slots.filter(s => s.task_id === taskId);
         return {
             total: taskSlots.length,
-            public: taskSlots.filter(s => s.status === SLOT_STATUS.PUBLIC).length,
-            internal: taskSlots.filter(s => s.status === SLOT_STATUS.INTERNAL_ONLY).length
+            // Public pill should show number of AVAILABLE slots for public tasks
+            public: taskSlots.filter(s => s.service_status === 'AVAILABLE').length,
+            internal: taskSlots.filter(s => s.service_status !== 'AVAILABLE').length
         };
     };
 
@@ -566,48 +625,51 @@ const TasksPage = () => {
             {currentTab === 0 && (
                 <>
                     {/* Statistics */}
-                    <Grid container spacing={2} sx={{ mb: 3 }}>
-                        <Grid item xs={12} sm={6} md={3}>
-                            <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.PRIMARY[500]}` }}>
-                                <Typography variant="body2" color="text.secondary" gutterBottom>
-                                    Tổng Nhiệm vụ
-                                </Typography>
-                                <Typography variant="h4" fontWeight={600} color={COLORS.PRIMARY[700]}>
-                                    {stats.totalTasks}
-                                </Typography>
-                            </Paper>
-                        </Grid>
-                        <Grid item xs={12} sm={6} md={3}>
-                            <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.SUCCESS[500]}` }}>
-                                <Typography variant="body2" color="text.secondary" gutterBottom>
-                                    Đang hoạt động
-                                </Typography>
-                                <Typography variant="h4" fontWeight={600} color={COLORS.SUCCESS[700]}>
-                                    {taskTemplates.filter(t => t.status === 'ACTIVE').length}
-                                </Typography>
-                            </Paper>
-                        </Grid>
-                        <Grid item xs={12} sm={6} md={3}>
-                            <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.WARNING[500]}` }}>
-                                <Typography variant="body2" color="text.secondary" gutterBottom>
-                                    Không hoạt động
-                                </Typography>
-                                <Typography variant="h4" fontWeight={600} color={COLORS.WARNING[700]}>
-                                    {taskTemplates.filter(t => t.status === 'INACTIVE').length}
-                                </Typography>
-                            </Paper>
-                        </Grid>
-                        <Grid item xs={12} sm={6} md={3}>
-                            <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.INFO[500]}` }}>
-                                <Typography variant="body2" color="text.secondary" gutterBottom>
-                                    Tổng Ca
-                                </Typography>
-                                <Typography variant="h4" fontWeight={600} color={COLORS.INFO[700]}>
-                                    {stats.totalSlots}
-                                </Typography>
-                            </Paper>
-                        </Grid>
-                    </Grid>
+                    <Box
+                        sx={{
+                            display: 'flex',
+                            flexWrap: 'nowrap',
+                            gap: 2,
+                            mb: 4,
+                            width: '100%',
+                            overflow: 'visible'
+                        }}
+                    >
+                        {[
+                            { label: 'Tổng Nhiệm vụ', value: stats.totalTasks, color: COLORS.PRIMARY[500], valueColor: COLORS.PRIMARY[700] },
+                            { label: 'Đang hoạt động', value: taskTemplates.filter(t => t.status === 'ACTIVE').length, color: COLORS.SUCCESS[500], valueColor: COLORS.SUCCESS[700] },
+                            { label: 'Không hoạt động', value: taskTemplates.filter(t => t.status === 'INACTIVE').length, color: COLORS.WARNING[500], valueColor: COLORS.WARNING[700] },
+                            { label: 'Tổng Ca', value: stats.totalSlots, color: COLORS.INFO[500], valueColor: COLORS.INFO[700] }
+                        ].map((stat, index) => {
+                            const cardWidth = `calc((100% - ${3 * 16}px) / 4)`;
+                            return (
+                                <Box
+                                    key={index}
+                                    sx={{
+                                        flex: `0 0 ${cardWidth}`,
+                                        width: cardWidth,
+                                        maxWidth: cardWidth,
+                                        minWidth: 0
+                                    }}
+                                >
+                                    <Paper sx={{
+                                        p: 2.5,
+                                        borderTop: `4px solid ${stat.color}`,
+                                        borderRadius: 2,
+                                        height: '100%',
+                                        boxShadow: `4px 6px 12px ${alpha(COLORS.SHADOW.LIGHT, 0.25)}, 0 4px 8px ${alpha(COLORS.SHADOW.LIGHT, 0.1)}, 2px 2px 4px ${alpha(COLORS.SHADOW.LIGHT, 0.15)}`
+                                    }}>
+                                        <Typography variant="body2" color="text.secondary" gutterBottom>
+                                            {stat.label}
+                                        </Typography>
+                                        <Typography variant="h4" fontWeight={600} color={stat.valueColor}>
+                                            {stat.value}
+                                        </Typography>
+                                    </Paper>
+                                </Box>
+                            );
+                        })}
+                    </Box>
 
                     {/* Toolbar */}
                     <Paper sx={{ mb: 2 }}>
@@ -620,7 +682,7 @@ const TasksPage = () => {
                                     setPage(1);
                                 }}
                                 size="small"
-                                sx={{ minWidth: 250 }}
+                                sx={{ minWidth: { xs: '100%', sm: 720 }, flexGrow: { xs: 1, sm: 0 } }}
                             />
 
                             <FormControl size="small" sx={{ minWidth: 200 }}>
@@ -699,22 +761,6 @@ const TasksPage = () => {
                                 </Select>
                             </FormControl>
 
-                            <FormControl size="small" sx={{ minWidth: 150 }}>
-                                <InputLabel>Lặp lại</InputLabel>
-                                <Select
-                                    value={filterIsRecurring}
-                                    onChange={(e) => {
-                                        setFilterIsRecurring(e.target.value);
-                                        setPage(1);
-                                    }}
-                                    label="Lặp lại"
-                                >
-                                    <MenuItem value="all">Tất cả</MenuItem>
-                                    <MenuItem value="true">Có lặp lại</MenuItem>
-                                    <MenuItem value="false">Không lặp lại</MenuItem>
-                                </Select>
-                            </FormControl>
-
                             <Box sx={{ flexGrow: 1 }} />
 
                             <Button
@@ -728,18 +774,20 @@ const TasksPage = () => {
                     </Paper>
 
                     {/* Table */}
-                    <TableContainer component={Paper}>
-                        <Table>
-                            <TableHead sx={{ bgcolor: alpha(COLORS.GRAY[100], 0.5) }}>
+                    <TableContainer component={Paper} sx={{ borderRadius: 3, border: `2px solid ${alpha(COLORS.PRIMARY[200], 0.4)}`, boxShadow: `0 10px 24px ${alpha(COLORS.PRIMARY[200], 0.15)}`, overflowX: 'auto' }}>
+                        <Table size="medium" stickyHeader>
+                            <TableHead>
                                 <TableRow>
-                                    <TableCell width="5%">STT</TableCell>
-                                    <TableCell width="10%">Loại</TableCell>
-                                    <TableCell width="20%">Tên nhiệm vụ</TableCell>
-                                    <TableCell width="30%">Mô tả</TableCell>
-                                    <TableCell width="8%" align="center">Thời gian</TableCell>
-                                    <TableCell width="10%" align="center">Ca</TableCell>
-                                    <TableCell width="8%" align="center">Trạng thái</TableCell>
-                                    <TableCell width="5%" align="center">Thao tác</TableCell>
+                                    <TableCell sx={{ fontWeight: 800 }} width="5%">STT</TableCell>
+                                    <TableCell sx={{ fontWeight: 800 }} width="12%">Loại</TableCell>
+                                    <TableCell sx={{ fontWeight: 800 }} width="33%">Nhiệm vụ</TableCell>
+                                    <TableCell sx={{ fontWeight: 800 }} align="center" width="8%">Ưu tiên</TableCell>
+                                    <TableCell sx={{ fontWeight: 800 }} align="center" width="8%">Công khai</TableCell>
+                                    <TableCell sx={{ fontWeight: 800 }} align="center" width="8%">Thời gian</TableCell>
+                                    <TableCell sx={{ fontWeight: 800 }} align="center" width="8%">Ca</TableCell>
+                                    <TableCell sx={{ fontWeight: 800 }} align="center" width="8%">Trạng thái</TableCell>
+                                    <TableCell sx={{ fontWeight: 800 }} align="center" width="10%">Cập nhật</TableCell>
+                                    <TableCell sx={{ fontWeight: 800 }} align="center" width="6%">Thao tác</TableCell>
                                 </TableRow>
                             </TableHead>
                             <TableBody>
@@ -754,8 +802,11 @@ const TasksPage = () => {
                                 ) : (
                                     currentPageItems.map((task, index) => {
                                         const slotsCount = getSlotsCountForTask(task.id);
-                                        const workType = task.work_type;
+                                        const workType = resolveWorkType(task);
+                                        const service = resolveService(task);
                                         const workTypeColor = workType ? getWorkTypeColor(workType.name) : COLORS.GRAY[500];
+                                        const priorityConfig = PRIORITY_CONFIG[task.priority] || PRIORITY_CONFIG[TASK_PRIORITY.MEDIUM];
+                                        const updatedAt = task.updated_at || task.created_at;
 
                                         return (
                                             <TableRow key={task.id} hover>
@@ -783,17 +834,80 @@ const TasksPage = () => {
                                                     )}
                                                 </TableCell>
                                                 <TableCell>
-                                                    <Typography variant="body2" fontWeight={500}>
-                                                        {task.title || task.name}
-                                                    </Typography>
+                                                    <Stack direction="row" spacing={1.5} alignItems="flex-start">
+                                                        <Avatar
+                                                            src={task.image_url || undefined}
+                                                            alt={task.title || task.name}
+                                                            variant="rounded"
+                                                            sx={{
+                                                                width: 48,
+                                                                height: 48,
+                                                                bgcolor: alpha(COLORS.PRIMARY[500], 0.15),
+                                                                color: COLORS.PRIMARY[600],
+                                                                fontWeight: 600
+                                                            }}
+                                                        >
+                                                            {(task.title || task.name || '?').charAt(0).toUpperCase()}
+                                                        </Avatar>
+                                                        <Box>
+                                                            <Typography variant="body2" fontWeight={600}>
+                                                                {task.title || task.name}
+                                                            </Typography>
+                                                            {task.description && (
+                                                                <Typography
+                                                                    variant="caption"
+                                                                    color="text.secondary"
+                                                                    sx={{ display: 'block', mt: 0.25 }}
+                                                                >
+                                                                    {task.description.length > 120
+                                                                        ? `${task.description.substring(0, 120)}...`
+                                                                        : task.description}
+                                                                </Typography>
+                                                            )}
+                                                            {service?.name && (
+                                                                <Chip
+                                                                    label={`Dịch vụ: ${service.name}`}
+                                                                    size="small"
+                                                                    icon={<VisibilityIcon fontSize="inherit" />}
+                                                                    sx={{
+                                                                        mt: 1,
+                                                                        bgcolor: alpha(COLORS.SECONDARY?.[100] || COLORS.PRIMARY[100], 0.6),
+                                                                        color: COLORS.SECONDARY?.[700] || COLORS.PRIMARY[700],
+                                                                        fontWeight: 600
+                                                                    }}
+                                                                />
+                                                            )}
+                                                        </Box>
+                                                    </Stack>
                                                 </TableCell>
-                                                <TableCell>
-                                                    <Typography variant="body2" color="text.secondary" noWrap>
-                                                        {task.description.length > 80
-                                                            ? `${task.description.substring(0, 80)}...`
-                                                            : task.description
-                                                        }
-                                                    </Typography>
+                                                <TableCell align="center">
+                                                    <Chip
+                                                        label={priorityConfig.label}
+                                                        size="small"
+                                                        sx={{
+                                                            bgcolor: priorityConfig.bg,
+                                                            color: priorityConfig.color,
+                                                            fontWeight: 600,
+                                                            minWidth: 90
+                                                        }}
+                                                    />
+                                                </TableCell>
+                                                <TableCell align="center">
+                                                    <Chip
+                                                        label={task.is_public ? 'Công khai' : 'Nội bộ'}
+                                                        size="small"
+                                                        icon={task.is_public ? <PublicIcon fontSize="inherit" /> : <LockIcon fontSize="inherit" />}
+                                                        sx={{
+                                                            bgcolor: task.is_public
+                                                                ? alpha(COLORS.SUCCESS[100], 0.8)
+                                                                : alpha(COLORS.GRAY[200], 0.8),
+                                                            color: task.is_public ? COLORS.SUCCESS[700] : COLORS.GRAY[700],
+                                                            fontWeight: 600,
+                                                            '& .MuiChip-icon': {
+                                                                color: task.is_public ? COLORS.SUCCESS[600] : COLORS.GRAY[600]
+                                                            }
+                                                        }}
+                                                    />
                                                 </TableCell>
                                                 <TableCell align="center">
                                                     {task.estimated_hours > 0 ? (
@@ -844,7 +958,6 @@ const TasksPage = () => {
                                                     </Stack>
                                                 </TableCell>
 
-                                                {/* Trạng thái */}
                                                 <TableCell align="center">
                                                     <Chip
                                                         label={task.status === TASK_STATUS.ACTIVE ? 'Đang hoạt động' : 'Không hoạt động'}
@@ -859,6 +972,12 @@ const TasksPage = () => {
                                                             fontWeight: 600
                                                         }}
                                                     />
+                                                </TableCell>
+
+                                                <TableCell align="center">
+                                                    <Typography variant="body2" color="text.secondary">
+                                                        {formatDateTime(updatedAt)}
+                                                    </Typography>
                                                 </TableCell>
 
                                                 {/* Thao tác */}
@@ -957,6 +1076,7 @@ const TasksPage = () => {
                 onEditSlot={handleEditSlot}
                 onDeleteSlot={handleDeleteSlot}
                 onRefresh={loadData}
+                showCreateAction={true}
             />
 
             <ConfirmModal

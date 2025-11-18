@@ -1,8 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import {
-    Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Stack, IconButton,
-    FormControl, InputLabel, Select, MenuItem, FormControlLabel, Switch, Typography, alpha
-} from '@mui/material';
+import { useState, useEffect } from 'react';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Stack, IconButton, FormControl, InputLabel, Select, MenuItem, FormControlLabel, Switch, Typography, alpha, Box } from '@mui/material';
 import { Vaccines, Close } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 
@@ -83,47 +80,39 @@ const VaccineTypeModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
         onClose();
     };
 
+    // Helper function to capitalize first letter
+    const capitalizeName = (name) => {
+        if (!name) return name;
+        return name.charAt(0).toUpperCase() + name.slice(1);
+    };
+
     return (
         <Dialog
             open={isOpen}
             onClose={handleClose}
             maxWidth="md"
             fullWidth
+            disableScrollLock
             PaperProps={{
                 sx: {
                     borderRadius: 3,
-                    boxShadow: `0 20px 60px ${alpha(COLORS.PRIMARY[900], 0.3)}`
+                    boxShadow: `0 20px 60px ${alpha(COLORS.SHADOW.DARK, 0.3)}`
                 }
             }}
         >
-            <DialogTitle
+            <Box
                 sx={{
-                    background: COLORS.PRIMARY[500],
-                    color: '#fff',
-                    fontWeight: 800,
-                    py: 2.5
+                    background: `linear-gradient(135deg, ${alpha(COLORS.SUCCESS[50], 0.3)}, ${alpha(COLORS.SECONDARY[50], 0.2)})`,
+                    borderBottom: `3px solid ${COLORS.SUCCESS[500]}`
                 }}
             >
-                <Stack direction="row" alignItems="center" spacing={2}>
-                    <Vaccines sx={{ fontSize: 32 }} />
-                    <Typography variant="h5" sx={{ fontWeight: 800, flexGrow: 1 }}>
-                        {editMode ? 'Chỉnh sửa Vaccine Type' : 'Thêm Vaccine Type mới'}
-                    </Typography>
-                    <IconButton
-                        onClick={handleClose}
-                        sx={{
-                            color: '#fff',
-                            '&:hover': {
-                                background: alpha('#fff', 0.2)
-                            }
-                        }}
-                    >
-                        <Close />
-                    </IconButton>
-                </Stack>
-            </DialogTitle>
-            <DialogContent sx={{ p: 3, mt: 2 }}>
-                <Stack spacing={3} sx={{ mt: 2 }}>
+                <DialogTitle sx={{ fontWeight: 800, color: COLORS.SUCCESS[700], pb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Vaccines />
+                    {editMode ? '✏️ Chỉnh sửa Vaccine Type' : '➕ Thêm Vaccine Type mới'}
+                </DialogTitle>
+            </Box>
+            <DialogContent sx={{ pt: 3, pb: 2, px: 3 }}>
+                <Stack spacing={3}>
                     <TextField
                         label="Tên vaccine"
                         value={formData.name}
@@ -150,11 +139,13 @@ const VaccineTypeModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
                             onChange={(e) => setFormData({ ...formData, species_id: e.target.value })}
                             label="Loài thú cưng"
                         >
-                            {Array.isArray(species) && species.map(s => (
-                                <MenuItem key={s.id} value={s.id}>
-                                    {s.name || '—'}
-                                </MenuItem>
-                            ))}
+                            {Array.isArray(species) && species
+                                .filter(s => s.is_active === true)
+                                .map(s => (
+                                    <MenuItem key={s.id} value={s.id}>
+                                        {capitalizeName(s.name) || '—'}
+                                    </MenuItem>
+                                ))}
                         </Select>
                         {errors.species_id && (
                             <Typography variant="caption" sx={{ color: COLORS.ERROR[600], mt: 0.5, ml: 1.5 }}>
@@ -196,7 +187,7 @@ const VaccineTypeModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
                     />
                 </Stack>
             </DialogContent>
-            <DialogActions sx={{ p: 2.5, background: alpha(COLORS.BACKGROUND.NEUTRAL, 0.5) }}>
+            <DialogActions sx={{ px: 3, py: 2, borderTop: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.1)}` }}>
                 <Button
                     onClick={handleClose}
                     sx={{
@@ -228,4 +219,3 @@ const VaccineTypeModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
 };
 
 export default VaccineTypeModal;
-

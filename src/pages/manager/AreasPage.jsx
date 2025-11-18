@@ -1,56 +1,16 @@
 import { useState, useEffect, useMemo } from 'react';
-import {
-    Box,
-    Typography,
-    Button,
-    Paper,
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TableRow,
-    Chip,
-    IconButton,
-    TextField,
-    Stack,
-    Toolbar,
-    Grid,
-    Menu,
-    MenuItem,
-    ListItemIcon,
-    ListItemText,
-    Tooltip,
-    Avatar,
-    Switch,
-    FormControl,
-    InputLabel,
-    Select,
-    Badge
-} from '@mui/material';
+import { Box, Typography, Button, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, IconButton, TextField, Stack, Toolbar, Menu, MenuItem, ListItemIcon, ListItemText, Avatar, Switch, FormControl, InputLabel, Select } from '@mui/material';
 import { alpha } from '@mui/material/styles';
-import {
-    Add as AddIcon,
-    Edit as EditIcon,
-    Delete as DeleteIcon,
-    Refresh as RefreshIcon,
-    LocationOn as LocationIcon,
-    People as PeopleIcon,
-    MoreVert as MoreVertIcon,
-    Check as CheckIcon,
-    Close as CloseIcon,
-    Assignment as AssignmentIcon,
-    MeetingRoom as RoomIcon
-} from '@mui/icons-material';
+import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, LocationOn as LocationIcon, People as PeopleIcon, MoreVert as MoreVertIcon, Assignment as AssignmentIcon, MeetingRoom as RoomIcon } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 import Loading from '../../components/loading/Loading';
 import Pagination from '../../components/common/Pagination';
 import AlertModal from '../../components/modals/AlertModal';
 import ConfirmModal from '../../components/modals/ConfirmModal';
-import AreaWorkTypesModal from '../../components/modals/AreaWorkTypesModal';
+import AreaDetailModal from '../../components/modals/AreaDetailModal';
 import AreaFormModal from '../../components/modals/AreaFormModal';
 import * as areasApi from '../../api/areasApi';
-import taskTemplateApi from '../../api/taskTemplateApi';
+import * as workTypeApi from '../../api/workTypeApi';
 
 const AreasPage = () => {
     // Loading & Data
@@ -62,6 +22,7 @@ const AreasPage = () => {
     // Filters & Search
     const [searchQuery, setSearchQuery] = useState('');
     const [filterStatus, setFilterStatus] = useState('all'); // all, active, inactive
+    const [filterWorkTypeId, setFilterWorkTypeId] = useState('all');
 
     // Pagination
     const [page, setPage] = useState(1);
@@ -82,7 +43,10 @@ const AreasPage = () => {
     const calculateStats = (areasArray) => {
         const active = areasArray.filter(a => a.is_active).length;
         const inactive = areasArray.filter(a => !a.is_active).length;
-        const totalCapacity = areasArray.reduce((sum, a) => sum + a.max_capacity, 0);
+        const totalCapacity = areasArray.reduce((sum, a) => {
+            const capacity = Number(a.max_capacity) || 0;
+            return sum + capacity;
+        }, 0);
         const averageCapacity = areasArray.length > 0
             ? Math.round(totalCapacity / areasArray.length)
             : 0;
@@ -91,27 +55,72 @@ const AreasPage = () => {
             total: areasArray.length,
             active,
             inactive,
-            totalCapacity,
-            averageCapacity
+            totalCapacity: totalCapacity || 0,
+            averageCapacity: averageCapacity || 0
         };
     };
-
-    // Load data
-    useEffect(() => {
-        loadData();
-    }, []);
 
     const loadData = async () => {
         setLoading(true);
         try {
-            const [areasResponse, statsResponse, workTypesResponse] = await Promise.all([
-                areasApi.getAllAreas(),
-                areasApi.getAreasStatistics(),
-                taskTemplateApi.getWorkTypes()
-            ]);
-            setAreas(areasResponse.data || []);
-            setStats(statsResponse);
-            setWorkTypes(workTypesResponse.data || []);
+            const isActiveParam = filterStatus === 'active' ? true : filterStatus === 'inactive' ? false : null;
+            const workTypeIdParam = filterWorkTypeId !== 'all' ? filterWorkTypeId : null;
+
+            let areasData = [];
+            let statsResponse;
+            let workTypesResponse;
+
+            // If filter is "all", fetch both active and inactive areas separately
+            // because API might default to active only when IsActive parameter is not provided
+            if (filterStatus === 'all') {
+                const [activeResponse, inactiveResponse, stats, workTypes] = await Promise.all([
+                    areasApi.getAllAreas({
+                        page_index: 0,
+                        page_size: 1000,
+                        is_active: true,
+                        work_type_id: workTypeIdParam
+                    }),
+                    areasApi.getAllAreas({
+                        page_index: 0,
+                        page_size: 1000,
+                        is_active: false,
+                        work_type_id: workTypeIdParam
+                    }),
+                    areasApi.getAreasStatistics(),
+                    workTypeApi.getWorkTypes()
+                ]);
+
+                // Merge active and inactive areas
+                const activeAreas = activeResponse?.data || [];
+                const inactiveAreas = inactiveResponse?.data || [];
+                areasData = [...activeAreas, ...inactiveAreas];
+                statsResponse = stats;
+                workTypesResponse = workTypes;
+            } else {
+                // For "active" or "inactive" filter, use single request
+                const [response, stats, workTypes] = await Promise.all([
+                    areasApi.getAllAreas({
+                        page_index: 0,
+                        page_size: 1000,
+                        is_active: isActiveParam,
+                        work_type_id: workTypeIdParam
+                    }),
+                    areasApi.getAreasStatistics(),
+                    workTypeApi.getWorkTypes()
+                ]);
+
+                areasData = response?.data || response || [];
+                statsResponse = stats;
+                workTypesResponse = workTypes;
+            }
+
+            // Set state
+            setAreas(Array.isArray(areasData) ? areasData : []);
+            setStats(statsResponse || { total: 0, active: 0, inactive: 0, totalCapacity: 0, averageCapacity: 0 });
+
+            // Handle workTypeApi response structure: { success: true, data: [...] }
+            const workTypesData = workTypesResponse?.data || workTypesResponse || [];
+            setWorkTypes(Array.isArray(workTypesData) ? workTypesData : []);
         } catch (error) {
             console.error('Error loading areas:', error);
             setAlert({
@@ -125,28 +134,27 @@ const AreasPage = () => {
         }
     };
 
-    // Filtered areas
+    // Load data on mount and when filters change
+    useEffect(() => {
+        loadData();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [filterStatus, filterWorkTypeId]);
+
+    // Filtered areas (client-side search only, status and workType are filtered server-side)
     const filteredAreas = useMemo(() => {
         return areas.filter(area => {
             // Search
             if (searchQuery) {
                 const searchLower = searchQuery.toLowerCase();
-                const matchSearch = area.name.toLowerCase().includes(searchLower) ||
-                    area.description.toLowerCase().includes(searchLower) ||
-                    area.location.toLowerCase().includes(searchLower);
+                const matchSearch = (area.name || '').toLowerCase().includes(searchLower) ||
+                    (area.description || '').toLowerCase().includes(searchLower) ||
+                    (area.location || '').toLowerCase().includes(searchLower);
                 if (!matchSearch) return false;
-            }
-
-            // Status filter
-            if (filterStatus === 'active') {
-                return area.is_active === true;
-            } else if (filterStatus === 'inactive') {
-                return area.is_active === false;
             }
 
             return true;
         });
-    }, [areas, searchQuery, filterStatus]);
+    }, [areas, searchQuery]);
 
     // Paginated areas
     const paginatedAreas = useMemo(() => {
@@ -177,17 +185,27 @@ const AreasPage = () => {
 
     const handleConfirmToggleStatus = async () => {
         const area = confirmToggle.area;
-        if (!area) return;
+        if (!area) {
+            setAlert({
+                open: true,
+                title: 'Lỗi',
+                message: 'Không tìm thấy thông tin khu vực',
+                type: 'error'
+            });
+            setConfirmToggle({ open: false, area: null });
+            return;
+        }
 
         try {
-            const updatedArea = await areasApi.toggleAreaStatus(area.id);
+            await areasApi.toggleAreaStatus(area.id);
 
-            // Update areas state locally and recalculate stats
-            setAreas(prevAreas => {
-                const updatedAreas = prevAreas.map(a => a.id === area.id ? updatedArea : a);
-                setStats(calculateStats(updatedAreas));
-                return updatedAreas;
-            });
+            // Always change filter to "all" when toggling status
+            // This ensures the area is still visible after toggle (not filtered out)
+            if (filterStatus !== 'all') {
+                setFilterStatus('all');
+            } else {
+                await loadData();
+            }
 
             setAlert({
                 open: true,
@@ -251,33 +269,6 @@ const AreasPage = () => {
         setWorkTypesModal({ open: false, area: null });
     };
 
-    const handleSaveWorkTypes = async (areaId, selectedWorkTypeIds) => {
-        try {
-            const updatedArea = await areasApi.updateAreaWorkTypes(areaId, selectedWorkTypeIds);
-
-            // Update areas state locally without reload
-            setAreas(prevAreas =>
-                prevAreas.map(a => a.id === areaId ? updatedArea : a)
-            );
-
-            setAlert({
-                open: true,
-                title: 'Thành công',
-                message: 'Cập nhật Work Types thành công!',
-                type: 'success'
-            });
-        } catch (error) {
-            console.error('Error updating work types:', error);
-            setAlert({
-                open: true,
-                title: 'Lỗi',
-                message: error.message || 'Không thể cập nhật Work Types',
-                type: 'error'
-            });
-            throw error;
-        }
-    };
-
     const handleOpenCreateModal = () => {
         setFormModal({ open: true, mode: 'create', area: null });
     };
@@ -294,14 +285,7 @@ const AreasPage = () => {
     const handleFormSubmit = async (formData) => {
         try {
             if (formModal.mode === 'create') {
-                const newArea = await areasApi.createArea(formData);
-
-                // Add new area to list and recalculate stats
-                setAreas(prevAreas => {
-                    const updatedAreas = [newArea, ...prevAreas];
-                    setStats(calculateStats(updatedAreas));
-                    return updatedAreas;
-                });
+                await areasApi.createArea(formData);
 
                 setAlert({
                     open: true,
@@ -310,14 +294,13 @@ const AreasPage = () => {
                     type: 'success'
                 });
             } else {
-                const updatedArea = await areasApi.updateArea(formModal.area.id, formData);
+                // Validate area and areaId
+                if (!formModal.area || !formModal.area.id) {
+                    throw new Error('Không tìm thấy thông tin khu vực cần cập nhật');
+                }
 
-                // Update area in list and recalculate stats
-                setAreas(prevAreas => {
-                    const updatedAreas = prevAreas.map(a => a.id === formModal.area.id ? updatedArea : a);
-                    setStats(calculateStats(updatedAreas));
-                    return updatedAreas;
-                });
+                const areaId = formModal.area.id;
+                await areasApi.updateArea(areaId, formData);
 
                 setAlert({
                     open: true,
@@ -328,6 +311,9 @@ const AreasPage = () => {
             }
 
             handleCloseFormModal();
+
+            // Reload data from API to get the latest information
+            await loadData();
         } catch (error) {
             console.error('Error saving area:', error);
             setAlert({
@@ -342,7 +328,7 @@ const AreasPage = () => {
     // Reset page when filters change
     useEffect(() => {
         setPage(1);
-    }, [searchQuery, filterStatus]);
+    }, [searchQuery, filterStatus, filterWorkTypeId]);
 
     if (loading) {
         return <Loading fullScreen />;
@@ -351,77 +337,62 @@ const AreasPage = () => {
     return (
         <Box sx={{ p: 3 }}>
             {/* Header */}
-            <Box sx={{
-                mb: 3,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between'
-            }}>
-                <Box>
-                    <Typography variant="h4" fontWeight={700} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <RoomIcon sx={{ fontSize: 32, color: COLORS.PRIMARY[600] }} />
-                        Quản lý Khu vực
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                        Quản lý các khu vực hoạt động trong cafe
-                    </Typography>
-                </Box>
-                <Button
-                    variant="contained"
-                    startIcon={<AddIcon />}
-                    onClick={handleOpenCreateModal}
-                    sx={{
-                        bgcolor: COLORS.PRIMARY[600],
-                        '&:hover': { bgcolor: COLORS.PRIMARY[700] }
-                    }}
-                >
-                    Tạo khu vực
-                </Button>
+            <Box sx={{ mb: 3 }}>
+                <Typography variant="h4" fontWeight={700} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <RoomIcon sx={{ fontSize: 32, color: COLORS.PRIMARY[600] }} />
+                    Quản lý Khu vực
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                    Quản lý các khu vực hoạt động trong cafe
+                </Typography>
             </Box>
 
             {/* Statistics */}
-            <Grid container spacing={2} sx={{ mb: 3 }}>
-                <Grid item xs={12} sm={6} md={3}>
-                    <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.PRIMARY[500]}` }}>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Tổng khu vực
-                        </Typography>
-                        <Typography variant="h4" fontWeight={600} color={COLORS.PRIMARY[700]}>
-                            {stats.total}
-                        </Typography>
-                    </Paper>
-                </Grid>
-                <Grid item xs={12} sm={6} md={3}>
-                    <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.SUCCESS[500]}` }}>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Đang hoạt động
-                        </Typography>
-                        <Typography variant="h4" fontWeight={600} color={COLORS.SUCCESS[700]}>
-                            {stats.active}
-                        </Typography>
-                    </Paper>
-                </Grid>
-                <Grid item xs={12} sm={6} md={3}>
-                    <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.WARNING[500]}` }}>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Không hoạt động
-                        </Typography>
-                        <Typography variant="h4" fontWeight={600} color={COLORS.WARNING[700]}>
-                            {stats.inactive}
-                        </Typography>
-                    </Paper>
-                </Grid>
-                <Grid item xs={12} sm={6} md={3}>
-                    <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.INFO[500]}` }}>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Tổng sức chứa
-                        </Typography>
-                        <Typography variant="h4" fontWeight={600} color={COLORS.INFO[700]}>
-                            {stats.totalCapacity}
-                        </Typography>
-                    </Paper>
-                </Grid>
-            </Grid>
+            <Box
+                sx={{
+                    display: 'flex',
+                    flexWrap: 'nowrap',
+                    gap: 2,
+                    mb: 4,
+                    width: '100%',
+                    overflow: 'visible'
+                }}
+            >
+                {[
+                    { label: 'Tổng khu vực', value: stats.total ?? 0, color: COLORS.PRIMARY[500], valueColor: COLORS.PRIMARY[700] },
+                    { label: 'Đang hoạt động', value: stats.active ?? 0, color: COLORS.SUCCESS[500], valueColor: COLORS.SUCCESS[700] },
+                    { label: 'Không hoạt động', value: stats.inactive ?? 0, color: COLORS.WARNING[500], valueColor: COLORS.WARNING[700] },
+                    { label: 'Tổng sức chứa', value: stats.totalCapacity ?? 0, color: COLORS.INFO[500], valueColor: COLORS.INFO[700] }
+                ].map((stat, index) => {
+                    const cardWidth = `calc((100% - ${3 * 16}px) / 4)`;
+                    return (
+                        <Box
+                            key={index}
+                            sx={{
+                                flex: `0 0 ${cardWidth}`,
+                                width: cardWidth,
+                                maxWidth: cardWidth,
+                                minWidth: 0
+                            }}
+                        >
+                            <Paper sx={{
+                                p: 2.5,
+                                borderTop: `4px solid ${stat.color}`,
+                                borderRadius: 2,
+                                height: '100%',
+                                boxShadow: `4px 6px 12px ${alpha(COLORS.SHADOW.LIGHT, 0.25)}, 0 4px 8px ${alpha(COLORS.SHADOW.LIGHT, 0.1)}, 2px 2px 4px ${alpha(COLORS.SHADOW.LIGHT, 0.15)}`
+                            }}>
+                                <Typography variant="body2" color="text.secondary" gutterBottom>
+                                    {stat.label}
+                                </Typography>
+                                <Typography variant="h4" fontWeight={600} color={stat.valueColor}>
+                                    {stat.value}
+                                </Typography>
+                            </Paper>
+                        </Box>
+                    );
+                })}
+            </Box>
 
             {/* Toolbar */}
             <Paper sx={{ mb: 2 }}>
@@ -431,7 +402,7 @@ const AreasPage = () => {
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         size="small"
-                        sx={{ minWidth: 250 }}
+                        sx={{ width: '1100px', flexShrink: 0 }}
                     />
 
                     <FormControl size="small" sx={{ minWidth: 150 }}>
@@ -447,33 +418,53 @@ const AreasPage = () => {
                         </Select>
                     </FormControl>
 
-                    <Box sx={{ flexGrow: 1 }} />
+                    <FormControl size="small" sx={{ minWidth: 200 }}>
+                        <InputLabel>Loại công việc</InputLabel>
+                        <Select
+                            value={filterWorkTypeId}
+                            onChange={(e) => setFilterWorkTypeId(e.target.value)}
+                            label="Loại công việc"
+                        >
+                            <MenuItem value="all">Tất cả</MenuItem>
+                            {workTypes.map(wt => (
+                                <MenuItem key={wt.id} value={wt.id}>{wt.name}</MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
 
-                    <IconButton onClick={loadData} size="small">
-                        <RefreshIcon />
-                    </IconButton>
+                    <Box sx={{ flexGrow: 1 }} />
+                    <Button
+                        variant="contained"
+                        startIcon={<AddIcon />}
+                        onClick={handleOpenCreateModal}
+                        sx={{
+                            bgcolor: COLORS.PRIMARY[600],
+                            '&:hover': { bgcolor: COLORS.PRIMARY[700] }
+                        }}
+                    >
+                        Tạo khu vực
+                    </Button>
                 </Toolbar>
             </Paper>
 
             {/* Table */}
-            <TableContainer component={Paper}>
-                <Table>
-                    <TableHead sx={{ bgcolor: alpha(COLORS.GRAY[100], 0.5) }}>
+            <TableContainer component={Paper} sx={{ borderRadius: 3, border: `2px solid ${alpha(COLORS.PRIMARY[200], 0.4)}`, boxShadow: `0 10px 24px ${alpha(COLORS.PRIMARY[200], 0.15)}`, overflowX: 'auto' }}>
+                <Table size="medium" stickyHeader>
+                    <TableHead>
                         <TableRow>
-                            <TableCell width="4%">STT</TableCell>
-                            <TableCell width="5%">Ảnh</TableCell>
-                            <TableCell width="18%">Tên khu vực</TableCell>
-                            <TableCell width="25%">Mô tả</TableCell>
-                            <TableCell width="15%">Vị trí</TableCell>
-                            <TableCell width="8%" align="center">Sức chứa</TableCell>
-                            <TableCell width="18%" align="center">Trạng thái</TableCell>
-                            <TableCell width="7%" align="center">Thao tác</TableCell>
+                            <TableCell sx={{ fontWeight: 800 }} width="5%">STT</TableCell>
+                            <TableCell sx={{ fontWeight: 800 }} width="6%">Ảnh</TableCell>
+                            <TableCell sx={{ fontWeight: 800 }} width="25%">Tên khu vực</TableCell>
+                            <TableCell sx={{ fontWeight: 800 }} width="20%">Vị trí</TableCell>
+                            <TableCell sx={{ fontWeight: 800 }} align="center" width="10%">Sức chứa</TableCell>
+                            <TableCell sx={{ fontWeight: 800 }} align="center" width="20%">Trạng thái</TableCell>
+                            <TableCell sx={{ fontWeight: 800 }} align="center" width="14%">Thao tác</TableCell>
                         </TableRow>
                     </TableHead>
                     <TableBody>
                         {paginatedAreas.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
+                                <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
                                     <Typography color="text.secondary">
                                         Không có khu vực nào
                                     </Typography>
@@ -481,7 +472,7 @@ const AreasPage = () => {
                             </TableRow>
                         ) : (
                             paginatedAreas.map((area, index) => (
-                                <TableRow key={area.id} hover>
+                                <TableRow key={area.id || `area-${index}`} hover>
                                     {/* STT */}
                                     <TableCell>
                                         {(page - 1) * itemsPerPage + index + 1}
@@ -490,7 +481,7 @@ const AreasPage = () => {
                                     {/* Ảnh */}
                                     <TableCell>
                                         <Avatar
-                                            src={area.image_url}
+                                            src={area.image_url || ''}
                                             variant="rounded"
                                             sx={{ width: 48, height: 48 }}
                                         >
@@ -501,19 +492,8 @@ const AreasPage = () => {
                                     {/* Tên khu vực */}
                                     <TableCell>
                                         <Typography variant="body2" fontWeight={500}>
-                                            {area.name}
+                                            {area.name || ''}
                                         </Typography>
-                                    </TableCell>
-
-                                    {/* Mô tả */}
-                                    <TableCell>
-                                        <Tooltip title={area.description}>
-                                            <Typography variant="body2" color="text.secondary" noWrap>
-                                                {area.description.length > 60
-                                                    ? `${area.description.substring(0, 60)}...`
-                                                    : area.description}
-                                            </Typography>
-                                        </Tooltip>
                                     </TableCell>
 
                                     {/* Vị trí */}
@@ -521,7 +501,7 @@ const AreasPage = () => {
                                         <Stack direction="row" alignItems="center" spacing={0.5}>
                                             <LocationIcon fontSize="small" color="action" />
                                             <Typography variant="body2" color="text.secondary" noWrap>
-                                                {area.location}
+                                                {area.location || ''}
                                             </Typography>
                                         </Stack>
                                     </TableCell>
@@ -531,7 +511,7 @@ const AreasPage = () => {
                                         <Stack direction="row" alignItems="center" justifyContent="center" spacing={0.5}>
                                             <PeopleIcon fontSize="small" color="action" />
                                             <Typography variant="body2" fontWeight={500}>
-                                                {area.max_capacity}
+                                                {area.max_capacity ?? 0}
                                             </Typography>
                                         </Stack>
                                     </TableCell>
@@ -597,7 +577,7 @@ const AreasPage = () => {
                     <ListItemIcon>
                         <AssignmentIcon fontSize="small" />
                     </ListItemIcon>
-                    <ListItemText>Quản lý Loại công việc</ListItemText>
+                    <ListItemText>Xem chi tiết</ListItemText>
                 </MenuItem>
                 <MenuItem onClick={() => menuArea && handleOpenEditModal(menuArea)}>
                     <ListItemIcon>
@@ -634,27 +614,27 @@ const AreasPage = () => {
             />
 
             {/* Confirm Toggle Status Modal */}
-            <ConfirmModal
-                isOpen={confirmToggle.open}
-                onClose={() => setConfirmToggle({ open: false, area: null })}
-                onConfirm={handleConfirmToggleStatus}
-                title={confirmToggle.area?.is_active ? "Xác nhận vô hiệu hóa" : "Xác nhận kích hoạt"}
-                message={
-                    confirmToggle.area?.is_active
-                        ? `Bạn có chắc chắn muốn vô hiệu hóa khu vực "${confirmToggle.area?.name}"? Khu vực sẽ tạm thời không hoạt động.`
-                        : `Bạn có chắc chắn muốn kích hoạt khu vực "${confirmToggle.area?.name}"?`
-                }
-                confirmText={confirmToggle.area?.is_active ? "Vô hiệu hóa" : "Kích hoạt"}
-                cancelText="Hủy"
-            />
+            {confirmToggle.area && (
+                <ConfirmModal
+                    isOpen={confirmToggle.open}
+                    onClose={() => setConfirmToggle({ open: false, area: null })}
+                    onConfirm={handleConfirmToggleStatus}
+                    title={confirmToggle.area.is_active ? "Xác nhận vô hiệu hóa" : "Xác nhận kích hoạt"}
+                    message={
+                        confirmToggle.area.is_active
+                            ? `Bạn có chắc chắn muốn vô hiệu hóa khu vực "${confirmToggle.area.name}"? Khu vực sẽ tạm thời không hoạt động.`
+                            : `Bạn có chắc chắn muốn kích hoạt khu vực "${confirmToggle.area.name}"?`
+                    }
+                    confirmText={confirmToggle.area.is_active ? "Vô hiệu hóa" : "Kích hoạt"}
+                    cancelText="Hủy"
+                />
+            )}
 
-            {/* Work Types Modal */}
-            <AreaWorkTypesModal
+            {/* Area Detail Modal */}
+            <AreaDetailModal
                 open={workTypesModal.open}
                 onClose={handleCloseWorkTypesModal}
                 area={workTypesModal.area}
-                allWorkTypes={workTypes}
-                onSave={handleSaveWorkTypes}
             />
 
             {/* Area Form Modal (Create/Edit) */}

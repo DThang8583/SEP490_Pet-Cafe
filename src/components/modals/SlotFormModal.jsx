@@ -1,7 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, FormControl, InputLabel, Select, MenuItem, Box, Alert, Typography, Stack, InputAdornment } from '@mui/material';
+import * as teamApi from '../../api/teamApi';
+import * as petsApi from '../../api/petsApi';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, FormControl, InputLabel, Select, MenuItem, Box, Alert, Typography, Stack, InputAdornment, FormHelperText, alpha } from '@mui/material';
 import { WEEKDAYS, WEEKDAY_LABELS } from '../../api/slotApi';
 import { formatPrice } from '../../utils/formatPrice';
+import { COLORS } from '../../constants/colors';
 
 const SLOT_STATUS = {
     AVAILABLE: 'AVAILABLE',
@@ -22,58 +25,235 @@ const SlotFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, 
         max_capacity: 0,
         special_notes: '',
         day_of_week: '',
+        specific_date: '',
         price: 0,
         service_status: SLOT_STATUS.UNAVAILABLE
     });
 
     const [errors, setErrors] = useState({});
     const [loading, setLoading] = useState(false);
+    const [localTeams, setLocalTeams] = useState(teams || []);
+    const [pets, setPets] = useState([]);
 
-    // Filter teams based on selected time range
+    // Helper function to extract work_type_ids from team (handles both work_type_ids and team_work_types)
+    const getTeamWorkTypeIds = (team) => {
+        // Try work_type_ids first (if API returns it directly)
+        if (team.work_type_ids && Array.isArray(team.work_type_ids)) {
+            return team.work_type_ids;
+        }
+        // Otherwise, extract from team_work_types array
+        if (team.team_work_types && Array.isArray(team.team_work_types)) {
+            return team.team_work_types
+                .map(twt => twt.work_type?.id || twt.work_type_id || twt.id)
+                .filter(id => id !== null && id !== undefined);
+        }
+        return [];
+    };
+
+    // Load pets when modal opens
+    useEffect(() => {
+        const loadPets = async () => {
+            if (!open) return;
+            try {
+                const response = await petsApi.getAllPets({ page_size: 1000 });
+                setPets(response?.data || []);
+            } catch (error) {
+                console.warn('Không thể tải danh sách thú cưng:', error);
+                setPets([]);
+            }
+        };
+        loadPets();
+    }, [open]);
+
+    // Ensure team data is available when modal opens
+    useEffect(() => {
+        const ensureTeams = async () => {
+            if (!open) return;
+            // If parent already passed teams, still enrich with work shifts if missing
+            const hasTeams = Array.isArray(teams) && teams.length > 0;
+            let baseTeams = hasTeams ? teams : [];
+
+            try {
+                if (!hasTeams) {
+                    const res = await teamApi.getTeams({ page_index: 0, page_size: 1000 });
+                    baseTeams = res.data || [];
+                }
+
+                // Enrich each team with work shifts so we can filter by time range
+                // getTeamWorkShifts returns team_work_shift objects with structure:
+                // { team_id, work_shift_id, working_days, work_shift, ... }
+                const enriched = await Promise.allSettled(
+                    baseTeams.map(async (team) => {
+                        try {
+                            const wsRes = await teamApi.getTeamWorkShifts(team.id, { page_index: 0, page_size: 100 });
+                            const teamWorkShifts = wsRes.data || [];
+                            return {
+                                ...team,
+                                // team_work_shifts is already in correct format from API
+                                team_work_shifts: teamWorkShifts
+                            };
+                        } catch {
+                            return { ...team, team_work_shifts: [] };
+                        }
+                    })
+                );
+
+                setLocalTeams(enriched
+                    .filter(r => r.status === 'fulfilled')
+                    .map(r => r.value)
+                );
+            } catch {
+                setLocalTeams(baseTeams || []);
+            }
+        };
+        ensureTeams();
+    }, [open, teams]);
+
+    // Filter teams based on selected time range and work_type compatibility
     const filteredTeams = useMemo(() => {
-        if (!formData.start_time || !formData.end_time || !teams || teams.length === 0) {
-            return teams || [];
+        const sourceTeams = (localTeams && localTeams.length > 0 ? localTeams : teams) || [];
+
+        // Get task's work_type_id
+        const taskWorkTypeId = taskData?.work_type_id || taskData?.work_type?.id || null;
+
+        // Filter teams by work_type compatibility first
+        let workTypeFiltered = sourceTeams;
+        if (taskWorkTypeId) {
+            workTypeFiltered = sourceTeams.filter(team => {
+                const teamWorkTypeIds = getTeamWorkTypeIds(team);
+                return teamWorkTypeIds.includes(taskWorkTypeId);
+            });
         }
 
-        // Convert time strings to comparable format (HH:MM:SS)
-        const slotStart = formData.start_time.length === 5 ? `${formData.start_time}:00` : formData.start_time;
-        const slotEnd = formData.end_time.length === 5 ? `${formData.end_time}:00` : formData.end_time;
+        // If missing inputs, return work_type filtered teams
+        if (workTypeFiltered.length === 0 || !formData.start_time || !formData.end_time || !formData.day_of_week) {
+            return workTypeFiltered.map(team => ({
+                ...team,
+                __matchesSlot: false,
+                __matchesWorkType: taskWorkTypeId ? getTeamWorkTypeIds(team).includes(taskWorkTypeId) : true
+            }));
+        }
 
-        return teams.filter(team => {
-            // Team must have at least one work shift that covers the slot time range
-            if (!team.team_work_shifts || team.team_work_shifts.length === 0) {
-                return false;
+        // Normalize slot time to HH:mm:ss format
+        const normalizeTime = (timeStr) => {
+            if (!timeStr) return '';
+            // If already in HH:mm:ss format, return as is
+            if (timeStr.length === 8 && timeStr.includes(':')) {
+                return timeStr;
             }
+            // If in HH:mm format, add :00
+            if (timeStr.length === 5 && timeStr.includes(':')) {
+                return `${timeStr}:00`;
+            }
+            return timeStr;
+        };
 
-            return team.team_work_shifts.some(tws => {
-                if (!tws.work_shift) return false;
+        const slotStart = normalizeTime(formData.start_time);
+        const slotEnd = normalizeTime(formData.end_time);
 
-                const shiftStart = tws.work_shift.start_time;
-                const shiftEnd = tws.work_shift.end_time;
+        const withMatchFlag = workTypeFiltered.map(team => {
+            const matchesTime = team.team_work_shifts?.some(tws => {
+                // Handle team_work_shift structure: { team_id, work_shift_id, working_days, work_shift, ... }
+                const workShift = tws?.work_shift;
+                if (!workShift) return false;
 
-                // Check if work shift covers or overlaps with the slot time
-                // Work shift must start at or before slot start AND end at or after slot end
-                return shiftStart <= slotStart && shiftEnd >= slotEnd;
-            });
+                const shiftStart = normalizeTime(workShift.start_time);
+                const shiftEnd = normalizeTime(workShift.end_time);
+
+                // API chính thức chỉ có applicable_days, không có working_days
+                // applicable_days là ngày mà ca làm việc (shift) có thể áp dụng
+                const workingDays = Array.isArray(workShift.applicable_days) ? workShift.applicable_days : [];
+
+                // Compare normalized time strings (HH:mm:ss format allows string comparison)
+                const timeCovered = shiftStart && slotStart && shiftEnd && slotEnd &&
+                    shiftStart <= slotStart && shiftEnd >= slotEnd;
+                const dayMatches = workingDays.includes(formData.day_of_week);
+
+                // Debug logging for troubleshooting
+                if (team.name === 'ABC' || team.name?.includes('ABC')) {
+                    console.log('[SlotFormModal] Team ABC work shift check:', {
+                        teamName: team.name,
+                        workShift: workShift,
+                        workingDays: tws.working_days,
+                        applicableDays: workShift.applicable_days,
+                        shiftStart,
+                        shiftEnd,
+                        slotStart,
+                        slotEnd,
+                        dayOfWeek: formData.day_of_week,
+                        timeCovered,
+                        dayMatches,
+                        matches: timeCovered && dayMatches
+                    });
+                }
+
+                return timeCovered && dayMatches;
+            }) ?? false;
+
+            return {
+                ...team,
+                __matchesSlot: matchesTime,
+                __matchesWorkType: taskWorkTypeId ? getTeamWorkTypeIds(team).includes(taskWorkTypeId) : true
+            };
         });
-    }, [teams, formData.start_time, formData.end_time]);
+
+        // Show matching teams first, followed by the rest
+        return withMatchFlag.sort((a, b) => {
+            // First sort by work_type match
+            if (a.__matchesWorkType !== b.__matchesWorkType) {
+                return Number(b.__matchesWorkType) - Number(a.__matchesWorkType);
+            }
+            // Then sort by time match
+            return Number(b.__matchesSlot) - Number(a.__matchesSlot);
+        });
+    }, [teams, localTeams, formData.start_time, formData.end_time, formData.day_of_week, taskData]);
+
+    // Helper function to convert HH:mm:ss to HH:mm for time input
+    const formatTimeForInput = (timeStr) => {
+        if (!timeStr) return '';
+        // If already in HH:mm format, return as is
+        if (timeStr.length === 5 && timeStr.includes(':')) {
+            return timeStr;
+        }
+        // If in HH:mm:ss format, extract HH:mm
+        if (timeStr.length === 8 && timeStr.includes(':')) {
+            return timeStr.substring(0, 5);
+        }
+        return timeStr;
+    };
+
+    // Helper function to convert HH:mm to HH:mm:ss for API
+    const formatTimeForAPI = (timeStr) => {
+        if (!timeStr) return '';
+        // If already in HH:mm:ss format, return as is
+        if (timeStr.length === 8 && timeStr.includes(':')) {
+            return timeStr;
+        }
+        // If in HH:mm format, add :00
+        if (timeStr.length === 5 && timeStr.includes(':')) {
+            return `${timeStr}:00`;
+        }
+        return timeStr;
+    };
 
     // Initialize form when modal opens
     useEffect(() => {
         if (open) {
             if (mode === 'edit' && initialData) {
                 // Edit mode: load existing slot data
+                // Convert HH:mm:ss to HH:mm for time input display
                 setFormData({
                     task_id: initialData.task_id || '',
                     area_id: initialData.area_id || '',
                     pet_group_id: initialData.pet_group_id || '',
                     team_id: initialData.team_id || '',
                     pet_id: initialData.pet_id || '',
-                    start_time: initialData.start_time || '',
-                    end_time: initialData.end_time || '',
+                    start_time: formatTimeForInput(initialData.start_time || ''),
+                    end_time: formatTimeForInput(initialData.end_time || ''),
                     max_capacity: initialData.max_capacity ?? 0,
                     special_notes: initialData.special_notes || '',
                     day_of_week: initialData.day_of_week || '',
+                    specific_date: initialData.specific_date || '',
                     price: initialData.price ?? 0,
                     service_status: initialData.service_status || SLOT_STATUS.UNAVAILABLE
                 });
@@ -103,6 +283,7 @@ const SlotFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, 
         }
     }, [filteredTeams, formData.team_id, formData.start_time, formData.end_time]);
 
+
     const resetForm = () => {
         setFormData({
             task_id: '',
@@ -115,6 +296,7 @@ const SlotFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, 
             max_capacity: 0,
             special_notes: '',
             day_of_week: '',
+            specific_date: '',
             price: 0,
             service_status: SLOT_STATUS.UNAVAILABLE
         });
@@ -154,8 +336,9 @@ const SlotFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, 
             newErrors.task_id = 'Task là bắt buộc';
         }
 
-        if (!formData.day_of_week) {
-            newErrors.day_of_week = 'Ngày trong tuần là bắt buộc';
+        if (!formData.day_of_week && !formData.specific_date) {
+            newErrors.day_of_week = 'Phải chọn ngày trong tuần hoặc ngày cụ thể';
+            newErrors.specific_date = 'Phải chọn ngày trong tuần hoặc ngày cụ thể';
         }
 
         if (!formData.start_time) {
@@ -185,6 +368,23 @@ const SlotFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, 
             }
         }
 
+        // Validate team work_type compatibility with task
+        if (formData.team_id && taskData) {
+            const taskWorkTypeId = taskData.work_type_id || taskData.work_type?.id || null;
+            if (taskWorkTypeId) {
+                const selectedTeam = filteredTeams.find(t => t.id === formData.team_id);
+                if (selectedTeam) {
+                    const teamWorkTypeIds = getTeamWorkTypeIds(selectedTeam);
+                    if (!teamWorkTypeIds.includes(taskWorkTypeId)) {
+                        newErrors.team_id = 'Nhóm không cùng chung công việc với nhiệm vụ này. Vui lòng chọn nhóm khác.';
+                    }
+                }
+            }
+        }
+
+        // Note: Backend allows creating slots on any day, regardless of team's working days
+        // So we don't validate day_of_week against team's applicable_days here
+
         // Validate price for edit mode (only for public tasks)
         if (mode === 'edit') {
             if (taskData && taskData.is_public) {
@@ -210,27 +410,32 @@ const SlotFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, 
         setLoading(true);
 
         try {
-            // Base submit data (for both create and edit)
+            // Base submit data - exactly as per official API specification
+            // Convert HH:mm to HH:mm:ss format for API (official format)
             const submitData = {
                 task_id: formData.task_id,
                 area_id: formData.area_id || null,
                 pet_group_id: formData.pet_group_id || null,
                 team_id: formData.team_id || null,
                 pet_id: formData.pet_id || null,
-                start_time: formData.start_time,
-                end_time: formData.end_time,
+                start_time: formatTimeForAPI(formData.start_time),
+                end_time: formatTimeForAPI(formData.end_time),
                 max_capacity: parseInt(formData.max_capacity) || 0,
                 special_notes: formData.special_notes || null,
-                day_of_week: formData.day_of_week
+                is_recurring: !!formData.day_of_week,
+                day_of_week: formData.day_of_week || null,
+                specific_date: formData.specific_date || null
             };
 
-            // Add price and service_status for edit mode
+            // Add fields for edit mode according to official API
             if (mode === 'edit') {
                 // Only add price for public tasks
                 if (taskData && taskData.is_public) {
                     submitData.price = parseFloat(formData.price) || 0;
                 }
                 submitData.service_status = formData.service_status;
+                // Add is_update_related_data (default to true)
+                submitData.is_update_related_data = true;
             }
 
             await onSubmit(submitData);
@@ -257,23 +462,26 @@ const SlotFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, 
             onClose={handleClose}
             maxWidth="md"
             fullWidth
+            disableScrollLock
             PaperProps={{
                 sx: {
-                    borderRadius: 2,
-                    boxShadow: 24
+                    borderRadius: 3,
+                    boxShadow: `0 20px 60px ${alpha(COLORS.SHADOW.DARK, 0.3)}`
                 }
             }}
         >
-            <DialogTitle sx={{ pb: 1 }}>
-                <Typography variant="h6" fontWeight={600}>
-                    {mode === 'edit' ? 'Chỉnh sửa Ca làm việc' : 'Tạo Ca làm việc mới'}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                    {taskData?.title || taskData?.name || initialData?.task?.title}
-                </Typography>
-            </DialogTitle>
+            <Box
+                sx={{
+                    background: `linear-gradient(135deg, ${alpha(COLORS.PRIMARY[50], 0.3)}, ${alpha(COLORS.SECONDARY[50], 0.2)})`,
+                    borderBottom: `3px solid ${COLORS.PRIMARY[500]}`
+                }}
+            >
+                <DialogTitle sx={{ fontWeight: 800, color: COLORS.PRIMARY[700], pb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    📅 {mode === 'edit' ? '✏️ Chỉnh sửa Ca làm việc' : '➕ Tạo Ca làm việc mới'}
+                </DialogTitle>
+            </Box>
 
-            <DialogContent dividers>
+            <DialogContent sx={{ pt: 3, pb: 2, px: 3 }}>
                 <Stack spacing={3}>
                     {errors.submit && (
                         <Alert severity="error" onClose={() => setErrors(prev => ({ ...prev, submit: '' }))}>
@@ -299,9 +507,9 @@ const SlotFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, 
                             ))}
                         </Select>
                         {errors.day_of_week && (
-                            <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 2 }}>
+                            <FormHelperText error sx={{ ml: 2 }}>
                                 {errors.day_of_week}
-                            </Typography>
+                            </FormHelperText>
                         )}
                     </FormControl>
 
@@ -376,17 +584,59 @@ const SlotFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, 
                             <MenuItem value="">
                                 <em>Không chọn</em>
                             </MenuItem>
-                            {filteredTeams.map(team => (
-                                <MenuItem key={team.id} value={team.id}>
-                                    {team.name}
-                                </MenuItem>
-                            ))}
+                            {filteredTeams.map(team => {
+                                const taskWorkTypeId = taskData?.work_type_id || taskData?.work_type?.id || null;
+                                const teamWorkTypeIds = getTeamWorkTypeIds(team);
+                                const matchesWorkType = taskWorkTypeId ? teamWorkTypeIds.includes(taskWorkTypeId) : true;
+
+                                return (
+                                    <MenuItem key={team.id} value={team.id} disabled={!matchesWorkType}>
+                                        <Stack direction="row" justifyContent="space-between" alignItems="center" width="100%">
+                                            <Typography variant="body2" sx={{ color: matchesWorkType ? 'inherit' : 'text.disabled' }}>
+                                                {team.name}
+                                            </Typography>
+                                            <Stack direction="row" spacing={1} alignItems="center">
+                                                {!matchesWorkType && (
+                                                    <Typography variant="caption" color="error">
+                                                        Không cùng công việc
+                                                    </Typography>
+                                                )}
+                                                {formData.start_time && formData.end_time && formData.day_of_week && team.__matchesSlot === false && matchesWorkType && (
+                                                    <Typography variant="caption" color="text.secondary">
+                                                        Không khớp ca
+                                                    </Typography>
+                                                )}
+                                            </Stack>
+                                        </Stack>
+                                    </MenuItem>
+                                );
+                            })}
                         </Select>
-                        {formData.start_time && formData.end_time && filteredTeams.length === 0 && (
+                        {errors.team_id && (
+                            <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 2 }}>
+                                {errors.team_id}
+                            </Typography>
+                        )}
+                        {!errors.team_id && formData.start_time && formData.end_time && filteredTeams.length === 0 && (
                             <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, ml: 2 }}>
                                 Không có team nào phù hợp với khung giờ này
                             </Typography>
                         )}
+                        {!errors.team_id && taskData && filteredTeams.length > 0 && (() => {
+                            const taskWorkTypeId = taskData.work_type_id || taskData.work_type?.id || null;
+                            const compatibleTeams = filteredTeams.filter(t => {
+                                if (!taskWorkTypeId) return true;
+                                return getTeamWorkTypeIds(t).includes(taskWorkTypeId);
+                            });
+                            if (taskWorkTypeId && compatibleTeams.length === 0) {
+                                return (
+                                    <Typography variant="caption" color="warning.main" sx={{ mt: 0.5, ml: 2 }}>
+                                        Không có nhóm nào có cùng loại công việc với nhiệm vụ này
+                                    </Typography>
+                                );
+                            }
+                            return null;
+                        })()}
                     </FormControl>
 
                     {/* Area */}
@@ -427,6 +677,25 @@ const SlotFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, 
                         </Select>
                     </FormControl>
 
+                    {/* Pet */}
+                    <FormControl fullWidth>
+                        <InputLabel>Thú cưng (Tùy chọn)</InputLabel>
+                        <Select
+                            value={formData.pet_id}
+                            onChange={(e) => handleChange('pet_id', e.target.value)}
+                            label="Thú cưng (Tùy chọn)"
+                        >
+                            <MenuItem value="">
+                                <em>Không chọn</em>
+                            </MenuItem>
+                            {pets.map(pet => (
+                                <MenuItem key={pet.id} value={pet.id}>
+                                    {pet.name || `Pet #${pet.id}`}
+                                </MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
+
                     {/* Max capacity */}
                     <TextField
                         label="Sức chứa tối đa"
@@ -452,6 +721,33 @@ const SlotFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, 
                                 : 'Chọn khu vực trước để xem giới hạn sức chứa')
                         }
                     />
+
+                    {/* Specific Date - Show when not recurring or allow override */}
+                    {!formData.day_of_week && (
+                        <TextField
+                            label="Ngày cụ thể"
+                            type="date"
+                            fullWidth
+                            required={!formData.day_of_week}
+                            value={formData.specific_date ? formData.specific_date.split('T')[0] : ''}
+                            onChange={(e) => {
+                                const dateValue = e.target.value;
+                                if (dateValue) {
+                                    // Convert to ISO string format
+                                    const date = new Date(dateValue + 'T00:00:00.000Z');
+                                    handleChange('specific_date', date.toISOString());
+                                } else {
+                                    handleChange('specific_date', '');
+                                }
+                            }}
+                            error={!!errors.specific_date}
+                            helperText={errors.specific_date || 'Chọn ngày cụ thể cho ca này (bắt buộc nếu không chọn ngày trong tuần)'}
+                            InputLabelProps={{ shrink: true }}
+                            inputProps={{
+                                min: new Date().toISOString().split('T')[0]
+                            }}
+                        />
+                    )}
 
                     {/* Special notes */}
                     <TextField
@@ -528,7 +824,7 @@ const SlotFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, 
                 </Stack>
             </DialogContent>
 
-            <DialogActions sx={{ px: 3, py: 2 }}>
+            <DialogActions sx={{ px: 3, py: 2, borderTop: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.1)}` }}>
                 <Button onClick={handleClose} disabled={loading}>
                     Hủy
                 </Button>

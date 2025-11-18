@@ -25,23 +25,32 @@ const StaffAssignmentModal = ({
     onRemove
 }) => {
     return (
-        <Dialog open={open} onClose={onClose} maxWidth="xl" fullWidth PaperProps={{ sx: { minHeight: 600, maxWidth: 1200 } }}>
-            <DialogTitle sx={{ bgcolor: COLORS.INFO[500], color: 'white', py: 2.5, px: 3 }}>
-                <Stack direction="row" spacing={2} alignItems="center">
-                    <People sx={{ fontSize: 32 }} />
-                    <Box sx={{ flex: 1 }}>
-                        <Typography variant="h5" sx={{ fontWeight: 700 }}>
-                            {shift?.name}
-                        </Typography>
-                        <Typography variant="body2" sx={{ opacity: 0.95, mt: 0.5, fontSize: '0.95rem' }}>
-                            {shift?.start_time} - {shift?.end_time}
-                        </Typography>
-                    </Box>
-                    <IconButton onClick={onClose} size="medium" sx={{ color: 'white' }}>
-                        <Close sx={{ fontSize: 24 }} />
-                    </IconButton>
-                </Stack>
-            </DialogTitle>
+        <Dialog
+            open={open}
+            onClose={onClose}
+            maxWidth="xl"
+            fullWidth
+            disableScrollLock
+            PaperProps={{
+                sx: {
+                    borderRadius: 3,
+                    boxShadow: `0 20px 60px ${alpha(COLORS.SHADOW.DARK, 0.3)}`,
+                    minHeight: 600,
+                    maxWidth: 1200
+                }
+            }}
+        >
+            <Box
+                sx={{
+                    background: `linear-gradient(135deg, ${alpha(COLORS.INFO[50], 0.3)}, ${alpha(COLORS.SECONDARY[50], 0.2)})`,
+                    borderBottom: `3px solid ${COLORS.INFO[500]}`
+                }}
+            >
+                <DialogTitle sx={{ fontWeight: 800, color: COLORS.INFO[700], pb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <People />
+                    👥 Phân công nhân viên: {shift?.name} ({shift?.start_time} - {shift?.end_time})
+                </DialogTitle>
+            </Box>
             <DialogContent sx={{ pt: 3, pb: 2, px: 3 }}>
                 {loading ? (
                     <Box sx={{ textAlign: 'center', py: 8 }}>
@@ -194,7 +203,7 @@ const StaffAssignmentModal = ({
                     </Stack>
                 )}
             </DialogContent>
-            <DialogActions sx={{ px: 3, py: 2.5, justifyContent: 'space-between', borderTop: `1px solid ${COLORS.BORDER.MAIN}` }}>
+            <DialogActions sx={{ px: 3, py: 2, justifyContent: 'space-between', borderTop: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.1)}` }}>
                 <Box>
                     {(pendingAssignments.length > 0 || pendingRemovals.length > 0) && (
                         <Typography variant="body1" sx={{ color: COLORS.WARNING[700], fontWeight: 700 }}>

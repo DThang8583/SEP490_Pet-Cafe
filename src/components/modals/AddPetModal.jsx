@@ -1,7 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Grid, FormControl, InputLabel, Select, MenuItem, Box, Typography, Avatar, alpha, CircularProgress, Chip, Stack, IconButton, FormHelperText } from '@mui/material';
+import { useState, useEffect, useMemo } from 'react';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, FormControl, InputLabel, Select, MenuItem, Box, Typography, Avatar, alpha, CircularProgress, Stack, IconButton, FormHelperText } from '@mui/material';
 import { COLORS } from '../../constants/colors';
 import { Pets, CloudUpload as CloudUploadIcon, Delete as DeleteIcon } from '@mui/icons-material';
+import { uploadFile } from '../../api/fileApi';
+import { getHealthStatusOptions } from '../../api/petsApi';
 
 const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData = null, isLoading = false, breeds = [], species = [], groups = [] }) => {
     const [formData, setFormData] = useState({
@@ -16,12 +18,16 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
         image: '',
         preferences: '',
         special_notes: '',
-        arrival_date: ''
+        arrival_date: '',
+        health_status: 'HEALTHY'
     });
 
     const [errors, setErrors] = useState({});
     const [touched, setTouched] = useState({});
     const [imagePreview, setImagePreview] = useState(null);
+    const [imageFile, setImageFile] = useState(null);
+    const [isUploadingImage, setIsUploadingImage] = useState(false);
+    const [healthStatusOptions, setHealthStatusOptions] = useState([]);
 
     // Get available breeds for selected species
     const availableBreeds = useMemo(() => {
@@ -36,11 +42,47 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
         return groups.filter(g => g.pet_species_id === formData.species_id);
     }, [groups, formData.species_id]);
 
+    // Helper function to capitalize first letter
+    const capitalizeName = (name) => {
+        if (!name) return name;
+        return name.charAt(0).toUpperCase() + name.slice(1);
+    };
+
     // Get species name
     const getSpeciesName = (speciesId) => {
         const sp = species.find(s => s.id === speciesId);
-        return sp ? sp.name : '';
+        return sp ? capitalizeName(sp.name) : '';
     };
+
+    // Get health status label in Vietnamese
+    const getHealthStatusLabel = (status) => {
+        const labels = {
+            'HEALTHY': 'Khỏe mạnh',
+            'SICK': 'Ốm',
+            'RECOVERING': 'Đang hồi phục',
+            'UNDER_OBSERVATION': 'Đang theo dõi',
+            'QUARANTINE': 'Cách ly'
+        };
+        return labels[status] || status;
+    };
+
+    // Load health status options from API
+    useEffect(() => {
+        const loadHealthStatusOptions = async () => {
+            try {
+                const options = await getHealthStatusOptions();
+                setHealthStatusOptions(options);
+            } catch (error) {
+                console.error('Failed to load health status options:', error);
+                // Fallback to default values
+                setHealthStatusOptions(['HEALTHY', 'SICK', 'RECOVERING', 'UNDER_OBSERVATION', 'QUARANTINE']);
+            }
+        };
+
+        if (isOpen) {
+            loadHealthStatusOptions();
+        }
+    }, [isOpen]);
 
     // Initialize form when modal opens or initialData changes
     useEffect(() => {
@@ -58,9 +100,11 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
                     image: String(initialData.image || initialData.image_url || ''),
                     preferences: String(initialData.preferences || ''),
                     special_notes: String(initialData.special_notes || ''),
-                    arrival_date: initialData.arrival_date ? initialData.arrival_date.split('T')[0] : ''
+                    arrival_date: initialData.arrival_date ? initialData.arrival_date.split('T')[0] : '',
+                    health_status: String(initialData.health_status || 'HEALTHY')
                 });
                 setImagePreview(initialData.image || initialData.image_url || null);
+                setImageFile(null);
             } else {
                 setFormData({
                     name: '',
@@ -74,9 +118,11 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
                     image: '',
                     preferences: '',
                     special_notes: '',
-                    arrival_date: ''
+                    arrival_date: '',
+                    health_status: 'HEALTHY'
                 });
                 setImagePreview(null);
+                setImageFile(null);
             }
             setErrors({});
             setTouched({});
@@ -190,49 +236,73 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
     };
 
     // Handle image upload
-    const handleImageUpload = (event) => {
+    const handleImageUpload = async (event) => {
         const file = event.target.files[0];
-        if (file) {
-            // Check file type
-            if (!file.type.startsWith('image/')) {
-                setErrors(prev => ({
-                    ...prev,
-                    image: 'Vui lòng chọn file hình ảnh'
-                }));
-                event.target.value = ''; // Reset input
-                return;
-            }
+        if (!file) return;
 
-            // Check file size (max 5MB)
-            if (file.size > 5 * 1024 * 1024) {
-                setErrors(prev => ({
-                    ...prev,
-                    image: 'Kích thước file không được vượt quá 5MB'
-                }));
-                event.target.value = ''; // Reset input
-                return;
-            }
+        // Check file type
+        const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+        if (!allowedTypes.includes(file.type)) {
+            setErrors(prev => ({
+                ...prev,
+                image: 'Chỉ chấp nhận file PNG, JPG, WEBP'
+            }));
+            event.target.value = '';
+            return;
+        }
 
-            // Clear any previous errors
+        // Check file size (max 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+            setErrors(prev => ({
+                ...prev,
+                image: 'Kích thước file không được vượt quá 5MB'
+            }));
+            event.target.value = '';
+            return;
+        }
+
+        // Clear any previous errors
+        setErrors(prev => ({
+            ...prev,
+            image: ''
+        }));
+
+        // Create preview
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            setImagePreview(reader.result);
+        };
+        reader.readAsDataURL(file);
+
+        // Upload file to server
+        setIsUploadingImage(true);
+        setImageFile(file);
+        try {
+            const imageUrl = await uploadFile(file);
+            handleChange('image', imageUrl);
             setErrors(prev => ({
                 ...prev,
                 image: ''
             }));
-
-            // Create preview
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setImagePreview(reader.result);
-                handleChange('image', reader.result);
-                event.target.value = ''; // Reset input after successful read
-            };
-            reader.readAsDataURL(file);
+        } catch (error) {
+            console.error('Failed to upload image:', error);
+            setErrors(prev => ({
+                ...prev,
+                image: error.message || 'Không thể tải ảnh lên. Vui lòng thử lại.'
+            }));
+            setImagePreview(null);
+            setImageFile(null);
+            handleChange('image', '');
+        } finally {
+            setIsUploadingImage(false);
+            event.target.value = '';
         }
     };
 
     // Handle remove image
     const handleRemoveImage = () => {
         setImagePreview(null);
+        setImageFile(null);
         handleChange('image', '');
         // Clear error
         setErrors(prev => ({
@@ -246,6 +316,8 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
             return 'Ngày đến quán là bắt buộc';
         }
         const arrivalDate = new Date(date);
+        arrivalDate.setHours(0, 0, 0, 0);
+
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
@@ -256,6 +328,7 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
         // Check if date is too far in the past (e.g., more than 20 years ago)
         const twentyYearsAgo = new Date();
         twentyYearsAgo.setFullYear(twentyYearsAgo.getFullYear() - 20);
+        twentyYearsAgo.setHours(0, 0, 0, 0);
         if (arrivalDate < twentyYearsAgo) {
             return 'Ngày đến quán không hợp lệ';
         }
@@ -273,6 +346,7 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
         newErrors.age = validateAge(formData.age || '');
         newErrors.weight = validateWeight(formData.weight || '');
         if (!formData.gender) newErrors.gender = 'Vui lòng chọn giới tính';
+        if (!formData.health_status) newErrors.health_status = 'Vui lòng chọn tình trạng sức khỏe';
 
         // Optional fields with validation
         newErrors.color = validateColor(formData.color || '');
@@ -331,6 +405,9 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
                 case 'gender':
                     error = value ? '' : 'Vui lòng chọn giới tính';
                     break;
+                case 'health_status':
+                    error = value ? '' : 'Vui lòng chọn tình trạng sức khỏe';
+                    break;
                 case 'image':
                     // No validation for image field
                     error = '';
@@ -378,6 +455,9 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
             case 'gender':
                 error = formData[field] ? '' : 'Vui lòng chọn giới tính';
                 break;
+            case 'health_status':
+                error = formData[field] ? '' : 'Vui lòng chọn tình trạng sức khỏe';
+                break;
             case 'image':
                 // No validation for image field
                 error = '';
@@ -390,7 +470,7 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
 
     const handleSubmit = () => {
         // Mark all fields as touched (except image and group_id - optional fields)
-        const allFields = ['name', 'species_id', 'breed_id', 'age', 'weight', 'gender', 'color', 'arrival_date', 'preferences', 'special_notes'];
+        const allFields = ['name', 'species_id', 'breed_id', 'age', 'weight', 'gender', 'health_status', 'color', 'arrival_date', 'preferences', 'special_notes'];
         const newTouched = {};
         allFields.forEach(field => {
             newTouched[field] = true;
@@ -409,10 +489,6 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
         }
     };
 
-    const getCharacterCount = (text) => {
-        return text ? text.length : 0;
-    };
-
     const getBreedName = (breedId) => {
         const br = breeds.find(b => b.id === breedId);
         return br ? br.name : '';
@@ -429,6 +505,13 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
             onClose={handleClose}
             maxWidth="lg"
             fullWidth
+            disableScrollLock
+            PaperProps={{
+                sx: {
+                    borderRadius: 3,
+                    boxShadow: `0 20px 60px ${alpha(COLORS.SHADOW.DARK, 0.3)}`
+                }
+            }}
         >
             <Box
                 sx={{
@@ -442,7 +525,7 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
                 </DialogTitle>
             </Box>
 
-            <DialogContent sx={{ pt: 3 }}>
+            <DialogContent sx={{ pt: 3, pb: 2, px: 3 }}>
                 {/* Info message */}
                 <Box
                     sx={{
@@ -479,20 +562,9 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
                                 onChange={(e) => handleChange('species_id', e.target.value)}
                                 onBlur={() => handleBlur('species_id')}
                             >
-                                {species.map(s => (
+                                {species.filter(s => s.is_active === true).map(s => (
                                     <MenuItem key={s.id} value={s.id}>
-                                        <Stack direction="row" alignItems="center" spacing={1}>
-                                            <Typography>{s.name}</Typography>
-                                            <Chip
-                                                label={s.name === 'Chó' ? '🐕' : '🐱'}
-                                                size="small"
-                                                sx={{
-                                                    height: 20,
-                                                    fontSize: '0.75rem',
-                                                    background: alpha(COLORS.ERROR[100], 0.5)
-                                                }}
-                                            />
-                                        </Stack>
+                                        {capitalizeName(s.name)}
                                     </MenuItem>
                                 ))}
                             </Select>
@@ -592,27 +664,47 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
                                 onChange={(e) => handleChange('gender', e.target.value)}
                                 onBlur={() => handleBlur('gender')}
                             >
-                                <MenuItem value="Male">♂ Đực</MenuItem>
-                                <MenuItem value="Female">♀ Cái</MenuItem>
+                                <MenuItem value="Male">Đực</MenuItem>
+                                <MenuItem value="Female">Cái</MenuItem>
                             </Select>
                             {touched.gender && errors.gender && (
                                 <FormHelperText>{errors.gender}</FormHelperText>
                             )}
                         </FormControl>
-                        <TextField
-                            label="Màu sắc"
-                            sx={{ flex: 1 }}
-                            value={formData.color || ''}
-                            onChange={(e) => handleChange('color', e.target.value)}
-                            onBlur={() => handleBlur('color')}
-                            error={touched.color && Boolean(errors.color)}
-                            helperText={touched.color && errors.color}
-                            disabled={isLoading}
-                            placeholder="Nhập màu sắc..."
-                        />
+                        <FormControl sx={{ flex: 1 }} required disabled={isLoading} error={touched.health_status && Boolean(errors.health_status)}>
+                            <InputLabel>Tình trạng sức khỏe</InputLabel>
+                            <Select
+                                label="Tình trạng sức khỏe"
+                                value={formData.health_status || 'HEALTHY'}
+                                onChange={(e) => handleChange('health_status', e.target.value)}
+                                onBlur={() => handleBlur('health_status')}
+                            >
+                                {healthStatusOptions.map((status) => (
+                                    <MenuItem key={status} value={status}>
+                                        {getHealthStatusLabel(status)}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                            {touched.health_status && errors.health_status && (
+                                <FormHelperText>{errors.health_status}</FormHelperText>
+                            )}
+                        </FormControl>
                     </Stack>
 
                     {/* Row 5 */}
+                    <TextField
+                        label="Màu sắc"
+                        fullWidth
+                        value={formData.color || ''}
+                        onChange={(e) => handleChange('color', e.target.value)}
+                        onBlur={() => handleBlur('color')}
+                        error={touched.color && Boolean(errors.color)}
+                        helperText={touched.color && errors.color}
+                        disabled={isLoading}
+                        placeholder="Nhập màu sắc..."
+                    />
+
+                    {/* Row 6 */}
                     <TextField
                         label="Ngày đến quán"
                         fullWidth
@@ -631,62 +723,91 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
                         disabled={isLoading}
                     />
 
-                    {/* Row 6: Image Upload */}
+                    {/* Row 7: Image Upload */}
                     <Box>
                         <Typography variant="body2" fontWeight={500} gutterBottom>
                             Hình ảnh (Tùy chọn)
                         </Typography>
 
-                        <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
-                            {/* Preview */}
-                            {(imagePreview || formData.image) && (
-                                <Box sx={{ position: 'relative' }}>
-                                    <Avatar
-                                        src={imagePreview || formData.image}
-                                        variant="rounded"
-                                        sx={{
-                                            width: 100,
-                                            height: 100,
-                                            border: `3px solid ${COLORS.ERROR[300]}`,
-                                            boxShadow: `0 4px 12px ${alpha(COLORS.ERROR[500], 0.2)}`
-                                        }}
-                                    />
-                                    <IconButton
-                                        size="small"
-                                        onClick={handleRemoveImage}
-                                        disabled={isLoading}
-                                        sx={{
-                                            position: 'absolute',
-                                            top: -8,
-                                            right: -8,
-                                            bgcolor: 'error.main',
-                                            color: 'white',
-                                            '&:hover': {
-                                                bgcolor: 'error.dark'
-                                            }
-                                        }}
-                                    >
-                                        <DeleteIcon fontSize="small" />
-                                    </IconButton>
-                                </Box>
-                            )}
-
-                            {/* Upload Button */}
-                            <Button
-                                component="label"
-                                variant="outlined"
-                                startIcon={<CloudUploadIcon />}
-                                disabled={isLoading}
-                                sx={{ height: 'fit-content' }}
-                            >
-                                {imagePreview || formData.image ? 'Thay đổi ảnh' : 'Tải ảnh lên'}
-                                <input
-                                    type="file"
-                                    hidden
-                                    accept="image/*"
-                                    onChange={handleImageUpload}
+                        {/* Preview */}
+                        {(imagePreview || formData.image) && (
+                            <Box sx={{ mb: 2, position: 'relative', display: 'inline-block' }}>
+                                <Avatar
+                                    src={imagePreview || formData.image}
+                                    variant="rounded"
+                                    sx={{
+                                        width: 120,
+                                        height: 120,
+                                        border: `3px solid ${COLORS.ERROR[300]}`,
+                                        boxShadow: `0 4px 12px ${alpha(COLORS.ERROR[500], 0.2)}`
+                                    }}
                                 />
-                            </Button>
+                                <IconButton
+                                    size="small"
+                                    onClick={handleRemoveImage}
+                                    disabled={isLoading || isUploadingImage}
+                                    sx={{
+                                        position: 'absolute',
+                                        top: -8,
+                                        right: -8,
+                                        bgcolor: 'error.main',
+                                        color: 'white',
+                                        '&:hover': {
+                                            bgcolor: 'error.dark'
+                                        }
+                                    }}
+                                >
+                                    <DeleteIcon fontSize="small" />
+                                </IconButton>
+                            </Box>
+                        )}
+
+                        {/* Upload Area */}
+                        <Box
+                            component="label"
+                            sx={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                p: 4,
+                                border: `2px dashed ${COLORS.INFO[300]}`,
+                                borderRadius: 2,
+                                bgcolor: alpha(COLORS.INFO[50], 0.3),
+                                cursor: isLoading || isUploadingImage ? 'not-allowed' : 'pointer',
+                                transition: 'all 0.3s ease',
+                                '&:hover': {
+                                    borderColor: COLORS.INFO[500],
+                                    bgcolor: alpha(COLORS.INFO[50], 0.5)
+                                },
+                                opacity: isLoading || isUploadingImage ? 0.6 : 1
+                            }}
+                        >
+                            <input
+                                type="file"
+                                hidden
+                                accept="image/png,image/jpeg,image/jpg,image/webp"
+                                onChange={handleImageUpload}
+                                disabled={isLoading || isUploadingImage}
+                            />
+                            {isUploadingImage ? (
+                                <>
+                                    <CircularProgress size={40} sx={{ color: COLORS.INFO[500], mb: 2 }} />
+                                    <Typography variant="body2" sx={{ color: COLORS.INFO[700], fontWeight: 600 }}>
+                                        Đang tải ảnh lên...
+                                    </Typography>
+                                </>
+                            ) : (
+                                <>
+                                    <CloudUploadIcon sx={{ fontSize: 48, color: COLORS.INFO[500], mb: 2 }} />
+                                    <Typography variant="body1" sx={{ color: COLORS.INFO[700], fontWeight: 700, mb: 1 }}>
+                                        CLICK ĐỂ TẢI ẢNH LÊN
+                                    </Typography>
+                                    <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY }}>
+                                        PNG, JPG, WEBP (MAX 5MB)
+                                    </Typography>
+                                </>
+                            )}
                         </Box>
 
                         {errors.image && (
@@ -694,14 +815,9 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
                                 {errors.image}
                             </Typography>
                         )}
-                        {!errors.image && (
-                            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                                Chọn hình ảnh từ thiết bị (tối đa 5MB)
-                            </Typography>
-                        )}
                     </Box>
 
-                    {/* Row 7: Preferences */}
+                    {/* Row 8: Preferences */}
                     <TextField
                         label="Sở thích & Đặc điểm"
                         fullWidth
@@ -716,7 +832,7 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
                         disabled={isLoading}
                     />
 
-                    {/* Row 8: Special Notes */}
+                    {/* Row 9: Special Notes */}
                     <TextField
                         label="Ghi chú đặc biệt"
                         fullWidth
@@ -732,7 +848,7 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
                     />
 
                     {/* Preview Info */}
-                    {formData.name && formData.species_id && formData.breed_id && formData.age && formData.weight && formData.gender && (
+                    {formData.name && formData.species_id && formData.breed_id && formData.age && formData.weight && formData.gender && formData.health_status && (
                         <Box>
                             <Box
                                 sx={{
@@ -809,6 +925,20 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
                                                     </Typography>
                                                     <Typography variant="body2" sx={{ fontWeight: 600, flex: 1 }}>
                                                         {formData.gender === 'Male' ? 'Đực' : 'Cái'}
+                                                    </Typography>
+                                                </Stack>
+                                            </Box>
+                                        )}
+                                    </Stack>
+                                    <Stack direction="row" spacing={2}>
+                                        {formData.health_status && (
+                                            <Box sx={{ flex: 1 }}>
+                                                <Stack direction="row" spacing={1}>
+                                                    <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, minWidth: '100px' }}>
+                                                        Tình trạng sức khỏe:
+                                                    </Typography>
+                                                    <Typography variant="body2" sx={{ fontWeight: 600, flex: 1 }}>
+                                                        {getHealthStatusLabel(formData.health_status)}
                                                     </Typography>
                                                 </Stack>
                                             </Box>
@@ -893,4 +1023,3 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
 };
 
 export default AddPetModal;
-

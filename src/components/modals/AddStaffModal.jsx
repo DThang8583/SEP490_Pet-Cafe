@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogActions, Box, Typography, Button, IconButton, TextField, FormControl, InputLabel, Select, MenuItem, Avatar, Stack, InputAdornment, Alert, alpha, Chip } from '@mui/material';
-import { Close, Person, Email, Phone, Home, AttachMoney, PhotoCamera, Visibility, VisibilityOff, WorkOutline } from '@mui/icons-material';
+import { useState, useEffect } from 'react';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Box, Typography, Button, IconButton, TextField, FormControl, InputLabel, Select, MenuItem, Avatar, Stack, InputAdornment, Alert, alpha, Chip, CircularProgress, Switch, FormControlLabel } from '@mui/material';
+import { Close, Person, Email, Phone, Home, PhotoCamera, Visibility, VisibilityOff, WorkOutline } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
+import * as areasApi from '../../api/areasApi';
+import { uploadFile } from '../../api/fileApi';
 
 const AddStaffModal = ({
     isOpen = false,
@@ -9,7 +11,8 @@ const AddStaffModal = ({
     onSubmit,
     editMode = false,
     initialData = null,
-    isLoading = false
+    isLoading = false,
+    apiErrors = null
 }) => {
     const [formData, setFormData] = useState({
         full_name: '',
@@ -19,19 +22,56 @@ const AddStaffModal = ({
         salary: '',
         sub_role: '',
         skills: [],
+        area_id: '',
         avatar_url: '',
-        password: ''
+        password: '',
+        is_active: true // Default to active when creating new employee
     });
 
     const [errors, setErrors] = useState({});
+    const [touched, setTouched] = useState({});
     const [showPassword, setShowPassword] = useState(false);
     const [previewAvatar, setPreviewAvatar] = useState('');
-    const [skillInput, setSkillInput] = useState('');
+    const [uploadingAvatar, setUploadingAvatar] = useState(false);
+    const [areas, setAreas] = useState([]);
+    const [loadingAreas, setLoadingAreas] = useState(false);
+
+    // Fixed list of skills
+    const skillOptions = [
+        'Thu ngân',
+        'Pha chế',
+        'Phục vụ',
+        'Chăm sóc thú cưng',
+        'Vệ sinh khu vực',
+        'Huấn luyện thú cưng',
+        'Theo dõi sức khỏe thú cưng'
+    ];
+
+    // Load areas when modal opens
+    useEffect(() => {
+        if (isOpen) {
+            const loadAreas = async () => {
+                try {
+                    setLoadingAreas(true);
+                    const response = await areasApi.getAllAreas({ page_index: 0, page_size: 1000, is_active: true });
+                    setAreas(response.data || []);
+                } catch (error) {
+                    console.error('Error loading areas:', error);
+                    setAreas([]);
+                } finally {
+                    setLoadingAreas(false);
+                }
+            };
+            loadAreas();
+        }
+    }, [isOpen]);
 
     // Load initial data when editing
     useEffect(() => {
         if (isOpen) {
             if (editMode && initialData) {
+                // Use is_active from root level (as per API), fallback to account.is_active if not available
+                const isActive = initialData.is_active !== undefined ? initialData.is_active : initialData.account?.is_active;
                 setFormData({
                     full_name: initialData.full_name || '',
                     email: initialData.email || '',
@@ -40,11 +80,12 @@ const AddStaffModal = ({
                     salary: initialData.salary || '',
                     sub_role: initialData.sub_role || '',
                     skills: initialData.skills || [],
+                    area_id: initialData.area_id || '',
                     avatar_url: initialData.avatar_url || '',
-                    password: ''
+                    password: '',
+                    is_active: isActive !== undefined ? Boolean(isActive) : true
                 });
                 setPreviewAvatar(initialData.avatar_url || '');
-                setSkillInput(initialData.skills ? initialData.skills.join(', ') : '');
             } else {
                 // Reset form khi thêm mới
                 setFormData({
@@ -55,15 +96,34 @@ const AddStaffModal = ({
                     salary: '',
                     sub_role: '',
                     skills: [],
+                    area_id: '',
                     avatar_url: '',
-                    password: ''
+                    password: '',
+                    is_active: true // Default to active when creating new employee
                 });
                 setPreviewAvatar('');
-                setSkillInput('');
             }
             setErrors({});
+            setTouched({});
         }
     }, [isOpen, editMode, initialData]);
+
+    // Handle API errors - display them under fields
+    useEffect(() => {
+        if (apiErrors && Object.keys(apiErrors).length > 0) {
+            // Merge API errors into errors state
+            setErrors(prev => ({ ...prev, ...apiErrors }));
+
+            // Mark all fields with errors as touched so errors are displayed
+            const newTouched = {};
+            Object.keys(apiErrors).forEach(field => {
+                if (apiErrors[field]) {
+                    newTouched[field] = true;
+                }
+            });
+            setTouched(prev => ({ ...prev, ...newTouched }));
+        }
+    }, [apiErrors]);
 
     // Role options
     const roleOptions = [
@@ -71,72 +131,113 @@ const AddStaffModal = ({
         { value: 'WORKING_STAFF', label: 'Nhân viên chăm sóc', color: COLORS.WARNING[500] }
     ];
 
-    // Validation
+    // Validate single field
+    const validateField = (field, value) => {
+        let error = '';
+
+        switch (field) {
+            case 'full_name':
+                if (!value || !value.trim()) {
+                    error = 'Họ và tên là bắt buộc';
+                } else if (value.trim().length < 5) {
+                    error = 'Họ và tên phải có ít nhất 5 ký tự';
+                }
+                break;
+            case 'email':
+                if (!value || !value.trim()) {
+                    error = 'Email là bắt buộc';
+                } else if (!/^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/.test(value)) {
+                    error = 'Email không đúng định dạng';
+                }
+                break;
+            case 'phone':
+                if (!value || !value.trim()) {
+                    error = 'Số điện thoại là bắt buộc';
+                } else {
+                    const phoneClean = value.replace(/[\s.-]/g, '');
+                    if (!/^(0|\+84)[0-9]{9,10}$/.test(phoneClean)) {
+                        error = 'Số điện thoại không đúng định dạng';
+                    }
+                }
+                break;
+            case 'address':
+                if (!value || !value.trim()) {
+                    error = 'Địa chỉ là bắt buộc';
+                } else if (value.trim().length < 10) {
+                    error = 'Địa chỉ phải đầy đủ (tối thiểu 10 ký tự)';
+                }
+                break;
+            case 'salary':
+                if (!value || value === '' || value === '0') {
+                    error = 'Lương là bắt buộc';
+                } else {
+                    const salaryNum = parseInt(value, 10);
+                    if (isNaN(salaryNum) || salaryNum <= 0) {
+                        error = 'Lương phải lớn hơn 0';
+                    } else if (salaryNum > 10000000000) {
+                        error = 'Lương không hợp lệ (vượt quá 10 tỷ VNĐ)';
+                    }
+                }
+                break;
+            case 'sub_role':
+                if (!value) {
+                    error = 'Vui lòng chọn chức vụ';
+                } else if (!['SALE_STAFF', 'WORKING_STAFF'].includes(value)) {
+                    error = 'Chức vụ không hợp lệ';
+                }
+                break;
+            case 'password':
+                if (!editMode) {
+                    if (!value) {
+                        error = 'Mật khẩu là bắt buộc';
+                    } else if (value.length < 6) {
+                        error = 'Mật khẩu phải có ít nhất 6 ký tự';
+                    }
+                } else {
+                    if (value && value.length > 0 && value.length < 6) {
+                        error = 'Mật khẩu mới phải có ít nhất 6 ký tự';
+                    }
+                }
+                break;
+            case 'avatar_url':
+                // Avatar validation is handled in handleAvatarChange
+                break;
+            default:
+                break;
+        }
+
+        return error;
+    };
+
+    // Full validation (for submit)
     const validate = () => {
         const newErrors = {};
 
-        // Full name
-        if (!formData.full_name.trim()) {
-            newErrors.full_name = 'Họ và tên là bắt buộc';
-        } else if (formData.full_name.trim().length < 5) {
-            newErrors.full_name = 'Họ và tên phải có ít nhất 5 ký tự';
-        }
+        newErrors.full_name = validateField('full_name', formData.full_name);
+        newErrors.email = validateField('email', formData.email);
+        newErrors.phone = validateField('phone', formData.phone);
+        newErrors.address = validateField('address', formData.address);
+        newErrors.salary = validateField('salary', formData.salary);
+        newErrors.sub_role = validateField('sub_role', formData.sub_role);
 
-        // Email
-        if (!formData.email.trim()) {
-            newErrors.email = 'Email là bắt buộc';
-        } else if (!/^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,6}$/.test(formData.email)) {
-            newErrors.email = 'Email không đúng định dạng';
-        }
-
-        // Phone
-        if (!formData.phone.trim()) {
-            newErrors.phone = 'Số điện thoại là bắt buộc';
-        } else {
-            const phoneClean = formData.phone.replace(/[\s.-]/g, '');
-            if (!/^(0|\+84)[0-9]{9,10}$/.test(phoneClean)) {
-                newErrors.phone = 'Số điện thoại không đúng định dạng';
-            }
-        }
-
-        // Address
-        if (!formData.address.trim()) {
-            newErrors.address = 'Địa chỉ là bắt buộc';
-        } else if (formData.address.trim().length < 10) {
-            newErrors.address = 'Địa chỉ phải đầy đủ (tối thiểu 10 ký tự)';
-        }
-
-        // Salary
-        if (!formData.salary || formData.salary === '' || formData.salary === '0') {
-            newErrors.salary = 'Lương là bắt buộc';
-        } else {
-            const salaryNum = parseInt(formData.salary, 10);
-            if (isNaN(salaryNum) || salaryNum <= 0) {
-                newErrors.salary = 'Lương phải lớn hơn 0';
-            } else if (salaryNum > 10000000000) {
-                newErrors.salary = 'Lương không hợp lệ (vượt quá 10 tỷ VNĐ)';
-            }
-        }
-
-        // Sub Role
-        if (!formData.sub_role) {
-            newErrors.sub_role = 'Vui lòng chọn chức vụ';
-        } else if (!['SALE_STAFF', 'WORKING_STAFF'].includes(formData.sub_role)) {
-            newErrors.sub_role = 'Chức vụ không hợp lệ';
-        }
-
-        // Password
+        // Password validation: only required when creating new employee
+        // When editing, password is optional (only required if user wants to change password)
+        // If only is_active is changed, password is not required
         if (!editMode) {
-            if (!formData.password) {
-                newErrors.password = 'Mật khẩu là bắt buộc';
-            } else if (formData.password.length < 6) {
-                newErrors.password = 'Mật khẩu phải có ít nhất 6 ký tự';
-            }
+            // Creating new employee: password is required
+            newErrors.password = validateField('password', formData.password);
         } else {
-            if (formData.password && formData.password.length > 0 && formData.password.length < 6) {
-                newErrors.password = 'Mật khẩu mới phải có ít nhất 6 ký tự';
+            // Editing employee: password is optional
+            // Only validate if password is provided (user wants to change password)
+            if (formData.password && formData.password.length > 0) {
+                newErrors.password = validateField('password', formData.password);
             }
         }
+
+        // Remove empty errors
+        Object.keys(newErrors).forEach(key => {
+            if (!newErrors[key]) delete newErrors[key];
+        });
 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
@@ -148,51 +249,113 @@ const AddStaffModal = ({
             ...prev,
             [field]: value
         }));
+
+        // Clear error for this field when user starts typing (both validation and API errors)
         if (errors[field]) {
+            setErrors(prev => {
+                const newErrors = { ...prev };
+                delete newErrors[field];
+                return newErrors;
+            });
+        }
+
+        // Validate field if it has been touched
+        if (touched[field]) {
+            const error = validateField(field, value);
             setErrors(prev => ({
                 ...prev,
-                [field]: ''
+                [field]: error
             }));
         }
     };
 
-    // Handle skills input
-    const handleSkillsChange = (value) => {
-        setSkillInput(value);
-        const skillsArray = value.split(',').map(s => s.trim()).filter(s => s);
+    // Handle blur - mark field as touched and validate
+    const handleBlur = (field) => {
+        // Mark as touched
+        setTouched(prev => ({
+            ...prev,
+            [field]: true
+        }));
+
+        // Validate immediately with current value
+        const value = formData[field];
+        const error = validateField(field, value);
+        setErrors(prev => ({
+            ...prev,
+            [field]: error
+        }));
+    };
+
+    // Handle skills change (multi-select)
+    const handleSkillsChange = (event) => {
+        const value = event.target.value;
+        // On autofill we get a stringified value
+        const skillsArray = typeof value === 'string' ? value.split(',') : value;
         handleChange('skills', skillsArray);
     };
 
     // Handle avatar upload
-    const handleAvatarChange = (event) => {
+    const handleAvatarChange = async (event) => {
         const file = event.target.files[0];
-        if (file) {
-            const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-            if (!allowedTypes.includes(file.type)) {
-                setErrors(prev => ({
-                    ...prev,
-                    avatar_url: 'Chỉ chấp nhận file ảnh định dạng JPG, PNG hoặc WebP'
-                }));
-                return;
-            }
+        if (!file) return;
 
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                const img = new Image();
-                img.onload = () => {
-                    setPreviewAvatar(reader.result);
-                    setFormData(prev => ({
-                        ...prev,
-                        avatar_url: reader.result
-                    }));
-                    setErrors(prev => ({
-                        ...prev,
-                        avatar_url: ''
-                    }));
-                };
-                img.src = reader.result;
-            };
-            reader.readAsDataURL(file);
+        // Clear previous errors
+        setErrors(prev => ({
+            ...prev,
+            avatar_url: ''
+        }));
+
+        // Validate file type
+        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+        if (!allowedTypes.includes(file.type)) {
+            setErrors(prev => ({
+                ...prev,
+                avatar_url: 'Chỉ chấp nhận file ảnh định dạng JPG, PNG hoặc WebP'
+            }));
+            return;
+        }
+
+        // Validate file size (5MB)
+        const MAX_SIZE = 5 * 1024 * 1024;
+        if (file.size > MAX_SIZE) {
+            setErrors(prev => ({
+                ...prev,
+                avatar_url: 'Kích thước ảnh không được vượt quá 5MB'
+            }));
+            return;
+        }
+
+        // Show preview immediately
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            setPreviewAvatar(reader.result);
+        };
+        reader.readAsDataURL(file);
+
+        // Upload file to server
+        try {
+            setUploadingAvatar(true);
+            const imageUrl = await uploadFile(file);
+
+            setFormData(prev => ({
+                ...prev,
+                avatar_url: imageUrl
+            }));
+
+            setPreviewAvatar(imageUrl);
+            setErrors(prev => ({
+                ...prev,
+                avatar_url: ''
+            }));
+        } catch (error) {
+            console.error('Error uploading avatar:', error);
+            setErrors(prev => ({
+                ...prev,
+                avatar_url: error.message || 'Không thể tải ảnh lên. Vui lòng thử lại.'
+            }));
+            setPreviewAvatar('');
+        } finally {
+            setUploadingAvatar(false);
         }
     };
 
@@ -213,6 +376,15 @@ const AddStaffModal = ({
 
     // Handle submit
     const handleSubmit = () => {
+        // Mark all fields as touched
+        const allFields = ['full_name', 'email', 'phone', 'address', 'salary', 'sub_role', 'password'];
+        const newTouched = {};
+        allFields.forEach(field => {
+            newTouched[field] = true;
+        });
+        setTouched(newTouched);
+
+        // Validate all fields
         if (validate()) {
             onSubmit(formData);
         }
@@ -231,76 +403,45 @@ const AddStaffModal = ({
             onClose={handleClose}
             maxWidth="md"
             fullWidth
+            disableScrollLock
             PaperProps={{
                 sx: {
-                    borderRadius: 4,
-                    boxShadow: `0 25px 50px -12px ${alpha(COLORS.SHADOW.DARK, 0.25)}`,
-                    overflow: 'visible',
-                    position: 'relative',
-                    m: 2
-                }
-            }}
-            BackdropProps={{
-                sx: {
-                    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-                    backdropFilter: 'blur(8px)'
+                    borderRadius: 3,
+                    boxShadow: `0 20px 60px ${alpha(COLORS.SHADOW.DARK, 0.3)}`
                 }
             }}
         >
-            {/* Gradient Top Bar */}
             <Box
                 sx={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    height: 4,
-                    background: `linear-gradient(90deg, ${COLORS.PRIMARY[500]}, ${COLORS.PRIMARY[600]})`
-                }}
-            />
-
-            {/* Header */}
-            <Box
-                sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    p: 3,
-                    borderBottom: `1px solid ${COLORS.GRAY[200]}`
+                    background: `linear-gradient(135deg, ${alpha(COLORS.PRIMARY[50], 0.3)}, ${alpha(COLORS.SECONDARY[50], 0.2)})`,
+                    borderBottom: `3px solid ${COLORS.PRIMARY[500]}`
                 }}
             >
-                <Typography variant="h5" sx={{ fontWeight: 700, color: COLORS.TEXT.PRIMARY }}>
-                    {editMode ? 'Chỉnh sửa nhân viên' : 'Thêm nhân viên mới'}
-                </Typography>
-
-                <IconButton
-                    onClick={handleClose}
-                    disabled={isLoading}
-                    sx={{
-                        color: COLORS.GRAY[600],
-                        '&:hover': { backgroundColor: alpha(COLORS.GRAY[100], 0.8) }
-                    }}
-                >
-                    <Close />
-                </IconButton>
+                <DialogTitle sx={{ fontWeight: 800, color: COLORS.PRIMARY[700], pb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Person />
+                    {editMode ? '✏️ Chỉnh sửa nhân viên' : '➕ Thêm nhân viên mới'}
+                </DialogTitle>
             </Box>
 
-            {/* Content */}
-            <DialogContent sx={{ p: 3 }}>
+            <DialogContent sx={{ pt: 3, pb: 2, px: 3 }}>
                 <Stack spacing={3}>
                     {/* Avatar Upload */}
-                    <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'center' }}>
                         <Box sx={{ position: 'relative' }}>
                             <Avatar
                                 src={previewAvatar}
                                 sx={{
-                                    width: 120,
-                                    height: 120,
-                                    border: `4px solid ${COLORS.PRIMARY[100]}`,
-                                    boxShadow: `0 4px 12px ${alpha(COLORS.PRIMARY[500], 0.2)}`
+                                    width: 100,
+                                    height: 100,
+                                    border: `3px solid ${COLORS.PRIMARY[200]}`,
+                                    boxShadow: `0 2px 8px ${alpha(COLORS.PRIMARY[500], 0.15)}`
                                 }}
                             >
-                                <Person sx={{ fontSize: 60, color: COLORS.GRAY[400] }} />
+                                {uploadingAvatar ? (
+                                    <CircularProgress size={40} sx={{ color: COLORS.PRIMARY[500] }} />
+                                ) : (
+                                    <Person sx={{ fontSize: 50, color: COLORS.GRAY[400] }} />
+                                )}
                             </Avatar>
                             <IconButton
                                 component="label"
@@ -309,126 +450,132 @@ const AddStaffModal = ({
                                     bottom: 0,
                                     right: 0,
                                     backgroundColor: COLORS.PRIMARY[500],
-                                    color: COLORS.COMMON.WHITE,
-                                    width: 40,
-                                    height: 40,
+                                    color: 'white',
+                                    width: 36,
+                                    height: 36,
                                     '&:hover': { backgroundColor: COLORS.PRIMARY[600] }
                                 }}
+                                disabled={isLoading || uploadingAvatar}
                             >
-                                <PhotoCamera sx={{ fontSize: 20 }} />
+                                {uploadingAvatar ? (
+                                    <CircularProgress size={18} sx={{ color: 'white' }} />
+                                ) : (
+                                    <PhotoCamera sx={{ fontSize: 18 }} />
+                                )}
                                 <input
                                     hidden
-                                    accept="image/*"
+                                    accept="image/jpeg,image/jpg,image/png,image/webp"
                                     type="file"
                                     onChange={handleAvatarChange}
-                                    disabled={isLoading}
+                                    disabled={isLoading || uploadingAvatar}
                                 />
                             </IconButton>
                         </Box>
                     </Box>
                     {errors.avatar_url && (
-                        <Alert severity="error" sx={{ mt: 1 }}>{errors.avatar_url}</Alert>
+                        <Alert severity="error">{errors.avatar_url}</Alert>
                     )}
 
-                    {/* Full Name & Email */}
-                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                        <TextField
-                            label="Họ và tên"
-                            fullWidth
-                            required
-                            value={formData.full_name}
-                            onChange={(e) => handleChange('full_name', e.target.value)}
-                            error={!!errors.full_name}
-                            helperText={errors.full_name || 'VD: Nguyễn Văn An'}
-                            disabled={isLoading}
-                            placeholder="Nguyễn Văn An"
-                            InputProps={{
-                                startAdornment: (
-                                    <InputAdornment position="start">
-                                        <Person sx={{ color: COLORS.GRAY[400] }} />
-                                    </InputAdornment>
-                                )
-                            }}
-                        />
+                    {/* Full Name */}
+                    <TextField
+                        label="Họ và tên"
+                        fullWidth
+                        required
+                        value={formData.full_name}
+                        onChange={(e) => handleChange('full_name', e.target.value)}
+                        onBlur={() => handleBlur('full_name')}
+                        error={touched.full_name && !!errors.full_name}
+                        helperText={touched.full_name && errors.full_name ? errors.full_name : undefined}
+                        disabled={isLoading}
+                        placeholder="Nguyễn Văn An"
+                        sx={{ '& .MuiInputBase-root': { height: 56 } }}
+                    />
 
-                        <TextField
-                            label="Email"
-                            fullWidth
-                            required
-                            type="email"
-                            value={formData.email}
-                            onChange={(e) => handleChange('email', e.target.value)}
-                            error={!!errors.email}
-                            helperText={errors.email || 'Email công ty hoặc cá nhân'}
-                            disabled={isLoading}
-                            placeholder="nhanvien@company.com"
-                            InputProps={{
-                                startAdornment: (
-                                    <InputAdornment position="start">
-                                        <Email sx={{ color: COLORS.GRAY[400] }} />
-                                    </InputAdornment>
-                                )
-                            }}
-                        />
-                    </Stack>
+                    {/* Email */}
+                    <TextField
+                        label="Email"
+                        fullWidth
+                        required
+                        type="email"
+                        value={formData.email}
+                        onChange={(e) => handleChange('email', e.target.value)}
+                        onBlur={() => handleBlur('email')}
+                        error={touched.email && !!errors.email}
+                        helperText={touched.email && errors.email ? errors.email : undefined}
+                        disabled={isLoading}
+                        placeholder="nhanvien@company.com"
+                        sx={{ '& .MuiInputBase-root': { height: 56 } }}
+                    />
 
-                    {/* Phone & Sub Role */}
-                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                        <TextField
-                            label="Số điện thoại"
-                            fullWidth
-                            required
-                            value={formData.phone}
-                            onChange={(e) => handleChange('phone', e.target.value)}
-                            error={!!errors.phone}
-                            helperText={errors.phone || '10 chữ số, bắt đầu bằng 03/05/07/08/09'}
-                            disabled={isLoading}
-                            placeholder="0901234567"
-                            InputProps={{
-                                startAdornment: (
-                                    <InputAdornment position="start">
-                                        <Phone sx={{ color: COLORS.GRAY[400] }} />
-                                    </InputAdornment>
-                                )
-                            }}
-                        />
+                    {/* Phone */}
+                    <TextField
+                        label="Số điện thoại"
+                        fullWidth
+                        required
+                        value={formData.phone}
+                        onChange={(e) => handleChange('phone', e.target.value)}
+                        onBlur={() => handleBlur('phone')}
+                        error={touched.phone && !!errors.phone}
+                        helperText={touched.phone && errors.phone ? errors.phone : undefined}
+                        disabled={isLoading}
+                        placeholder="0901234567"
+                        sx={{ '& .MuiInputBase-root': { height: 56 } }}
+                    />
 
-                        <FormControl fullWidth required error={!!errors.sub_role}>
-                            <InputLabel>Chức vụ</InputLabel>
-                            <Select
-                                value={formData.sub_role}
-                                onChange={(e) => handleChange('sub_role', e.target.value)}
-                                label="Chức vụ"
-                                disabled={isLoading}
-                                startAdornment={
-                                    <InputAdornment position="start">
-                                        <WorkOutline sx={{ color: COLORS.GRAY[400] }} />
-                                    </InputAdornment>
-                                }
-                            >
-                                {roleOptions.map((option) => (
-                                    <MenuItem key={option.value} value={option.value}>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                            <Box
-                                                sx={{
-                                                    width: 12,
-                                                    height: 12,
-                                                    borderRadius: '50%',
-                                                    backgroundColor: option.color
-                                                }}
-                                            />
-                                            {option.label}
-                                        </Box>
-                                    </MenuItem>
-                                ))}
-                            </Select>
-                            {errors.sub_role && (
-                                <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 1.75 }}>
-                                    {errors.sub_role}
-                                </Typography>
-                            )}
-                        </FormControl>
-                    </Stack>
+                    {/* Sub Role */}
+                    <FormControl fullWidth required error={touched.sub_role && !!errors.sub_role}>
+                        <InputLabel>Chức vụ</InputLabel>
+                        <Select
+                            value={formData.sub_role}
+                            onChange={(e) => handleChange('sub_role', e.target.value)}
+                            onBlur={() => handleBlur('sub_role')}
+                            label="Chức vụ"
+                            disabled={isLoading}
+                            sx={{ height: 56 }}
+                        >
+                            {roleOptions.map((option) => (
+                                <MenuItem key={option.value} value={option.value}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                        <Box
+                                            sx={{
+                                                width: 12,
+                                                height: 12,
+                                                borderRadius: '50%',
+                                                backgroundColor: option.color
+                                            }}
+                                        />
+                                        {option.label}
+                                    </Box>
+                                </MenuItem>
+                            ))}
+                        </Select>
+                        {touched.sub_role && errors.sub_role && (
+                            <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 1.75 }}>
+                                {errors.sub_role}
+                            </Typography>
+                        )}
+                    </FormControl>
+
+                    {/* Area */}
+                    <FormControl fullWidth>
+                        <InputLabel>Khu vực</InputLabel>
+                        <Select
+                            value={formData.area_id}
+                            onChange={(e) => handleChange('area_id', e.target.value)}
+                            label="Khu vực"
+                            disabled={isLoading || loadingAreas}
+                            sx={{ height: 56 }}
+                        >
+                            <MenuItem value="">
+                                <em>Không chọn</em>
+                            </MenuItem>
+                            {areas.map((area) => (
+                                <MenuItem key={area.id} value={area.id}>
+                                    {area.name}
+                                </MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
 
                     {/* Address */}
                     <TextField
@@ -439,98 +586,135 @@ const AddStaffModal = ({
                         rows={2}
                         value={formData.address}
                         onChange={(e) => handleChange('address', e.target.value)}
-                        error={!!errors.address}
-                        helperText={errors.address || 'Số nhà, đường, phường/xã, quận/huyện, tỉnh/thành phố'}
+                        onBlur={() => handleBlur('address')}
+                        error={touched.address && !!errors.address}
+                        helperText={touched.address && errors.address ? errors.address : undefined}
                         disabled={isLoading}
                         placeholder="123 Nguyễn Huệ, P. Bến Nghé, Q.1, TP.HCM"
+                    />
+
+                    {/* Skills - Multi-select */}
+                    <FormControl fullWidth>
+                        <InputLabel>Kỹ năng</InputLabel>
+                        <Select
+                            multiple
+                            value={formData.skills}
+                            onChange={handleSkillsChange}
+                            label="Kỹ năng"
+                            disabled={isLoading}
+                            renderValue={(selected) => (
+                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                    {selected.map((value) => (
+                                        <Chip
+                                            key={value}
+                                            label={value}
+                                            size="small"
+                                            sx={{ height: 24 }}
+                                        />
+                                    ))}
+                                </Box>
+                            )}
+                            sx={{ minHeight: 56 }}
+                        >
+                            {skillOptions.map((skill) => (
+                                <MenuItem key={skill} value={skill}>
+                                    {skill}
+                                </MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
+
+                    {/* Salary */}
+                    <TextField
+                        label="Lương (VNĐ)"
+                        fullWidth
+                        required
+                        value={formData.salary}
+                        onChange={(e) => handleSalaryChange(e.target.value)}
+                        onBlur={() => handleBlur('salary')}
+                        error={touched.salary && !!errors.salary}
+                        helperText={
+                            touched.salary && errors.salary
+                                ? errors.salary
+                                : formData.salary
+                                    ? `Lương cơ bản: ${formatSalaryDisplay(formData.salary)} VNĐ`
+                                    : ''
+                        }
+                        disabled={isLoading}
+                        placeholder="5000000"
+                        inputProps={{
+                            inputMode: 'numeric',
+                            pattern: '[0-9]*'
+                        }}
+                        sx={{ '& .MuiInputBase-root': { height: 56 } }}
+                    />
+
+                    {/* Password */}
+                    <TextField
+                        label={editMode ? "Mật khẩu mới (tùy chọn)" : "Mật khẩu"}
+                        fullWidth
+                        required={!editMode}
+                        type={showPassword ? 'text' : 'password'}
+                        value={formData.password}
+                        onChange={(e) => handleChange('password', e.target.value)}
+                        onBlur={() => handleBlur('password')}
+                        error={touched.password && !!errors.password}
+                        helperText={touched.password && errors.password ? errors.password : undefined}
+                        disabled={isLoading}
+                        placeholder={editMode ? '' : '******'}
+                        sx={{ '& .MuiInputBase-root': { height: 56 } }}
                         InputProps={{
-                            startAdornment: (
-                                <InputAdornment position="start" sx={{ alignSelf: 'flex-start', mt: 1 }}>
-                                    <Home sx={{ color: COLORS.GRAY[400] }} />
+                            endAdornment: (
+                                <InputAdornment position="end">
+                                    <IconButton
+                                        onClick={() => setShowPassword(!showPassword)}
+                                        onMouseDown={(e) => e.preventDefault()}
+                                        edge="end"
+                                        disabled={isLoading}
+                                        tabIndex={-1}
+                                    >
+                                        {showPassword ? <VisibilityOff /> : <Visibility />}
+                                    </IconButton>
                                 </InputAdornment>
                             )
                         }}
                     />
 
-                    {/* Skills */}
-                    <TextField
-                        label="Kỹ năng"
-                        fullWidth
-                        multiline
-                        rows={2}
-                        value={skillInput}
-                        onChange={(e) => handleSkillsChange(e.target.value)}
-                        helperText="Nhập các kỹ năng, cách nhau bằng dấu phẩy"
-                        disabled={isLoading}
-                        placeholder="Pha chế cà phê, Chăm sóc mèo, Giao tiếp tốt"
-                    />
-                    {formData.skills.length > 0 && (
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                            {formData.skills.map((skill, index) => (
-                                <Chip
-                                    key={index}
-                                    label={skill}
-                                    size="small"
-                                    sx={{ bgcolor: alpha(COLORS.PRIMARY[100], 0.5) }}
-                                />
-                            ))}
-                        </Box>
-                    )}
-
-                    {/* Salary & Password */}
-                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                        <TextField
-                            label="Lương (VNĐ)"
-                            fullWidth
-                            required
-                            value={formData.salary}
-                            onChange={(e) => handleSalaryChange(e.target.value)}
-                            error={!!errors.salary}
-                            helperText={
-                                errors.salary ||
-                                (formData.salary ? `Lương cơ bản: ${formatSalaryDisplay(formData.salary)} VNĐ` : 'VD: 5000000 → 5.000.000 VNĐ')
+                    {/* Active Status Switch */}
+                    <FormControlLabel
+                        control={
+                            <Switch
+                                checked={formData.is_active}
+                                onChange={(e) => handleChange('is_active', e.target.checked)}
+                                disabled={isLoading}
+                                sx={{
+                                    '& .MuiSwitch-switchBase.Mui-checked': {
+                                        color: COLORS.SUCCESS[600],
+                                    },
+                                    '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                                        backgroundColor: COLORS.SUCCESS[600],
+                                    },
+                                }}
+                            />
+                        }
+                        label={
+                            <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                                Trạng thái hoạt động
+                            </Typography>
+                        }
+                        sx={{
+                            mt: 1,
+                            mb: 1,
+                            px: 2,
+                            py: 1.5,
+                            borderRadius: 2,
+                            bgcolor: formData.is_active ? alpha(COLORS.SUCCESS[500], 0.1) : alpha(COLORS.ERROR[500], 0.1),
+                            border: `1px solid ${formData.is_active ? COLORS.SUCCESS[200] : COLORS.ERROR[200]}`,
+                            '&:hover': {
+                                bgcolor: formData.is_active ? alpha(COLORS.SUCCESS[500], 0.15) : alpha(COLORS.ERROR[500], 0.15),
                             }
-                            disabled={isLoading}
-                            placeholder="5000000"
-                            inputProps={{
-                                inputMode: 'numeric',
-                                pattern: '[0-9]*'
-                            }}
-                            InputProps={{
-                                startAdornment: (
-                                    <InputAdornment position="start">
-                                        <Typography sx={{ color: COLORS.GRAY[600], fontWeight: 600 }}>₫</Typography>
-                                    </InputAdornment>
-                                )
-                            }}
-                        />
-
-                        <TextField
-                            label={editMode ? "Mật khẩu mới (tùy chọn)" : "Mật khẩu"}
-                            fullWidth
-                            required={!editMode}
-                            type={showPassword ? 'text' : 'password'}
-                            value={formData.password}
-                            onChange={(e) => handleChange('password', e.target.value)}
-                            error={!!errors.password}
-                            helperText={errors.password || (editMode ? 'Để trống nếu không đổi' : 'Tối thiểu 6 ký tự')}
-                            disabled={isLoading}
-                            placeholder={editMode ? '' : '******'}
-                            InputProps={{
-                                endAdornment: (
-                                    <InputAdornment position="end">
-                                        <IconButton
-                                            onClick={() => setShowPassword(!showPassword)}
-                                            edge="end"
-                                            disabled={isLoading}
-                                        >
-                                            {showPassword ? <VisibilityOff /> : <Visibility />}
-                                        </IconButton>
-                                    </InputAdornment>
-                                )
-                            }}
-                        />
-                    </Stack>
+                        }}
+                    />
 
                     {/* Info Alert */}
                     {!editMode && (
@@ -541,39 +725,15 @@ const AddStaffModal = ({
                 </Stack>
             </DialogContent>
 
-            {/* Footer Actions */}
-            <DialogActions
-                sx={{
-                    px: 3,
-                    py: 2,
-                    gap: 1.5,
-                    borderTop: `1px solid ${COLORS.GRAY[200]}`,
-                    backgroundColor: alpha(COLORS.GRAY[50], 0.5)
-                }}
-            >
-                <Button
-                    onClick={handleClose}
-                    disabled={isLoading}
-                    sx={{
-                        px: 3,
-                        py: 1,
-                        color: COLORS.GRAY[700],
-                        '&:hover': { backgroundColor: alpha(COLORS.GRAY[100], 0.8) }
-                    }}
-                >
+            <DialogActions sx={{ px: 3, py: 2, borderTop: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.1)}` }}>
+                <Button onClick={handleClose} disabled={isLoading}>
                     Hủy
                 </Button>
-
                 <Button
                     onClick={handleSubmit}
                     disabled={isLoading}
                     variant="contained"
-                    sx={{
-                        px: 4,
-                        py: 1,
-                        backgroundColor: COLORS.PRIMARY[500],
-                        '&:hover': { backgroundColor: COLORS.PRIMARY[600] }
-                    }}
+                    sx={{ backgroundColor: COLORS.PRIMARY[500], '&:hover': { backgroundColor: COLORS.PRIMARY[600] } }}
                 >
                     {isLoading ? 'Đang xử lý...' : (editMode ? 'Cập nhật' : 'Thêm nhân viên')}
                 </Button>

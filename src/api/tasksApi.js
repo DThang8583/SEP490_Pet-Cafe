@@ -1,287 +1,344 @@
-import taskTemplateApi, { TASK_TYPES } from './taskTemplateApi';
-import slotApi, { WEEKDAYS, WEEKDAY_LABELS, SLOT_STATUS } from './slotApi';
-import serviceApi, { SERVICE_STATUS } from './serviceApi';
-import * as areasApi from './areasApi';
-import petApi from './petApi';
-import userApi from './userApi';
-import workshiftApi from './workshiftApi';
+import apiClient from '../config/config';
 
-// ========== HELPER FUNCTIONS ==========
+export const TASK_STATUS = {
+    ACTIVE: 'ACTIVE',
+    INACTIVE: 'INACTIVE'
+};
 
-/**
- * Get all data needed for Tasks Management page
- * @returns {Promise<Object>}
- */
-export const getAllTasksData = async () => {
-    try {
-        const [
-            tasksResponse,
-            slotsResponse,
-            servicesResponse,
-            areasResponse,
-            petGroupsResponse,
-            shiftsResponse
-        ] = await Promise.all([
-            taskTemplateApi.getAllTaskTemplates(),
-            slotApi.getAllSlots(),
-            serviceApi.getAllServices(),
-            areasApi.getAllAreas(),
-            petApi.getPetGroups(),
-            workshiftApi.getAllShifts()
-        ]);
+export const TASK_PRIORITY = {
+    LOW: 'LOW',
+    MEDIUM: 'MEDIUM',
+    HIGH: 'HIGH',
+    URGENT: 'URGENT'
+};
+
+const buildPagination = (pagination, totalItems, pageSize, pageIndex) => {
+    if (pagination) {
+        const computedTotalPages = Math.ceil(
+            (pagination.total_items_count ?? totalItems) /
+            (pagination.page_size ?? pageSize)
+        );
 
         return {
-            tasks: tasksResponse.data || [],
-            slots: slotsResponse.data || [],
-            services: servicesResponse.data || [],
-            areas: areasResponse.data || [],
-            petGroups: petGroupsResponse.data || [],
-            shifts: shiftsResponse.data || []
+            total_items_count: pagination.total_items_count ?? totalItems,
+            page_size: pagination.page_size ?? pageSize,
+            total_pages_count: (pagination.total_pages_count ?? computedTotalPages) || 0,
+            page_index: pagination.page_index ?? pageIndex,
+            has_next: pagination.has_next ?? ((pagination.page_index ?? pageIndex) + 1 < ((pagination.total_pages_count ?? 0))),
+            has_previous: pagination.has_previous ?? ((pagination.page_index ?? pageIndex) > 0)
         };
-    } catch (error) {
-        console.error('Error fetching tasks data:', error);
-        throw error;
     }
+
+    return {
+        total_items_count: totalItems,
+        page_size: pageSize,
+        total_pages_count: Math.ceil(totalItems / pageSize) || 0,
+        page_index: pageIndex,
+        has_next: (pageIndex + 1) * pageSize < totalItems,
+        has_previous: pageIndex > 0
+    };
 };
 
-/**
- * Get tasks with their slots count
- * @returns {Promise<Array>}
- */
-export const getTasksWithSlotsCount = async () => {
+const normalizeTask = (task) => {
+    if (!task) return null;
+    return {
+        ...task,
+        image_url: task.image_url || null,
+        service: task.service || null,
+        work_type: task.work_type || null,
+        estimated_hours: typeof task.estimated_hours === 'number'
+            ? task.estimated_hours
+            : Number(task.estimated_hours) || 0
+    };
+};
+
+const normalizeEstimatedHours = (value) => {
+    if (value === null || value === undefined || value === '') {
+        return 0;
+    }
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+};
+
+const extractErrorMessage = (error, defaultMessage) => {
+    if (error.response?.data) {
+        const { message, error: errorMsg, errors } = error.response.data;
+        if (Array.isArray(message)) {
+            return message.join('. ');
+        }
+        if (typeof message === 'string') {
+            return message;
+        }
+        if (Array.isArray(errorMsg)) {
+            return errorMsg.join('. ');
+        }
+        if (typeof errorMsg === 'string') {
+            return errorMsg;
+        }
+        if (errors && typeof errors === 'object') {
+            const combined = Object.values(errors).flat().join('. ');
+            if (combined) return combined;
+        }
+    }
+    return error.message || defaultMessage;
+};
+
+export const getTasks = async (params = {}) => {
     try {
-        const tasksResponse = await taskTemplateApi.getAllTaskTemplates();
-        const slotsResponse = await slotApi.getAllSlots();
+        const {
+            page_index = 0,
+            page_size = 10,
+            work_type_id,
+            status,
+            priority,
+            is_public,
+            search
+        } = params;
 
-        const tasks = tasksResponse.data || [];
-        const slots = slotsResponse.data || [];
+        const queryParams = {
+            page_index,
+            page_size,
+            _t: Date.now()
+        };
 
-        // Count slots for each task
-        const tasksWithSlots = tasks.map(task => {
-            const taskSlots = slots.filter(slot => slot.task_id === task.id);
-            const publicSlots = taskSlots.filter(slot => slot.status === SLOT_STATUS.PUBLIC);
+        if (work_type_id) queryParams.work_type_id = work_type_id;
+        if (status) queryParams.status = status;
+        if (priority) queryParams.priority = priority;
+        if (is_public !== undefined && is_public !== 'all') queryParams.is_public = is_public;
+        if (search) queryParams.search = search;
 
-            return {
-                ...task,
-                total_slots: taskSlots.length,
-                public_slots: publicSlots.length,
-                internal_slots: taskSlots.length - publicSlots.length
-            };
+        const response = await apiClient.get('/tasks', {
+            params: queryParams,
+            timeout: 10000,
+            headers: {
+                'Cache-Control': 'no-cache'
+            }
         });
 
-        return tasksWithSlots;
-    } catch (error) {
-        console.error('Error fetching tasks with slots count:', error);
-        throw error;
-    }
-};
+        let tasks = [];
+        let pagination = null;
 
-/**
- * Get services with their task info
- * @returns {Promise<Array>}
- */
-export const getServicesWithTaskInfo = async () => {
-    try {
-        const servicesResponse = await serviceApi.getAllServices();
-        const tasksResponse = await taskTemplateApi.getAllTaskTemplates();
-
-        const services = servicesResponse.data || [];
-        const tasks = tasksResponse.data || [];
-
-        // Add task info to each service
-        const servicesWithTaskInfo = services.map(service => {
-            const task = tasks.find(t => t.id === service.task_id);
-
-            return {
-                ...service,
-                task_info: task || null
-            };
-        });
-
-        return servicesWithTaskInfo;
-    } catch (error) {
-        console.error('Error fetching services with task info:', error);
-        throw error;
-    }
-};
-
-/**
- * Get slot with full details (task, area, pet group, shift, team)
- * @param {string} slotId 
- * @returns {Promise<Object>}
- */
-export const getSlotWithDetails = async (slotId) => {
-    try {
-        const slotResponse = await slotApi.getSlotById(slotId);
-        const slot = slotResponse.data;
-
-        // Fetch related data
-        const [taskResponse, areaResponse, petGroupResponse, shiftResponse] = await Promise.all([
-            taskTemplateApi.getTaskTemplateById(slot.task_id),
-            areasApi.getAreaById(slot.area_id),
-            petApi.getPetGroups({ id: slot.pet_group_id }),
-            workshiftApi.getShiftById(slot.work_shift_id)
-        ]);
-
-        // Find team in shift
-        const shift = shiftResponse.data;
-        const team = shift.teams?.find(t => t.id === slot.team_id) || null;
-
-        return {
-            ...slot,
-            task: taskResponse.data,
-            area: areaResponse.data,
-            pet_group: petGroupResponse.data?.find(pg => pg.id === slot.pet_group_id) || null,
-            shift: shift,
-            team: team
-        };
-    } catch (error) {
-        console.error('Error fetching slot with details:', error);
-        throw error;
-    }
-};
-
-/**
- * Get available teams from work shift
- * @param {string} workShiftId 
- * @returns {Promise<Array>}
- */
-export const getTeamsFromWorkShift = async (workShiftId) => {
-    try {
-        const shiftResponse = await workshiftApi.getShiftById(workShiftId);
-        const shift = shiftResponse.data;
-
-        return shift.teams || [];
-    } catch (error) {
-        console.error('Error fetching teams from work shift:', error);
-        throw error;
-    }
-};
-
-/**
- * Create initial form data for creating slot
- * @param {string} taskId 
- * @returns {Object}
- */
-export const createSlotFormData = (taskId) => {
-    return {
-        task_id: taskId,
-        start_time: '',
-        end_time: '',
-        applicable_days: [],
-        work_shift_id: '',
-        team_id: '',
-        pet_group_id: '',
-        area_id: ''
-    };
-};
-
-/**
- * Create initial form data for creating service from task
- * @param {Object} task 
- * @returns {Object}
- */
-export const createServiceFormData = (task) => {
-    return {
-        task_id: task.id,
-        task_type: task.task_type,
-        image: task.image,
-        name: task.name,
-        description: task.description,
-        estimate_duration: task.estimate_duration,
-        price: 0
-    };
-};
-
-/**
- * Create initial form data for publishing slot
- * @param {Object} slot 
- * @returns {Object}
- */
-export const createPublishSlotFormData = (slot) => {
-    return {
-        capacity: slot.capacity || 1,
-        price: slot.price || 0,
-        description: slot.description || '',
-        start_time: slot.start_time,
-        end_time: slot.end_time,
-        applicable_days: slot.applicable_days
-    };
-};
-
-/**
- * Validate slot capacity against area capacity
- * @param {number} slotCapacity 
- * @param {string} areaId 
- * @returns {Promise<boolean>}
- */
-export const validateSlotCapacity = async (slotCapacity, areaId) => {
-    try {
-        const areaResponse = await areasApi.getAreaById(areaId);
-        const area = areaResponse.data;
-
-        if (slotCapacity > area.capacity) {
-            throw new Error(`Capacity vượt quá giới hạn của khu vực (${area.capacity})`);
+        if (Array.isArray(response.data)) {
+            tasks = response.data;
+        } else if (response.data?.data) {
+            tasks = response.data.data;
+            pagination = response.data.pagination || null;
+        } else if (response.data) {
+            tasks = [response.data];
         }
 
-        return true;
-    } catch (error) {
-        console.error('Error validating slot capacity:', error);
-        throw error;
-    }
-};
-
-/**
- * Get statistics for dashboard
- * @returns {Promise<Object>}
- */
-export const getTasksStatistics = async () => {
-    try {
-        const [taskStats, slotStats, serviceStats] = await Promise.all([
-            taskTemplateApi.getStatistics(),
-            slotApi.getStatistics(),
-            serviceApi.getStatistics()
-        ]);
+        const normalizedTasks = tasks.map(normalizeTask);
+        const finalPagination = buildPagination(
+            pagination,
+            normalizedTasks.length,
+            page_size,
+            page_index
+        );
 
         return {
-            tasks: taskStats.data,
-            slots: slotStats.data,
-            services: serviceStats.data
+            success: true,
+            data: normalizedTasks,
+            pagination: finalPagination
         };
     } catch (error) {
-        console.error('Error fetching tasks statistics:', error);
-        throw error;
+        throw new Error(extractErrorMessage(error, 'Không thể tải danh sách nhiệm vụ'));
     }
 };
 
-// ========== EXPORTS ==========
+export const getTaskById = async (taskId) => {
+    if (!taskId) {
+        throw new Error('ID nhiệm vụ là bắt buộc');
+    }
 
-// Export constants
-export {
-    TASK_TYPES,
-    WEEKDAYS,
-    WEEKDAY_LABELS,
-    SLOT_STATUS,
-    SERVICE_STATUS
+    try {
+        const response = await apiClient.get(`/tasks/${taskId}`, {
+            params: { _t: Date.now() },
+            timeout: 10000
+        });
+
+        return {
+            success: true,
+            data: normalizeTask(response.data)
+        };
+    } catch (error) {
+        if (error.response?.status === 404) {
+            throw new Error('Không tìm thấy nhiệm vụ');
+        }
+        throw new Error(extractErrorMessage(error, 'Không thể tải thông tin nhiệm vụ'));
+    }
 };
 
-// Export APIs
-export {
-    taskTemplateApi,
-    slotApi,
-    serviceApi
+export const createTask = async (taskData) => {
+    try {
+        const payload = {
+            title: taskData.title?.trim(),
+            description: taskData.description?.trim(),
+            priority: taskData.priority || TASK_PRIORITY.MEDIUM,
+            status: taskData.status || TASK_STATUS.ACTIVE,
+            estimated_hours: normalizeEstimatedHours(taskData.estimated_hours),
+            is_public: taskData.is_public ?? false,
+            work_type_id: taskData.work_type_id,
+            service_id: taskData.service_id || null,
+            image_url: taskData.image_url || null
+        };
+
+        if (!payload.title) {
+            throw new Error('Tên nhiệm vụ là bắt buộc');
+        }
+
+        if (!payload.description) {
+            throw new Error('Mô tả nhiệm vụ là bắt buộc');
+        }
+
+        if (!payload.work_type_id) {
+            throw new Error('Loại công việc là bắt buộc');
+        }
+
+        const response = await apiClient.post('/tasks', payload, {
+            timeout: 10000
+        });
+
+        return {
+            success: true,
+            data: normalizeTask(response.data),
+            message: 'Tạo nhiệm vụ thành công'
+        };
+    } catch (error) {
+        throw new Error(extractErrorMessage(error, 'Không thể tạo nhiệm vụ'));
+    }
 };
 
-// Default export
+export const updateTask = async (taskId, updates) => {
+    if (!taskId) {
+        throw new Error('ID nhiệm vụ là bắt buộc');
+    }
+
+    try {
+        const payload = {};
+
+        if (updates.title !== undefined) {
+            const trimmed = updates.title?.trim();
+            if (!trimmed) {
+                throw new Error('Tên nhiệm vụ không được để trống');
+            }
+            payload.title = trimmed;
+        }
+
+        if (updates.description !== undefined) {
+            const trimmed = updates.description?.trim();
+            if (!trimmed) {
+                throw new Error('Mô tả nhiệm vụ không được để trống');
+            }
+            payload.description = trimmed;
+        }
+
+        if (updates.priority !== undefined) payload.priority = updates.priority;
+        if (updates.status !== undefined) payload.status = updates.status;
+        if (updates.estimated_hours !== undefined) payload.estimated_hours = normalizeEstimatedHours(updates.estimated_hours);
+        if (updates.is_public !== undefined) payload.is_public = updates.is_public;
+        if (updates.work_type_id !== undefined) payload.work_type_id = updates.work_type_id;
+        if (updates.service_id !== undefined) payload.service_id = updates.service_id || null;
+        if (updates.image_url !== undefined) payload.image_url = updates.image_url || null;
+
+        const response = await apiClient.put(`/tasks/${taskId}`, payload, {
+            timeout: 10000
+        });
+
+        return {
+            success: true,
+            data: normalizeTask(response.data),
+            message: 'Cập nhật nhiệm vụ thành công'
+        };
+    } catch (error) {
+        if (error.response?.status === 404) {
+            throw new Error('Không tìm thấy nhiệm vụ');
+        }
+        throw new Error(extractErrorMessage(error, 'Không thể cập nhật nhiệm vụ'));
+    }
+};
+
+export const deleteTask = async (taskId) => {
+    if (!taskId) {
+        throw new Error('ID nhiệm vụ là bắt buộc');
+    }
+
+    try {
+        await apiClient.delete(`/tasks/${taskId}`, {
+            timeout: 10000
+        });
+
+        return {
+            success: true,
+            message: 'Xóa nhiệm vụ thành công'
+        };
+    } catch (error) {
+        if (error.response?.status === 404) {
+            throw new Error('Không tìm thấy nhiệm vụ');
+        }
+        throw new Error(extractErrorMessage(error, 'Không thể xóa nhiệm vụ'));
+    }
+};
+
+export const getTaskSlots = async (taskId, params = {}) => {
+    if (!taskId) {
+        throw new Error('ID nhiệm vụ là bắt buộc');
+    }
+
+    try {
+        const {
+            page_index = 0,
+            page_size = 10
+        } = params;
+
+        const response = await apiClient.get(`/tasks/${taskId}/slots`, {
+            params: {
+                page_index,
+                page_size,
+                _t: Date.now()
+            },
+            timeout: 10000,
+            headers: {
+                'Cache-Control': 'no-cache'
+            }
+        });
+
+        let slots = [];
+        let pagination = null;
+
+        if (Array.isArray(response.data)) {
+            slots = response.data;
+        } else if (response.data?.data) {
+            slots = response.data.data;
+            pagination = response.data.pagination || null;
+        } else if (response.data) {
+            slots = [response.data];
+        }
+
+        const finalPagination = buildPagination(
+            pagination,
+            slots.length,
+            page_size,
+            page_index
+        );
+
+        return {
+            success: true,
+            data: slots,
+            pagination: finalPagination
+        };
+    } catch (error) {
+        if (error.response?.status === 404) {
+            throw new Error('Không tìm thấy nhiệm vụ');
+        }
+        throw new Error(extractErrorMessage(error, 'Không thể tải danh sách ca của nhiệm vụ'));
+    }
+};
+
 export default {
-    getAllTasksData,
-    getTasksWithSlotsCount,
-    getServicesWithTaskInfo,
-    getSlotWithDetails,
-    getTeamsFromWorkShift,
-    createSlotFormData,
-    createServiceFormData,
-    createPublishSlotFormData,
-    validateSlotCapacity,
-    getTasksStatistics
+    getTasks,
+    getTaskById,
+    createTask,
+    updateTask,
+    deleteTask,
+    getTaskSlots
 };

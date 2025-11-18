@@ -1,14 +1,13 @@
-import React, { useMemo, useState } from 'react';
-import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Stack, Toolbar, TextField, Select, MenuItem, InputLabel, FormControl, IconButton, Button, Avatar, alpha, Dialog, DialogTitle, DialogContent, DialogActions, Divider, Grid, Menu, ListItemIcon, ListItemText } from '@mui/material';
-import { Add, Edit, Delete, Pets as PetsIcon, Visibility, Close, Vaccines, MoreVert } from '@mui/icons-material';
+import { useMemo, useState } from 'react';
+import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Stack, Toolbar, TextField, Select, MenuItem, InputLabel, FormControl, IconButton, Button, Avatar, alpha, Menu, ListItemIcon, ListItemText } from '@mui/material';
+import { Add, Edit, Delete, Pets as PetsIcon, Visibility, MoreVert } from '@mui/icons-material';
 import { COLORS } from '../../../constants/colors';
-import Loading from '../../../components/loading/Loading';
 import Pagination from '../../../components/common/Pagination';
 import ConfirmModal from '../../../components/modals/ConfirmModal';
 import AlertModal from '../../../components/modals/AlertModal';
 import AddPetModal from '../../../components/modals/AddPetModal';
-import { petApi } from '../../../api/petApi';
-import { vaccinationApi } from '../../../api/vaccinationApi';
+import ViewPetDetailsModal from '../../../components/modals/ViewPetDetailsModal';
+import petsApi from '../../../api/petsApi';
 
 const PetsTab = ({ pets, species, breeds, groups, onDataChange }) => {
     const [searchPet, setSearchPet] = useState('');
@@ -32,13 +31,19 @@ const PetsTab = ({ pets, species, breeds, groups, onDataChange }) => {
     const [menuAnchor, setMenuAnchor] = useState(null);
     const [menuPet, setMenuPet] = useState(null);
 
-    const [petDetailDialog, setPetDetailDialog] = useState({ open: false, pet: null, vaccinations: [] });
+    const [petDetailDialog, setPetDetailDialog] = useState({ open: false, pet: null, vaccinations: [], healthRecords: [] });
     const [detailLoading, setDetailLoading] = useState(false);
+
+    // Helper function to capitalize first letter
+    const capitalizeName = (name) => {
+        if (!name) return name;
+        return name.charAt(0).toUpperCase() + name.slice(1);
+    };
 
     // Get species name by ID
     const getSpeciesName = (speciesId) => {
         const sp = species.find(s => s.id === speciesId);
-        return sp ? sp.name : '—';
+        return sp ? capitalizeName(sp.name) : '—';
     };
 
     // Get breed name by ID
@@ -47,16 +52,59 @@ const PetsTab = ({ pets, species, breeds, groups, onDataChange }) => {
         return br ? br.name : '—';
     };
 
-    // Get pet health status
+    // Get pet health status from API health_status field
     const getPetHealthStatus = (pet) => {
-        if (pet.age < 1 || pet.age > 12) {
-            return { label: 'Cần theo dõi', color: COLORS.WARNING, bg: COLORS.WARNING[100] };
-        }
-        if (pet.weight < 2 || pet.weight > 50) {
-            return { label: 'Cần kiểm tra', color: COLORS.INFO, bg: COLORS.INFO[100] };
-        }
-        return { label: 'Khỏe mạnh', color: COLORS.SUCCESS, bg: COLORS.SUCCESS[100] };
+        const healthStatus = pet.health_status || 'HEALTHY';
+
+        const statusMap = {
+            'HEALTHY': { label: 'Khỏe mạnh', color: COLORS.SUCCESS, bg: COLORS.SUCCESS[100] },
+            'SICK': { label: 'Ốm', color: COLORS.ERROR, bg: COLORS.ERROR[100] },
+            'RECOVERING': { label: 'Đang hồi phục', color: COLORS.WARNING, bg: COLORS.WARNING[100] },
+            'UNDER_OBSERVATION': { label: 'Đang theo dõi', color: COLORS.WARNING, bg: COLORS.WARNING[100] },
+            'QUARANTINE': { label: 'Cách ly', color: COLORS.ERROR, bg: COLORS.ERROR[100] }
+        };
+
+        return statusMap[healthStatus] || statusMap['HEALTHY'];
     };
+
+    // Statistics
+    const stats = useMemo(() => {
+        const stats = {
+            total: pets.length,
+            male: 0,
+            female: 0,
+            healthy: 0,
+            sick: 0,
+            recovering: 0,
+            underObservation: 0,
+            quarantine: 0
+        };
+
+        pets.forEach(pet => {
+            // Count gender
+            if (pet.gender === 'Male') {
+                stats.male++;
+            } else if (pet.gender === 'Female') {
+                stats.female++;
+            }
+
+            // Count health status based on API health_status field
+            const healthStatus = pet.health_status || 'HEALTHY';
+            if (healthStatus === 'HEALTHY') {
+                stats.healthy++;
+            } else if (healthStatus === 'SICK') {
+                stats.sick++;
+            } else if (healthStatus === 'RECOVERING') {
+                stats.recovering++;
+            } else if (healthStatus === 'UNDER_OBSERVATION') {
+                stats.underObservation++;
+            } else if (healthStatus === 'QUARANTINE') {
+                stats.quarantine++;
+            }
+        });
+
+        return stats;
+    }, [pets]);
 
     // Filtered pets
     const filteredPets = useMemo(() => {
@@ -69,13 +117,13 @@ const PetsTab = ({ pets, species, breeds, groups, onDataChange }) => {
 
             let matchHealthStatus = true;
             if (filterHealthStatus !== 'all') {
-                const healthStatus = getPetHealthStatus(pet);
+                const healthStatus = pet.health_status || 'HEALTHY';
                 if (filterHealthStatus === 'healthy') {
-                    matchHealthStatus = healthStatus.label === 'Khỏe mạnh';
+                    matchHealthStatus = healthStatus === 'HEALTHY';
                 } else if (filterHealthStatus === 'needMonitoring') {
-                    matchHealthStatus = healthStatus.label === 'Cần theo dõi';
+                    matchHealthStatus = healthStatus === 'UNDER_OBSERVATION';
                 } else if (filterHealthStatus === 'needCheckup') {
-                    matchHealthStatus = healthStatus.label === 'Cần kiểm tra';
+                    matchHealthStatus = healthStatus === 'SICK' || healthStatus === 'QUARANTINE';
                 }
             }
 
@@ -123,15 +171,20 @@ const PetsTab = ({ pets, species, breeds, groups, onDataChange }) => {
 
             let response;
             if (editMode && selectedPet) {
-                // Edit: include group_id
+                // Edit: include group_id and health_status
                 const editData = {
                     ...baseData,
-                    group_id: petFormData.group_id || null
+                    group_id: petFormData.group_id || null,
+                    health_status: petFormData.health_status || selectedPet.health_status || 'HEALTHY'
                 };
-                response = await petApi.updatePet(selectedPet.id, editData);
+                response = await petsApi.updatePet(selectedPet.id, editData);
             } else {
-                // Create: NO group_id (match API)
-                response = await petApi.addPet(baseData);
+                // Create: NO group_id, include health_status
+                const createData = {
+                    ...baseData,
+                    health_status: petFormData.health_status || 'HEALTHY'
+                };
+                response = await petsApi.createPet(createData);
             }
 
             if (response.success) {
@@ -140,7 +193,7 @@ const PetsTab = ({ pets, species, breeds, groups, onDataChange }) => {
                 setAlert({
                     open: true,
                     title: 'Thành công',
-                    message: editMode ? 'Cập nhật thú cưng thành công!' : 'Thêm thú cưng mới thành công!',
+                    message: response.message || (editMode ? 'Cập nhật thú cưng thành công!' : 'Thêm thú cưng mới thành công!'),
                     type: 'success'
                 });
             }
@@ -164,13 +217,13 @@ const PetsTab = ({ pets, species, breeds, groups, onDataChange }) => {
 
     const confirmDelete = async () => {
         try {
-            const response = await petApi.deletePet(deleteTarget);
+            const response = await petsApi.deletePet(deleteTarget);
             if (response.success) {
                 await onDataChange();
                 setAlert({
                     open: true,
                     title: 'Thành công',
-                    message: 'Xóa thú cưng thành công!',
+                    message: response.message || 'Xóa thú cưng thành công!',
                     type: 'success'
                 });
             }
@@ -191,14 +244,28 @@ const PetsTab = ({ pets, species, breeds, groups, onDataChange }) => {
     const handleViewPetDetails = async (pet) => {
         try {
             setDetailLoading(true);
-            setPetDetailDialog({ open: true, pet, vaccinations: [] });
+            setPetDetailDialog({ open: true, pet, vaccinations: [], healthRecords: [] });
 
-            const vaccinationRes = await vaccinationApi.getVaccinationRecords(pet.id);
-            if (vaccinationRes.success) {
-                setPetDetailDialog(prev => ({ ...prev, vaccinations: vaccinationRes.data }));
-            }
+            // Load both vaccination records and health records in parallel
+            const [vaccinationRes, healthRecordsRes] = await Promise.all([
+                petsApi.getPetVaccinationRecords(pet.id),
+                petsApi.getPetHealthRecords(pet.id)
+            ]);
+
+            setPetDetailDialog(prev => ({
+                ...prev,
+                vaccinations: (vaccinationRes?.data && Array.isArray(vaccinationRes.data)) ? vaccinationRes.data : [],
+                healthRecords: (healthRecordsRes?.data && Array.isArray(healthRecordsRes.data)) ? healthRecordsRes.data : []
+            }));
         } catch (error) {
             console.error('Error loading pet details:', error);
+            setAlert({
+                open: true,
+                title: 'Lỗi',
+                message: error.message || 'Không thể tải thông tin chi tiết',
+                type: 'error'
+            });
+            setPetDetailDialog(prev => ({ ...prev, vaccinations: [], healthRecords: [] }));
         } finally {
             setDetailLoading(false);
         }
@@ -206,16 +273,67 @@ const PetsTab = ({ pets, species, breeds, groups, onDataChange }) => {
 
     return (
         <Box>
+            {/* Statistics */}
+            <Box
+                sx={{
+                    display: 'flex',
+                    flexWrap: 'nowrap',
+                    gap: 2,
+                    mb: 4,
+                    width: '100%',
+                    overflow: 'visible'
+                }}
+            >
+                {[
+                    { label: 'Tổng thú cưng', value: stats.total, color: COLORS.ERROR[500], valueColor: COLORS.ERROR[700] },
+                    { label: 'Đực', value: stats.male, color: COLORS.PRIMARY[500], valueColor: COLORS.PRIMARY[700] },
+                    { label: 'Cái', value: stats.female, color: COLORS.ERROR[500], valueColor: COLORS.ERROR[700] },
+                    { label: 'Khỏe mạnh', value: stats.healthy, color: COLORS.SUCCESS[500], valueColor: COLORS.SUCCESS[700] },
+                    { label: 'Ốm', value: stats.sick, color: COLORS.ERROR[500], valueColor: COLORS.ERROR[700] },
+                    { label: 'Đang hồi phục', value: stats.recovering, color: COLORS.WARNING[500], valueColor: COLORS.WARNING[700] },
+                    { label: 'Đang theo dõi', value: stats.underObservation, color: COLORS.WARNING[500], valueColor: COLORS.WARNING[700] },
+                    { label: 'Cách ly', value: stats.quarantine, color: COLORS.ERROR[500], valueColor: COLORS.ERROR[700] }
+                ].map((stat, index) => {
+                    const cardWidth = `calc((100% - ${7 * 16}px) / 8)`;
+                    return (
+                        <Box
+                            key={index}
+                            sx={{
+                                flex: `0 0 ${cardWidth}`,
+                                width: cardWidth,
+                                maxWidth: cardWidth,
+                                minWidth: 0
+                            }}
+                        >
+                            <Paper sx={{
+                                p: 2.5,
+                                borderTop: `4px solid ${stat.color}`,
+                                borderRadius: 2,
+                                height: '100%',
+                                boxShadow: `4px 6px 12px ${alpha(COLORS.SHADOW.LIGHT, 0.25)}, 0 4px 8px ${alpha(COLORS.SHADOW.LIGHT, 0.1)}, 2px 2px 4px ${alpha(COLORS.SHADOW.LIGHT, 0.15)}`
+                            }}>
+                                <Typography variant="body2" color="text.secondary" gutterBottom>
+                                    {stat.label}
+                                </Typography>
+                                <Typography variant="h4" fontWeight={600} color={stat.valueColor}>
+                                    {stat.value}
+                                </Typography>
+                            </Paper>
+                        </Box>
+                    );
+                })}
+            </Box>
+
             {/* Toolbar */}
-            <Toolbar disableGutters sx={{ gap: 2, flexWrap: 'wrap', mb: 2 }}>
+            <Toolbar disableGutters sx={{ gap: 2, flexWrap: 'nowrap', mb: 2, alignItems: 'center' }}>
                 <TextField
                     size="small"
                     placeholder="Tìm theo tên, màu sắc..."
                     value={searchPet}
                     onChange={(e) => setSearchPet(e.target.value)}
-                    sx={{ minWidth: { xs: '100%', sm: 280 } }}
+                    sx={{ flex: 1, minWidth: 0 }}
                 />
-                <FormControl size="small" sx={{ minWidth: 150 }}>
+                <FormControl size="small" sx={{ minWidth: 150, flexShrink: 0 }}>
                     <InputLabel>Loài</InputLabel>
                     <Select label="Loài" value={filterSpecies} onChange={(e) => setFilterSpecies(e.target.value)}>
                         <MenuItem value="all">Tất cả</MenuItem>
@@ -224,7 +342,7 @@ const PetsTab = ({ pets, species, breeds, groups, onDataChange }) => {
                         ))}
                     </Select>
                 </FormControl>
-                <FormControl size="small" sx={{ minWidth: 150 }}>
+                <FormControl size="small" sx={{ minWidth: 150, flexShrink: 0 }}>
                     <InputLabel>Giống</InputLabel>
                     <Select label="Giống" value={filterBreed} onChange={(e) => setFilterBreed(e.target.value)}>
                         <MenuItem value="all">Tất cả</MenuItem>
@@ -235,7 +353,7 @@ const PetsTab = ({ pets, species, breeds, groups, onDataChange }) => {
                             ))}
                     </Select>
                 </FormControl>
-                <FormControl size="small" sx={{ minWidth: 150 }}>
+                <FormControl size="small" sx={{ minWidth: 150, flexShrink: 0 }}>
                     <InputLabel>Giới tính</InputLabel>
                     <Select label="Giới tính" value={filterGender} onChange={(e) => setFilterGender(e.target.value)}>
                         <MenuItem value="all">Tất cả</MenuItem>
@@ -243,7 +361,7 @@ const PetsTab = ({ pets, species, breeds, groups, onDataChange }) => {
                         <MenuItem value="Female">Cái</MenuItem>
                     </Select>
                 </FormControl>
-                <FormControl size="small" sx={{ minWidth: 150 }}>
+                <FormControl size="small" sx={{ minWidth: 150, flexShrink: 0 }}>
                     <InputLabel>Trạng thái</InputLabel>
                     <Select label="Trạng thái" value={filterHealthStatus} onChange={(e) => setFilterHealthStatus(e.target.value)}>
                         <MenuItem value="all">Tất cả</MenuItem>
@@ -252,12 +370,16 @@ const PetsTab = ({ pets, species, breeds, groups, onDataChange }) => {
                         <MenuItem value="needCheckup">Cần kiểm tra</MenuItem>
                     </Select>
                 </FormControl>
-                <Box sx={{ flexGrow: 1 }} />
                 <Button
                     variant="contained"
                     startIcon={<Add />}
                     onClick={() => handleOpenPetDialog()}
-                    sx={{ backgroundColor: COLORS.ERROR[500], '&:hover': { backgroundColor: COLORS.ERROR[600] } }}
+                    sx={{
+                        backgroundColor: COLORS.ERROR[500],
+                        '&:hover': { backgroundColor: COLORS.ERROR[600] },
+                        flexShrink: 0,
+                        whiteSpace: 'nowrap'
+                    }}
                 >
                     Thêm thú cưng
                 </Button>
@@ -288,24 +410,26 @@ const PetsTab = ({ pets, species, breeds, groups, onDataChange }) => {
                     />
                 </Stack>
                 <TableContainer
+                    component={Paper}
                     sx={{
-                        borderRadius: 2,
-                        border: `1px solid ${alpha(COLORS.ERROR[200], 0.3)}`,
+                        borderRadius: 3,
+                        border: `2px solid ${alpha(COLORS.ERROR[200], 0.4)}`,
+                        boxShadow: `0 10px 24px ${alpha(COLORS.ERROR[200], 0.15)}`,
                         overflowX: 'auto'
                     }}
                 >
                     <Table size="medium" stickyHeader>
                         <TableHead>
                             <TableRow>
-                                <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.ERROR[50], 0.5) }}>Thú cưng</TableCell>
-                                <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.ERROR[50], 0.5) }}>Loài</TableCell>
-                                <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.ERROR[50], 0.5) }}>Giống</TableCell>
-                                <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.ERROR[50], 0.5), display: { xs: 'none', sm: 'table-cell' } }}>Tuổi</TableCell>
-                                <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.ERROR[50], 0.5), display: { xs: 'none', md: 'table-cell' } }}>Cân nặng</TableCell>
-                                <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.ERROR[50], 0.5), display: { xs: 'none', lg: 'table-cell' } }}>Giới tính</TableCell>
-                                <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.ERROR[50], 0.5), display: { xs: 'none', xl: 'table-cell' } }}>Màu sắc</TableCell>
-                                <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.ERROR[50], 0.5), display: { xs: 'none', lg: 'table-cell' } }}>Trạng thái</TableCell>
-                                <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.ERROR[50], 0.5), textAlign: 'right' }}>Thao tác</TableCell>
+                                <TableCell sx={{ fontWeight: 800 }}>Thú cưng</TableCell>
+                                <TableCell sx={{ fontWeight: 800 }}>Loài</TableCell>
+                                <TableCell sx={{ fontWeight: 800 }}>Giống</TableCell>
+                                <TableCell sx={{ fontWeight: 800, display: { xs: 'none', sm: 'table-cell' } }}>Tuổi</TableCell>
+                                <TableCell sx={{ fontWeight: 800, display: { xs: 'none', md: 'table-cell' } }}>Cân nặng</TableCell>
+                                <TableCell sx={{ fontWeight: 800, display: { xs: 'none', lg: 'table-cell' } }}>Giới tính</TableCell>
+                                <TableCell sx={{ fontWeight: 800, display: { xs: 'none', xl: 'table-cell' } }}>Màu sắc</TableCell>
+                                <TableCell sx={{ fontWeight: 800, display: { xs: 'none', lg: 'table-cell' } }}>Trạng thái</TableCell>
+                                <TableCell sx={{ fontWeight: 800, textAlign: 'right' }}>Thao tác</TableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>
@@ -410,222 +534,17 @@ const PetsTab = ({ pets, species, breeds, groups, onDataChange }) => {
             />
 
             {/* Detail Dialog */}
-            <Dialog
-                open={petDetailDialog.open}
-                onClose={() => setPetDetailDialog({ open: false, pet: null, vaccinations: [] })}
-                maxWidth="md"
-                fullWidth
-                PaperProps={{
-                    sx: {
-                        borderRadius: 3,
-                        boxShadow: `0 20px 60px ${alpha(COLORS.ERROR[900], 0.3)}`
-                    }
-                }}
-            >
-                <DialogTitle
-                    sx={{
-                        background: `linear-gradient(135deg, ${COLORS.ERROR[500]} 0%, ${COLORS.ERROR[700]} 100%)`,
-                        color: '#fff',
-                        fontWeight: 800,
-                        fontSize: '1.5rem',
-                        py: 2.5
-                    }}
-                >
-                    <Stack direction="row" alignItems="center" spacing={2}>
-                        <PetsIcon sx={{ fontSize: 32 }} />
-                        <Typography variant="h5" sx={{ fontWeight: 800, flexGrow: 1 }}>
-                            Chi tiết thú cưng
-                        </Typography>
-                        <IconButton
-                            onClick={() => setPetDetailDialog({ open: false, pet: null, vaccinations: [] })}
-                            sx={{
-                                color: '#fff',
-                                '&:hover': {
-                                    background: alpha('#fff', 0.2)
-                                }
-                            }}
-                        >
-                            <Close />
-                        </IconButton>
-                    </Stack>
-                </DialogTitle>
-                <DialogContent sx={{ p: 3, mt: 2 }}>
-                    {detailLoading ? (
-                        <Box sx={{ textAlign: 'center', py: 4 }}>
-                            <Loading message="Đang tải thông tin..." />
-                        </Box>
-                    ) : petDetailDialog.pet && (
-                        <Stack spacing={3}>
-                            <Paper
-                                elevation={0}
-                                sx={{
-                                    p: 2.5,
-                                    borderRadius: 2,
-                                    background: alpha(COLORS.ERROR[50], 0.3),
-                                    border: `2px solid ${alpha(COLORS.ERROR[200], 0.4)}`
-                                }}
-                            >
-                                <Typography variant="h6" sx={{ fontWeight: 800, color: COLORS.ERROR[700], mb: 2 }}>
-                                    🐾 Thông tin cơ bản
-                                </Typography>
-                                <Divider sx={{ mb: 2 }} />
-                                <Grid container spacing={2.5}>
-                                    <Grid item xs={12} sm={3}>
-                                        <Box sx={{ textAlign: 'center' }}>
-                                            <Avatar
-                                                src={petDetailDialog.pet.image || petDetailDialog.pet.image_url}
-                                                alt={petDetailDialog.pet.name}
-                                                sx={{
-                                                    width: 100,
-                                                    height: 100,
-                                                    margin: '0 auto',
-                                                    border: `3px solid ${COLORS.ERROR[300]}`,
-                                                    boxShadow: `0 4px 12px ${alpha(COLORS.ERROR[500], 0.2)}`
-                                                }}
-                                            />
-                                        </Box>
-                                    </Grid>
-                                    <Grid item xs={12} sm={9}>
-                                        <Stack spacing={1.5}>
-                                            <Stack direction="row" spacing={2}>
-                                                <Typography sx={{ width: '140px', color: COLORS.TEXT.SECONDARY, fontWeight: 600 }}>Tên:</Typography>
-                                                <Typography sx={{ fontWeight: 700, flex: 1 }}>{petDetailDialog.pet.name}</Typography>
-                                            </Stack>
-                                            <Stack direction="row" spacing={2}>
-                                                <Typography sx={{ width: '140px', color: COLORS.TEXT.SECONDARY, fontWeight: 600 }}>Loài:</Typography>
-                                                <Typography sx={{ flex: 1 }}>{getSpeciesName(petDetailDialog.pet.species_id)}</Typography>
-                                            </Stack>
-                                            <Stack direction="row" spacing={2}>
-                                                <Typography sx={{ width: '140px', color: COLORS.TEXT.SECONDARY, fontWeight: 600 }}>Giống:</Typography>
-                                                <Typography sx={{ flex: 1 }}>{getBreedName(petDetailDialog.pet.breed_id)}</Typography>
-                                            </Stack>
-                                            <Stack direction="row" spacing={2}>
-                                                <Typography sx={{ width: '140px', color: COLORS.TEXT.SECONDARY, fontWeight: 600 }}>Tuổi:</Typography>
-                                                <Typography sx={{ flex: 1 }}>{petDetailDialog.pet.age} tuổi</Typography>
-                                            </Stack>
-                                            <Stack direction="row" spacing={2}>
-                                                <Typography sx={{ width: '140px', color: COLORS.TEXT.SECONDARY, fontWeight: 600 }}>Cân nặng:</Typography>
-                                                <Typography sx={{ flex: 1 }}>{petDetailDialog.pet.weight} kg</Typography>
-                                            </Stack>
-                                            <Stack direction="row" spacing={2}>
-                                                <Typography sx={{ width: '140px', color: COLORS.TEXT.SECONDARY, fontWeight: 600 }}>Giới tính:</Typography>
-                                                <Typography sx={{ flex: 1 }}>
-                                                    {petDetailDialog.pet.gender === 'Male' ? '♂️ Đực' : '♀️ Cái'}
-                                                </Typography>
-                                            </Stack>
-                                            <Stack direction="row" spacing={2}>
-                                                <Typography sx={{ width: '140px', color: COLORS.TEXT.SECONDARY, fontWeight: 600 }}>Màu sắc:</Typography>
-                                                <Typography sx={{ flex: 1 }}>{petDetailDialog.pet.color}</Typography>
-                                            </Stack>
-                                            <Stack direction="row" spacing={2}>
-                                                <Typography sx={{ width: '140px', color: COLORS.TEXT.SECONDARY, fontWeight: 600 }}>Ngày đến quán:</Typography>
-                                                <Typography sx={{ flex: 1 }}>
-                                                    {petDetailDialog.pet.arrival_date ? new Date(petDetailDialog.pet.arrival_date).toLocaleDateString('vi-VN') : '—'}
-                                                </Typography>
-                                            </Stack>
-                                            {petDetailDialog.pet.group_id && (
-                                                <Stack direction="row" spacing={2}>
-                                                    <Typography sx={{ width: '140px', color: COLORS.TEXT.SECONDARY, fontWeight: 600 }}>Nhóm:</Typography>
-                                                    <Typography sx={{ flex: 1 }}>
-                                                        {groups.find(g => g.id === petDetailDialog.pet.group_id)?.name || '—'}
-                                                    </Typography>
-                                                </Stack>
-                                            )}
-                                            {petDetailDialog.pet.preferences && (
-                                                <Stack direction="row" spacing={2}>
-                                                    <Typography sx={{ width: '140px', color: COLORS.TEXT.SECONDARY, fontWeight: 600 }}>Sở thích:</Typography>
-                                                    <Typography sx={{ flex: 1 }}>{petDetailDialog.pet.preferences}</Typography>
-                                                </Stack>
-                                            )}
-                                            {petDetailDialog.pet.special_notes && (
-                                                <Stack direction="row" spacing={2}>
-                                                    <Typography sx={{ width: '140px', color: COLORS.TEXT.SECONDARY, fontWeight: 600 }}>Ghi chú đặc biệt:</Typography>
-                                                    <Typography sx={{ flex: 1 }}>{petDetailDialog.pet.special_notes}</Typography>
-                                                </Stack>
-                                            )}
-                                        </Stack>
-                                    </Grid>
-                                </Grid>
-                            </Paper>
-
-                            <Paper
-                                elevation={0}
-                                sx={{
-                                    p: 2.5,
-                                    borderRadius: 2,
-                                    background: alpha(COLORS.SUCCESS[50], 0.3),
-                                    border: `2px solid ${alpha(COLORS.SUCCESS[200], 0.4)}`
-                                }}
-                            >
-                                <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
-                                    <Vaccines sx={{ color: COLORS.SUCCESS[700], fontSize: 28 }} />
-                                    <Typography variant="h6" sx={{ fontWeight: 800, color: COLORS.SUCCESS[700] }}>
-                                        Hồ sơ tiêm phòng
-                                    </Typography>
-                                    <Chip
-                                        label={petDetailDialog.vaccinations.length}
-                                        size="small"
-                                        sx={{
-                                            background: alpha(COLORS.SUCCESS[100], 0.7),
-                                            color: COLORS.SUCCESS[800],
-                                            fontWeight: 700
-                                        }}
-                                    />
-                                </Stack>
-                                <Divider sx={{ mb: 2 }} />
-                                {petDetailDialog.vaccinations.length > 0 ? (
-                                    <Stack spacing={1.5}>
-                                        {petDetailDialog.vaccinations.map((vaccination, index) => (
-                                            <Paper
-                                                key={index}
-                                                elevation={0}
-                                                sx={{
-                                                    p: 2,
-                                                    background: '#fff',
-                                                    border: `1px solid ${alpha(COLORS.SUCCESS[200], 0.3)}`,
-                                                    borderRadius: 2
-                                                }}
-                                            >
-                                                <Stack direction="row" spacing={2} alignItems="center">
-                                                    <Box sx={{ flex: 1 }}>
-                                                        <Typography sx={{ fontWeight: 700, color: COLORS.SUCCESS[700] }}>
-                                                            {vaccination.vaccine_type?.name || 'Vaccine'}
-                                                        </Typography>
-                                                        <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY }}>
-                                                            Ngày tiêm: {new Date(vaccination.vaccination_date).toLocaleDateString('vi-VN')}
-                                                        </Typography>
-                                                    </Box>
-                                                </Stack>
-                                            </Paper>
-                                        ))}
-                                    </Stack>
-                                ) : (
-                                    <Typography sx={{ color: COLORS.TEXT.SECONDARY, textAlign: 'center', py: 2 }}>
-                                        Chưa có hồ sơ tiêm phòng
-                                    </Typography>
-                                )}
-                            </Paper>
-                        </Stack>
-                    )}
-                </DialogContent>
-                <DialogActions sx={{ p: 2.5, background: alpha(COLORS.BACKGROUND.NEUTRAL, 0.5) }}>
-                    <Button
-                        onClick={() => setPetDetailDialog({ open: false, pet: null, vaccinations: [] })}
-                        variant="contained"
-                        sx={{
-                            background: `linear-gradient(135deg, ${COLORS.ERROR[500]} 0%, ${COLORS.ERROR[700]} 100())`,
-                            color: '#fff',
-                            fontWeight: 700,
-                            px: 3,
-                            '&:hover': {
-                                background: `linear-gradient(135deg, ${COLORS.ERROR[600]} 0%, ${COLORS.ERROR[800]} 100())`
-                            }
-                        }}
-                    >
-                        Đóng
-                    </Button>
-                </DialogActions>
-            </Dialog>
+            <ViewPetDetailsModal
+                isOpen={petDetailDialog.open}
+                onClose={() => setPetDetailDialog({ open: false, pet: null, vaccinations: [], healthRecords: [] })}
+                pet={petDetailDialog.pet}
+                vaccinations={petDetailDialog.vaccinations}
+                healthRecords={petDetailDialog.healthRecords}
+                species={species}
+                breeds={breeds}
+                groups={groups}
+                isLoading={detailLoading}
+            />
 
             {/* Confirm Delete Modal */}
             <ConfirmModal
@@ -716,4 +635,3 @@ const PetsTab = ({ pets, species, breeds, groups, onDataChange }) => {
 };
 
 export default PetsTab;
-

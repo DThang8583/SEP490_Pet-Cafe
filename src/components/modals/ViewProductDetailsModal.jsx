@@ -1,36 +1,24 @@
-/**
- * ViewProductDetailsModal.jsx
- * 
- * Modal for viewing product details including recipe and material status
- * Shows which materials are in stock/out of stock
- */
-
-import React, { useState, useEffect } from 'react';
-import {
-    Dialog, DialogTitle, DialogContent, DialogActions, Button, Typography, Box,
-    Stack, Chip, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-    Paper, IconButton, alpha, Divider, Avatar
-} from '@mui/material';
-import {
-    Close, Restaurant, CheckCircle, Warning, Error as ErrorIcon, LocalCafe, Pets, Info, Block
-} from '@mui/icons-material';
+import React from 'react';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Typography, Box, Stack, Chip, Paper, IconButton, alpha, Divider, Avatar } from '@mui/material';
+import { Close, Restaurant, CheckCircle, Warning, Error as ErrorIcon, LocalCafe, Pets, Info, Block } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 import { formatPrice } from '../../utils/formatPrice';
-// Inventory removed: modal now only shows product fields
+import { API_BASE_URL } from '../../config/config';
 
 const ViewProductDetailsModal = ({ open, onClose, product }) => {
-    const [loading, setLoading] = useState(false);
-
-    useEffect(() => {
-        if (open && product) {
-            setLoading(false);
-        }
-    }, [open, product]);
-
     if (!product) return null;
 
+    // Helper function to get image URL
+    const getImageUrl = (imageUrl) => {
+        if (!imageUrl) return null;
+        if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+            return imageUrl;
+        }
+        const baseUrl = API_BASE_URL.replace('/api', '');
+        return imageUrl.startsWith('/') ? `${baseUrl}${imageUrl}` : `${baseUrl}/${imageUrl}`;
+    };
+
     const getCategoryLabel = (category) => {
-        // Handle if category is an object
         if (typeof category === 'object' && category?.name) {
             return category.name;
         }
@@ -53,11 +41,12 @@ const ViewProductDetailsModal = ({ open, onClose, product }) => {
     };
 
     const computeStatus = () => {
-        if (product && product.is_active === false) return 'disabled';
-        const remaining = typeof product?.remaining_quantity === 'number' ? product.remaining_quantity : undefined;
-        if (remaining !== undefined) {
-            if (remaining <= 0) return 'sold_out';
-            if (remaining <= 5) return 'low_quantity';
+        if (product?.is_active === false) return 'disabled';
+        const stock = typeof product?.stock_quantity === 'number' ? product.stock_quantity : undefined;
+        const minStock = typeof product?.min_stock_level === 'number' ? product.min_stock_level : 0;
+        if (stock !== undefined) {
+            if (stock <= 0) return 'sold_out';
+            if (stock <= minStock) return 'low_quantity';
         }
         return 'available';
     };
@@ -106,39 +95,27 @@ const ViewProductDetailsModal = ({ open, onClose, product }) => {
             onClose={onClose}
             maxWidth="md"
             fullWidth
+            disableScrollLock
             PaperProps={{
                 sx: {
                     borderRadius: 3,
-                    boxShadow: '0 8px 32px rgba(0,0,0,0.12)'
+                    boxShadow: `0 20px 60px ${alpha(COLORS.SHADOW.DARK, 0.3)}`
                 }
             }}
         >
-            {/* Header */}
-            <DialogTitle
+            <Box
                 sx={{
-                    bgcolor: COLORS.INFO[500],
-                    color: 'white',
-                    pb: 2
+                    background: `linear-gradient(135deg, ${alpha(COLORS.WARNING[50], 0.3)}, ${alpha(COLORS.SECONDARY[50], 0.2)})`,
+                    borderBottom: `3px solid ${COLORS.WARNING[500]}`
                 }}
             >
-                <Stack direction="row" spacing={2} alignItems="center">
-                    <Info sx={{ fontSize: 32 }} />
-                    <Box sx={{ flex: 1 }}>
-                        <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                            Chi tiết sản phẩm
-                        </Typography>
-                        <Typography variant="body2" sx={{ opacity: 0.9, mt: 0.5 }}>
-                            Thông tin chi tiết sản phẩm và số lượng
-                        </Typography>
-                    </Box>
-                    <IconButton onClick={onClose} sx={{ color: 'white' }}>
-                        <Close />
-                    </IconButton>
-                </Stack>
-            </DialogTitle>
+                <DialogTitle sx={{ fontWeight: 800, color: COLORS.WARNING[700], pb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Info />
+                    📦 Chi tiết sản phẩm: {product.name}
+                </DialogTitle>
+            </Box>
 
-            {/* Content */}
-            <DialogContent sx={{ pt: 3, pb: 2 }}>
+            <DialogContent sx={{ pt: 3, pb: 2, px: 3 }}>
                 <Stack spacing={3}>
                     {/* Product Info */}
                     <Paper
@@ -154,7 +131,7 @@ const ViewProductDetailsModal = ({ open, onClose, product }) => {
                         <Stack direction="row" spacing={3}>
                             {/* Product Image */}
                             <Avatar
-                                src={product.image_url || product.image}
+                                src={getImageUrl(product.image_url || product.image)}
                                 alt={product.name}
                                 variant="rounded"
                                 sx={{
@@ -162,7 +139,9 @@ const ViewProductDetailsModal = ({ open, onClose, product }) => {
                                     height: 120,
                                     boxShadow: 3
                                 }}
-                            />
+                            >
+                                <Restaurant />
+                            </Avatar>
 
                             {/* Product Details */}
                             <Box sx={{ flex: 1 }}>
@@ -191,7 +170,7 @@ const ViewProductDetailsModal = ({ open, onClose, product }) => {
                                     {product.description || 'Không có mô tả'}
                                 </Typography>
 
-                                <Stack direction="row" spacing={2}>
+                                <Stack direction="row" spacing={2} flexWrap="wrap">
                                     <Box
                                         sx={{
                                             p: 2,
@@ -209,6 +188,25 @@ const ViewProductDetailsModal = ({ open, onClose, product }) => {
                                             {formatPrice(product.price)}
                                         </Typography>
                                     </Box>
+                                    {typeof product.cost === 'number' && (
+                                        <Box
+                                            sx={{
+                                                p: 2,
+                                                borderRadius: 2,
+                                                bgcolor: alpha(COLORS.INFO[500], 0.1),
+                                                border: '2px solid',
+                                                borderColor: COLORS.INFO[300],
+                                                display: 'inline-block'
+                                            }}
+                                        >
+                                            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+                                                Giá vốn
+                                            </Typography>
+                                            <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.INFO[700] }}>
+                                                {formatPrice(product.cost)}
+                                            </Typography>
+                                        </Box>
+                                    )}
                                     <Box
                                         sx={{
                                             p: 2,
@@ -220,42 +218,41 @@ const ViewProductDetailsModal = ({ open, onClose, product }) => {
                                         }}
                                     >
                                         <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
-                                            Số lượng
+                                            Tồn kho
                                         </Typography>
                                         <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.PRIMARY[700] }}>
-                                            {typeof product.daily_quantity === 'number' ? product.daily_quantity : '—'}
+                                            {typeof product.stock_quantity === 'number' ? product.stock_quantity : '—'}
                                         </Typography>
                                     </Box>
-                                    <Box
-                                        sx={{
-                                            p: 2,
-                                            borderRadius: 2,
-                                            bgcolor: alpha(
-                                                product.remaining_quantity === 0 ? COLORS.ERROR[500] :
-                                                    product.remaining_quantity <= 5 ? COLORS.WARNING[500] :
-                                                        COLORS.INFO[500], 0.1
-                                            ),
-                                            border: '2px solid',
-                                            borderColor:
-                                                product.remaining_quantity === 0 ? COLORS.ERROR[300] :
-                                                    product.remaining_quantity <= 5 ? COLORS.WARNING[300] :
-                                                        COLORS.INFO[300],
-                                            display: 'inline-block'
-                                        }}
-                                    >
-                                        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
-                                            Còn lại
-                                        </Typography>
-                                        <Typography variant="h4" sx={{
-                                            fontWeight: 800,
-                                            color:
-                                                product.remaining_quantity === 0 ? COLORS.ERROR[700] :
-                                                    product.remaining_quantity <= 5 ? COLORS.WARNING[700] :
-                                                        COLORS.INFO[700]
-                                        }}>
-                                            {typeof product.remaining_quantity === 'number' ? product.remaining_quantity : '—'}
-                                        </Typography>
-                                    </Box>
+                                    {typeof product.min_stock_level === 'number' && (() => {
+                                        const stock = product.stock_quantity ?? 0;
+                                        const minStock = product.min_stock_level;
+                                        const isLow = stock <= minStock;
+                                        const isWarning = stock <= minStock * 1.5;
+                                        const bgColor = isLow ? COLORS.ERROR[500] : isWarning ? COLORS.WARNING[500] : COLORS.SUCCESS[500];
+                                        const borderColor = isLow ? COLORS.ERROR[300] : isWarning ? COLORS.WARNING[300] : COLORS.SUCCESS[300];
+                                        const textColor = isLow ? COLORS.ERROR[700] : isWarning ? COLORS.WARNING[700] : COLORS.SUCCESS[700];
+
+                                        return (
+                                            <Box
+                                                sx={{
+                                                    p: 2,
+                                                    borderRadius: 2,
+                                                    bgcolor: alpha(bgColor, 0.1),
+                                                    border: '2px solid',
+                                                    borderColor,
+                                                    display: 'inline-block'
+                                                }}
+                                            >
+                                                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+                                                    Mức tối thiểu
+                                                </Typography>
+                                                <Typography variant="h4" sx={{ fontWeight: 800, color: textColor }}>
+                                                    {minStock}
+                                                </Typography>
+                                            </Box>
+                                        );
+                                    })()}
                                 </Stack>
                             </Box>
                         </Stack>
@@ -278,10 +275,10 @@ const ViewProductDetailsModal = ({ open, onClose, product }) => {
                                 <ErrorIcon sx={{ color: COLORS.ERROR[600], fontSize: 32 }} />
                                 <Box>
                                     <Typography variant="subtitle2" sx={{ fontWeight: 700, color: COLORS.ERROR[700] }}>
-                                        Sản phẩm đã hết trong ngày
+                                        Sản phẩm đã hết tồn kho
                                     </Typography>
                                     <Typography variant="body2" color="text.secondary">
-                                        Số lượng sản phẩm quy định bán trong ngày đã hết. Hãy quay lại vào ngày mai hoặc liên hệ manager để cập nhật số lượng.
+                                        Số lượng tồn kho đã hết. Hãy nhập hàng để tiếp tục bán sản phẩm này.
                                     </Typography>
                                 </Box>
                             </Stack>
@@ -302,10 +299,10 @@ const ViewProductDetailsModal = ({ open, onClose, product }) => {
                                 <Warning sx={{ color: COLORS.WARNING[600], fontSize: 32 }} />
                                 <Box>
                                     <Typography variant="subtitle2" sx={{ fontWeight: 700, color: COLORS.WARNING[700] }}>
-                                        Sản phẩm sắp hết
+                                        Sản phẩm sắp hết tồn kho
                                     </Typography>
                                     <Typography variant="body2" color="text.secondary">
-                                        Chỉ còn {product.remaining_quantity} sản phẩm. Hãy đặt hàng sớm để không bỏ lỡ!
+                                        Tồn kho ({product.stock_quantity}) đang ở mức thấp (mức tối thiểu: {product.min_stock_level}). Hãy nhập hàng sớm!
                                     </Typography>
                                 </Box>
                             </Stack>
@@ -329,11 +326,75 @@ const ViewProductDetailsModal = ({ open, onClose, product }) => {
                                         Sản phẩm còn hàng
                                     </Typography>
                                     <Typography variant="body2" color="text.secondary">
-                                        Còn {product.remaining_quantity} sản phẩm trong ngày hôm nay. Sản phẩm sẵn sàng để bán.
+                                        Tồn kho: {product.stock_quantity} sản phẩm. Sản phẩm sẵn sàng để bán.
                                     </Typography>
                                 </Box>
                             </Stack>
                         </Paper>
+                    )}
+
+                    {/* Additional Info */}
+                    {(product.thumbnails?.length > 0 || product.created_at || product.updated_at) && (
+                        <>
+                            <Divider />
+                            <Paper
+                                elevation={0}
+                                sx={{
+                                    p: 2,
+                                    borderRadius: 2,
+                                    border: '1px solid',
+                                    borderColor: 'divider',
+                                    bgcolor: alpha(COLORS.GRAY[50], 0.5)
+                                }}
+                            >
+                                <Typography variant="subtitle2" fontWeight={600} color={COLORS.PRIMARY[700]} gutterBottom>
+                                    📸 Thông tin bổ sung
+                                </Typography>
+                                <Stack spacing={1.5} sx={{ mt: 1.5 }}>
+                                    {product.thumbnails?.length > 0 && (
+                                        <Box>
+                                            <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, display: 'block', mb: 1 }}>
+                                                Ảnh phụ ({product.thumbnails.length})
+                                            </Typography>
+                                            <Stack direction="row" spacing={1} flexWrap="wrap">
+                                                {product.thumbnails.map((thumb, idx) => (
+                                                    <Avatar
+                                                        key={idx}
+                                                        src={getImageUrl(thumb)}
+                                                        variant="rounded"
+                                                        sx={{ width: 60, height: 60 }}
+                                                    >
+                                                        <Restaurant />
+                                                    </Avatar>
+                                                ))}
+                                            </Stack>
+                                        </Box>
+                                    )}
+                                    <Stack direction="row" spacing={3} flexWrap="wrap">
+                                        {product.created_at && (
+                                            <Box>
+                                                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, display: 'block' }}>
+                                                    Ngày tạo
+                                                </Typography>
+                                                <Typography variant="body2">
+                                                    {new Date(product.created_at).toLocaleString('vi-VN')}
+                                                </Typography>
+                                            </Box>
+                                        )}
+                                        {product.updated_at && (
+                                            <Box>
+                                                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, display: 'block' }}>
+                                                    Cập nhật lần cuối
+                                                </Typography>
+                                                <Typography variant="body2">
+                                                    {new Date(product.updated_at).toLocaleString('vi-VN')}
+                                                </Typography>
+                                            </Box>
+                                        )}
+                                    </Stack>
+                                </Stack>
+                            </Paper>
+                        </>
                     )}
 
                     {computeStatus() === 'disabled' && (
@@ -362,8 +423,7 @@ const ViewProductDetailsModal = ({ open, onClose, product }) => {
                 </Stack>
             </DialogContent>
 
-            {/* Actions */}
-            <DialogActions sx={{ px: 3, py: 2, bgcolor: alpha(COLORS.INFO[500], 0.02) }}>
+            <DialogActions sx={{ px: 3, py: 2, borderTop: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.1)}` }}>
                 <Button onClick={onClose} variant="contained" color="info">
                     Đóng
                 </Button>

@@ -36,16 +36,16 @@ const RoleBasedRedirect = () => {
                     background: `linear-gradient(135deg, ${COLORS.BACKGROUND.NEUTRAL} 0%, ${COLORS.PRIMARY[50]} 100%)`
                 }}
             >
-                <CircularProgress 
-                    size={60} 
-                    sx={{ 
+                <CircularProgress
+                    size={60}
+                    sx={{
                         color: COLORS.ERROR[500],
                         mb: 2
-                    }} 
+                    }}
                 />
-                <Typography 
-                    variant="h6" 
-                    sx={{ 
+                <Typography
+                    variant="h6"
+                    sx={{
                         color: COLORS.TEXT.SECONDARY,
                         fontWeight: 500
                     }}
@@ -62,7 +62,7 @@ const RoleBasedRedirect = () => {
     } else if (userRole === 'sales_staff') {
         return <Navigate to="/sales/dashboard" replace />;
     } else if (userRole === 'working_staff') {
-        return <Navigate to="/manager/dashboard" replace />;
+        return <Navigate to="/staff/dashboard" replace />;
     } else if (userRole === 'customer' || !userRole) {
         // For customers or unauthenticated users, show HomePage
         return <Navigate to="/home" replace />;

@@ -1,32 +1,5 @@
-import { MOCK_WORK_TYPES } from './mockData';
-
-const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-const generateId = () => {
-    return `${Date.now().toString(36)}-${Math.random().toString(36).substr(2, 9)}`;
-};
-
-// Auth helper
-const getCurrentUser = () => {
-    const userStr = localStorage.getItem('currentUser');
-    return userStr ? JSON.parse(userStr) : null;
-};
-
-// Permission check
-const checkPermission = (user, permission) => {
-    if (!user) return false;
-
-    const rolePermissions = {
-        'customer': [],
-        'working_staff': [],
-        'sales_staff': [],
-        'manager': ['task_management', 'service_management', 'full_access'],
-        'admin': ['full_access']
-    };
-
-    const userPermissions = rolePermissions[user.role] || [];
-    return userPermissions.includes(permission) || userPermissions.includes('full_access');
-};
+import apiClient from '../config/config';
+import workTypeApi from './workTypeApi';
 
 // ========== CONSTANTS ==========
 
@@ -42,470 +15,405 @@ export const TASK_PRIORITY = {
     URGENT: 'URGENT'
 };
 
-export const TASK_TYPES = [
-    { key: 'cleaning', name: 'Dọn dẹp', icon: '🧹', color: '#4CAF50' },
-    { key: 'feeding', name: 'Cho pet ăn', icon: '🍖', color: '#FF9800' },
-    { key: 'cashier', name: 'Thu ngân', icon: '💰', color: '#2196F3' },
-    { key: 'service', name: 'Làm service', icon: '✨', color: '#9C27B0' },
-];
+// ========== CACHE ==========
 
-// ========== MOCK DATABASE ==========
+let TASK_CACHE = [];
 
-const getWorkTypeById = (id) => MOCK_WORK_TYPES.find(wt => wt.id === id);
+// ========== HELPER FUNCTIONS ==========
 
-let MOCK_TASK_TEMPLATES = [
-    {
-        id: 'cfa75dab-16cf-4978-b9fb-e6da47034108',
-        title: 'hướng dẫn khách chơi với  mèo',
-        image_url: null,
-        description: 'Quan sát hành vi, kiểm tra mắt/mũi, dọn dẹp và bổ sung cát vệ sinh cho tất cả các hộp cát trong khu vực mèo trước khi mở cửa ,  tiếp  đón  và phục vụ khách  trong khu vực',
-        priority: TASK_PRIORITY.MEDIUM,
-        status: TASK_STATUS.ACTIVE,
-        is_public: true, // Công khai - đã có service
-        is_recurring: true,
-        estimated_hours: 1,
-        work_type_id: '7e7477a6-f481-4df6-b3fd-626944475fb5',
-        service_id: 'caa26439-478e-4892-861f-1aab0a41ba4b',
-        work_type: getWorkTypeById('7e7477a6-f481-4df6-b3fd-626944475fb5'),
-        service: null,
-        slots: [],
-        daily_tasks: [],
-        created_at: '2025-10-27T13:43:29.800464+00:00',
-        created_by: '00000000-0000-0000-0000-000000000000',
-        updated_at: '2025-10-27T16:05:43.850522+00:00',
-        updated_by: '00000000-0000-0000-0000-000000000000',
-        is_deleted: false
-    },
-    {
-        id: '752a0719-64a4-49b7-85ff-b266216667b9',
-        title: 'dọn  dẹp vệ sinh khu  vực mèo',
-        image_url: null,
-        description: 'dọn  dẹp vệ sinh khu  vực mèo',
-        priority: TASK_PRIORITY.MEDIUM,
-        status: TASK_STATUS.ACTIVE,
-        is_public: true, // Công khai - đã có service
-        is_recurring: true,
-        estimated_hours: 1,
-        work_type_id: '7e7477a6-f481-4df6-b3fd-626944475fb5',
-        service_id: null,
-        work_type: getWorkTypeById('7e7477a6-f481-4df6-b3fd-626944475fb5'),
-        service: null,
-        slots: [],
-        daily_tasks: [],
-        created_at: '2025-10-28T14:14:07.355437+00:00',
-        created_by: '00000000-0000-0000-0000-000000000000',
-        updated_at: '2025-10-28T14:14:07.355437+00:00',
-        updated_by: null,
-        is_deleted: false
-    },
-    {
-        id: '863b1830-75b5-5ac8-96gg-c377327778c0',
-        title: 'Cho mèo ăn sáng',
-        image_url: null,
-        description: 'Chuẩn bị và phân phối thức ăn sáng cho mèo theo khẩu phần riêng của từng bé',
-        priority: TASK_PRIORITY.URGENT,
-        status: TASK_STATUS.ACTIVE,
-        is_public: true, // Công khai - chưa có service
-        is_recurring: true,
-        estimated_hours: 0.5,
-        work_type_id: '7e7477a6-f481-4df6-b3fd-626944475fb5',
-        service_id: null,
-        work_type: getWorkTypeById('7e7477a6-f481-4df6-b3fd-626944475fb5'),
-        service: null,
-        slots: [],
-        daily_tasks: [],
-        created_at: '2025-10-27T07:00:00.000000+00:00',
-        created_by: '00000000-0000-0000-0000-000000000000',
-        updated_at: '2025-10-27T07:00:00.000000+00:00',
-        updated_by: null,
-        is_deleted: false
-    },
-    {
-        id: '974c2941-86c6-6bd9-a7hh-d488438889d1',
-        title: 'Kiểm tra sức khỏe mèo định kỳ',
-        image_url: null,
-        description: 'Kiểm tra thân nhiệt, hành vi, mắt, tai, và tình trạng ăn uống của từng bé mèo hàng ngày',
-        priority: TASK_PRIORITY.HIGH,
-        status: TASK_STATUS.ACTIVE,
-        is_public: true, // Công khai - chưa có service
-        is_recurring: true,
-        estimated_hours: 1,
-        work_type_id: '7e7477a6-f481-4df6-b3fd-626944475fb5',
-        service_id: null,
-        work_type: getWorkTypeById('7e7477a6-f481-4df6-b3fd-626944475fb5'),
-        service: null,
-        slots: [],
-        daily_tasks: [],
-        created_at: '2025-10-27T09:00:00.000000+00:00',
-        created_by: '00000000-0000-0000-0000-000000000000',
-        updated_at: '2025-10-27T09:00:00.000000+00:00',
-        updated_by: null,
-        is_deleted: false
-    },
-    {
-        id: '123e4567-e89b-12d3-a456-426614174000',
-        title: 'Cho chó ăn sáng',
-        image_url: null,
-        description: 'Chuẩn bị và cho chó ăn sáng theo khẩu phần, đảm bảo dinh dưỡng đầy đủ',
-        priority: TASK_PRIORITY.URGENT,
-        status: TASK_STATUS.ACTIVE,
-        is_public: false,
-        is_recurring: true,
-        estimated_hours: 0.5,
-        work_type_id: 'b0c8a471-3b55-4038-9642-b598c072ea45',
-        service_id: 'dbb37550-589f-5993-972g-2bbc1b52cb5c',
-        work_type: getWorkTypeById('b0c8a471-3b55-4038-9642-b598c072ea45'),
-        service: null,
-        slots: [],
-        daily_tasks: [],
-        created_at: '2025-10-28T08:00:00.000000+00:00',
-        created_by: '00000000-0000-0000-0000-000000000000',
-        updated_at: '2025-10-28T08:00:00.000000+00:00',
-        updated_by: null,
-        is_deleted: false
-    },
-    {
-        id: 'a85f5678-f9ac-23e4-b567-537725285111',
-        title: 'Dắt chó đi dạo',
-        image_url: null,
-        description: 'Dắt chó đi dạo trong khu vực an toàn, tập thể dục và vận động buổi sáng',
-        priority: TASK_PRIORITY.MEDIUM,
-        status: TASK_STATUS.ACTIVE,
-        is_public: false,
-        is_recurring: true,
-        estimated_hours: 1,
-        work_type_id: 'b0c8a471-3b55-4038-9642-b598c072ea45',
-        service_id: null,
-        work_type: getWorkTypeById('b0c8a471-3b55-4038-9642-b598c072ea45'),
-        service: null,
-        slots: [],
-        daily_tasks: [],
-        created_at: '2025-10-28T09:00:00.000000+00:00',
-        created_by: '00000000-0000-0000-0000-000000000000',
-        updated_at: '2025-10-28T09:00:00.000000+00:00',
-        updated_by: null,
-        is_deleted: false
-    },
-    {
-        id: 'b96g6789-g0bd-34f5-c678-648836396222',
-        title: 'Huấn luyện cơ bản cho chó',
-        image_url: null,
-        description: 'Huấn luyện các lệnh cơ bản: ngồi, nằm, ở lại, đến cho chó trong thời gian vui chơi với khách',
-        priority: TASK_PRIORITY.LOW,
-        status: TASK_STATUS.ACTIVE,
-        is_public: false,
-        is_recurring: true,
-        estimated_hours: 2,
-        work_type_id: 'b0c8a471-3b55-4038-9642-b598c072ea45',
-        service_id: 'dbb37550-589f-5993-972g-2bbc1b52cb5c',
-        work_type: getWorkTypeById('b0c8a471-3b55-4038-9642-b598c072ea45'),
-        service: null,
-        slots: [],
-        daily_tasks: [],
-        created_at: '2025-10-28T10:00:00.000000+00:00',
-        created_by: '00000000-0000-0000-0000-000000000000',
-        updated_at: '2025-10-28T10:00:00.000000+00:00',
-        updated_by: null,
-        is_deleted: false
-    },
-    {
-        id: 'c07h7890-h1ce-45g6-d789-759947407333',
-        title: 'Vệ sinh Dog Play Area',
-        image_url: null,
-        description: 'Dọn dẹp khu vực chơi của chó, khử trùng thiết bị, kiểm tra và sửa chữa đồ chơi hư hỏng',
-        priority: TASK_PRIORITY.HIGH,
-        status: TASK_STATUS.ACTIVE,
-        is_public: false,
-        is_recurring: true,
-        estimated_hours: 1.5,
-        work_type_id: 'b0c8a471-3b55-4038-9642-b598c072ea45',
-        service_id: null,
-        work_type: getWorkTypeById('b0c8a471-3b55-4038-9642-b598c072ea45'),
-        service: null,
-        slots: [],
-        daily_tasks: [],
-        created_at: '2025-10-28T14:30:00.000000+00:00',
-        created_by: '00000000-0000-0000-0000-000000000000',
-        updated_at: '2025-10-28T14:30:00.000000+00:00',
-        updated_by: null,
-        is_deleted: false
+/**
+ * Build pagination object from API response or calculate from data
+ */
+const buildPagination = (pagination, totalItems, pageSize, pageIndex) => {
+    if (pagination) {
+        return {
+            total_items_count: pagination.total_items_count ?? totalItems,
+            page_size: pagination.page_size ?? pageSize,
+            total_pages_count: pagination.total_pages_count ?? (Math.ceil((pagination.total_items_count ?? totalItems) / (pagination.page_size ?? pageSize)) || 0),
+            page_index: pagination.page_index ?? pageIndex,
+            has_next: pagination.has_next ?? ((pagination.page_index ?? pageIndex) + 1 < ((pagination.total_pages_count ?? 0))),
+            has_previous: pagination.has_previous ?? ((pagination.page_index ?? pageIndex) > 0)
+        };
     }
-];
+
+    return {
+        total_items_count: totalItems,
+        page_size: pageSize,
+        total_pages_count: Math.ceil(totalItems / pageSize) || 0,
+        page_index: pageIndex,
+        has_next: (pageIndex + 1) * pageSize < totalItems,
+        has_previous: pageIndex > 0
+    };
+};
+
+/**
+ * Normalize task data from API response
+ */
+const normalizeTask = (task) => {
+    if (!task) return null;
+    return {
+        ...task,
+        image_url: task.image_url || null,
+        service: task.service || null,
+        work_type: task.work_type || null,
+        estimated_hours: typeof task.estimated_hours === 'number'
+            ? task.estimated_hours
+            : Number(task.estimated_hours) || 0
+    };
+};
+
+/**
+ * Normalize estimated hours value to a valid number
+ */
+const normalizeEstimatedHours = (value) => {
+    if (value === null || value === undefined || value === '') {
+        return 0;
+    }
+    const parsed = Number(value);
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+};
+
+/**
+ * Extract error message from API error response
+ */
+const extractErrorMessage = (error, defaultMessage) => {
+    if (error.response?.data) {
+        const { message, error: errorMsg, errors } = error.response.data;
+        if (Array.isArray(message)) {
+            return message.join('. ');
+        }
+        if (typeof message === 'string') {
+            return message;
+        }
+        if (Array.isArray(errorMsg)) {
+            return errorMsg.join('. ');
+        }
+        if (typeof errorMsg === 'string') {
+            return errorMsg;
+        }
+        if (errors && typeof errors === 'object') {
+            const combined = Object.values(errors).flat().join('. ');
+            if (combined) return combined;
+        }
+    }
+    return error.message || defaultMessage;
+};
 
 // ========== API FUNCTIONS ==========
 
 const taskTemplateApi = {
     /**
-     * Get all task templates
-     * @param {Object} filters - Filter options
-     * @returns {Promise<Object>}
+     * Get all task templates with pagination and filters
+     * Official API: GET /api/tasks
      */
     async getAllTaskTemplates(filters = {}) {
-        await delay(300);
-        const currentUser = getCurrentUser();
+        try {
+            const {
+                page_index = 0,
+                page_size = 100,
+                work_type_id,
+                status,
+                priority,
+                is_public,
+                search
+            } = filters;
 
-        if (!checkPermission(currentUser, 'task_management')) {
-            throw new Error('Không có quyền xem danh sách task template');
-        }
+            const params = {
+                page_index,
+                page_size,
+                _t: Date.now()
+            };
 
-        let templates = [...MOCK_TASK_TEMPLATES].filter(t => !t.is_deleted);
-
-        // Apply filters
-        if (filters.status) {
-            templates = templates.filter(t => t.status === filters.status);
-        }
-
-        if (filters.priority) {
-            templates = templates.filter(t => t.priority === filters.priority);
-        }
-
-        if (filters.work_type_id) {
-            templates = templates.filter(t => t.work_type_id === filters.work_type_id);
-        }
-
-        if (filters.search) {
-            const searchLower = filters.search.toLowerCase();
-            templates = templates.filter(t =>
-                t.title.toLowerCase().includes(searchLower) ||
-                t.description.toLowerCase().includes(searchLower)
-            );
-        }
-
-        // Sort by created_at (newest first)
-        templates.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-
-        return {
-            success: true,
-            data: templates,
-            pagination: {
-                total_items_count: templates.length,
-                page_size: 100,
-                total_pages_count: 1,
-                page_index: 0,
-                has_next: false,
-                has_previous: false
+            if (work_type_id) {
+                params.work_type_id = work_type_id;
             }
-        };
+            if (status) {
+                params.status = status;
+            }
+            if (priority) {
+                params.priority = priority;
+            }
+            if (is_public !== undefined && is_public !== 'all') {
+                params.is_public = is_public;
+            }
+            if (search) {
+                params.search = search;
+            }
+
+            const response = await apiClient.get('/tasks', {
+                params,
+                timeout: 10000,
+                headers: {
+                    'Cache-Control': 'no-cache'
+                }
+            });
+
+            let tasks = [];
+            let pagination = null;
+
+            if (Array.isArray(response.data)) {
+                tasks = response.data;
+            } else if (response.data?.data) {
+                tasks = response.data.data;
+                pagination = response.data.pagination || null;
+            } else if (response.data) {
+                tasks = [response.data];
+            }
+
+            const normalizedTasks = tasks.map(normalizeTask);
+
+            TASK_CACHE.splice(0, TASK_CACHE.length, ...normalizedTasks);
+
+            const finalPagination = buildPagination(
+                pagination,
+                normalizedTasks.length,
+                page_size,
+                page_index
+            );
+
+            return {
+                success: true,
+                data: normalizedTasks,
+                pagination: finalPagination
+            };
+        } catch (error) {
+            throw new Error(extractErrorMessage(error, 'Không thể tải danh sách nhiệm vụ'));
+        }
     },
 
     /**
      * Get task template by ID
-     * @param {string} templateId 
-     * @returns {Promise<Object>}
+     * Official API: GET /api/tasks/{id}
      */
     async getTaskTemplateById(templateId) {
-        await delay(200);
-        const currentUser = getCurrentUser();
-
-        if (!checkPermission(currentUser, 'task_management')) {
-            throw new Error('Không có quyền xem task template');
+        if (!templateId) {
+            throw new Error('ID nhiệm vụ là bắt buộc');
         }
 
-        const template = MOCK_TASK_TEMPLATES.find(t => t.id === templateId && !t.is_deleted);
+        try {
+            const response = await apiClient.get(`/tasks/${templateId}`, {
+                params: { _t: Date.now() },
+                timeout: 10000
+            });
 
-        if (!template) {
-            throw new Error('Không tìm thấy task template');
+            return {
+                success: true,
+                data: normalizeTask(response.data)
+            };
+        } catch (error) {
+            if (error.response?.status === 404) {
+                throw new Error('Không tìm thấy nhiệm vụ');
+            }
+            throw new Error(extractErrorMessage(error, 'Không thể tải thông tin nhiệm vụ'));
         }
-
-        return {
-            success: true,
-            data: template
-        };
     },
 
     /**
-     * Create new task template
-     * @param {Object} templateData 
-     * @returns {Promise<Object>}
+     * Create a new task template
+     * Official API: POST /api/tasks
+     * Payload: { title, description, priority, status, estimated_hours, is_public, work_type_id }
      */
     async createTaskTemplate(templateData) {
-        await delay(500);
-        const currentUser = getCurrentUser();
+        try {
+            // Build payload according to official API POST /api/tasks specification
+            const payload = {
+                title: templateData.title?.trim(),
+                description: templateData.description?.trim(),
+                priority: templateData.priority || TASK_PRIORITY.MEDIUM,
+                status: templateData.status || TASK_STATUS.ACTIVE,
+                estimated_hours: normalizeEstimatedHours(templateData.estimated_hours),
+                is_public: templateData.is_public ?? false,
+                work_type_id: templateData.work_type_id
+            };
 
-        if (!checkPermission(currentUser, 'task_management')) {
-            throw new Error('Không có quyền tạo task template');
+            if (!payload.title) {
+                throw new Error('Tên nhiệm vụ là bắt buộc');
+            }
+
+            if (!payload.description) {
+                throw new Error('Mô tả nhiệm vụ là bắt buộc');
+            }
+
+            if (!payload.work_type_id) {
+                throw new Error('Loại công việc là bắt buộc');
+            }
+
+            const response = await apiClient.post('/tasks', payload, {
+                timeout: 10000
+            });
+
+            const createdTask = normalizeTask(response.data);
+            TASK_CACHE.push(createdTask);
+
+            return {
+                success: true,
+                data: createdTask,
+                message: 'Tạo nhiệm vụ thành công'
+            };
+        } catch (error) {
+            throw new Error(extractErrorMessage(error, 'Không thể tạo nhiệm vụ'));
         }
-
-        // Validation
-        if (!templateData.title || !templateData.title.trim()) {
-            throw new Error('Tên nhiệm vụ là bắt buộc');
-        }
-
-        if (!templateData.description || !templateData.description.trim()) {
-            throw new Error('Mô tả nhiệm vụ là bắt buộc');
-        }
-
-        if (!templateData.work_type_id) {
-            throw new Error('Loại công việc là bắt buộc');
-        }
-
-        // Get work type
-        const workType = MOCK_WORK_TYPES.find(wt => wt.id === templateData.work_type_id);
-
-        // Create new template
-        const newTemplate = {
-            id: generateId(),
-            title: templateData.title.trim(),
-            image_url: templateData.image_url || null,
-            description: templateData.description.trim(),
-            priority: templateData.priority || TASK_PRIORITY.MEDIUM,
-            status: templateData.status || TASK_STATUS.ACTIVE,
-            is_public: templateData.is_public || false,
-            is_recurring: templateData.is_recurring || false,
-            estimated_hours: templateData.estimated_hours || 1,
-            work_type_id: templateData.work_type_id,
-            service_id: templateData.service_id || null,
-            work_type: workType || null,
-            service: null,
-            slots: [],
-            daily_tasks: [],
-            created_at: new Date().toISOString(),
-            created_by: currentUser?.id || '00000000-0000-0000-0000-000000000000',
-            updated_at: new Date().toISOString(),
-            updated_by: null,
-            is_deleted: false
-        };
-
-        MOCK_TASK_TEMPLATES.push(newTemplate);
-
-        return {
-            success: true,
-            data: newTemplate,
-            message: 'Tạo nhiệm vụ thành công'
-        };
     },
 
     /**
-     * Update task template
-     * @param {string} templateId 
-     * @param {Object} updates 
-     * @returns {Promise<Object>}
+     * Update an existing task template
+     * Official API: PUT /api/tasks/{id}
      */
     async updateTaskTemplate(templateId, updates) {
-        await delay(400);
-        const currentUser = getCurrentUser();
-
-        if (!checkPermission(currentUser, 'task_management')) {
-            throw new Error('Không có quyền cập nhật task template');
+        if (!templateId) {
+            throw new Error('ID nhiệm vụ là bắt buộc');
         }
 
-        const templateIndex = MOCK_TASK_TEMPLATES.findIndex(t => t.id === templateId && !t.is_deleted);
+        try {
+            const payload = {};
 
-        if (templateIndex === -1) {
-            throw new Error('Không tìm thấy task template');
+            if (updates.title !== undefined) {
+                const trimmed = updates.title?.trim();
+                if (!trimmed) {
+                    throw new Error('Tên nhiệm vụ không được để trống');
+                }
+                payload.title = trimmed;
+            }
+
+            if (updates.description !== undefined) {
+                const trimmed = updates.description?.trim();
+                if (!trimmed) {
+                    throw new Error('Mô tả nhiệm vụ không được để trống');
+                }
+                payload.description = trimmed;
+            }
+
+            if (updates.priority !== undefined) {
+                payload.priority = updates.priority;
+            }
+
+            if (updates.status !== undefined) {
+                payload.status = updates.status;
+            }
+
+            if (updates.estimated_hours !== undefined) {
+                payload.estimated_hours = normalizeEstimatedHours(updates.estimated_hours);
+            }
+
+            if (updates.is_public !== undefined) {
+                payload.is_public = updates.is_public;
+            }
+
+            if (updates.work_type_id !== undefined) {
+                payload.work_type_id = updates.work_type_id;
+            }
+
+            if (updates.service_id !== undefined) {
+                payload.service_id = updates.service_id || null;
+            }
+
+            if (updates.image_url !== undefined) {
+                payload.image_url = updates.image_url || null;
+            }
+
+            const response = await apiClient.put(`/tasks/${templateId}`, payload, {
+                timeout: 10000
+            });
+
+            const updatedTask = normalizeTask(response.data);
+            const cacheIndex = TASK_CACHE.findIndex(task => task.id === updatedTask?.id);
+            if (cacheIndex !== -1) {
+                TASK_CACHE[cacheIndex] = updatedTask;
+            }
+
+            return {
+                success: true,
+                data: updatedTask,
+                message: 'Cập nhật nhiệm vụ thành công'
+            };
+        } catch (error) {
+            if (error.response?.status === 404) {
+                throw new Error('Không tìm thấy nhiệm vụ');
+            }
+            throw new Error(extractErrorMessage(error, 'Không thể cập nhật nhiệm vụ'));
         }
-
-        // Validation
-        if (updates.title !== undefined && (!updates.title || !updates.title.trim())) {
-            throw new Error('Tên nhiệm vụ không được để trống');
-        }
-
-        if (updates.description !== undefined && (!updates.description || !updates.description.trim())) {
-            throw new Error('Mô tả nhiệm vụ không được để trống');
-        }
-
-        // Get work type if changed
-        let workType = MOCK_TASK_TEMPLATES[templateIndex].work_type;
-        if (updates.work_type_id) {
-            workType = MOCK_WORK_TYPES.find(wt => wt.id === updates.work_type_id) || workType;
-        }
-
-        // Apply updates
-        const updatedTemplate = {
-            ...MOCK_TASK_TEMPLATES[templateIndex],
-            ...updates,
-            work_type: workType,
-            updated_at: new Date().toISOString(),
-            updated_by: currentUser?.id || '00000000-0000-0000-0000-000000000000'
-        };
-
-        MOCK_TASK_TEMPLATES[templateIndex] = updatedTemplate;
-
-        return {
-            success: true,
-            data: updatedTemplate,
-            message: 'Cập nhật nhiệm vụ thành công'
-        };
     },
 
     /**
-     * Delete task template (soft delete)
-     * @param {string} templateId 
-     * @returns {Promise<Object>}
+     * Delete a task template
+     * Official API: DELETE /api/tasks/{id}
      */
     async deleteTaskTemplate(templateId) {
-        await delay(400);
-        const currentUser = getCurrentUser();
-
-        if (!checkPermission(currentUser, 'task_management')) {
-            throw new Error('Không có quyền xóa task template');
+        if (!templateId) {
+            throw new Error('ID nhiệm vụ là bắt buộc');
         }
 
-        const templateIndex = MOCK_TASK_TEMPLATES.findIndex(t => t.id === templateId && !t.is_deleted);
+        try {
+            await apiClient.delete(`/tasks/${templateId}`, {
+                timeout: 10000
+            });
 
-        if (templateIndex === -1) {
-            throw new Error('Không tìm thấy task template');
+            const cacheIndex = TASK_CACHE.findIndex(task => task.id === templateId);
+            if (cacheIndex !== -1) {
+                TASK_CACHE.splice(cacheIndex, 1);
+            }
+
+            return {
+                success: true,
+                message: 'Xóa nhiệm vụ thành công'
+            };
+        } catch (error) {
+            if (error.response?.status === 404) {
+                throw new Error('Không tìm thấy nhiệm vụ');
+            }
+            throw new Error(extractErrorMessage(error, 'Không thể xóa nhiệm vụ'));
         }
-
-        // Soft delete
-        MOCK_TASK_TEMPLATES[templateIndex].is_deleted = true;
-        MOCK_TASK_TEMPLATES[templateIndex].updated_at = new Date().toISOString();
-        MOCK_TASK_TEMPLATES[templateIndex].updated_by = currentUser?.id || '00000000-0000-0000-0000-000000000000';
-
-        return {
-            success: true,
-            message: 'Xóa nhiệm vụ thành công'
-        };
     },
 
     /**
-     * Get statistics
-     * @returns {Promise<Object>}
+     * Get task statistics
      */
     async getStatistics() {
-        await delay(200);
-        const currentUser = getCurrentUser();
+        try {
+            const response = await this.getAllTaskTemplates({
+                page_index: 0,
+                page_size: 1000
+            });
 
-        if (!checkPermission(currentUser, 'task_management')) {
-            throw new Error('Không có quyền xem thống kê');
+            const tasks = response.data || [];
+
+            const stats = {
+                total: tasks.length,
+                by_priority: {
+                    [TASK_PRIORITY.URGENT]: tasks.filter(t => t.priority === TASK_PRIORITY.URGENT).length,
+                    [TASK_PRIORITY.HIGH]: tasks.filter(t => t.priority === TASK_PRIORITY.HIGH).length,
+                    [TASK_PRIORITY.MEDIUM]: tasks.filter(t => t.priority === TASK_PRIORITY.MEDIUM).length,
+                    [TASK_PRIORITY.LOW]: tasks.filter(t => t.priority === TASK_PRIORITY.LOW).length
+                },
+                by_status: {
+                    [TASK_STATUS.ACTIVE]: tasks.filter(t => t.status === TASK_STATUS.ACTIVE).length,
+                    [TASK_STATUS.INACTIVE]: tasks.filter(t => t.status === TASK_STATUS.INACTIVE).length
+                },
+                public_tasks: tasks.filter(t => t.is_public).length
+            };
+
+            return {
+                success: true,
+                data: stats
+            };
+        } catch (error) {
+            throw new Error(extractErrorMessage(error, 'Không thể tải thống kê nhiệm vụ'));
         }
-
-        const activeTemplates = MOCK_TASK_TEMPLATES.filter(t => !t.is_deleted && t.status === TASK_STATUS.ACTIVE);
-
-        const stats = {
-            total: activeTemplates.length,
-            by_priority: {
-                [TASK_PRIORITY.URGENT]: activeTemplates.filter(t => t.priority === TASK_PRIORITY.URGENT).length,
-                [TASK_PRIORITY.HIGH]: activeTemplates.filter(t => t.priority === TASK_PRIORITY.HIGH).length,
-                [TASK_PRIORITY.MEDIUM]: activeTemplates.filter(t => t.priority === TASK_PRIORITY.MEDIUM).length,
-                [TASK_PRIORITY.LOW]: activeTemplates.filter(t => t.priority === TASK_PRIORITY.LOW).length
-            },
-            by_status: {
-                [TASK_STATUS.ACTIVE]: MOCK_TASK_TEMPLATES.filter(t => !t.is_deleted && t.status === TASK_STATUS.ACTIVE).length,
-                [TASK_STATUS.INACTIVE]: MOCK_TASK_TEMPLATES.filter(t => !t.is_deleted && t.status === TASK_STATUS.INACTIVE).length
-            }
-        };
-
-        return {
-            success: true,
-            data: stats
-        };
     },
 
     /**
-     * Get work types
-     * @returns {Promise<Object>}
+     * Get all work types (delegates to workTypeApi)
      */
     async getWorkTypes() {
-        await delay(200);
-
-        return {
-            success: true,
-            data: MOCK_WORK_TYPES.filter(wt => !wt.is_deleted && wt.is_active)
-        };
+        try {
+            const response = await workTypeApi.getWorkTypes();
+            return response;
+        } catch (error) {
+            throw new Error(extractErrorMessage(error, 'Không thể tải danh sách loại công việc'));
+        }
     }
 };
 
-// Export
-export { MOCK_TASK_TEMPLATES, MOCK_WORK_TYPES };
+// ========== EXPORTS ==========
+
 export default taskTemplateApi;

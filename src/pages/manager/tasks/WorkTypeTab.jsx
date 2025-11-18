@@ -1,43 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import {
-    Box,
-    Typography,
-    Button,
-    Table,
-    TableBody,
-    TableCell,
-    TableContainer,
-    TableHead,
-    TableRow,
-    IconButton,
-    Chip,
-    Stack,
-    Toolbar,
-    TextField,
-    Grid,
-    Paper,
-    alpha,
-    Menu,
-    MenuItem,
-    ListItemIcon,
-    ListItemText
-} from '@mui/material';
-import {
-    Add as AddIcon,
-    Edit as EditIcon,
-    Delete as DeleteIcon,
-    MoreVert as MoreVertIcon,
-    WorkOutline,
-    CheckCircle,
-    Cancel
-} from '@mui/icons-material';
+import { useState, useEffect, useMemo } from 'react';
+import { Box, Typography, Button, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, IconButton, Chip, Stack, Toolbar, TextField, Paper, alpha, Menu, MenuItem, ListItemIcon, ListItemText } from '@mui/material';
+import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, MoreVert as MoreVertIcon, WorkOutline, CheckCircle, Cancel } from '@mui/icons-material';
 import { COLORS } from '../../../constants/colors';
 import WorkTypeFormModal from '../../../components/modals/WorkTypeFormModal';
 import ConfirmModal from '../../../components/modals/ConfirmModal';
 import workTypeApi from '../../../api/workTypeApi';
 
 const WorkTypeTab = ({ onAlert }) => {
-    const [loading, setLoading] = useState(false);
     const [workTypes, setWorkTypes] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
 
@@ -60,10 +29,11 @@ const WorkTypeTab = ({ onAlert }) => {
 
     const loadWorkTypes = async () => {
         try {
-            setLoading(true);
             const response = await workTypeApi.getWorkTypes();
-            if (response.success) {
+            if (response?.success) {
                 setWorkTypes(response.data.filter(wt => !wt.is_deleted));
+            } else {
+                setWorkTypes(response?.data || []);
             }
         } catch (error) {
             console.error('Error loading work types:', error);
@@ -72,21 +42,23 @@ const WorkTypeTab = ({ onAlert }) => {
                 message: error.message || 'Không thể tải danh sách loại công việc',
                 type: 'error'
             });
-        } finally {
-            setLoading(false);
         }
     };
 
-    const filteredWorkTypes = workTypes.filter(wt =>
-        wt.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        wt.description.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const filteredWorkTypes = useMemo(() => {
+        if (!searchQuery) return workTypes;
+        const query = searchQuery.toLowerCase();
+        return workTypes.filter(wt =>
+            wt.name?.toLowerCase().includes(query) ||
+            wt.description?.toLowerCase().includes(query)
+        );
+    }, [workTypes, searchQuery]);
 
-    const stats = {
+    const stats = useMemo(() => ({
         total: workTypes.length,
         active: workTypes.filter(wt => wt.is_active).length,
         inactive: workTypes.filter(wt => !wt.is_active).length
-    };
+    }), [workTypes]);
 
     const handleCreate = () => {
         setFormMode('create');
@@ -109,9 +81,10 @@ const WorkTypeTab = ({ onAlert }) => {
 
     const handleFormSubmit = async (formData) => {
         try {
+            let response;
             if (formMode === 'create') {
-                const response = await workTypeApi.createWorkType(formData);
-                if (response.success) {
+                response = await workTypeApi.createWorkType(formData);
+                if (response?.success) {
                     setWorkTypes(prev => [...prev, response.data]);
                     onAlert?.({
                         title: 'Thành công',
@@ -120,8 +93,8 @@ const WorkTypeTab = ({ onAlert }) => {
                     });
                 }
             } else {
-                const response = await workTypeApi.updateWorkType(selectedWorkType.id, formData);
-                if (response.success) {
+                response = await workTypeApi.updateWorkType(selectedWorkType.id, formData);
+                if (response?.success) {
                     setWorkTypes(prev => prev.map(wt =>
                         wt.id === selectedWorkType.id ? response.data : wt
                     ));
@@ -146,7 +119,7 @@ const WorkTypeTab = ({ onAlert }) => {
     const confirmDelete = async () => {
         try {
             const response = await workTypeApi.deleteWorkType(deleteTarget.id);
-            if (response.success) {
+            if (response?.success) {
                 setWorkTypes(prev => prev.filter(wt => wt.id !== deleteTarget.id));
                 onAlert?.({
                     title: 'Thành công',
@@ -170,38 +143,50 @@ const WorkTypeTab = ({ onAlert }) => {
     return (
         <Box>
             {/* Statistics */}
-            <Grid container spacing={2} sx={{ mb: 3 }}>
-                <Grid item xs={12} sm={4}>
-                    <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.PRIMARY[500]}` }}>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Tổng loại công việc
-                        </Typography>
-                        <Typography variant="h4" fontWeight={600} color={COLORS.PRIMARY[700]}>
-                            {stats.total}
-                        </Typography>
-                    </Paper>
-                </Grid>
-                <Grid item xs={12} sm={4}>
-                    <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.SUCCESS[500]}` }}>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Đang hoạt động
-                        </Typography>
-                        <Typography variant="h4" fontWeight={600} color={COLORS.SUCCESS[700]}>
-                            {stats.active}
-                        </Typography>
-                    </Paper>
-                </Grid>
-                <Grid item xs={12} sm={4}>
-                    <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.ERROR[500]}` }}>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Không hoạt động
-                        </Typography>
-                        <Typography variant="h4" fontWeight={600} color={COLORS.ERROR[700]}>
-                            {stats.inactive}
-                        </Typography>
-                    </Paper>
-                </Grid>
-            </Grid>
+            <Box
+                sx={{
+                    display: 'flex',
+                    flexWrap: 'nowrap',
+                    gap: 2,
+                    mb: 4,
+                    width: '100%',
+                    overflow: 'visible'
+                }}
+            >
+                {[
+                    { label: 'Tổng loại công việc', value: stats.total, color: COLORS.PRIMARY[500], valueColor: COLORS.PRIMARY[700] },
+                    { label: 'Đang hoạt động', value: stats.active, color: COLORS.SUCCESS[500], valueColor: COLORS.SUCCESS[700] },
+                    { label: 'Không hoạt động', value: stats.inactive, color: COLORS.ERROR[500], valueColor: COLORS.ERROR[700] }
+                ].map((stat, index) => {
+                    const cardWidth = `calc((100% - ${2 * 16}px) / 3)`;
+                    return (
+                        <Box
+                            key={index}
+                            sx={{
+                                flex: `0 0 ${cardWidth}`,
+                                width: cardWidth,
+                                maxWidth: cardWidth,
+                                minWidth: 0
+                            }}
+                        >
+                            <Paper sx={{
+                                p: 2.5,
+                                borderTop: `4px solid ${stat.color}`,
+                                borderRadius: 2,
+                                height: '100%',
+                                boxShadow: `4px 6px 12px ${alpha(COLORS.SHADOW.LIGHT, 0.25)}, 0 4px 8px ${alpha(COLORS.SHADOW.LIGHT, 0.1)}, 2px 2px 4px ${alpha(COLORS.SHADOW.LIGHT, 0.15)}`
+                            }}>
+                                <Typography variant="body2" color="text.secondary" gutterBottom>
+                                    {stat.label}
+                                </Typography>
+                                <Typography variant="h4" fontWeight={600} color={stat.valueColor}>
+                                    {stat.value}
+                                </Typography>
+                            </Paper>
+                        </Box>
+                    );
+                })}
+            </Box>
 
             {/* Toolbar */}
             <Paper sx={{ mb: 2 }}>
@@ -211,7 +196,7 @@ const WorkTypeTab = ({ onAlert }) => {
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         size="small"
-                        sx={{ minWidth: 300 }}
+                        sx={{ width: '1395px', flexShrink: 0 }}
                     />
 
                     <Box sx={{ flexGrow: 1 }} />
@@ -231,15 +216,15 @@ const WorkTypeTab = ({ onAlert }) => {
             </Paper>
 
             {/* Table */}
-            <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
-                <Table>
-                    <TableHead sx={{ bgcolor: alpha(COLORS.GRAY[100], 0.5) }}>
+            <TableContainer component={Paper} sx={{ borderRadius: 3, border: `2px solid ${alpha(COLORS.PRIMARY[200], 0.4)}`, boxShadow: `0 10px 24px ${alpha(COLORS.PRIMARY[200], 0.15)}`, overflowX: 'auto' }}>
+                <Table size="medium" stickyHeader>
+                    <TableHead>
                         <TableRow>
-                            <TableCell width="5%">STT</TableCell>
-                            <TableCell width="20%">Tên loại công việc</TableCell>
-                            <TableCell width="55%">Mô tả</TableCell>
-                            <TableCell width="10%" align="center">Trạng thái</TableCell>
-                            <TableCell width="10%" align="center">Thao tác</TableCell>
+                            <TableCell sx={{ fontWeight: 800 }} width="5%">STT</TableCell>
+                            <TableCell sx={{ fontWeight: 800 }} width="20%">Tên loại công việc</TableCell>
+                            <TableCell sx={{ fontWeight: 800 }} width="55%">Mô tả</TableCell>
+                            <TableCell sx={{ fontWeight: 800 }} align="center" width="10%">Trạng thái</TableCell>
+                            <TableCell sx={{ fontWeight: 800 }} align="center" width="10%">Thao tác</TableCell>
                         </TableRow>
                     </TableHead>
                     <TableBody>
@@ -292,7 +277,7 @@ const WorkTypeTab = ({ onAlert }) => {
                                                 setMenuWorkType(workType);
                                             }}
                                         >
-                                            <MoreVertIcon fontSize="small" />
+                                            <MoreVertIcon />
                                         </IconButton>
                                     </TableCell>
                                 </TableRow>

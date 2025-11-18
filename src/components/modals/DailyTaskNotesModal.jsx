@@ -81,27 +81,27 @@ const DailyTaskNotesModal = ({ open, onClose, onSubmit, dailyTask, newStatus, ta
             onClose={handleClose}
             maxWidth="sm"
             fullWidth
+            disableScrollLock
             PaperProps={{
                 sx: {
                     borderRadius: 3,
-                    boxShadow: 24
+                    boxShadow: `0 20px 60px ${alpha(COLORS.SHADOW.DARK, 0.3)}`
                 }
             }}
         >
-            <DialogTitle sx={{
-                borderBottom: `2px solid ${COLORS.PRIMARY[100]}`,
-                pb: 2,
-                background: `linear-gradient(135deg, ${alpha(COLORS.PRIMARY[50], 0.5)} 0%, ${alpha(COLORS.PRIMARY[100], 0.3)} 100%)`
-            }}>
-                <Stack direction="row" alignItems="center" spacing={1.5}>
-                    <Notes sx={{ color: COLORS.PRIMARY[600], fontSize: 28 }} />
-                    <Typography variant="h6" fontWeight={600} color={COLORS.PRIMARY[700]}>
-                        Báo cáo tiến độ
-                    </Typography>
-                </Stack>
-            </DialogTitle>
+            <Box
+                sx={{
+                    background: `linear-gradient(135deg, ${alpha(COLORS.PRIMARY[50], 0.3)}, ${alpha(COLORS.SECONDARY[50], 0.2)})`,
+                    borderBottom: `3px solid ${COLORS.PRIMARY[500]}`
+                }}
+            >
+                <DialogTitle sx={{ fontWeight: 800, color: COLORS.PRIMARY[700], pb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Notes />
+                    📝 Báo cáo tiến độ
+                </DialogTitle>
+            </Box>
 
-            <DialogContent sx={{ pt: 3 }}>
+            <DialogContent sx={{ pt: 3, pb: 2, px: 3 }}>
                 {/* Task Info */}
                 <Box sx={{
                     p: 2,
@@ -171,7 +171,7 @@ const DailyTaskNotesModal = ({ open, onClose, onSubmit, dailyTask, newStatus, ta
             </DialogContent>
 
             <DialogActions sx={{
-                borderTop: `1px solid ${COLORS.GRAY[100]}`,
+                borderTop: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.1)}`,
                 px: 3,
                 py: 2,
                 gap: 1.5

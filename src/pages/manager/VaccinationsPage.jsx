@@ -1,28 +1,34 @@
-import React, { useEffect, useState, useMemo } from 'react';
-import { Box, Typography, Paper, Stack, Avatar, Chip, Grid, alpha, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Dialog, DialogTitle, DialogContent, DialogActions, Button, Divider, IconButton, Tabs, Tab } from '@mui/material';
-import { Vaccines, CheckCircle, Schedule, Visibility, Close, Pets, CalendarToday, Person, LocalHospital, MedicalServices, Event, Add } from '@mui/icons-material';
+import { useEffect, useState, useMemo } from 'react';
+import { Box, Typography, Paper, Stack, Avatar, Chip, alpha, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Dialog, DialogTitle, DialogContent, DialogActions, Button, Divider, IconButton, Tabs, Tab, Menu, MenuItem, ListItemIcon, ListItemText, FormControl, InputLabel, Select, TextField, InputAdornment } from '@mui/material';
+import { Vaccines, Schedule, Visibility, Close, Pets, CalendarToday, MedicalServices, Event, Add, MoreVert, Edit, Delete, Search } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 import Loading from '../../components/loading/Loading';
 import AlertModal from '../../components/modals/AlertModal';
+import ConfirmModal from '../../components/modals/ConfirmModal';
 import Pagination from '../../components/common/Pagination';
 import VaccinationCalendar from '../../components/vaccination/VaccinationCalendar';
 import VaccineTypesTab from './VaccineTypesTab';
 import VaccinationScheduleModal from '../../components/modals/VaccinationScheduleModal';
 import { vaccinationApi } from '../../api/vaccinationApi';
-import { petApi } from '../../api/petApi';
-import { MOCK_PET_SPECIES, MOCK_PET_BREEDS } from '../../api/mockData';
+import vaccinationSchedulesApi from '../../api/vaccinationSchedulesApi';
+import vaccineTypesApi from '../../api/vaccineTypesApi';
+import petsApi from '../../api/petsApi';
+import petSpeciesApi from '../../api/petSpeciesApi';
+import petBreedsApi from '../../api/petBreedsApi';
+import teamApi from '../../api/teamApi';
 
 const VaccinationsPage = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [currentTab, setCurrentTab] = useState(0);
     const [vaccinationStats, setVaccinationStats] = useState(null);
     const [upcomingVaccinations, setUpcomingVaccinations] = useState([]);
+    const [allUpcomingVaccinations, setAllUpcomingVaccinations] = useState([]); // Store all data from API
     const [vaccinationRecords, setVaccinationRecords] = useState([]);
     const [pets, setPets] = useState([]);
     const [species, setSpecies] = useState([]);
     const [breeds, setBreeds] = useState([]);
-    const [groups, setGroups] = useState([]);
     const [vaccineTypes, setVaccineTypes] = useState([]);
+    const [teams, setTeams] = useState([]);
 
     // Detail dialog
     const [detailDialogOpen, setDetailDialogOpen] = useState(false);
@@ -38,6 +44,14 @@ const VaccinationsPage = () => {
     const [currentSchedule, setCurrentSchedule] = useState(null);
     const [scheduleEditMode, setScheduleEditMode] = useState(false);
 
+    // Menu for schedule actions
+    const [menuAnchor, setMenuAnchor] = useState(null);
+    const [menuSchedule, setMenuSchedule] = useState(null);
+
+    // Delete confirmation
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [scheduleToDelete, setScheduleToDelete] = useState(null);
+
     // Pagination for upcoming vaccinations
     const [upcomingPage, setUpcomingPage] = useState(1);
     const [upcomingItemsPerPage, setUpcomingItemsPerPage] = useState(5);
@@ -46,40 +60,235 @@ const VaccinationsPage = () => {
     const [recordsPage, setRecordsPage] = useState(1);
     const [recordsItemsPerPage, setRecordsItemsPerPage] = useState(5);
 
-    // Load initial data
+    // Search and filters for vaccination schedules
+    const [searchQuery, setSearchQuery] = useState('');
+    const [filterPetId, setFilterPetId] = useState('');
+    const [filterVaccineType, setFilterVaccineType] = useState('');
+    const [filterFromDate, setFilterFromDate] = useState('');
+    const [filterToDate, setFilterToDate] = useState('');
+    const [filterStatus, setFilterStatus] = useState('');
+
+    // Separate state for date inputs to avoid triggering fetch while typing
+    const [tempFromDate, setTempFromDate] = useState('');
+    const [tempToDate, setTempToDate] = useState('');
+
+    // Load initial data (all data including stats and records)
     useEffect(() => {
-        loadVaccinationData();
+        loadAllVaccinationData();
     }, []);
 
-    const loadVaccinationData = async () => {
+    // Load only schedules data when filters change
+    const loadSchedulesOnly = async () => {
         try {
             setIsLoading(true);
 
-            // Load pets, species, breeds, groups, vaccine types data
-            const [petsRes, speciesRes, breedsRes, groupsRes, vaccineTypesRes] = await Promise.all([
-                petApi.getPets({ page_size: 1000 }), // Get all pets for vaccination data
-                petApi.getPetSpecies(),
-                petApi.getPetBreeds(),
-                petApi.getPetGroups(),
-                vaccinationApi.getVaccineTypes()
+            // Load pets, species, breeds, vaccine types, teams data (only if not already loaded)
+            if (pets.length === 0 || species.length === 0 || vaccineTypes.length === 0 || teams.length === 0) {
+                const [petsRes, speciesRes, breedsRes, vaccineTypesRes, teamsRes] = await Promise.allSettled([
+                    petsApi.getAllPets({ page_size: 1000, page_index: 0 }),
+                    petSpeciesApi.getAllSpecies({ page_size: 1000 }),
+                    petBreedsApi.getAllBreeds({ page_size: 1000 }),
+                    vaccineTypesApi.getAllVaccineTypes({ page_size: 1000 }),
+                    teamApi.getTeams({ page_size: 1000, page_index: 0 })
+                ]);
+
+                const petsData = petsRes.status === 'fulfilled' ? (petsRes.value?.data || []) : [];
+                const speciesData = speciesRes.status === 'fulfilled' ? (speciesRes.value?.data || []) : [];
+                const breedsData = breedsRes.status === 'fulfilled' ? (breedsRes.value?.data || []) : [];
+                const vaccineTypesData = vaccineTypesRes.status === 'fulfilled' ? (vaccineTypesRes.value?.data || []) : [];
+                const teamsData = teamsRes.status === 'fulfilled' ? (teamsRes.value?.data || []) : [];
+
+                setPets(petsData);
+                setSpecies(speciesData);
+                setBreeds(breedsData);
+                setVaccineTypes(vaccineTypesData);
+                setTeams(teamsData);
+            }
+
+            // Prepare filter params for API - Only use date/status filters, let client-side handle the rest
+            const scheduleParams = {
+                page_index: 0,
+                page_size: 1000
+            };
+            // Only use date and status filters from API, filter the rest client-side
+            if (filterFromDate) {
+                // filterFromDate should be in YYYY-MM-DD format from date input
+                // Ensure it's valid before sending to API
+                if (filterFromDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                    const fromDate = new Date(filterFromDate + 'T00:00:00');
+                    if (!isNaN(fromDate.getTime())) {
+                        scheduleParams.FromDate = fromDate.toISOString();
+                    }
+                }
+            }
+            if (filterToDate) {
+                // filterToDate should be in YYYY-MM-DD format from date input
+                if (filterToDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                    const toDate = new Date(filterToDate + 'T23:59:59');
+                    if (!isNaN(toDate.getTime())) {
+                        toDate.setHours(23, 59, 59, 999);
+                        scheduleParams.ToDate = toDate.toISOString();
+                    }
+                }
+            }
+            if (filterStatus) {
+                scheduleParams.Status = filterStatus;
+            }
+
+            // Load only vaccination schedules data for the table
+            const upcomingRes = await vaccinationSchedulesApi.getAllVaccinationSchedules(scheduleParams);
+
+            // Process schedules data
+            let upcomingData = upcomingRes?.data || [];
+
+            // Populate pet data if not already included (use pets from state if available)
+            const currentPets = pets.length > 0 ? pets : [];
+            upcomingData = upcomingData.map(item => {
+                // If pet object is incomplete or missing, try to find it from pets array
+                if (item.pet_id && (!item.pet || !item.pet.image_url)) {
+                    const fullPet = currentPets.find(p => p.id === item.pet_id);
+                    if (fullPet) {
+                        return {
+                            ...item,
+                            pet: {
+                                ...item.pet,
+                                ...fullPet,
+                                image_url: fullPet.image || fullPet.image_url || fullPet.avatar || item.pet?.image_url || item.pet?.avatar
+                            }
+                        };
+                    }
+                }
+                return item;
+            });
+
+            // Client-side filters
+            if (filterVaccineType) {
+                upcomingData = upcomingData.filter(item => {
+                    const itemVaccineTypeId = item.vaccine_type_id || item.vaccine_type?.id;
+                    const itemIdStr = String(itemVaccineTypeId || '');
+                    const filterIdStr = String(filterVaccineType || '');
+                    return itemIdStr === filterIdStr && itemIdStr !== '';
+                });
+            }
+
+            // Filter by pet
+            if (filterPetId) {
+                upcomingData = upcomingData.filter(item => {
+                    const itemPetId = item.pet_id || item.pet?.id;
+                    return itemPetId === filterPetId;
+                });
+            }
+
+            // Filter by status
+            if (filterStatus) {
+                upcomingData = upcomingData.filter(item => {
+                    return item.status === filterStatus;
+                });
+            }
+
+            // Filter by date range
+            if (filterFromDate) {
+                // filterFromDate should be in YYYY-MM-DD format from date input
+                if (filterFromDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                    const fromDate = new Date(filterFromDate + 'T00:00:00');
+                    if (!isNaN(fromDate.getTime())) {
+                        fromDate.setHours(0, 0, 0, 0);
+                        upcomingData = upcomingData.filter(item => {
+                            if (!item.scheduled_date) return false;
+                            const scheduledDate = new Date(item.scheduled_date);
+                            scheduledDate.setHours(0, 0, 0, 0);
+                            return scheduledDate >= fromDate;
+                        });
+                    }
+                }
+            }
+
+            if (filterToDate) {
+                // filterToDate should be in YYYY-MM-DD format from date input
+                if (filterToDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                    const toDate = new Date(filterToDate + 'T23:59:59');
+                    if (!isNaN(toDate.getTime())) {
+                        toDate.setHours(23, 59, 59, 999);
+                        upcomingData = upcomingData.filter(item => {
+                            if (!item.scheduled_date) return false;
+                            const scheduledDate = new Date(item.scheduled_date);
+                            return scheduledDate <= toDate;
+                        });
+                    }
+                }
+            }
+
+            // Client-side search filter
+            if (searchQuery) {
+                const searchLower = searchQuery.toLowerCase();
+                upcomingData = upcomingData.filter(item => {
+                    const petName = item.pet?.name?.toLowerCase() || '';
+                    const vaccineName = item.vaccine_type?.name?.toLowerCase() || '';
+                    const notes = item.notes?.toLowerCase() || '';
+                    return petName.includes(searchLower) ||
+                        vaccineName.includes(searchLower) ||
+                        notes.includes(searchLower);
+                });
+            }
+
+            const now = new Date();
+            const sortedUpcoming = upcomingData
+                .map(item => ({
+                    ...item,
+                    timeDiff: Math.abs(new Date(item.scheduled_date) - now)
+                }))
+                .sort((a, b) => a.timeDiff - b.timeDiff)
+                .map(({ timeDiff, ...item }) => item);
+
+            setUpcomingVaccinations(sortedUpcoming);
+            setAllUpcomingVaccinations(sortedUpcoming); // Store all data for client-side filtering
+        } catch (error) {
+            console.error('Error loading vaccination schedules:', error);
+            setUpcomingVaccinations([]);
+            setAllUpcomingVaccinations([]);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // Reload only schedules data when filters change (excluding date inputs - they have separate handler)
+    useEffect(() => {
+        if (!isLoading) {
+            loadSchedulesOnly();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [searchQuery, filterPetId, filterVaccineType, filterStatus]);
+
+    // Load all vaccination data (stats, schedules, records) - only on initial load
+    const loadAllVaccinationData = async () => {
+        try {
+            setIsLoading(true);
+
+            // Load pets, species, breeds, vaccine types, teams data
+            const [petsRes, speciesRes, breedsRes, vaccineTypesRes, teamsRes] = await Promise.allSettled([
+                petsApi.getAllPets({ page_size: 1000, page_index: 0 }),
+                petSpeciesApi.getAllSpecies({ page_size: 1000 }),
+                petBreedsApi.getAllBreeds({ page_size: 1000 }),
+                vaccineTypesApi.getAllVaccineTypes({ page_size: 1000 }),
+                teamApi.getTeams({ page_size: 1000, page_index: 0 })
             ]);
 
-            const petsData = petsRes.success ? petsRes.data : [];
-            const speciesData = speciesRes.success ? speciesRes.data : [];
-            const breedsData = breedsRes.success ? breedsRes.data : [];
-            const groupsData = groupsRes.success ? groupsRes.data : [];
-            const vaccineTypesData = vaccineTypesRes.success ? vaccineTypesRes.data : [];
+            const petsData = petsRes.status === 'fulfilled' ? (petsRes.value?.data || []) : [];
+            const speciesData = speciesRes.status === 'fulfilled' ? (speciesRes.value?.data || []) : [];
+            const breedsData = breedsRes.status === 'fulfilled' ? (breedsRes.value?.data || []) : [];
+            const vaccineTypesData = vaccineTypesRes.status === 'fulfilled' ? (vaccineTypesRes.value?.data || []) : [];
+            const teamsData = teamsRes.status === 'fulfilled' ? (teamsRes.value?.data || []) : [];
 
             setPets(petsData);
             setSpecies(speciesData);
             setBreeds(breedsData);
-            setGroups(groupsData);
             setVaccineTypes(vaccineTypesData);
+            setTeams(teamsData);
 
-            // Then load vaccination data with pets data
+            // Load all vaccination data (stats, schedules, records)
             const [statsRes, upcomingRes, recordsRes] = await Promise.all([
                 vaccinationApi.getVaccinationStats(),
-                vaccinationApi.getUpcomingVaccinations(30, petsData),
+                vaccinationSchedulesApi.getAllVaccinationSchedules({ page_index: 0, page_size: 1000 }),
                 vaccinationApi.getVaccinationRecords(null, petsData)
             ]);
 
@@ -87,13 +296,44 @@ const VaccinationsPage = () => {
                 setVaccinationStats(statsRes.data);
             }
 
-            if (upcomingRes.success) {
-                setUpcomingVaccinations(upcomingRes.data);
-            }
-
             if (recordsRes.success) {
                 setVaccinationRecords(recordsRes.data);
             }
+
+            // Process schedules data (no filtering here - will be filtered client-side)
+            let upcomingData = upcomingRes?.data || [];
+
+            // Populate pet data if not already included
+            upcomingData = upcomingData.map(item => {
+                // If pet object is incomplete or missing, try to find it from pets array
+                if (item.pet_id && (!item.pet || !item.pet.image_url)) {
+                    const fullPet = petsData.find(p => p.id === item.pet_id);
+                    if (fullPet) {
+                        return {
+                            ...item,
+                            pet: {
+                                ...item.pet,
+                                ...fullPet,
+                                image_url: fullPet.image || fullPet.image_url || fullPet.avatar || item.pet?.image_url || item.pet?.avatar
+                            }
+                        };
+                    }
+                }
+                return item;
+            });
+
+            // Sort by closest date
+            const now = new Date();
+            const sortedUpcoming = upcomingData
+                .map(item => ({
+                    ...item,
+                    timeDiff: Math.abs(new Date(item.scheduled_date) - now)
+                }))
+                .sort((a, b) => a.timeDiff - b.timeDiff)
+                .map(({ timeDiff, ...item }) => item);
+
+            setUpcomingVaccinations(sortedUpcoming);
+            setAllUpcomingVaccinations(sortedUpcoming); // Store all data for client-side filtering
         } catch (error) {
             console.error('Error loading vaccination data:', error);
             setAlert({
@@ -107,6 +347,7 @@ const VaccinationsPage = () => {
         }
     };
 
+
     // Handle view details
     const handleViewDetails = async (item) => {
         try {
@@ -116,10 +357,19 @@ const VaccinationsPage = () => {
 
             // Load full pet details
             if (item.pet?.id) {
-                const petRes = await petApi.getPetById(item.pet.id);
-                if (petRes.success) {
-                    setSelectedPetDetails(petRes.data);
+                try {
+                    const petData = await petsApi.getPetById(item.pet.id);
+                    setSelectedPetDetails(petData);
+                } catch (error) {
+                    console.error('Error loading pet details:', error);
+                    // Fallback to using pet data from item if API fails
+                    if (item.pet) {
+                        setSelectedPetDetails(item.pet);
+                    }
                 }
+            } else if (item.pet) {
+                // Use pet data directly from item if no ID
+                setSelectedPetDetails(item.pet);
             }
         } catch (error) {
             console.error('Error loading details:', error);
@@ -155,28 +405,80 @@ const VaccinationsPage = () => {
         setCurrentSchedule(null);
     };
 
+    // Handle delete schedule
+    const handleDeleteSchedule = (schedule) => {
+        setScheduleToDelete(schedule);
+        setDeleteDialogOpen(true);
+        setMenuAnchor(null);
+        setMenuSchedule(null);
+    };
+
+    // Confirm delete schedule
+    const confirmDeleteSchedule = async () => {
+        if (!scheduleToDelete) return;
+
+        try {
+            setIsLoading(true);
+            await vaccinationSchedulesApi.deleteVaccinationSchedule(scheduleToDelete.id);
+            await loadSchedulesOnly();
+            setDeleteDialogOpen(false);
+            setScheduleToDelete(null);
+            setAlert({
+                open: true,
+                title: 'Thành công',
+                message: 'Xóa lịch tiêm thành công',
+                type: 'success'
+            });
+        } catch (error) {
+            console.error('Error deleting schedule:', error);
+            setAlert({
+                open: true,
+                title: 'Lỗi',
+                message: error.message || 'Không thể xóa lịch tiêm',
+                type: 'error'
+            });
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     // Handle create/update schedule
     const handleSaveSchedule = async (formData) => {
         try {
             setIsLoading(true);
 
-            // Create schedule for single pet
             const scheduleData = {
                 pet_id: formData.pet_id,
                 vaccine_type_id: formData.vaccine_type_id,
                 scheduled_date: new Date(formData.scheduled_date).toISOString(),
-                notes: formData.notes
+                notes: formData.notes || ''
             };
 
-            const response = await vaccinationApi.createVaccinationSchedule(scheduleData, pets);
+            // Add team_id if provided
+            if (formData.team_id) {
+                scheduleData.team_id = formData.team_id;
+            }
+
+            let response;
+            if (scheduleEditMode && currentSchedule) {
+                // Update existing schedule
+                const updateData = {
+                    ...scheduleData,
+                    status: formData.status || currentSchedule.status
+                };
+                response = await vaccinationSchedulesApi.updateVaccinationSchedule(currentSchedule.id, updateData);
+            } else {
+                // Create new schedule
+                response = await vaccinationSchedulesApi.createVaccinationSchedule(scheduleData);
+            }
 
             if (response.success) {
-                await loadVaccinationData();
+                await loadSchedulesOnly();
                 handleCloseScheduleModal();
                 setAlert({
                     open: true,
                     title: 'Thành công',
-                    message: 'Tạo lịch tiêm thành công',
+                    message: response.message || (scheduleEditMode ? 'Cập nhật lịch tiêm thành công' : 'Tạo lịch tiêm thành công'),
                     type: 'success'
                 });
             }
@@ -185,7 +487,7 @@ const VaccinationsPage = () => {
             setAlert({
                 open: true,
                 title: 'Lỗi',
-                message: error.message || 'Không thể tạo lịch tiêm',
+                message: error.message || 'Không thể lưu lịch tiêm',
                 type: 'error'
             });
         } finally {
@@ -193,10 +495,16 @@ const VaccinationsPage = () => {
         }
     };
 
+    // Helper function to capitalize first letter
+    const capitalizeName = (name) => {
+        if (!name) return name;
+        return name.charAt(0).toUpperCase() + name.slice(1);
+    };
+
     // Helper functions to get names from IDs
     const getSpeciesName = (speciesId) => {
         const speciesObj = species.find(s => s.id === speciesId);
-        return speciesObj ? speciesObj.name : '—';
+        return speciesObj ? capitalizeName(speciesObj.name) : '—';
     };
 
     const getBreedName = (breedId) => {
@@ -204,14 +512,85 @@ const VaccinationsPage = () => {
         return breedObj ? breedObj.name : '—';
     };
 
+    // Filter upcomingVaccinations based on all filters (client-side)
+    const filteredUpcomingVaccinations = useMemo(() => {
+        let filtered = [...allUpcomingVaccinations];
+
+        // Filter by search query
+        if (searchQuery) {
+            const searchLower = searchQuery.toLowerCase();
+            filtered = filtered.filter(item => {
+                const petName = item.pet?.name?.toLowerCase() || '';
+                const vaccineName = item.vaccine_type?.name?.toLowerCase() || '';
+                const notes = item.notes?.toLowerCase() || '';
+                return petName.includes(searchLower) ||
+                    vaccineName.includes(searchLower) ||
+                    notes.includes(searchLower);
+            });
+        }
+
+        // Filter by pet
+        if (filterPetId) {
+            filtered = filtered.filter(item => {
+                const itemPetId = item.pet_id || item.pet?.id;
+                return itemPetId === filterPetId;
+            });
+        }
+
+        // Filter by vaccine type
+        if (filterVaccineType) {
+            filtered = filtered.filter(item => {
+                const itemVaccineTypeId = item.vaccine_type_id || item.vaccine_type?.id;
+                const itemIdStr = String(itemVaccineTypeId || '');
+                const filterIdStr = String(filterVaccineType || '');
+                return itemIdStr === filterIdStr && itemIdStr !== '';
+            });
+        }
+
+        // Filter by status
+        if (filterStatus) {
+            filtered = filtered.filter(item => {
+                return item.status === filterStatus;
+            });
+        }
+
+        // Filter by date range (client-side only)
+        if (filterFromDate && filterFromDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
+            const fromDate = new Date(filterFromDate + 'T00:00:00');
+            if (!isNaN(fromDate.getTime())) {
+                fromDate.setHours(0, 0, 0, 0);
+                filtered = filtered.filter(item => {
+                    if (!item.scheduled_date) return false;
+                    const scheduledDate = new Date(item.scheduled_date);
+                    scheduledDate.setHours(0, 0, 0, 0);
+                    return scheduledDate >= fromDate;
+                });
+            }
+        }
+
+        if (filterToDate && filterToDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
+            const toDate = new Date(filterToDate + 'T23:59:59');
+            if (!isNaN(toDate.getTime())) {
+                toDate.setHours(23, 59, 59, 999);
+                filtered = filtered.filter(item => {
+                    if (!item.scheduled_date) return false;
+                    const scheduledDate = new Date(item.scheduled_date);
+                    return scheduledDate <= toDate;
+                });
+            }
+        }
+
+        return filtered;
+    }, [allUpcomingVaccinations, searchQuery, filterPetId, filterVaccineType, filterStatus, filterFromDate, filterToDate]);
+
     // Paginated data for upcoming vaccinations
     const paginatedUpcomingVaccinations = useMemo(() => {
         const startIndex = (upcomingPage - 1) * upcomingItemsPerPage;
         const endIndex = startIndex + upcomingItemsPerPage;
-        return upcomingVaccinations.slice(startIndex, endIndex);
-    }, [upcomingVaccinations, upcomingPage, upcomingItemsPerPage]);
+        return filteredUpcomingVaccinations.slice(startIndex, endIndex);
+    }, [filteredUpcomingVaccinations, upcomingPage, upcomingItemsPerPage]);
 
-    const upcomingTotalPages = Math.ceil(upcomingVaccinations.length / upcomingItemsPerPage);
+    const upcomingTotalPages = Math.ceil(filteredUpcomingVaccinations.length / upcomingItemsPerPage);
 
     // Paginated data for vaccination records
     const paginatedVaccinationRecords = useMemo(() => {
@@ -221,6 +600,28 @@ const VaccinationsPage = () => {
     }, [vaccinationRecords, recordsPage, recordsItemsPerPage]);
 
     const recordsTotalPages = Math.ceil(vaccinationRecords.length / recordsItemsPerPage);
+
+    // Helper function to get status label in Vietnamese
+    const getStatusLabel = (status) => {
+        const statusMap = {
+            'PENDING': 'Đã lên lịch',
+            'COMPLETED': 'Đã hoàn thành',
+            'CANCELLED': 'Đã hủy',
+            'IN_PROGRESS': 'Đang thực hiện'
+        };
+        return statusMap[status] || status;
+    };
+
+    // Helper function to get status color
+    const getStatusColor = (status) => {
+        const colorMap = {
+            'PENDING': { bg: COLORS.WARNING[100], color: COLORS.WARNING[800] },
+            'COMPLETED': { bg: COLORS.SUCCESS[100], color: COLORS.SUCCESS[800] },
+            'CANCELLED': { bg: COLORS.ERROR[100], color: COLORS.ERROR[800] },
+            'IN_PROGRESS': { bg: COLORS.INFO[100], color: COLORS.INFO[800] }
+        };
+        return colorMap[status] || { bg: COLORS.WARNING[100], color: COLORS.WARNING[800] };
+    };
 
     // Get vaccination status based on next_due_date
     const getVaccinationStatus = (record) => {
@@ -303,87 +704,103 @@ const VaccinationsPage = () => {
                 </Stack>
 
                 {/* Status Badges */}
-                <Grid container spacing={2} sx={{ mb: 3 }}>
-                    {/* Lịch tháng này */}
-                    <Grid item xs={12} sm={6} md={2}>
-                        <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.INFO[500]}`, cursor: 'pointer' }} onClick={() => setCurrentTab(0)}>
-                            <Typography variant="body2" color="text.secondary" gutterBottom>
-                                Lịch tháng này
-                            </Typography>
-                            <Typography variant="h4" fontWeight={600} color={COLORS.INFO[700]}>
-                                {(() => {
-                                    const today = new Date();
-                                    const currentMonth = today.getMonth();
-                                    const currentYear = today.getFullYear();
-                                    return upcomingVaccinations.filter(v => {
-                                        const date = new Date(v.scheduled_date);
-                                        return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
-                                    }).length;
-                                })()}
-                            </Typography>
-                        </Paper>
-                    </Grid>
-
-                    {/* Tổng loại vaccine */}
-                    <Grid item xs={12} sm={6} md={2}>
-                        <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.PRIMARY[500]}`, cursor: 'pointer' }} onClick={() => setCurrentTab(2)}>
-                            <Typography variant="body2" color="text.secondary" gutterBottom>
-                                Tổng loại vaccine
-                            </Typography>
-                            <Typography variant="h4" fontWeight={600} color={COLORS.PRIMARY[700]}>
-                                {vaccinationStats?.total_vaccine_types || 0}
-                            </Typography>
-                        </Paper>
-                    </Grid>
-
-                    {/* Tổng hồ sơ */}
-                    <Grid item xs={12} sm={6} md={2}>
-                        <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.INFO[500]}` }}>
-                            <Typography variant="body2" color="text.secondary" gutterBottom>
-                                Tổng hồ sơ
-                            </Typography>
-                            <Typography variant="h4" fontWeight={600} color={COLORS.INFO[700]}>
-                                {vaccinationRecords.length}
-                            </Typography>
-                        </Paper>
-                    </Grid>
-
-                    {/* Đã tiêm */}
-                    <Grid item xs={12} sm={6} md={2}>
-                        <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.SUCCESS[500]}`, cursor: 'pointer' }} onClick={() => setCurrentTab(3)}>
-                            <Typography variant="body2" color="text.secondary" gutterBottom>
-                                Đã tiêm
-                            </Typography>
-                            <Typography variant="h4" fontWeight={600} color={COLORS.SUCCESS[700]}>
-                                {vaccinationRecords.length}
-                            </Typography>
-                        </Paper>
-                    </Grid>
-
-                    {/* Đã lên lịch */}
-                    <Grid item xs={12} sm={6} md={2}>
-                        <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.WARNING[500]}`, cursor: 'pointer' }} onClick={() => setCurrentTab(1)}>
-                            <Typography variant="body2" color="text.secondary" gutterBottom>
-                                Đã lên lịch
-                            </Typography>
-                            <Typography variant="h4" fontWeight={600} color={COLORS.WARNING[700]}>
-                                {upcomingVaccinations.length}
-                            </Typography>
-                        </Paper>
-                    </Grid>
-
-                    {/* Quá hạn */}
-                    <Grid item xs={12} sm={6} md={2}>
-                        <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.ERROR[500]}` }}>
-                            <Typography variant="body2" color="text.secondary" gutterBottom>
-                                Quá hạn
-                            </Typography>
-                            <Typography variant="h4" fontWeight={600} color={COLORS.ERROR[700]}>
-                                {statusCounts.overdue}
-                            </Typography>
-                        </Paper>
-                    </Grid>
-                </Grid>
+                <Box
+                    sx={{
+                        display: 'flex',
+                        flexWrap: 'nowrap',
+                        gap: 2,
+                        mb: 4,
+                        width: '100%',
+                        overflow: 'visible'
+                    }}
+                >
+                    {[
+                        {
+                            label: 'Lịch tháng này',
+                            value: (() => {
+                                const today = new Date();
+                                const currentMonth = today.getMonth();
+                                const currentYear = today.getFullYear();
+                                return upcomingVaccinations.filter(v => {
+                                    const date = new Date(v.scheduled_date);
+                                    return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
+                                }).length;
+                            })(),
+                            color: COLORS.INFO[500],
+                            valueColor: COLORS.INFO[700],
+                            onClick: () => setCurrentTab(0),
+                            cursor: 'pointer'
+                        },
+                        {
+                            label: 'Tổng loại vaccine',
+                            value: vaccinationStats?.total_vaccine_types || 0,
+                            color: COLORS.PRIMARY[500],
+                            valueColor: COLORS.PRIMARY[700],
+                            onClick: () => setCurrentTab(2),
+                            cursor: 'pointer'
+                        },
+                        {
+                            label: 'Tổng hồ sơ',
+                            value: vaccinationRecords.length,
+                            color: COLORS.INFO[500],
+                            valueColor: COLORS.INFO[700]
+                        },
+                        {
+                            label: 'Đã tiêm',
+                            value: vaccinationRecords.length,
+                            color: COLORS.SUCCESS[500],
+                            valueColor: COLORS.SUCCESS[700]
+                        },
+                        {
+                            label: 'Đã lên lịch',
+                            value: filteredUpcomingVaccinations.length,
+                            color: COLORS.WARNING[500],
+                            valueColor: COLORS.WARNING[700],
+                            onClick: () => setCurrentTab(1),
+                            cursor: 'pointer'
+                        },
+                        {
+                            label: 'Quá hạn',
+                            value: statusCounts.overdue,
+                            color: COLORS.ERROR[500],
+                            valueColor: COLORS.ERROR[700]
+                        }
+                    ].map((stat, index) => {
+                        const cardWidth = `calc((100% - ${5 * 16}px) / 6)`;
+                        return (
+                            <Box
+                                key={index}
+                                sx={{
+                                    flex: `0 0 ${cardWidth}`,
+                                    width: cardWidth,
+                                    maxWidth: cardWidth,
+                                    minWidth: 0
+                                }}
+                            >
+                                <Paper sx={{
+                                    p: 2.5,
+                                    borderTop: `4px solid ${stat.color}`,
+                                    borderRadius: 2,
+                                    height: '100%',
+                                    boxShadow: `4px 6px 12px ${alpha(COLORS.SHADOW.LIGHT, 0.25)}, 0 4px 8px ${alpha(COLORS.SHADOW.LIGHT, 0.1)}, 2px 2px 4px ${alpha(COLORS.SHADOW.LIGHT, 0.15)}`,
+                                    cursor: stat.cursor || 'default',
+                                    '&:hover': stat.onClick ? {
+                                        boxShadow: `0 4px 12px ${alpha(stat.color, 0.2)}`,
+                                        transform: 'translateY(-2px)',
+                                        transition: 'all 0.2s ease'
+                                    } : {}
+                                }} onClick={stat.onClick}>
+                                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                                        {stat.label}
+                                    </Typography>
+                                    <Typography variant="h4" fontWeight={600} color={stat.valueColor}>
+                                        {stat.value}
+                                    </Typography>
+                                </Paper>
+                            </Box>
+                        );
+                    })}
+                </Box>
 
                 {/* Tabs */}
                 <Paper
@@ -425,24 +842,19 @@ const VaccinationsPage = () => {
                         <Tab
                             icon={<Schedule />}
                             iconPosition="start"
-                            label={`Lịch tiêm sắp tới (${upcomingVaccinations.length})`}
+                            label={`Lịch tiêm sắp tới (${filteredUpcomingVaccinations.length})`}
                         />
                         <Tab
                             icon={<Vaccines />}
                             iconPosition="start"
                             label="Quản lý Vaccines"
                         />
-                        <Tab
-                            icon={<CheckCircle />}
-                            iconPosition="start"
-                            label={`Hồ sơ đã thực hiện (${vaccinationRecords.length})`}
-                        />
                     </Tabs>
                 </Paper>
 
                 {/* Tab Content: Calendar View */}
                 {currentTab === 0 && (
-                    <VaccinationCalendar upcomingVaccinations={upcomingVaccinations} />
+                    <VaccinationCalendar upcomingVaccinations={filteredUpcomingVaccinations} />
                 )}
 
                 {/* Tab Content: Upcoming Vaccinations */}
@@ -455,22 +867,98 @@ const VaccinationsPage = () => {
                             boxShadow: `0 10px 24px ${alpha(COLORS.WARNING[200], 0.15)}`
                         }}
                     >
-                        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 3 }}>
-                            <Stack direction="row" alignItems="center" spacing={1}>
-                                <Schedule sx={{ color: COLORS.WARNING[700], fontSize: 28 }} />
-                                <Typography variant="h6" sx={{ fontWeight: 800, color: COLORS.WARNING[700] }}>
-                                    Danh sách lịch tiêm sắp tới
-                                </Typography>
-                                <Chip
-                                    label={upcomingVaccinations.length}
-                                    size="small"
-                                    sx={{
-                                        bgcolor: alpha(COLORS.WARNING[600], 0.2),
-                                        color: COLORS.WARNING[700],
-                                        fontWeight: 600
+                        <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 3 }}>
+                            <Schedule sx={{ color: COLORS.WARNING[700], fontSize: 28 }} />
+                            <Typography variant="h6" sx={{ fontWeight: 800, color: COLORS.WARNING[700] }}>
+                                Danh sách lịch tiêm sắp tới
+                            </Typography>
+                            <Chip
+                                label={filteredUpcomingVaccinations.length}
+                                size="small"
+                                sx={{
+                                    bgcolor: alpha(COLORS.WARNING[600], 0.2),
+                                    color: COLORS.WARNING[700],
+                                    fontWeight: 600
+                                }}
+                            />
+                        </Stack>
+
+                        {/* Search and Filters - Row 1 */}
+                        <Box
+                            sx={{
+                                display: 'flex',
+                                gap: 2,
+                                mb: 2,
+                                alignItems: 'center'
+                            }}
+                        >
+                            <TextField
+                                placeholder="Tìm kiếm lịch tiêm..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                size="small"
+                                sx={{ flex: 1, minWidth: 300 }}
+                                InputProps={{
+                                    startAdornment: (
+                                        <InputAdornment position="start">
+                                            <Search sx={{ color: COLORS.TEXT.SECONDARY }} />
+                                        </InputAdornment>
+                                    )
+                                }}
+                            />
+
+                            <FormControl size="small" sx={{ minWidth: 250 }}>
+                                <InputLabel shrink>Thú cưng</InputLabel>
+                                <Select
+                                    value={filterPetId}
+                                    onChange={(e) => setFilterPetId(e.target.value)}
+                                    label="Thú cưng"
+                                    displayEmpty
+                                    renderValue={(selected) => {
+                                        if (!selected || selected === '') {
+                                            return 'Tất cả';
+                                        }
+                                        const pet = pets.find(p => p.id === selected);
+                                        return pet ? pet.name : '';
                                     }}
-                                />
-                            </Stack>
+                                >
+                                    <MenuItem value="">
+                                        <em>Tất cả</em>
+                                    </MenuItem>
+                                    {pets.map(pet => (
+                                        <MenuItem key={pet.id} value={pet.id}>
+                                            {pet.name}
+                                        </MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+
+                            <FormControl size="small" sx={{ minWidth: 250 }}>
+                                <InputLabel shrink>Loại vaccine</InputLabel>
+                                <Select
+                                    value={filterVaccineType}
+                                    onChange={(e) => setFilterVaccineType(e.target.value)}
+                                    label="Loại vaccine"
+                                    displayEmpty
+                                    renderValue={(selected) => {
+                                        if (!selected || selected === '') {
+                                            return 'Tất cả';
+                                        }
+                                        const vaccineType = vaccineTypes.find(vt => vt.id === selected);
+                                        return vaccineType ? vaccineType.name : '';
+                                    }}
+                                >
+                                    <MenuItem value="">
+                                        <em>Tất cả</em>
+                                    </MenuItem>
+                                    {vaccineTypes.map(vt => (
+                                        <MenuItem key={vt.id} value={vt.id}>
+                                            {vt.name}
+                                        </MenuItem>
+                                    ))}
+                                </Select>
+                            </FormControl>
+
                             <Button
                                 variant="contained"
                                 startIcon={<Add />}
@@ -487,273 +975,191 @@ const VaccinationsPage = () => {
                             >
                                 Tạo lịch tiêm
                             </Button>
-                        </Stack>
-                        {upcomingVaccinations.length > 0 ? (
-                            <>
-                                <Stack spacing={2}>
-                                    {paginatedUpcomingVaccinations.map((item) => (
-                                        <Box
-                                            key={item.id}
-                                            sx={{
-                                                p: 2,
-                                                borderRadius: 2,
-                                                background: alpha(COLORS.WARNING[50], 0.3),
-                                                border: `1px solid ${alpha(COLORS.WARNING[200], 0.3)}`,
-                                                transition: 'all 0.3s ease',
-                                                '&:hover': {
-                                                    transform: 'translateY(-2px)',
-                                                    boxShadow: `0 4px 12px ${alpha(COLORS.WARNING[300], 0.2)}`,
-                                                    border: `1px solid ${alpha(COLORS.WARNING[300], 0.5)}`
-                                                }
-                                            }}
-                                        >
-                                            <Stack direction="row" alignItems="center" spacing={2}>
-                                                <Avatar
-                                                    src={item.pet?.avatar}
-                                                    alt={item.pet?.name}
-                                                    sx={{ width: 50, height: 50 }}
-                                                />
-                                                <Box sx={{ flexGrow: 1 }}>
-                                                    <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                                                        {item.pet?.name} - {item.vaccine_type?.name}
-                                                    </Typography>
-                                                    <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
-                                                        📅 Ngày: {new Date(item.scheduled_date).toLocaleDateString('vi-VN', {
-                                                            weekday: 'long',
-                                                            year: 'numeric',
-                                                            month: 'long',
-                                                            day: 'numeric'
-                                                        })}
-                                                    </Typography>
-                                                    {item.notes && (
-                                                        <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY }}>
-                                                            📝 {item.notes}
-                                                        </Typography>
-                                                    )}
-                                                </Box>
-                                                <Stack direction="row" spacing={1} alignItems="center">
-                                                    <Chip
-                                                        label="Đã lên lịch"
-                                                        size="small"
-                                                        sx={{
-                                                            background: alpha(COLORS.WARNING[100], 0.7),
-                                                            color: COLORS.WARNING[800],
-                                                            fontWeight: 700
-                                                        }}
-                                                    />
-                                                    <IconButton
-                                                        size="small"
-                                                        onClick={() => handleViewDetails(item)}
-                                                        sx={{
-                                                            background: alpha(COLORS.INFO[100], 0.5),
-                                                            color: COLORS.INFO[700],
-                                                            '&:hover': {
-                                                                background: alpha(COLORS.INFO[200], 0.7)
-                                                            }
-                                                        }}
-                                                    >
-                                                        <Visibility fontSize="small" />
-                                                    </IconButton>
-                                                </Stack>
-                                            </Stack>
-                                        </Box>
-                                    ))}
-                                </Stack>
-                                <Pagination
-                                    page={upcomingPage}
-                                    totalPages={upcomingTotalPages}
-                                    onPageChange={setUpcomingPage}
-                                    itemsPerPage={upcomingItemsPerPage}
-                                    onItemsPerPageChange={(newValue) => {
-                                        setUpcomingItemsPerPage(newValue);
-                                        setUpcomingPage(1);
+                        </Box>
+
+                        {/* Search and Filters - Row 2 */}
+                        <Box
+                            sx={{
+                                display: 'flex',
+                                gap: 2,
+                                mb: 3,
+                                alignItems: 'center'
+                            }}
+                        >
+                            <TextField
+                                size="small"
+                                type="date"
+                                label="Từ ngày"
+                                value={tempFromDate || filterFromDate}
+                                onChange={(e) => {
+                                    const value = e.target.value;
+                                    setTempFromDate(value);
+                                }}
+                                onBlur={(e) => {
+                                    const value = e.target.value;
+                                    if (value && value.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                                        setFilterFromDate(value);
+                                        setTempFromDate('');
+                                    } else if (value === '') {
+                                        setFilterFromDate('');
+                                        setTempFromDate('');
+                                    } else {
+                                        // Invalid format, reset to previous value
+                                        setTempFromDate('');
+                                    }
+                                }}
+                                InputLabelProps={{ shrink: true }}
+                                inputProps={{
+                                    max: filterToDate || tempToDate || undefined
+                                }}
+                                sx={{ minWidth: 250 }}
+                            />
+
+                            <TextField
+                                size="small"
+                                type="date"
+                                label="Đến ngày"
+                                value={tempToDate || filterToDate}
+                                onChange={(e) => {
+                                    const value = e.target.value;
+                                    setTempToDate(value);
+                                }}
+                                onBlur={(e) => {
+                                    const value = e.target.value;
+                                    if (value && value.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                                        setFilterToDate(value);
+                                        setTempToDate('');
+                                    } else if (value === '') {
+                                        setFilterToDate('');
+                                        setTempToDate('');
+                                    } else {
+                                        // Invalid format, reset to previous value
+                                        setTempToDate('');
+                                    }
+                                }}
+                                InputLabelProps={{ shrink: true }}
+                                inputProps={{
+                                    min: filterFromDate || tempFromDate || undefined
+                                }}
+                                sx={{ minWidth: 250 }}
+                            />
+
+                            <FormControl size="small" sx={{ minWidth: 250 }}>
+                                <InputLabel shrink>Trạng thái</InputLabel>
+                                <Select
+                                    value={filterStatus}
+                                    onChange={(e) => setFilterStatus(e.target.value)}
+                                    label="Trạng thái"
+                                    displayEmpty
+                                    renderValue={(selected) => {
+                                        if (!selected || selected === '') {
+                                            return 'Tất cả';
+                                        }
+                                        return getStatusLabel(selected);
                                     }}
-                                    totalItems={upcomingVaccinations.length}
-                                    itemsPerPageOptions={[5, 10, 15, 20]}
-                                />
-                            </>
-                        ) : (
-                            <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, textAlign: 'center', py: 3 }}>
-                                Không có lịch tiêm nào sắp tới trong 30 ngày
-                            </Typography>
-                        )}
-                    </Paper>
-                )}
+                                >
+                                    <MenuItem value="">
+                                        <em>Tất cả</em>
+                                    </MenuItem>
+                                    <MenuItem value="PENDING">Đã lên lịch</MenuItem>
+                                    <MenuItem value="IN_PROGRESS">Đang thực hiện</MenuItem>
+                                    <MenuItem value="COMPLETED">Đã hoàn thành</MenuItem>
+                                    <MenuItem value="CANCELLED">Đã hủy</MenuItem>
+                                </Select>
+                            </FormControl>
+                        </Box>
 
-                {/* Tab Content: Vaccine Types Management */}
-                {currentTab === 2 && (
-                    <VaccineTypesTab species={species} />
-                )}
-
-                {/* Tab Content: Vaccination Records */}
-                {currentTab === 3 && (
-                    <Paper
-                        sx={{
-                            p: 3,
-                            borderRadius: 3,
-                            border: `2px solid ${alpha(COLORS.SUCCESS[200], 0.4)}`,
-                            boxShadow: `0 10px 24px ${alpha(COLORS.SUCCESS[200], 0.15)}`
-                        }}
-                    >
-                        {vaccinationRecords.length > 0 ? (
+                        {filteredUpcomingVaccinations.length > 0 ? (
                             <>
                                 <TableContainer
+                                    component={Paper}
                                     sx={{
-                                        borderRadius: 2,
-                                        border: `1px solid ${alpha(COLORS.SUCCESS[200], 0.3)}`,
+                                        borderRadius: 3,
+                                        border: `2px solid ${alpha(COLORS.WARNING[200], 0.4)}`,
+                                        boxShadow: `0 10px 24px ${alpha(COLORS.WARNING[200], 0.15)}`,
                                         overflowX: 'auto'
                                     }}
                                 >
                                     <Table size="medium" stickyHeader>
                                         <TableHead>
                                             <TableRow>
-                                                <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.SUCCESS[50], 0.5) }}>Thú cưng</TableCell>
-                                                <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.SUCCESS[50], 0.5) }}>Vaccine</TableCell>
-                                                <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.SUCCESS[50], 0.5), display: { xs: 'none', md: 'table-cell' } }}>Ngày tiêm</TableCell>
-                                                <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.SUCCESS[50], 0.5), display: { xs: 'none', lg: 'table-cell' } }}>Ngày tiêm lại</TableCell>
-                                                <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.SUCCESS[50], 0.5), display: { xs: 'none', sm: 'table-cell' } }}>Bác sĩ</TableCell>
-                                                <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.SUCCESS[50], 0.5), display: { xs: 'none', md: 'table-cell' } }}>Phòng khám</TableCell>
-                                                <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.SUCCESS[50], 0.5), display: { xs: 'none', xl: 'table-cell' } }}>Lô vaccine</TableCell>
-                                                <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.SUCCESS[50], 0.5), display: { xs: 'none', lg: 'table-cell' } }}>Ghi chú</TableCell>
-                                                <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.SUCCESS[50], 0.5) }}>Trạng thái</TableCell>
-                                                <TableCell sx={{ fontWeight: 800, background: alpha(COLORS.SUCCESS[50], 0.5) }}>Thao tác</TableCell>
+                                                <TableCell sx={{ fontWeight: 800 }}>Thú cưng</TableCell>
+                                                <TableCell sx={{ fontWeight: 800 }}>Vaccine</TableCell>
+                                                <TableCell sx={{ fontWeight: 800 }}>Ngày tiêm dự kiến</TableCell>
+                                                <TableCell sx={{ fontWeight: 800, display: { xs: 'none', md: 'table-cell' } }}>Ghi chú</TableCell>
+                                                <TableCell sx={{ fontWeight: 800 }}>Trạng thái</TableCell>
+                                                <TableCell sx={{ fontWeight: 800, textAlign: 'right' }}>Thao tác</TableCell>
                                             </TableRow>
                                         </TableHead>
                                         <TableBody>
-                                            {paginatedVaccinationRecords.map((record) => (
+                                            {paginatedUpcomingVaccinations.map((item) => (
                                                 <TableRow
-                                                    key={record.id}
+                                                    key={item.id}
                                                     hover
                                                     sx={{
                                                         '&:hover': {
-                                                            background: alpha(COLORS.SUCCESS[50], 0.3)
+                                                            background: alpha(COLORS.WARNING[50], 0.3)
                                                         }
                                                     }}
                                                 >
                                                     <TableCell>
                                                         <Stack direction="row" alignItems="center" spacing={1.5}>
                                                             <Avatar
-                                                                src={record.pet?.avatar}
-                                                                alt={record.pet?.name}
+                                                                src={item.pet?.image_url || item.pet?.avatar}
+                                                                alt={item.pet?.name}
                                                                 sx={{ width: 40, height: 40 }}
-                                                            />
-                                                            <Box>
-                                                                <Typography sx={{ fontWeight: 600, fontSize: '0.95rem' }}>
-                                                                    {record.pet?.name || '—'}
-                                                                </Typography>
-                                                                <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY }}>
-                                                                    {(() => {
-                                                                        if (record.pet?.species) {
-                                                                            if (typeof record.pet.species === 'object' && record.pet.species.name) {
-                                                                                return record.pet.species.name;
-                                                                            }
-                                                                            if (typeof record.pet.species === 'string') {
-                                                                                return record.pet.species;
-                                                                            }
-                                                                        }
-                                                                        return '';
-                                                                    })()}
-                                                                </Typography>
-                                                            </Box>
+                                                            >
+                                                                <Pets />
+                                                            </Avatar>
+                                                            <Typography sx={{ fontWeight: 600 }}>{item.pet?.name || '—'}</Typography>
                                                         </Stack>
                                                     </TableCell>
                                                     <TableCell>
-                                                        <Typography sx={{ fontWeight: 600, fontSize: '0.9rem' }}>
-                                                            {record.vaccine_type?.name || '—'}
+                                                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                                            {item.vaccine_type?.name || '—'}
+                                                        </Typography>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Typography variant="body2">
+                                                            {item.scheduled_date ? new Date(item.scheduled_date).toLocaleDateString('vi-VN', {
+                                                                weekday: 'long',
+                                                                year: 'numeric',
+                                                                month: 'long',
+                                                                day: 'numeric'
+                                                            }) : '—'}
                                                         </Typography>
                                                     </TableCell>
                                                     <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
-                                                        <Typography variant="body2">
-                                                            {new Date(record.vaccination_date).toLocaleDateString('vi-VN')}
+                                                        <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, maxWidth: 400 }}>
+                                                            {item.notes || '—'}
                                                         </Typography>
                                                     </TableCell>
-                                                    <TableCell sx={{ display: { xs: 'none', lg: 'table-cell' } }}>
-                                                        <Typography variant="body2" sx={{ color: COLORS.WARNING[700], fontWeight: 600 }}>
-                                                            {new Date(record.next_due_date).toLocaleDateString('vi-VN')}
-                                                        </Typography>
-                                                    </TableCell>
-                                                    <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
-                                                        <Typography variant="body2">
-                                                            {record.veterinarian || '—'}
-                                                        </Typography>
-                                                    </TableCell>
-                                                    <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
-                                                        <Typography variant="body2">
-                                                            {record.clinic_name || '—'}
-                                                        </Typography>
-                                                    </TableCell>
-                                                    <TableCell sx={{ display: { xs: 'none', xl: 'table-cell' } }}>
+                                                    <TableCell>
                                                         <Chip
-                                                            label={record.batch_number || '—'}
+                                                            label={getStatusLabel(item.status)}
                                                             size="small"
                                                             sx={{
-                                                                background: alpha(COLORS.INFO[100], 0.5),
-                                                                color: COLORS.INFO[800],
-                                                                fontWeight: 600,
-                                                                fontSize: '0.75rem'
+                                                                background: alpha(getStatusColor(item.status).bg, 0.7),
+                                                                color: getStatusColor(item.status).color,
+                                                                fontWeight: 700
                                                             }}
                                                         />
                                                     </TableCell>
-                                                    <TableCell sx={{ display: { xs: 'none', lg: 'table-cell' }, maxWidth: 200 }}>
-                                                        <Typography
-                                                            variant="caption"
-                                                            sx={{
-                                                                color: COLORS.TEXT.SECONDARY,
-                                                                overflow: 'hidden',
-                                                                textOverflow: 'ellipsis',
-                                                                whiteSpace: 'nowrap',
-                                                                display: 'block'
-                                                            }}
-                                                        >
-                                                            {record.notes || '—'}
-                                                        </Typography>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {(() => {
-                                                            const status = getVaccinationStatus(record);
-                                                            if (!status) {
-                                                                return (
-                                                                    <Chip
-                                                                        label="Hoàn thành"
-                                                                        size="small"
-                                                                        icon={<CheckCircle sx={{ fontSize: 16 }} />}
-                                                                        sx={{
-                                                                            background: alpha(COLORS.SUCCESS[100], 0.7),
-                                                                            color: COLORS.SUCCESS[800],
-                                                                            fontWeight: 700,
-                                                                            fontSize: '0.75rem'
-                                                                        }}
-                                                                    />
-                                                                );
-                                                            }
-                                                            return (
-                                                                <Chip
-                                                                    label={status.label}
-                                                                    size="small"
-                                                                    icon={<span style={{ fontSize: '14px' }}>{status.icon}</span>}
-                                                                    sx={{
-                                                                        background: alpha(status.color[100], 0.7),
-                                                                        color: status.color[800],
-                                                                        fontWeight: 700,
-                                                                        fontSize: '0.75rem'
-                                                                    }}
-                                                                />
-                                                            );
-                                                        })()}
-                                                    </TableCell>
-                                                    <TableCell>
+                                                    <TableCell align="right">
                                                         <IconButton
                                                             size="small"
-                                                            onClick={() => handleViewDetails(record)}
+                                                            onClick={(e) => {
+                                                                setMenuAnchor(e.currentTarget);
+                                                                setMenuSchedule(item);
+                                                            }}
                                                             sx={{
-                                                                background: alpha(COLORS.INFO[100], 0.5),
                                                                 color: COLORS.INFO[700],
                                                                 '&:hover': {
-                                                                    background: alpha(COLORS.INFO[200], 0.7)
+                                                                    background: alpha(COLORS.INFO[100], 0.5)
                                                                 }
                                                             }}
                                                         >
-                                                            <Visibility fontSize="small" />
+                                                            <MoreVert fontSize="small" />
                                                         </IconButton>
                                                     </TableCell>
                                                 </TableRow>
@@ -761,25 +1167,38 @@ const VaccinationsPage = () => {
                                         </TableBody>
                                     </Table>
                                 </TableContainer>
-                                <Pagination
-                                    page={recordsPage}
-                                    totalPages={recordsTotalPages}
-                                    onPageChange={setRecordsPage}
-                                    itemsPerPage={recordsItemsPerPage}
-                                    onItemsPerPageChange={(newValue) => {
-                                        setRecordsItemsPerPage(newValue);
-                                        setRecordsPage(1);
-                                    }}
-                                    totalItems={vaccinationRecords.length}
-                                    itemsPerPageOptions={[5, 10, 20, 50]}
-                                />
+                                <Box sx={{ mt: 2 }}>
+                                    <Pagination
+                                        page={upcomingPage}
+                                        totalPages={upcomingTotalPages}
+                                        onPageChange={setUpcomingPage}
+                                        itemsPerPage={upcomingItemsPerPage}
+                                        onItemsPerPageChange={(newValue) => {
+                                            setUpcomingItemsPerPage(newValue);
+                                            setUpcomingPage(1);
+                                        }}
+                                        totalItems={filteredUpcomingVaccinations.length}
+                                        itemsPerPageOptions={[5, 10, 15, 20]}
+                                    />
+                                </Box>
                             </>
                         ) : (
-                            <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, textAlign: 'center', py: 3 }}>
-                                Chưa có hồ sơ tiêm phòng nào
-                            </Typography>
+                            <Box sx={{ textAlign: 'center', py: 8 }}>
+                                <Schedule sx={{ fontSize: 80, color: COLORS.TEXT.DISABLED, mb: 2 }} />
+                                <Typography variant="h6" sx={{ color: COLORS.TEXT.SECONDARY, mb: 1 }}>
+                                    Không có lịch tiêm nào
+                                </Typography>
+                                <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
+                                    Thử tạo lịch tiêm mới hoặc thay đổi bộ lọc
+                                </Typography>
+                            </Box>
                         )}
                     </Paper>
+                )}
+
+                {/* Tab Content: Vaccine Types Management */}
+                {currentTab === 2 && (
+                    <VaccineTypesTab species={species} />
                 )}
             </Box>
 
@@ -879,7 +1298,46 @@ const VaccinationsPage = () => {
                                                     Loài
                                                 </Typography>
                                                 <Typography variant="body1" sx={{ fontWeight: 600, lineHeight: 1.5 }}>
-                                                    {selectedPetDetails?.species_id ? getSpeciesName(selectedPetDetails.species_id) : '—'}
+                                                    {(() => {
+                                                        // Try to get species name from various sources (priority order)
+                                                        // 1. From selectedPetDetails.species.name (nested object from API)
+                                                        if (selectedPetDetails?.species?.name) {
+                                                            return capitalizeName(selectedPetDetails.species.name);
+                                                        }
+                                                        // 2. From selectedItem.pet.species.name (nested object from schedule)
+                                                        if (selectedItem?.pet?.species?.name) {
+                                                            return capitalizeName(selectedItem.pet.species.name);
+                                                        }
+                                                        // 3. From selectedPetDetails.species_id (using helper function with species state)
+                                                        if (selectedPetDetails?.species_id) {
+                                                            const speciesName = getSpeciesName(selectedPetDetails.species_id);
+                                                            if (speciesName !== '—') {
+                                                                return speciesName;
+                                                            }
+                                                        }
+                                                        // 4. From selectedItem.pet.species_id (using helper function from schedule)
+                                                        if (selectedItem?.pet?.species_id) {
+                                                            const speciesName = getSpeciesName(selectedItem.pet.species_id);
+                                                            if (speciesName !== '—') {
+                                                                return speciesName;
+                                                            }
+                                                        }
+                                                        // 5. Try to find in pets array (from loaded pets data)
+                                                        const petFromList = pets.find(p =>
+                                                            p.id === selectedPetDetails?.id ||
+                                                            p.id === selectedItem?.pet?.id
+                                                        );
+                                                        if (petFromList?.species?.name) {
+                                                            return capitalizeName(petFromList.species.name);
+                                                        }
+                                                        if (petFromList?.species_id) {
+                                                            const speciesName = getSpeciesName(petFromList.species_id);
+                                                            if (speciesName !== '—') {
+                                                                return speciesName;
+                                                            }
+                                                        }
+                                                        return '—';
+                                                    })()}
                                                 </Typography>
                                             </Stack>
                                             <Stack direction="row" spacing={2}>
@@ -1034,112 +1492,160 @@ const VaccinationsPage = () => {
                                 <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 2 }}>
                                     <CalendarToday sx={{ color: COLORS.WARNING[600], fontSize: 28 }} />
                                     <Typography variant="h6" sx={{ fontWeight: 800, color: COLORS.WARNING[700] }}>
-                                        {selectedItem.vaccination_date ? 'Thông tin tiêm phòng' : 'Lịch tiêm phòng'}
+                                        Thông tin lịch tiêm phòng
                                     </Typography>
                                 </Stack>
                                 <Divider sx={{ mb: 2 }} />
                                 <Stack spacing={1.5}>
-                                    {selectedItem.vaccination_date ? (
-                                        // Completed vaccination record
+                                    {/* Scheduled Date */}
+                                    <Stack direction="row" spacing={2}>
+                                        <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, width: '160px', flexShrink: 0 }}>
+                                            Ngày tiêm dự kiến
+                                        </Typography>
+                                        <Typography variant="body1" sx={{ fontWeight: 600, lineHeight: 1.5 }}>
+                                            {selectedItem.scheduled_date ? new Date(selectedItem.scheduled_date).toLocaleDateString('vi-VN', {
+                                                weekday: 'long',
+                                                year: 'numeric',
+                                                month: 'long',
+                                                day: 'numeric',
+                                                hour: '2-digit',
+                                                minute: '2-digit'
+                                            }) : '—'}
+                                        </Typography>
+                                    </Stack>
+
+                                    {/* Status */}
+                                    <Stack direction="row" spacing={2}>
+                                        <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, width: '160px', flexShrink: 0 }}>
+                                            Trạng thái
+                                        </Typography>
+                                        <Chip
+                                            label={getStatusLabel(selectedItem.status)}
+                                            size="small"
+                                            sx={{
+                                                background: alpha(getStatusColor(selectedItem.status).bg, 0.7),
+                                                color: getStatusColor(selectedItem.status).color,
+                                                fontWeight: 700
+                                            }}
+                                        />
+                                    </Stack>
+
+                                    {/* Completed Date */}
+                                    {selectedItem.completed_date && (
+                                        <Stack direction="row" spacing={2}>
+                                            <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, width: '160px', flexShrink: 0 }}>
+                                                Ngày hoàn thành
+                                            </Typography>
+                                            <Typography variant="body1" sx={{ fontWeight: 600, lineHeight: 1.5 }}>
+                                                {new Date(selectedItem.completed_date).toLocaleDateString('vi-VN', {
+                                                    weekday: 'long',
+                                                    year: 'numeric',
+                                                    month: 'long',
+                                                    day: 'numeric',
+                                                    hour: '2-digit',
+                                                    minute: '2-digit'
+                                                })}
+                                            </Typography>
+                                        </Stack>
+                                    )}
+
+                                    {/* Record Information (if completed) */}
+                                    {selectedItem.record && (
                                         <>
-                                            <Stack direction="row" spacing={2}>
-                                                <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, width: '160px', flexShrink: 0 }}>
-                                                    Ngày đã tiêm
-                                                </Typography>
-                                                <Typography variant="body1" sx={{ fontWeight: 600, lineHeight: 1.5 }}>
-                                                    {new Date(selectedItem.vaccination_date).toLocaleDateString('vi-VN', {
-                                                        year: 'numeric',
-                                                        month: 'long',
-                                                        day: 'numeric'
-                                                    })}
-                                                </Typography>
-                                            </Stack>
-                                            <Stack direction="row" spacing={2}>
-                                                <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, width: '160px', flexShrink: 0 }}>
-                                                    Ngày cần tiêm lại
-                                                </Typography>
-                                                <Typography variant="body1" sx={{ fontWeight: 600, lineHeight: 1.5 }}>
-                                                    {new Date(selectedItem.next_due_date).toLocaleDateString('vi-VN', {
-                                                        year: 'numeric',
-                                                        month: 'long',
-                                                        day: 'numeric'
-                                                    })}
-                                                </Typography>
-                                            </Stack>
+                                            <Divider sx={{ my: 1 }} />
+                                            <Typography variant="subtitle2" sx={{ fontWeight: 700, color: COLORS.SUCCESS[700], mb: 1 }}>
+                                                Thông tin tiêm phòng
+                                            </Typography>
+
+                                            {/* Vaccination Date from Record */}
+                                            {selectedItem.record.vaccination_date && (
+                                                <Stack direction="row" spacing={2}>
+                                                    <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, width: '160px', flexShrink: 0 }}>
+                                                        Ngày đã tiêm
+                                                    </Typography>
+                                                    <Typography variant="body1" sx={{ fontWeight: 600, lineHeight: 1.5 }}>
+                                                        {new Date(selectedItem.record.vaccination_date).toLocaleDateString('vi-VN', {
+                                                            weekday: 'long',
+                                                            year: 'numeric',
+                                                            month: 'long',
+                                                            day: 'numeric',
+                                                            hour: '2-digit',
+                                                            minute: '2-digit'
+                                                        })}
+                                                    </Typography>
+                                                </Stack>
+                                            )}
+
+                                            {/* Next Due Date */}
+                                            {selectedItem.record.next_due_date && (
+                                                <Stack direction="row" spacing={2}>
+                                                    <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, width: '160px', flexShrink: 0 }}>
+                                                        Ngày cần tiêm lại
+                                                    </Typography>
+                                                    <Typography variant="body1" sx={{ fontWeight: 600, lineHeight: 1.5 }}>
+                                                        {new Date(selectedItem.record.next_due_date).toLocaleDateString('vi-VN', {
+                                                            weekday: 'long',
+                                                            year: 'numeric',
+                                                            month: 'long',
+                                                            day: 'numeric',
+                                                            hour: '2-digit',
+                                                            minute: '2-digit'
+                                                        })}
+                                                    </Typography>
+                                                </Stack>
+                                            )}
+
+                                            {/* Veterinarian */}
                                             <Stack direction="row" spacing={2}>
                                                 <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, width: '160px', flexShrink: 0 }}>
                                                     Bác sĩ thú y
                                                 </Typography>
-                                                <Typography variant="body1" sx={{ fontWeight: 600, lineHeight: 1.5 }}>
-                                                    {selectedItem.veterinarian || '—'}
+                                                <Typography variant="body1" sx={{ fontWeight: 600, lineHeight: 1.5, flex: 1 }}>
+                                                    {selectedItem.record.veterinarian || '—'}
                                                 </Typography>
                                             </Stack>
+
+                                            {/* Clinic Name */}
                                             <Stack direction="row" spacing={2}>
                                                 <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, width: '160px', flexShrink: 0 }}>
                                                     Phòng khám
                                                 </Typography>
-                                                <Typography variant="body1" sx={{ fontWeight: 600, lineHeight: 1.5 }}>
-                                                    {selectedItem.clinic_name || '—'}
+                                                <Typography variant="body1" sx={{ fontWeight: 600, lineHeight: 1.5, flex: 1 }}>
+                                                    {selectedItem.record.clinic_name || '—'}
                                                 </Typography>
                                             </Stack>
+
+                                            {/* Batch Number */}
                                             <Stack direction="row" spacing={2}>
                                                 <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, width: '160px', flexShrink: 0 }}>
                                                     Lô vaccine
                                                 </Typography>
-                                                <Typography variant="body1" sx={{ fontWeight: 600, lineHeight: 1.5, fontFamily: 'monospace' }}>
-                                                    {selectedItem.batch_number || '—'}
+                                                <Typography variant="body1" sx={{ fontWeight: 600, lineHeight: 1.5, flex: 1 }}>
+                                                    {selectedItem.record.batch_number || '—'}
                                                 </Typography>
                                             </Stack>
-                                            <Stack direction="row" spacing={2}>
-                                                <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, width: '160px', flexShrink: 0 }}>
-                                                    Trạng thái tiêm lại
-                                                </Typography>
-                                                <Typography variant="body1" sx={{
-                                                    fontWeight: 600,
-                                                    lineHeight: 1.5,
-                                                    color: (() => {
-                                                        const status = getVaccinationStatus(selectedItem);
-                                                        return status ? status.color[700] : 'inherit';
-                                                    })()
-                                                }}>
-                                                    {(() => {
-                                                        const status = getVaccinationStatus(selectedItem);
-                                                        return status ? status.label : 'Còn thời gian';
-                                                    })()}
-                                                </Typography>
-                                            </Stack>
-                                        </>
-                                    ) : (
-                                        // Scheduled vaccination
-                                        <>
-                                            <Stack direction="row" spacing={2}>
-                                                <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, width: '160px', flexShrink: 0 }}>
-                                                    Ngày tiêm dự kiến
-                                                </Typography>
-                                                <Typography variant="body1" sx={{ fontWeight: 600, lineHeight: 1.5 }}>
-                                                    {new Date(selectedItem.scheduled_date).toLocaleDateString('vi-VN', {
-                                                        year: 'numeric',
-                                                        month: 'long',
-                                                        day: 'numeric'
-                                                    })}
-                                                </Typography>
-                                            </Stack>
-                                            <Stack direction="row" spacing={2}>
-                                                <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, width: '160px', flexShrink: 0 }}>
-                                                    Trạng thái
-                                                </Typography>
-                                                <Typography variant="body1" sx={{ fontWeight: 600, lineHeight: 1.5 }}>
-                                                    Đã lên lịch
-                                                </Typography>
-                                            </Stack>
+
+                                            {/* Notes from Record */}
+                                            {selectedItem.record.notes && (
+                                                <Stack direction="row" spacing={2}>
+                                                    <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, width: '160px', flexShrink: 0 }}>
+                                                        Ghi chú tiêm phòng
+                                                    </Typography>
+                                                    <Typography variant="body2" sx={{ lineHeight: 1.6, color: COLORS.TEXT.PRIMARY, flex: 1 }}>
+                                                        {selectedItem.record.notes}
+                                                    </Typography>
+                                                </Stack>
+                                            )}
                                         </>
                                     )}
+
+                                    {/* Notes from Schedule */}
                                     {selectedItem.notes && (
                                         <>
-                                            <Divider sx={{ my: 0.5 }} />
+                                            <Divider sx={{ my: 1 }} />
                                             <Stack direction="row" spacing={2}>
                                                 <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, width: '160px', flexShrink: 0 }}>
-                                                    Ghi chú
+                                                    Ghi chú lịch tiêm
                                                 </Typography>
                                                 <Typography variant="body2" sx={{ lineHeight: 1.6, color: COLORS.TEXT.PRIMARY, flex: 1 }}>
                                                     {selectedItem.notes}
@@ -1179,10 +1685,86 @@ const VaccinationsPage = () => {
                 editMode={scheduleEditMode}
                 initialData={currentSchedule}
                 pets={pets}
-                groups={groups}
                 vaccineTypes={vaccineTypes}
+                species={species}
+                teams={teams}
                 isLoading={isLoading}
             />
+
+            {/* Delete Confirmation Modal */}
+            <ConfirmModal
+                isOpen={deleteDialogOpen}
+                onClose={() => {
+                    setDeleteDialogOpen(false);
+                    setScheduleToDelete(null);
+                }}
+                onConfirm={confirmDeleteSchedule}
+                title="Xóa lịch tiêm"
+                message={`Bạn có chắc chắn muốn xóa lịch tiêm cho "${scheduleToDelete?.pet?.name || '—'}" - "${scheduleToDelete?.vaccine_type?.name || '—'}"? Hành động này không thể hoàn tác.`}
+                confirmText="Xóa"
+                cancelText="Hủy"
+                type="error"
+                isLoading={isLoading}
+            />
+
+            {/* Schedule Actions Menu */}
+            <Menu
+                anchorEl={menuAnchor}
+                open={Boolean(menuAnchor)}
+                onClose={() => {
+                    setMenuAnchor(null);
+                    setMenuSchedule(null);
+                }}
+                anchorOrigin={{
+                    vertical: 'bottom',
+                    horizontal: 'right',
+                }}
+                transformOrigin={{
+                    vertical: 'top',
+                    horizontal: 'right',
+                }}
+            >
+                <MenuItem
+                    onClick={() => {
+                        if (menuSchedule) {
+                            handleViewDetails(menuSchedule);
+                        }
+                        setMenuAnchor(null);
+                        setMenuSchedule(null);
+                    }}
+                >
+                    <ListItemIcon>
+                        <Visibility fontSize="small" sx={{ color: COLORS.INFO[600] }} />
+                    </ListItemIcon>
+                    <ListItemText>Xem chi tiết</ListItemText>
+                </MenuItem>
+                <MenuItem
+                    onClick={() => {
+                        if (menuSchedule) {
+                            handleOpenScheduleModal(menuSchedule);
+                        }
+                        setMenuAnchor(null);
+                        setMenuSchedule(null);
+                    }}
+                >
+                    <ListItemIcon>
+                        <Edit fontSize="small" sx={{ color: COLORS.WARNING[600] }} />
+                    </ListItemIcon>
+                    <ListItemText>Chỉnh sửa</ListItemText>
+                </MenuItem>
+                <MenuItem
+                    onClick={() => {
+                        if (menuSchedule) {
+                            handleDeleteSchedule(menuSchedule);
+                        }
+                    }}
+                >
+                    <ListItemIcon>
+                        <Delete fontSize="small" sx={{ color: COLORS.ERROR[600] }} />
+                    </ListItemIcon>
+                    <ListItemText>Xóa</ListItemText>
+                </MenuItem>
+            </Menu>
 
             {/* Alert Modal */}
             <AlertModal
@@ -1197,4 +1779,3 @@ const VaccinationsPage = () => {
 };
 
 export default VaccinationsPage;
-

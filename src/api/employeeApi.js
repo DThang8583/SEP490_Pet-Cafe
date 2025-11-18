@@ -1,251 +1,298 @@
-import { MOCK_EMPLOYEES } from './mockData';
+import apiClient from '../config/config';
 
-// Delay to simulate API call
-const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+/**
+ * Create pagination object
+ * @param {number} totalItems - Total number of items
+ * @param {number} pageSize - Page size
+ * @param {number} pageIndex - Page index
+ * @returns {Object} Pagination object
+ */
+const createPagination = (totalItems, pageSize, pageIndex) => ({
+    total_items_count: totalItems,
+    page_size: pageSize,
+    total_pages_count: Math.ceil(totalItems / pageSize) || 0,
+    page_index: pageIndex,
+    has_next: (pageIndex + 1) * pageSize < totalItems,
+    has_previous: pageIndex > 0
+});
 
-// Mock getCurrentUser
-const getCurrentUser = () => {
-    const user = localStorage.getItem('currentUser'); // ✅ FIX: Đổi 'user' thành 'currentUser'
-    return user ? JSON.parse(user) : null;
-};
+/**
+ * Get all employees from official API
+ * @param {Object} params - { page_index, page_size, page (optional alias for page_index) }
+ * @returns {Promise<Object>} { data, pagination }
+ */
+export const getAllEmployees = async (params = {}) => {
+    const {
+        page_index = 0,
+        page_size = 999,
+        page = undefined // Optional: support 'page' as alias for page_index (1-based)
+    } = params;
 
-// Permission check
-const checkPermission = (user, permission) => {
-    if (!user) return false;
-    // Check both user.role and user.account.role for compatibility
-    const role = user.role || user.account?.role;
-    // Case-insensitive check for MANAGER role
-    if (role && role.toUpperCase() === 'MANAGER') return true;
-    return false;
-};
+    // Use page_index if provided, otherwise use page (convert from 1-based to 0-based)
+    const actualPageIndex = page_index !== undefined && page_index !== null
+        ? page_index
+        : (page !== undefined && page !== null ? page - 1 : 0);
 
-// Generate ID
-const generateId = () => {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-        const r = Math.random() * 16 | 0;
-        const v = c === 'x' ? r : (r & 0x3 | 0x8);
-        return v.toString(16);
-    });
+    try {
+        // API uses 'page' (0-based) and 'limit' according to Swagger documentation
+        const params = {
+            page: actualPageIndex, // API uses 'page' (0-based), not 'page_index'
+            limit: page_size, // API uses 'limit' instead of 'page_size'
+            _t: Date.now()
+        };
+
+        console.log(`[getAllEmployees] Request params:`, params);
+
+        const response = await apiClient.get('/employees', {
+            params,
+            timeout: 10000,
+            headers: { 'Cache-Control': 'no-cache' }
+        });
+
+        const responseData = response.data;
+        console.log(responseData);
+        // Check if response has the expected structure: { data: [...], pagination: {...} }
+        if (responseData?.data && Array.isArray(responseData.data)) {
+            // Use pagination from API response if available, otherwise create one
+            const apiPagination = responseData.pagination;
+            if (apiPagination && typeof apiPagination === 'object') {
+                return {
+                    data: responseData.data,
+                    pagination: {
+                        total_items_count: apiPagination.total_items_count ?? responseData.data.length,
+                        page_size: apiPagination.page_size ?? page_size,
+                        total_pages_count: apiPagination.total_pages_count ?? Math.ceil((apiPagination.total_items_count ?? responseData.data.length) / page_size),
+                        page_index: apiPagination.page_index ?? actualPageIndex,
+                        has_next: apiPagination.has_next ?? false,
+                        has_previous: apiPagination.has_previous ?? (actualPageIndex > 0)
+                    }
+                };
+            }
+
+            // Fallback: create pagination from data length
+            return {
+                data: responseData.data,
+                pagination: createPagination(
+                    responseData.data.length,
+                    page_size,
+                    actualPageIndex
+                )
+            };
+        }
+
+        // Fallback: if response is directly an array
+        if (Array.isArray(responseData)) {
+            return {
+                data: responseData,
+                pagination: createPagination(responseData.length, page_size, actualPageIndex)
+            };
+        }
+
+        // No data found
+        return {
+            data: [],
+            pagination: createPagination(0, page_size, actualPageIndex)
+        };
+    } catch (error) {
+        console.error('Failed to fetch employees from API:', error);
+
+        // Re-throw error so calling code can handle it appropriately
+        // Some callers might want to show error messages, others might want to use empty data
+        throw error;
+    }
 };
 
 /**
- * Get all employees (chỉ WORKING_STAFF và SALE_STAFF, không bao gồm MANAGER)
+ * Get employee by ID from official API
+ * @param {string} employeeId - Employee ID
+ * @returns {Promise<Object>} Employee object
  */
-export const getEmployees = async () => {
-    await delay(500);
-    const currentUser = getCurrentUser();
+export const getEmployeeById = async (employeeId) => {
+    try {
+        const response = await apiClient.get(`/employees/${employeeId}`, { timeout: 10000 });
 
-    // Debug: Log user info
-    console.log('🔍 [Employee API] Current User:', currentUser);
-    console.log('🔍 [Employee API] User Role:', currentUser?.role || currentUser?.account?.role);
-
-    if (!checkPermission(currentUser, 'staff_management')) {
-        console.error('❌ [Employee API] Permission Denied for user:', currentUser);
-        throw new Error('Không có quyền truy cập');
-    }
-
-    console.log('✅ [Employee API] Permission Granted');
-
-    // Return employees with account data (for list view)
-    const employees = MOCK_EMPLOYEES.map(emp => ({
-        ...emp,
-        account: emp.account // Include account in list
-    }));
-
-    return {
-        success: true,
-        data: employees,
-        pagination: {
-            total_items_count: employees.length,
-            page_size: 10,
-            total_pages_count: 1,
-            page_index: 0,
-            has_next: false,
-            has_previous: false
+        if (!response.data) {
+            throw new Error('Không tìm thấy nhân viên');
         }
-    };
-};
 
-/**
- * Get employee detail by ID
- */
-export const getEmployeeById = async (id) => {
-    await delay(300);
-    const currentUser = getCurrentUser();
-
-    if (!checkPermission(currentUser, 'staff_management')) {
-        throw new Error('Không có quyền truy cập');
-    }
-
-    const employee = MOCK_EMPLOYEES.find(emp => emp.id === id);
-    if (!employee) {
-        throw new Error('Không tìm thấy nhân viên');
-    }
-
-    // Return employee with account = null (match API detail structure)
-    return {
-        success: true,
-        data: {
-            ...employee,
-            account: null // Detail view has account = null
+        return response.data;
+    } catch (error) {
+        // Don't log 404 errors as they are expected in some cases
+        if (error.response?.status === 404) {
+            throw new Error('Không tìm thấy nhân viên');
         }
-    };
+        // Only log non-404 errors
+        console.error('Failed to fetch employee from API:', error);
+        throw error;
+    }
 };
 
 /**
  * Create new employee
+ * @param {Object} employeeData - { full_name, phone, address, salary, skills, area_id, email, avatar_url, password, sub_role }
+ * @returns {Promise<Object>} { success, data, message }
  */
 export const createEmployee = async (employeeData) => {
-    await delay(700);
-    const currentUser = getCurrentUser();
+    try {
+        const response = await apiClient.post('/employees', {
+            full_name: employeeData.full_name?.trim() || '',
+            phone: employeeData.phone?.trim() || '',
+            address: employeeData.address?.trim() || '',
+            salary: parseInt(employeeData.salary) || 0,
+            skills: Array.isArray(employeeData.skills) ? employeeData.skills : [],
+            area_id: employeeData.area_id || null,
+            email: employeeData.email?.trim() || '',
+            avatar_url: employeeData.avatar_url?.trim() || '',
+            password: employeeData.password?.trim() || '',
+            sub_role: employeeData.sub_role?.trim() || ''
+        }, { timeout: 10000 });
 
-    if (!checkPermission(currentUser, 'staff_management')) {
-        throw new Error('Không có quyền tạo nhân viên');
+        return {
+            success: true,
+            data: response.data,
+            message: 'Tạo nhân viên thành công'
+        };
+    } catch (error) {
+        console.error('Failed to create employee:', error);
+        throw error;
     }
-
-    // Validation
-    if (!employeeData.full_name) throw new Error('Họ tên là bắt buộc');
-    if (!employeeData.email) throw new Error('Email là bắt buộc');
-    if (!employeeData.phone) throw new Error('Số điện thoại là bắt buộc');
-    if (!employeeData.sub_role) throw new Error('Loại nhân viên là bắt buộc');
-    if (!employeeData.password) throw new Error('Mật khẩu là bắt buộc');
-
-    const newEmployeeId = generateId();
-    const newAccountId = generateId();
-
-    const newEmployee = {
-        id: newEmployeeId,
-        account_id: newAccountId,
-        full_name: employeeData.full_name,
-        avatar_url: employeeData.avatar_url || '',
-        email: employeeData.email,
-        phone: employeeData.phone,
-        address: employeeData.address || '',
-        skills: employeeData.skills || [],
-        salary: employeeData.salary || 0,
-        sub_role: employeeData.sub_role,
-        account: {
-            username: employeeData.full_name,
-            email: employeeData.email,
-            password_hash: `$2a$12$${Math.random().toString(36)}`, // Mock hash
-            role: 'EMPLOYEE',
-            is_active: true,
-            customer: null,
-            employee: null,
-            notifications: [],
-            id: newAccountId,
-            created_at: new Date().toISOString(),
-            created_by: currentUser?.id || '00000000-0000-0000-0000-000000000000',
-            updated_at: new Date().toISOString(),
-            updated_by: null,
-            is_deleted: false
-        },
-        team_members: [],
-        orders: [],
-        daily_schedules: [],
-        created_at: new Date().toISOString(),
-        created_by: currentUser?.id || '00000000-0000-0000-0000-000000000000',
-        updated_at: new Date().toISOString(),
-        updated_by: null,
-        is_deleted: false
-    };
-
-    // Add to mock database
-    MOCK_EMPLOYEES.push(newEmployee);
-
-    return {
-        success: true,
-        data: newEmployee,
-        message: 'Tạo nhân viên thành công'
-    };
 };
 
 /**
  * Update employee
+ * @param {string} employeeId - Employee ID
+ * @param {Object} employeeData - { full_name, phone, address, salary, skills, area_id, email, avatar_url, password, new_password, sub_role, is_active }
+ * @returns {Promise<Object>} { success, data, message }
  */
-export const updateEmployee = async (id, employeeData) => {
-    await delay(700);
-    const currentUser = getCurrentUser();
+export const updateEmployee = async (employeeId, employeeData) => {
+    try {
+        const requestData = {};
 
-    if (!checkPermission(currentUser, 'staff_management')) {
-        throw new Error('Không có quyền cập nhật nhân viên');
-    }
-
-    const employeeIndex = MOCK_EMPLOYEES.findIndex(emp => emp.id === id);
-    if (employeeIndex === -1) {
-        throw new Error('Không tìm thấy nhân viên');
-    }
-
-    const employee = MOCK_EMPLOYEES[employeeIndex];
-
-    // Update employee data
-    const updatedEmployee = {
-        ...employee,
-        full_name: employeeData.full_name !== undefined ? employeeData.full_name : employee.full_name,
-        avatar_url: employeeData.avatar_url !== undefined ? employeeData.avatar_url : employee.avatar_url,
-        email: employeeData.email !== undefined ? employeeData.email : employee.email,
-        phone: employeeData.phone !== undefined ? employeeData.phone : employee.phone,
-        address: employeeData.address !== undefined ? employeeData.address : employee.address,
-        skills: employeeData.skills !== undefined ? employeeData.skills : employee.skills,
-        salary: employeeData.salary !== undefined ? employeeData.salary : employee.salary,
-        sub_role: employeeData.sub_role !== undefined ? employeeData.sub_role : employee.sub_role,
-        updated_at: new Date().toISOString(),
-        updated_by: currentUser?.id || '00000000-0000-0000-0000-000000000000',
-        account: {
-            ...employee.account,
-            username: employeeData.full_name || employee.full_name,
-            email: employeeData.email || employee.email,
-            updated_at: new Date().toISOString(),
-            updated_by: currentUser?.id || '00000000-0000-0000-0000-000000000000'
+        if (employeeData.full_name !== undefined) {
+            requestData.full_name = employeeData.full_name?.trim() || '';
         }
-    };
+        if (employeeData.phone !== undefined) {
+            requestData.phone = employeeData.phone?.trim() || '';
+        }
+        if (employeeData.address !== undefined) {
+            requestData.address = employeeData.address?.trim() || '';
+        }
+        if (employeeData.salary !== undefined) {
+            requestData.salary = parseInt(employeeData.salary) || 0;
+        }
+        if (employeeData.skills !== undefined) {
+            requestData.skills = Array.isArray(employeeData.skills) ? employeeData.skills : [];
+        }
+        if (employeeData.area_id !== undefined) {
+            requestData.area_id = employeeData.area_id || null;
+        }
+        if (employeeData.email !== undefined) {
+            requestData.email = employeeData.email?.trim() || '';
+        }
+        if (employeeData.avatar_url !== undefined) {
+            requestData.avatar_url = employeeData.avatar_url?.trim() || '';
+        }
+        if (employeeData.sub_role !== undefined) {
+            requestData.sub_role = employeeData.sub_role?.trim() || '';
+        }
+        if (employeeData.is_active !== undefined) {
+            requestData.is_active = Boolean(employeeData.is_active);
+        }
 
-    // Update password if provided
-    if (employeeData.password) {
-        updatedEmployee.account.password_hash = `$2a$12$${Math.random().toString(36)}`; // Mock hash
+        // Password fields: password (current) and new_password (new)
+        // Only include password if provided (for changing password)
+        if (employeeData.password !== undefined && employeeData.password !== null && employeeData.password !== '') {
+            requestData.password = employeeData.password.trim();
+        }
+        if (employeeData.new_password !== undefined && employeeData.new_password !== null && employeeData.new_password !== '') {
+            requestData.new_password = employeeData.new_password.trim();
+        }
+
+        // Note: API allows updating without password when only changing is_active
+        // Password is only required when changing password or other sensitive fields
+
+        const response = await apiClient.put(`/employees/${employeeId}`, requestData, { timeout: 10000 });
+
+        return {
+            success: true,
+            data: response.data,
+            message: 'Cập nhật nhân viên thành công'
+        };
+    } catch (error) {
+        console.error('Failed to update employee:', error);
+        if (error.response?.status === 404) {
+            throw new Error('Không tìm thấy nhân viên');
+        }
+        throw error;
     }
+};
 
-    MOCK_EMPLOYEES[employeeIndex] = updatedEmployee;
+/**
+ * Update only employee status (is_active) without requiring password
+ * This is a convenience function for toggling employee status
+ * @param {string} employeeId - Employee ID
+ * @param {boolean} isActive - New active status
+ * @returns {Promise<Object>} { success, data, message }
+ */
+export const updateEmployeeStatus = async (employeeId, isActive) => {
+    try {
+        // Use PUT endpoint with only is_active field (API allows this without password)
+        const response = await apiClient.put(`/employees/${employeeId}`, {
+            is_active: Boolean(isActive)
+        }, { timeout: 10000 });
 
-    return {
-        success: true,
-        data: updatedEmployee,
-        message: 'Cập nhật nhân viên thành công'
-    };
+        return {
+            success: true,
+            data: response.data,
+            message: 'Cập nhật trạng thái nhân viên thành công'
+        };
+    } catch (error) {
+        console.error('Failed to update employee status:', error);
+        if (error.response?.status === 404) {
+            throw new Error('Không tìm thấy nhân viên');
+        }
+        throw error;
+    }
 };
 
 /**
  * Delete employee
+ * @param {string} employeeId - Employee ID
+ * @returns {Promise<Object>} { success, message }
  */
-export const deleteEmployee = async (id) => {
-    await delay(500);
-    const currentUser = getCurrentUser();
+export const deleteEmployee = async (employeeId) => {
+    try {
+        await apiClient.delete(`/employees/${employeeId}`, { timeout: 10000 });
 
-    if (!checkPermission(currentUser, 'staff_management')) {
-        throw new Error('Không có quyền xóa nhân viên');
+        return {
+            success: true,
+            message: 'Xóa nhân viên thành công'
+        };
+    } catch (error) {
+        console.error('Failed to delete employee:', error);
+        if (error.response?.status === 404) {
+            throw new Error('Không tìm thấy nhân viên');
+        }
+        throw error;
     }
+};
 
-    const employeeIndex = MOCK_EMPLOYEES.findIndex(emp => emp.id === id);
-    if (employeeIndex === -1) {
-        throw new Error('Không tìm thấy nhân viên');
-    }
-
-    // Soft delete
-    MOCK_EMPLOYEES[employeeIndex].is_deleted = true;
-    MOCK_EMPLOYEES[employeeIndex].updated_at = new Date().toISOString();
-    MOCK_EMPLOYEES[employeeIndex].updated_by = currentUser?.id || '00000000-0000-0000-0000-000000000000';
-
+// Legacy function for backward compatibility
+export const getEmployees = async () => {
+    const response = await getAllEmployees({ page_index: 0, page_size: 1000 });
     return {
         success: true,
-        message: 'Xóa nhân viên thành công'
+        data: response.data,
+        pagination: response.pagination
     };
 };
 
 export default {
-    getEmployees,
+    getAllEmployees,
     getEmployeeById,
     createEmployee,
     updateEmployee,
-    deleteEmployee
+    updateEmployeeStatus,
+    deleteEmployee,
+    getEmployees
 };
-

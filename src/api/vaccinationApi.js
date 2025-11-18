@@ -1,5 +1,36 @@
 import axios from 'axios';
-import { MOCK_PET_SPECIES } from './mockData';
+
+// Mock Pet Species for vaccinationApi (minimal data for mock vaccine types)
+const MOCK_PET_SPECIES = [
+    {
+        id: 'b6988687-c027-4b63-b91f-e8652c7a54c6',
+        name: 'mèo',
+        description: 'Loài động vật có vú, nổi tiếng với sự nhanh nhẹn, khả năng săn mồi và thường được nuôi làm thú cưng trong nhà.',
+        is_active: true,
+        pet_breeds: [],
+        pets: [],
+        vaccine_types: [],
+        created_at: '2025-10-27T06:12:33.364689+00:00',
+        created_by: '00000000-0000-0000-0000-000000000000',
+        updated_at: '2025-10-27T06:12:33.364689+00:00',
+        updated_by: null,
+        is_deleted: false
+    },
+    {
+        id: '8d769794-167b-4458-a9a9-ac33748feee1',
+        name: 'chó',
+        description: 'Loài động vật có vú , được biết đến là \'người bạn tốt nhất của con người\' với lòng trung thành, khả năng học hỏi và đa dạng về giống loài.',
+        is_active: true,
+        pet_breeds: [],
+        pets: [],
+        vaccine_types: [],
+        created_at: '2025-10-27T06:12:45.528755+00:00',
+        created_by: '00000000-0000-0000-0000-000000000000',
+        updated_at: '2025-10-27T06:12:45.528755+00:00',
+        updated_by: null,
+        is_deleted: false
+    }
+];
 
 // Base configuration
 const API_BASE_URL = 'http://localhost:8080/api';
@@ -605,11 +636,10 @@ let MOCK_VACCINATION_RECORDS = [
     }
 ];
 
-// Helper function to get pets data (will be imported from petApi)
-// For now, we'll use a simple reference - this will be replaced with import
+// Helper function to get pets data
+// Note: This is a placeholder for mock data - actual implementation should fetch from petsApi
 const getPetsData = () => {
-    // This is a placeholder - in real usage, this would import from petApi
-    // For now, we'll return empty array and let the calling code handle it
+    // Return empty array - calling code should handle pet data fetching
     return [];
 };
 

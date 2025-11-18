@@ -1,19 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import {
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
-    TextField,
-    Button,
-    Box,
-    Typography,
-    IconButton,
-    Switch,
-    FormControlLabel,
-    Alert,
-    alpha
-} from '@mui/material';
+import { useState, useEffect } from 'react';
+import { Dialog, DialogTitle, DialogContent, DialogActions, TextField, Button, Box, Typography, IconButton, Switch, FormControlLabel, Alert, alpha, Stack } from '@mui/material';
 import { Close, WorkOutline } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 
@@ -33,40 +19,42 @@ const WorkTypeFormModal = ({
     const [errors, setErrors] = useState({});
 
     useEffect(() => {
-        if (open) {
-            if (mode === 'edit' && initialData) {
-                setFormData({
-                    name: initialData.name || '',
-                    description: initialData.description || '',
-                    is_active: initialData.is_active !== undefined ? initialData.is_active : true
-                });
-            } else {
-                setFormData({
-                    name: '',
-                    description: '',
-                    is_active: true
-                });
-            }
-            setErrors({});
+        if (!open) return;
+
+        if (mode === 'edit' && initialData) {
+            setFormData({
+                name: initialData.name || '',
+                description: initialData.description || '',
+                is_active: initialData.is_active !== undefined ? initialData.is_active : true
+            });
+        } else {
+            setFormData({
+                name: '',
+                description: '',
+                is_active: true
+            });
         }
+        setErrors({});
     }, [open, mode, initialData]);
 
     const validate = () => {
         const newErrors = {};
+        const name = formData.name.trim();
+        const description = formData.description.trim();
 
-        if (!formData.name.trim()) {
+        if (!name) {
             newErrors.name = 'Tên loại công việc là bắt buộc';
-        } else if (formData.name.trim().length < 3) {
+        } else if (name.length < 3) {
             newErrors.name = 'Tên loại công việc phải có ít nhất 3 ký tự';
-        } else if (formData.name.trim().length > 100) {
+        } else if (name.length > 100) {
             newErrors.name = 'Tên loại công việc không được vượt quá 100 ký tự';
         }
 
-        if (!formData.description.trim()) {
+        if (!description) {
             newErrors.description = 'Mô tả là bắt buộc';
-        } else if (formData.description.trim().length < 10) {
+        } else if (description.length < 10) {
             newErrors.description = 'Mô tả phải có ít nhất 10 ký tự';
-        } else if (formData.description.trim().length > 500) {
+        } else if (description.length > 500) {
             newErrors.description = 'Mô tả không được vượt quá 500 ký tự';
         }
 
@@ -88,28 +76,22 @@ const WorkTypeFormModal = ({
     };
 
     const handleSubmit = () => {
-        if (validate()) {
-            // For create: only send name and description
-            // For edit: send name, description, and is_active
-            const submitData = mode === 'create'
-                ? {
-                    name: formData.name.trim(),
-                    description: formData.description.trim()
-                }
-                : {
-                    name: formData.name.trim(),
-                    description: formData.description.trim(),
-                    is_active: formData.is_active
-                };
+        if (!validate()) return;
 
-            onSubmit(submitData);
+        const submitData = {
+            name: formData.name.trim(),
+            description: formData.description.trim()
+        };
+
+        if (mode === 'edit') {
+            submitData.is_active = formData.is_active;
         }
+
+        onSubmit(submitData);
     };
 
     const handleClose = () => {
-        if (!errors.submitting) {
-            onClose();
-        }
+        onClose();
     };
 
     return (
@@ -118,6 +100,7 @@ const WorkTypeFormModal = ({
             onClose={handleClose}
             maxWidth="sm"
             fullWidth
+            disableScrollLock
             PaperProps={{
                 sx: {
                     borderRadius: 3,
@@ -125,50 +108,19 @@ const WorkTypeFormModal = ({
                 }
             }}
         >
-            {/* Header */}
-            <DialogTitle
+            <Box
                 sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    pb: 2,
-                    borderBottom: `1px solid ${COLORS.GRAY[200]}`
+                    background: `linear-gradient(135deg, ${alpha(COLORS.PRIMARY[50], 0.3)}, ${alpha(COLORS.SECONDARY[50], 0.2)})`,
+                    borderBottom: `3px solid ${COLORS.PRIMARY[500]}`
                 }}
             >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                    <Box
-                        sx={{
-                            width: 40,
-                            height: 40,
-                            borderRadius: 2,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            bgcolor: alpha(COLORS.PRIMARY[500], 0.1)
-                        }}
-                    >
-                        <WorkOutline sx={{ color: COLORS.PRIMARY[600], fontSize: 24 }} />
-                    </Box>
-                    <Typography variant="h6" fontWeight={700} color={COLORS.TEXT.PRIMARY}>
-                        {mode === 'create' ? 'Tạo loại công việc mới' : 'Chỉnh sửa loại công việc'}
-                    </Typography>
-                </Box>
-
-                <IconButton
-                    onClick={handleClose}
-                    size="small"
-                    sx={{
-                        color: COLORS.GRAY[600],
-                        '&:hover': { bgcolor: alpha(COLORS.GRAY[100], 0.8) }
-                    }}
-                >
-                    <Close />
-                </IconButton>
-            </DialogTitle>
-
-            {/* Content */}
-            <DialogContent sx={{ pt: 3, pb: 2 }}>
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+                <DialogTitle sx={{ fontWeight: 800, color: COLORS.PRIMARY[700], pb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <WorkOutline />
+                    {mode === 'create' ? '➕ Tạo loại công việc mới' : '✏️ Chỉnh sửa loại công việc'}
+                </DialogTitle>
+            </Box>
+            <DialogContent sx={{ pt: 3, pb: 2, px: 3 }}>
+                <Stack spacing={3}>
                     {/* Name */}
                     <TextField
                         label="Tên loại công việc"
@@ -228,15 +180,14 @@ const WorkTypeFormModal = ({
                             Loại công việc mới sẽ được tạo ở trạng thái <strong>hoạt động</strong> mặc định.
                         </Alert>
                     )}
-                </Box>
+                </Stack>
             </DialogContent>
 
-            {/* Actions */}
             <DialogActions
                 sx={{
                     px: 3,
                     py: 2,
-                    borderTop: `1px solid ${COLORS.GRAY[200]}`,
+                    borderTop: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.1)}`,
                     gap: 1.5
                 }}
             >

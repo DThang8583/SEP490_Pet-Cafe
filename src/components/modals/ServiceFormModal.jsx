@@ -1,26 +1,8 @@
 import { useState, useEffect } from 'react';
-import {
-    Dialog,
-    DialogTitle,
-    DialogContent,
-    DialogActions,
-    Button,
-    TextField,
-    Box,
-    Alert,
-    InputAdornment,
-    Typography,
-    Paper,
-    Divider,
-    IconButton,
-    Stack
-} from '@mui/material';
-import {
-    CloudUpload as CloudUploadIcon,
-    Delete as DeleteIcon,
-    Image as ImageIcon
-} from '@mui/icons-material';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Box, Alert, InputAdornment, Typography, Paper, Divider, IconButton, Stack, alpha } from '@mui/material';
+import { CloudUpload as CloudUploadIcon, Delete as DeleteIcon, Image as ImageIcon } from '@mui/icons-material';
 import { formatPrice } from '../../utils/formatPrice';
+import { COLORS } from '../../constants/colors';
 
 const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, mode = 'create' }) => {
     const [formData, setFormData] = useState({
@@ -272,26 +254,27 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
             onClose={handleClose}
             maxWidth="md"
             fullWidth
+            disableScrollLock
             PaperProps={{
                 sx: {
-                    borderRadius: 2,
-                    boxShadow: 24
+                    borderRadius: 3,
+                    boxShadow: `0 20px 60px ${alpha(COLORS.SHADOW.DARK, 0.3)}`
                 }
             }}
         >
-            <DialogTitle sx={{
-                borderBottom: '1px solid #e0e0e0',
-                pb: 2,
-                fontWeight: 600,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1
-            }}>
-                <ImageIcon color="primary" />
-                {mode === 'edit' ? 'Chỉnh sửa Dịch vụ' : 'Tạo Dịch vụ từ Nhiệm vụ'}
-            </DialogTitle>
+            <Box
+                sx={{
+                    background: `linear-gradient(135deg, ${alpha(COLORS.PRIMARY[50], 0.3)}, ${alpha(COLORS.SECONDARY[50], 0.2)})`,
+                    borderBottom: `3px solid ${COLORS.PRIMARY[500]}`
+                }}
+            >
+                <DialogTitle sx={{ fontWeight: 800, color: COLORS.PRIMARY[700], pb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <ImageIcon />
+                    {mode === 'edit' ? '✏️ Chỉnh sửa Dịch vụ' : '➕ Tạo Dịch vụ từ Nhiệm vụ'}
+                </DialogTitle>
+            </Box>
 
-            <DialogContent sx={{ pt: 3, maxHeight: '70vh', overflowY: 'auto' }}>
+            <DialogContent sx={{ pt: 3, pb: 2, px: 3, maxHeight: '70vh', overflowY: 'auto' }}>
                 {errors.submit && (
                     <Alert severity="error" sx={{ mb: 2 }}>
                         {errors.submit}
@@ -552,7 +535,7 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
             </DialogContent>
 
             <DialogActions sx={{
-                borderTop: '1px solid #e0e0e0',
+                borderTop: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.1)}`,
                 px: 3,
                 py: 2,
                 gap: 1

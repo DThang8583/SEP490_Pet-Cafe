@@ -1,43 +1,42 @@
-/**
- * AddCategoryModal.jsx
- * 
- * Modal for adding/editing product categories
- */
-
-import React, { useState, useEffect } from 'react';
-import {
-    Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Typography, Box,
-    Stack, IconButton, alpha
-} from '@mui/material';
-import {
-    Close, Category
-} from '@mui/icons-material';
+import { useState, useEffect } from 'react';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Typography, Box, Stack, IconButton, alpha, Avatar, Paper, Alert } from '@mui/material';
+import { Close, Category, CloudUpload, Delete } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 
 const AddCategoryModal = ({ open, onClose, onSave, editingCategory = null }) => {
     const [formData, setFormData] = useState({
         name: '',
-        description: ''
+        description: '',
+        image_url: ''
     });
 
     const [errors, setErrors] = useState({});
     const [touched, setTouched] = useState({});
+    const [imageFile, setImageFile] = useState(null);
+    const [imagePreview, setImagePreview] = useState(null);
+    const [imageError, setImageError] = useState('');
 
     // Populate form when editing
     useEffect(() => {
         if (editingCategory) {
             setFormData({
                 name: editingCategory.name || '',
-                description: editingCategory.description || ''
+                description: editingCategory.description || '',
+                image_url: editingCategory.image_url || ''
             });
+            setImagePreview(editingCategory.image_url || null);
         } else {
             setFormData({
                 name: '',
-                description: ''
+                description: '',
+                image_url: ''
             });
+            setImagePreview(null);
         }
+        setImageFile(null);
         setErrors({});
         setTouched({});
+        setImageError('');
     }, [editingCategory, open]);
 
     // Validation
@@ -67,6 +66,42 @@ const AddCategoryModal = ({ open, onClose, onSave, editingCategory = null }) => 
         setErrors(prev => ({ ...prev, [field]: error }));
     };
 
+    const handleImageChange = (event) => {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        setImageError('');
+
+        if (!file.type.startsWith('image/')) {
+            setImageError('Vui lòng chọn file hình ảnh');
+            return;
+        }
+
+        const MAX_SIZE = 5 * 1024 * 1024;
+        if (file.size > MAX_SIZE) {
+            setImageError('Kích thước ảnh không được vượt quá 5MB');
+            return;
+        }
+
+        setImageFile(file);
+
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            setImagePreview(reader.result);
+        };
+        reader.onerror = () => {
+            setImageError('Không thể đọc file ảnh');
+        };
+        reader.readAsDataURL(file);
+    };
+
+    const handleRemoveImage = () => {
+        setImageFile(null);
+        setImagePreview(null);
+        setImageError('');
+        setFormData(prev => ({ ...prev, image_url: '' }));
+    };
+
     const handleSubmit = () => {
         // Validate essential fields
         const newErrors = {
@@ -82,10 +117,18 @@ const AddCategoryModal = ({ open, onClose, onSave, editingCategory = null }) => 
         const hasError = Object.values(newErrors).some(error => error !== '' && error !== undefined);
 
         if (!hasError) {
-            onSave({
+            const submitData = {
                 name: formData.name.trim(),
                 description: formData.description.trim()
-            });
+            };
+
+            if (imageFile) {
+                submitData.image_file = imageFile;
+            } else if (editingCategory && formData.image_url) {
+                submitData.image_url = formData.image_url;
+            }
+
+            onSave(submitData);
         }
     };
 
@@ -95,43 +138,31 @@ const AddCategoryModal = ({ open, onClose, onSave, editingCategory = null }) => 
             onClose={onClose}
             maxWidth="sm"
             fullWidth
+            disableScrollLock
             PaperProps={{
                 sx: {
                     borderRadius: 3,
-                    boxShadow: '0 8px 32px rgba(0,0,0,0.12)'
+                    boxShadow: `0 20px 60px ${alpha(COLORS.SHADOW.DARK, 0.3)}`
                 }
             }}
         >
-            {/* Header */}
-            <DialogTitle
+            <Box
                 sx={{
-                    bgcolor: COLORS.PRIMARY[500],
-                    color: 'white',
-                    pb: 2
+                    background: `linear-gradient(135deg, ${alpha(COLORS.PRIMARY[50], 0.3)}, ${alpha(COLORS.SECONDARY[50], 0.2)})`,
+                    borderBottom: `3px solid ${COLORS.PRIMARY[500]}`
                 }}
             >
-                <Stack direction="row" spacing={2} alignItems="center">
-                    <Category sx={{ fontSize: 32 }} />
-                    <Box sx={{ flex: 1 }}>
-                        <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                            {editingCategory ? 'Sửa danh mục' : 'Thêm danh mục mới'}
-                        </Typography>
-                        <Typography variant="body2" sx={{ opacity: 0.9, mt: 0.5 }}>
-                            {editingCategory ? 'Cập nhật thông tin danh mục' : 'Thêm danh mục sản phẩm mới'}
-                        </Typography>
-                    </Box>
-                    <IconButton onClick={onClose} sx={{ color: 'white' }}>
-                        <Close />
-                    </IconButton>
-                </Stack>
-            </DialogTitle>
+                <DialogTitle sx={{ fontWeight: 800, color: COLORS.PRIMARY[700], pb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Category />
+                    {editingCategory ? '✏️ Sửa danh mục' : '➕ Thêm danh mục mới'}
+                </DialogTitle>
+            </Box>
 
-            {/* Content */}
-            <DialogContent sx={{ pt: 3, pb: 2 }}>
+            <DialogContent sx={{ pt: 3, pb: 2, px: 3 }}>
                 <Stack spacing={3}>
                     <TextField
                         fullWidth
-                        size="small"
+                        size="medium"
                         label="Tên danh mục *"
                         value={formData.name}
                         onChange={(e) => handleChange('name', e.target.value)}
@@ -143,7 +174,7 @@ const AddCategoryModal = ({ open, onClose, onSave, editingCategory = null }) => 
 
                     <TextField
                         fullWidth
-                        size="small"
+                        size="medium"
                         label="Mô tả"
                         value={formData.description}
                         onChange={(e) => handleChange('description', e.target.value)}
@@ -151,11 +182,89 @@ const AddCategoryModal = ({ open, onClose, onSave, editingCategory = null }) => 
                         rows={3}
                         placeholder="Mô tả chi tiết về danh mục..."
                     />
+
+                    {/* Image Upload */}
+                    <Box>
+                        <Typography variant="body2" color="text.secondary" gutterBottom sx={{ mb: 1 }}>
+                            Hình ảnh danh mục (Tùy chọn)
+                        </Typography>
+                        {imageError && (
+                            <Alert severity="error" sx={{ mb: 1 }}>
+                                {imageError}
+                            </Alert>
+                        )}
+                        {imagePreview ? (
+                            <Paper
+                                sx={{
+                                    p: 2,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 2,
+                                    border: `2px solid ${COLORS.PRIMARY[200]}`,
+                                    borderRadius: 2
+                                }}
+                            >
+                                <Avatar
+                                    src={imagePreview}
+                                    variant="rounded"
+                                    sx={{ width: 100, height: 100 }}
+                                >
+                                    <Category sx={{ fontSize: 40 }} />
+                                </Avatar>
+                                <Box sx={{ flexGrow: 1 }}>
+                                    <Typography variant="body2" fontWeight={500}>
+                                        {imageFile ? imageFile.name : 'Hình ảnh hiện tại'}
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                        {imageFile ? `${(imageFile.size / 1024).toFixed(2)} KB` : 'Đã tải lên'}
+                                    </Typography>
+                                </Box>
+                                <IconButton
+                                    onClick={handleRemoveImage}
+                                    color="error"
+                                    size="small"
+                                >
+                                    <Delete />
+                                </IconButton>
+                            </Paper>
+                        ) : (
+                            <Button
+                                component="label"
+                                variant="outlined"
+                                fullWidth
+                                startIcon={<CloudUpload />}
+                                sx={{
+                                    height: 120,
+                                    borderStyle: 'dashed',
+                                    borderWidth: 2,
+                                    '&:hover': {
+                                        borderStyle: 'dashed',
+                                        borderWidth: 2,
+                                        bgcolor: COLORS.PRIMARY[50]
+                                    }
+                                }}
+                            >
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    hidden
+                                    onChange={handleImageChange}
+                                />
+                                <Stack alignItems="center" spacing={0.5}>
+                                    <Typography variant="body2" fontWeight={500}>
+                                        Click để tải ảnh lên
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                        PNG, JPG, WEBP (Max 5MB)
+                                    </Typography>
+                                </Stack>
+                            </Button>
+                        )}
+                    </Box>
                 </Stack>
             </DialogContent>
 
-            {/* Actions */}
-            <DialogActions sx={{ px: 3, py: 2, bgcolor: alpha(COLORS.PRIMARY[500], 0.02) }}>
+            <DialogActions sx={{ px: 3, py: 2, borderTop: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.1)}` }}>
                 <Button onClick={onClose} variant="outlined" color="inherit">
                     Hủy
                 </Button>
@@ -179,4 +288,3 @@ const AddCategoryModal = ({ open, onClose, onSave, editingCategory = null }) => 
 };
 
 export default AddCategoryModal;
-

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, IconButton, Stack, Toolbar, Grid, Button, FormControl, InputLabel, Select, MenuItem, Tooltip, alpha, Menu, ListItemIcon, ListItemText } from '@mui/material';
-import { CheckCircle, RadioButtonUnchecked, PlayArrow, Cancel, NavigateBefore, NavigateNext, TrendingUp, Notes as NotesIcon, Flag, Block, SkipNext, MoreVert as MoreVertIcon, Add as AddIcon, Visibility as VisibilityIcon } from '@mui/icons-material';
+import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, IconButton, Stack, Toolbar, Button, FormControl, InputLabel, Select, MenuItem, Tooltip, alpha, Menu, ListItemIcon, ListItemText, Tabs, Tab } from '@mui/material';
+import { CheckCircle, RadioButtonUnchecked, PlayArrow, Cancel, NavigateBefore, NavigateNext, TrendingUp, Notes as NotesIcon, Flag, Block, SkipNext, MoreVert as MoreVertIcon, Add as AddIcon, Visibility as VisibilityIcon, CalendarMonth, ViewWeek } from '@mui/icons-material';
 import { COLORS } from '../../../constants/colors';
 import Loading from '../../../components/loading/Loading';
 import Pagination from '../../../components/common/Pagination';
@@ -22,11 +22,19 @@ const DailyTasksTab = ({ taskTemplates, slots, onRefresh }) => {
         cancelled: 0,
         missed: 0,
         skipped: 0,
-        completion_rate: 0
+        completion_rate: 0,
+        week_completion_rate: 0,
+        month_completion_rate: 0
     });
+
+    // View mode: 'week' or 'month'
+    const [viewMode, setViewMode] = useState('week');
 
     // Week navigation
     const [currentWeekStart, setCurrentWeekStart] = useState(getWeekStart(new Date()));
+
+    // Month navigation
+    const [currentMonth, setCurrentMonth] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
 
     // Filters (Only Status and Team as per API parameters)
     const [filterStatus, setFilterStatus] = useState('all');
@@ -72,53 +80,172 @@ const DailyTasksTab = ({ taskTemplates, slots, onRefresh }) => {
         return d;
     }
 
-    // Load data when week changes
+    // Get month start (first day of month)
+    function getMonthStart(date) {
+        const d = new Date(date);
+        d.setDate(1);
+        d.setHours(0, 0, 0, 0);
+        return d;
+    }
+
+    // Get month end (last day of month)
+    function getMonthEnd(monthStart) {
+        const d = new Date(monthStart);
+        d.setMonth(d.getMonth() + 1);
+        d.setDate(0); // Last day of previous month
+        d.setHours(23, 59, 59, 999);
+        return d;
+    }
+
+    // Load data when view mode, date, or filters change
     useEffect(() => {
         loadDailyTasks();
-    }, [currentWeekStart, taskTemplates, slots]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [viewMode, currentWeekStart, currentMonth, filterStatus, filterTeam]);
 
-    // Reset page when filters change
+    // Reset page when filters or view mode change
     useEffect(() => {
         setPage(1);
-    }, [filterStatus, filterTeam]);
+    }, [filterStatus, filterTeam, viewMode]);
 
     const loadDailyTasks = async () => {
         try {
             setLoading(true);
 
-            // First, cleanup any duplicate daily tasks
-            dailyTasksApi.removeDuplicateDailyTasks();
+            // Format dates for API (YYYY-MM-DD)
+            const formatDateForAPI = (date) => {
+                const d = new Date(date);
+                const year = d.getFullYear();
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            };
 
-            // Remove past scheduled tasks
-            dailyTasksApi.removePastScheduledTasks();
+            // Determine date range based on view mode
+            let startDate, endDate;
+            if (viewMode === 'month') {
+                startDate = getMonthStart(currentMonth);
+                endDate = getMonthEnd(currentMonth);
+            } else {
+                startDate = currentWeekStart;
+                endDate = getWeekEnd(currentWeekStart);
+            }
 
-            const weekEnd = getWeekEnd(currentWeekStart);
+            const fromDate = formatDateForAPI(startDate);
+            const toDate = formatDateForAPI(endDate);
 
-            // Get daily tasks for current week (will auto-generate if needed)
-            // API supports parameters: FromDate, ToDate, TaskTemplates, Slots, TeamId (optional), Status (optional)
-            // Example: getDailyTasksForDateRange(fromDate, toDate, taskTemplates, slots, teamId, status)
-            const response = await dailyTasksApi.getDailyTasksForDateRange(
-                currentWeekStart,
-                weekEnd,
-                taskTemplates,
-                slots
-                // Optional: pass teamId and status to filter at API level
-                // null, // teamId - set to filter by team
-                // null  // status - set to filter by status
-            );
+            console.log('📅 Loading daily tasks:', {
+                viewMode,
+                fromDate,
+                toDate,
+                filterTeam,
+                filterStatus
+            });
 
+            // Get daily tasks from official API
+            // Try without date filters first to see if API returns any data
+            const response = await dailyTasksApi.getDailyTasksFromAPI({
+                page_index: 0,
+                page_size: 1000, // Get all tasks for the week
+                // Temporarily remove date filters to test if API returns data
+                // FromDate: fromDate,
+                // ToDate: toDate,
+                TeamId: filterTeam !== 'all' ? filterTeam : null,
+                Status: filterStatus !== 'all' ? filterStatus : null
+            });
+
+            console.log('✅ Daily tasks response:', {
+                success: response.success,
+                dataLength: response.data?.length,
+                data: response.data
+            });
+
+            let allTasks = [];
             if (response.success) {
-                setDailyTasks(response.data);
+                allTasks = response.data || [];
+            } else {
+                console.warn('⚠️ API response was not successful:', response);
+                allTasks = [];
             }
 
-            // Get statistics
-            const statsResponse = await dailyTasksApi.getDailyTasksStatistics(
-                currentWeekStart,
-                weekEnd
-            );
-            if (statsResponse.success) {
-                setStats(statsResponse.data);
-            }
+            // Filter by date range on client side (since we're not using date filters in API for now)
+            const filterStartDate = new Date(startDate);
+            filterStartDate.setHours(0, 0, 0, 0);
+            const filterEndDate = new Date(endDate);
+            filterEndDate.setHours(23, 59, 59, 999);
+
+            const tasksInRange = allTasks.filter(task => {
+                if (!task.assigned_date) return false;
+                const taskDate = new Date(task.assigned_date);
+                return taskDate >= filterStartDate && taskDate <= filterEndDate;
+            });
+
+            console.log('📊 Filtered tasks:', {
+                viewMode,
+                allTasksCount: allTasks.length,
+                filteredTasksCount: tasksInRange.length,
+                dateRange: {
+                    from: filterStartDate.toISOString(),
+                    to: filterEndDate.toISOString()
+                }
+            });
+
+            setDailyTasks(tasksInRange);
+            const total = tasksInRange.length;
+            const scheduled = tasksInRange.filter(dt => dt.status === DAILY_TASK_STATUS.SCHEDULED).length;
+            const in_progress = tasksInRange.filter(dt => dt.status === DAILY_TASK_STATUS.IN_PROGRESS).length;
+            const completed = tasksInRange.filter(dt => dt.status === DAILY_TASK_STATUS.COMPLETED).length;
+            const cancelled = tasksInRange.filter(dt => dt.status === DAILY_TASK_STATUS.CANCELLED).length;
+            const missed = tasksInRange.filter(dt => dt.status === DAILY_TASK_STATUS.MISSED).length;
+            const skipped = tasksInRange.filter(dt => dt.status === DAILY_TASK_STATUS.SKIPPED).length;
+            const completion_rate = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+            // Calculate week completion rate for the currently viewed week
+            const viewedWeekStart = currentWeekStart;
+            const viewedWeekEnd = getWeekEnd(viewedWeekStart);
+            const weekStartDate = new Date(viewedWeekStart);
+            weekStartDate.setHours(0, 0, 0, 0);
+            const weekEndDate = new Date(viewedWeekEnd);
+            weekEndDate.setHours(23, 59, 59, 999);
+
+            const weekTasks = allTasks.filter(task => {
+                if (!task.assigned_date) return false;
+                const taskDate = new Date(task.assigned_date);
+                return taskDate >= weekStartDate && taskDate <= weekEndDate;
+            });
+            const weekTotal = weekTasks.length;
+            const weekCompleted = weekTasks.filter(dt => dt.status === DAILY_TASK_STATUS.COMPLETED).length;
+            const week_completion_rate = weekTotal > 0 ? Math.round((weekCompleted / weekTotal) * 100) : 0;
+
+            // Calculate month completion rate for the currently viewed month
+            const viewedMonthStart = getMonthStart(currentMonth);
+            const viewedMonthEnd = getMonthEnd(viewedMonthStart);
+            const monthStartDate = new Date(viewedMonthStart);
+            monthStartDate.setHours(0, 0, 0, 0);
+            const monthEndDate = new Date(viewedMonthEnd);
+            monthEndDate.setHours(23, 59, 59, 999);
+
+            const monthTasks = allTasks.filter(task => {
+                if (!task.assigned_date) return false;
+                const taskDate = new Date(task.assigned_date);
+                return taskDate >= monthStartDate && taskDate <= monthEndDate;
+            });
+            const monthTotal = monthTasks.length;
+            const monthCompleted = monthTasks.filter(dt => dt.status === DAILY_TASK_STATUS.COMPLETED).length;
+            const month_completion_rate = monthTotal > 0 ? Math.round((monthCompleted / monthTotal) * 100) : 0;
+
+            setStats({
+                total,
+                scheduled,
+                in_progress,
+                completed,
+                cancelled,
+                missed,
+                skipped,
+                completion_rate,
+                week_completion_rate,
+                month_completion_rate
+            });
         } catch (error) {
             console.error('Error loading daily tasks:', error);
             setAlert({
@@ -147,6 +274,44 @@ const DailyTasksTab = ({ taskTemplates, slots, onRefresh }) => {
 
     const goToCurrentWeek = () => {
         setCurrentWeekStart(getWeekStart(new Date()));
+    };
+
+    // Month navigation
+    const goToPreviousMonth = () => {
+        const newMonth = new Date(currentMonth);
+        newMonth.setMonth(newMonth.getMonth() - 1);
+        setCurrentMonth(newMonth);
+    };
+
+    const goToNextMonth = () => {
+        const newMonth = new Date(currentMonth);
+        newMonth.setMonth(newMonth.getMonth() + 1);
+        setCurrentMonth(newMonth);
+    };
+
+    const goToCurrentMonth = () => {
+        setCurrentMonth(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+    };
+
+    // Get month name in Vietnamese
+    const getMonthName = (date) => {
+        const months = [
+            'Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6',
+            'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'
+        ];
+        return months[date.getMonth()];
+    };
+
+    // Get date range string
+    const getDateRangeString = () => {
+        if (viewMode === 'month') {
+            const monthStart = getMonthStart(currentMonth);
+            const monthEnd = getMonthEnd(currentMonth);
+            return `${monthStart.toLocaleDateString('vi-VN')} - ${monthEnd.toLocaleDateString('vi-VN')}`;
+        } else {
+            const weekEnd = getWeekEnd(currentWeekStart);
+            return `${currentWeekStart.toLocaleDateString('vi-VN')} - ${weekEnd.toLocaleDateString('vi-VN')}`;
+        }
     };
 
     // Filter daily tasks (Only Status and Team as per API parameters)
@@ -346,12 +511,6 @@ const DailyTasksTab = ({ taskTemplates, slots, onRefresh }) => {
         }
     };
 
-    // Get week date range string
-    const getWeekDateRange = () => {
-        const weekEnd = getWeekEnd(currentWeekStart);
-        return `${currentWeekStart.toLocaleDateString('vi-VN')} - ${weekEnd.toLocaleDateString('vi-VN')}`;
-    };
-
     // Get weekday name from date
     const getWeekdayName = (dateStr) => {
         const date = new Date(dateStr);
@@ -366,85 +525,84 @@ const DailyTasksTab = ({ taskTemplates, slots, onRefresh }) => {
     return (
         <Box>
             {/* Statistics */}
-            <Grid container spacing={2} sx={{ mb: 3 }}>
-                <Grid item xs={12} sm={6} md={1.5}>
-                    <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.PRIMARY[500]}` }}>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Tổng số
+            <Box
+                sx={{
+                    display: 'flex',
+                    flexWrap: 'nowrap',
+                    gap: 2,
+                    mb: 4,
+                    width: '100%',
+                    overflow: 'visible'
+                }}
+            >
+                {[
+                    { label: 'Tổng số', value: stats.total, color: COLORS.PRIMARY[500], valueColor: COLORS.PRIMARY[700] },
+                    { label: 'Hoàn thành', value: stats.completed, color: COLORS.SUCCESS[500], valueColor: COLORS.SUCCESS[700] },
+                    { label: 'Đang làm', value: stats.in_progress, color: COLORS.INFO[500], valueColor: COLORS.INFO[700] },
+                    { label: 'Chưa làm', value: stats.scheduled, color: COLORS.GRAY[500], valueColor: COLORS.GRAY[700] },
+                    { label: 'Bỏ lỡ', value: stats.missed, color: COLORS.ERROR[500], valueColor: COLORS.ERROR[700] },
+                    { label: 'Bỏ qua', value: stats.skipped, color: COLORS.WARNING[500], valueColor: COLORS.WARNING[700] },
+                    { label: 'Đã hủy', value: stats.cancelled, color: COLORS.WARNING[400], valueColor: COLORS.WARNING[700] }
+                ].map((stat, index) => {
+                    const cardWidth = `calc((100% - ${8 * 16}px) / 9)`;
+                    return (
+                        <Box
+                            key={index}
+                            sx={{
+                                flex: `0 0 ${cardWidth}`,
+                                width: cardWidth,
+                                maxWidth: cardWidth,
+                                minWidth: 0
+                            }}
+                        >
+                            <Paper sx={{
+                                p: 2.5,
+                                borderTop: `4px solid ${stat.color}`,
+                                borderRadius: 2,
+                                height: '100%',
+                                boxShadow: `4px 6px 12px ${alpha(COLORS.SHADOW.LIGHT, 0.25)}, 0 4px 8px ${alpha(COLORS.SHADOW.LIGHT, 0.1)}, 2px 2px 4px ${alpha(COLORS.SHADOW.LIGHT, 0.15)}`
+                            }}>
+                                <Typography variant="body2" color="text.secondary" gutterBottom>
+                                    {stat.label}
+                                </Typography>
+                                <Typography variant="h4" fontWeight={600} color={stat.valueColor}>
+                                    {stat.value}
+                                </Typography>
+                            </Paper>
+                        </Box>
+                    );
+                })}
+
+                {/* Week Progress Card */}
+                <Box
+                    sx={{
+                        flex: `0 0 calc((100% - ${8 * 16}px) / 9)`,
+                        width: `calc((100% - ${8 * 16}px) / 9)`,
+                        maxWidth: `calc((100% - ${8 * 16}px) / 9)`,
+                        minWidth: 0
+                    }}
+                >
+                    <Paper sx={{
+                        p: 2.5,
+                        borderTop: `4px solid ${COLORS.SUCCESS[400]}`,
+                        borderRadius: 2,
+                        height: '100%',
+                        boxShadow: `4px 6px 12px ${alpha(COLORS.SHADOW.LIGHT, 0.25)}, 0 4px 8px ${alpha(COLORS.SHADOW.LIGHT, 0.1)}, 2px 2px 4px ${alpha(COLORS.SHADOW.LIGHT, 0.15)}`,
+                        position: 'relative',
+                        overflow: 'hidden'
+                    }}>
+                        <Stack direction="row" alignItems="center" spacing={0.5} sx={{ mb: 1 }}>
+                            <ViewWeek sx={{ fontSize: 18, color: COLORS.SUCCESS[600] }} />
+                            <Typography variant="body2" color="text.secondary" fontWeight={500}>
+                                Tiến độ tuần
+                            </Typography>
+                        </Stack>
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5, fontSize: '0.7rem' }}>
+                            {currentWeekStart.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })} - {getWeekEnd(currentWeekStart).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}
                         </Typography>
-                        <Typography variant="h4" fontWeight={600} color={COLORS.PRIMARY[700]}>
-                            {stats.total}
-                        </Typography>
-                    </Paper>
-                </Grid>
-                <Grid item xs={12} sm={6} md={1.5}>
-                    <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.SUCCESS[500]}` }}>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Hoàn thành
-                        </Typography>
-                        <Typography variant="h4" fontWeight={600} color={COLORS.SUCCESS[700]}>
-                            {stats.completed}
-                        </Typography>
-                    </Paper>
-                </Grid>
-                <Grid item xs={12} sm={6} md={1.5}>
-                    <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.INFO[500]}` }}>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Đang làm
-                        </Typography>
-                        <Typography variant="h4" fontWeight={600} color={COLORS.INFO[700]}>
-                            {stats.in_progress}
-                        </Typography>
-                    </Paper>
-                </Grid>
-                <Grid item xs={12} sm={6} md={1.5}>
-                    <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.GRAY[500]}` }}>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Chưa làm
-                        </Typography>
-                        <Typography variant="h4" fontWeight={600} color={COLORS.GRAY[700]}>
-                            {stats.scheduled}
-                        </Typography>
-                    </Paper>
-                </Grid>
-                <Grid item xs={12} sm={6} md={1.5}>
-                    <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.ERROR[500]}` }}>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Bỏ lỡ
-                        </Typography>
-                        <Typography variant="h4" fontWeight={600} color={COLORS.ERROR[700]}>
-                            {stats.missed}
-                        </Typography>
-                    </Paper>
-                </Grid>
-                <Grid item xs={12} sm={6} md={1.5}>
-                    <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.WARNING[500]}` }}>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Bỏ qua
-                        </Typography>
-                        <Typography variant="h4" fontWeight={600} color={COLORS.WARNING[700]}>
-                            {stats.skipped}
-                        </Typography>
-                    </Paper>
-                </Grid>
-                <Grid item xs={12} sm={6} md={1.5}>
-                    <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.WARNING[400]}` }}>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Đã hủy
-                        </Typography>
-                        <Typography variant="h4" fontWeight={600} color={COLORS.WARNING[700]}>
-                            {stats.cancelled}
-                        </Typography>
-                    </Paper>
-                </Grid>
-                <Grid item xs={12} sm={6} md={1.5}>
-                    <Paper sx={{ p: 2.5, borderTop: `4px solid ${COLORS.SUCCESS[400]}`, position: 'relative', overflow: 'hidden' }}>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Tiến độ
-                        </Typography>
-                        <Stack direction="row" alignItems="center" spacing={0.5}>
+                        <Stack direction="row" alignItems="center" spacing={0.5} sx={{ mb: 1 }}>
                             <Typography variant="h4" fontWeight={600} color={COLORS.SUCCESS[700]}>
-                                {stats.completion_rate}%
+                                {stats.week_completion_rate}%
                             </Typography>
                             <TrendingUp fontSize="small" sx={{ color: COLORS.SUCCESS[600] }} />
                         </Stack>
@@ -454,46 +612,142 @@ const DailyTasksTab = ({ taskTemplates, slots, onRefresh }) => {
                             left: 0,
                             right: 0,
                             height: 4,
-                            bgcolor: alpha(COLORS.SUCCESS[200], 0.3)
+                            bgcolor: alpha(COLORS.SUCCESS[200], 0.3),
+                            borderRadius: 0
                         }}>
                             <Box sx={{
                                 height: '100%',
-                                width: `${stats.completion_rate}%`,
+                                width: `${stats.week_completion_rate}%`,
                                 bgcolor: COLORS.SUCCESS[600],
-                                transition: 'width 0.5s ease'
+                                transition: 'width 0.5s ease',
+                                borderRadius: 0
                             }} />
                         </Box>
                     </Paper>
-                </Grid>
-            </Grid>
+                </Box>
 
-            {/* Week Navigation */}
+                {/* Month Progress Card */}
+                <Box
+                    sx={{
+                        flex: `0 0 calc((100% - ${8 * 16}px) / 9)`,
+                        width: `calc((100% - ${8 * 16}px) / 9)`,
+                        maxWidth: `calc((100% - ${8 * 16}px) / 9)`,
+                        minWidth: 0
+                    }}
+                >
+                    <Paper sx={{
+                        p: 2.5,
+                        borderTop: `4px solid ${COLORS.SUCCESS[500]}`,
+                        borderRadius: 2,
+                        height: '100%',
+                        boxShadow: `4px 6px 12px ${alpha(COLORS.SHADOW.LIGHT, 0.25)}, 0 4px 8px ${alpha(COLORS.SHADOW.LIGHT, 0.1)}, 2px 2px 4px ${alpha(COLORS.SHADOW.LIGHT, 0.15)}`,
+                        position: 'relative',
+                        overflow: 'hidden'
+                    }}>
+                        <Stack direction="row" alignItems="center" spacing={0.5} sx={{ mb: 1 }}>
+                            <CalendarMonth sx={{ fontSize: 18, color: COLORS.SUCCESS[600] }} />
+                            <Typography variant="body2" color="text.secondary" fontWeight={500}>
+                                Tiến độ tháng
+                            </Typography>
+                        </Stack>
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.5, fontSize: '0.7rem' }}>
+                            {getMonthName(currentMonth)} {currentMonth.getFullYear()}
+                        </Typography>
+                        <Stack direction="row" alignItems="center" spacing={0.5} sx={{ mb: 1 }}>
+                            <Typography variant="h4" fontWeight={600} color={COLORS.SUCCESS[700]}>
+                                {stats.month_completion_rate}%
+                            </Typography>
+                            <TrendingUp fontSize="small" sx={{ color: COLORS.SUCCESS[600] }} />
+                        </Stack>
+                        <Box sx={{
+                            position: 'absolute',
+                            bottom: 0,
+                            left: 0,
+                            right: 0,
+                            height: 4,
+                            bgcolor: alpha(COLORS.SUCCESS[200], 0.3),
+                            borderRadius: 0
+                        }}>
+                            <Box sx={{
+                                height: '100%',
+                                width: `${stats.month_completion_rate}%`,
+                                bgcolor: COLORS.SUCCESS[600],
+                                transition: 'width 0.5s ease',
+                                borderRadius: 0
+                            }} />
+                        </Box>
+                    </Paper>
+                </Box>
+            </Box>
+
+            {/* View Mode Tabs */}
+            <Paper sx={{ mb: 2 }}>
+                <Tabs
+                    value={viewMode}
+                    onChange={(e, newValue) => setViewMode(newValue)}
+                    sx={{
+                        borderBottom: 1,
+                        borderColor: 'divider',
+                        '& .MuiTab-root': {
+                            textTransform: 'none',
+                            fontWeight: 600,
+                            minHeight: 48
+                        }
+                    }}
+                >
+                    <Tab
+                        icon={<ViewWeek sx={{ fontSize: 20 }} />}
+                        iconPosition="start"
+                        label="Theo tuần"
+                        value="week"
+                        sx={{ minWidth: 150 }}
+                    />
+                    <Tab
+                        icon={<CalendarMonth sx={{ fontSize: 20 }} />}
+                        iconPosition="start"
+                        label="Theo tháng"
+                        value="month"
+                        sx={{ minWidth: 150 }}
+                    />
+                </Tabs>
+            </Paper>
+
+            {/* Date Navigation */}
             <Paper sx={{ mb: 2, p: 2 }}>
                 <Stack direction="row" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={2}>
                     <Stack direction="row" alignItems="center" spacing={2}>
-                        <IconButton onClick={goToPreviousWeek} size="small">
+                        <IconButton
+                            onClick={viewMode === 'week' ? goToPreviousWeek : goToPreviousMonth}
+                            size="small"
+                        >
                             <NavigateBefore />
                         </IconButton>
 
                         <Box sx={{ textAlign: 'center' }}>
                             <Typography variant="h6" fontWeight={700} color={COLORS.PRIMARY[700]}>
-                                Tuần {Math.ceil((currentWeekStart.getDate() + 6) / 7)}
+                                {viewMode === 'month'
+                                    ? `${getMonthName(currentMonth)} ${currentMonth.getFullYear()}`
+                                    : `Tuần ${Math.ceil((currentWeekStart.getDate() + 6) / 7)}`
+                                }
                             </Typography>
                             <Typography variant="caption" color="text.secondary">
-                                {getWeekDateRange()}
+                                {getDateRangeString()}
                             </Typography>
                         </Box>
 
-                        <IconButton onClick={goToNextWeek} size="small">
+                        <IconButton
+                            onClick={viewMode === 'week' ? goToNextWeek : goToNextMonth}
+                            size="small"
+                        >
                             <NavigateNext />
                         </IconButton>
 
                         <Button
                             size="small"
                             variant="outlined"
-                            onClick={goToCurrentWeek}
+                            onClick={viewMode === 'week' ? goToCurrentWeek : goToCurrentMonth}
                         >
-                            Tuần này
+                            {viewMode === 'month' ? 'Tháng này' : 'Tuần này'}
                         </Button>
                     </Stack>
 
@@ -547,19 +801,19 @@ const DailyTasksTab = ({ taskTemplates, slots, onRefresh }) => {
             </Toolbar>
 
             {/* Table */}
-            <TableContainer component={Paper}>
-                <Table>
-                    <TableHead sx={{ bgcolor: alpha(COLORS.GRAY[100], 0.5) }}>
+            <TableContainer component={Paper} sx={{ borderRadius: 3, border: `2px solid ${alpha(COLORS.PRIMARY[200], 0.4)}`, boxShadow: `0 10px 24px ${alpha(COLORS.PRIMARY[200], 0.15)}`, overflowX: 'auto' }}>
+                <Table size="medium" stickyHeader>
+                    <TableHead>
                         <TableRow>
-                            <TableCell width="3%">STT</TableCell>
-                            <TableCell width="7%">Ngày</TableCell>
-                            <TableCell width="15%">Nhiệm vụ</TableCell>
-                            <TableCell width="12%">Team</TableCell>
-                            <TableCell width="8%">Ưu tiên</TableCell>
-                            <TableCell width="10%">Thời gian</TableCell>
-                            <TableCell width="12%">Trạng thái</TableCell>
-                            <TableCell width="10%">Hoàn thành</TableCell>
-                            <TableCell width="5%" align="center">Thao tác</TableCell>
+                            <TableCell sx={{ fontWeight: 800 }} width="3%">STT</TableCell>
+                            <TableCell sx={{ fontWeight: 800 }} width="7%">Ngày</TableCell>
+                            <TableCell sx={{ fontWeight: 800 }} width="15%">Nhiệm vụ</TableCell>
+                            <TableCell sx={{ fontWeight: 800 }} width="12%">Team</TableCell>
+                            <TableCell sx={{ fontWeight: 800 }} width="8%">Ưu tiên</TableCell>
+                            <TableCell sx={{ fontWeight: 800 }} width="10%">Thời gian</TableCell>
+                            <TableCell sx={{ fontWeight: 800 }} width="12%">Trạng thái</TableCell>
+                            <TableCell sx={{ fontWeight: 800 }} width="10%">Hoàn thành</TableCell>
+                            <TableCell sx={{ fontWeight: 800 }} align="center" width="5%">Thao tác</TableCell>
                         </TableRow>
                     </TableHead>
                     <TableBody>
@@ -567,7 +821,10 @@ const DailyTasksTab = ({ taskTemplates, slots, onRefresh }) => {
                             <TableRow>
                                 <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
                                     <Typography color="text.secondary">
-                                        Không có nhiệm vụ nào trong tuần này
+                                        {viewMode === 'month'
+                                            ? 'Không có nhiệm vụ nào trong tháng này'
+                                            : 'Không có nhiệm vụ nào trong tuần này'
+                                        }
                                     </Typography>
                                 </TableCell>
                             </TableRow>

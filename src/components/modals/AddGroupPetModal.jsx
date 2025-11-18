@@ -1,9 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import {
-    Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField,
-    FormControl, InputLabel, Select, MenuItem, Box, Typography,
-    alpha, CircularProgress, Chip, Stack
-} from '@mui/material';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, FormControl, InputLabel, Select, MenuItem, Box, Typography, alpha, CircularProgress, Stack } from '@mui/material';
 import { COLORS } from '../../constants/colors';
 import { Groups } from '@mui/icons-material';
 
@@ -24,10 +20,16 @@ const AddGroupPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
         return breeds.filter(b => b.species_id === formData.pet_species_id);
     }, [breeds, formData.pet_species_id]);
 
+    // Helper function to capitalize first letter
+    const capitalizeName = (name) => {
+        if (!name) return name;
+        return name.charAt(0).toUpperCase() + name.slice(1);
+    };
+
     // Get species name
     const getSpeciesName = (speciesId) => {
         const sp = species.find(s => s.id === speciesId);
-        return sp ? sp.name : '';
+        return sp ? capitalizeName(sp.name) : '';
     };
 
     // Get breed name
@@ -187,26 +189,33 @@ const AddGroupPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
         }
     };
 
-    const getCharacterCount = (text) => {
-        return text ? text.length : 0;
-    };
-
-
     return (
-        <Dialog open={isOpen} onClose={handleClose} maxWidth="md" fullWidth>
+        <Dialog
+            open={isOpen}
+            onClose={handleClose}
+            maxWidth="md"
+            fullWidth
+            disableScrollLock
+            PaperProps={{
+                sx: {
+                    borderRadius: 3,
+                    boxShadow: `0 20px 60px ${alpha(COLORS.SHADOW.DARK, 0.3)}`
+                }
+            }}
+        >
             <Box
                 sx={{
-                    background: `linear-gradient(135deg, ${alpha(COLORS.WARNING[50], 0.3)}, ${alpha(COLORS.SECONDARY[50], 0.2)})`,
-                    borderBottom: `3px solid ${COLORS.WARNING[500]}`
+                    background: `linear-gradient(135deg, ${alpha(COLORS.ERROR[50], 0.3)}, ${alpha(COLORS.SECONDARY[50], 0.2)})`,
+                    borderBottom: `3px solid ${COLORS.ERROR[500]}`
                 }}
             >
-                <DialogTitle sx={{ fontWeight: 800, color: COLORS.WARNING[800], pb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <DialogTitle sx={{ fontWeight: 800, color: COLORS.ERROR[800], pb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Groups />
                     {editMode ? '✏️ Sửa thông tin nhóm' : '➕ Thêm nhóm mới'}
                 </DialogTitle>
             </Box>
 
-            <DialogContent sx={{ pt: 3 }}>
+            <DialogContent sx={{ pt: 3, pb: 2, px: 3 }}>
                 <Stack spacing={2}>
                     {/* Name + Species */}
                     <Stack direction="row" spacing={2}>
@@ -229,20 +238,9 @@ const AddGroupPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
                                 onChange={(e) => handleChange('pet_species_id', e.target.value)}
                                 onBlur={() => handleBlur('pet_species_id')}
                             >
-                                {species.map(s => (
+                                {species.filter(s => s.is_active === true).map(s => (
                                     <MenuItem key={s.id} value={s.id}>
-                                        <Stack direction="row" alignItems="center" spacing={1}>
-                                            <Typography>{s.name}</Typography>
-                                            <Chip
-                                                label={s.name === 'Chó' ? '🐕' : '🐱'}
-                                                size="small"
-                                                sx={{
-                                                    height: 20,
-                                                    fontSize: '0.75rem',
-                                                    background: alpha(COLORS.WARNING[100], 0.5)
-                                                }}
-                                            />
-                                        </Stack>
+                                        <Typography>{capitalizeName(s.name)}</Typography>
                                     </MenuItem>
                                 ))}
                             </Select>
@@ -352,9 +350,9 @@ const AddGroupPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
                     onClick={handleSubmit}
                     disabled={isLoading}
                     sx={{
-                        backgroundColor: COLORS.WARNING[500],
+                        backgroundColor: COLORS.ERROR[500],
                         fontWeight: 700,
-                        '&:hover': { backgroundColor: COLORS.WARNING[600] },
+                        '&:hover': { backgroundColor: COLORS.ERROR[600] },
                         minWidth: 120
                     }}
                 >
@@ -373,4 +371,3 @@ const AddGroupPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
 };
 
 export default AddGroupPetModal;
-
