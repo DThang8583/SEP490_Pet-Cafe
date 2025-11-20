@@ -188,9 +188,10 @@ const WorkingAttendancePage = () => {
         };
     }, [teams.length, dateRange.fromDate, dateRange.toDate, isLeader, profileData.id, profileData.employee_id, profileData.account_id]);
 
-    // Get all team members including leader
+    // Get all team members including leader (with deduplication)
     const getAllTeamMembers = (team) => {
         const members = [];
+        const seenIds = new Set(); // Track seen member IDs to avoid duplicates
         const leaderId = team.leader_id;
         const leaderAccountId = team.leader?.account_id;
         let leaderTeamMemberId = null;
@@ -210,13 +211,17 @@ const WorkingAttendancePage = () => {
             }
         }
 
-        // Add Leader to members list
+        // Add Leader to members list (if exists)
         if (team.leader) {
-            members.push({
-                ...team.leader,
-                isLeader: true,
-                team_member_id: leaderTeamMemberId
-            });
+            const leaderMemberId = team.leader.id || team.leader.account_id;
+            if (leaderMemberId && !seenIds.has(leaderMemberId)) {
+                seenIds.add(leaderMemberId);
+                members.push({
+                    ...team.leader,
+                    isLeader: true,
+                    team_member_id: leaderTeamMemberId
+                });
+            }
         }
 
         // Add other members (excluding Leader if already added)
@@ -224,12 +229,20 @@ const WorkingAttendancePage = () => {
             if (tm.employee) {
                 const tmEmployeeId = tm.employee_id || tm.employee?.id;
                 const tmEmployeeAccountId = tm.employee?.account_id;
+                const memberId = tmEmployeeId || tmEmployeeAccountId;
+
+                // Skip if already seen (duplicate)
+                if (memberId && seenIds.has(memberId)) {
+                    return;
+                }
+
                 const isLeaderMember =
                     (leaderId && (tmEmployeeId === leaderId || tmEmployeeAccountId === leaderId)) ||
                     (leaderAccountId && (tmEmployeeId === leaderAccountId || tmEmployeeAccountId === leaderAccountId));
 
                 // Only add if not the leader (leader already added above)
-                if (!isLeaderMember) {
+                if (!isLeaderMember && memberId) {
+                    seenIds.add(memberId);
                     members.push({
                         ...tm.employee,
                         isLeader: false,
@@ -343,9 +356,20 @@ const WorkingAttendancePage = () => {
 
                         if (dates.length === 0) return;
 
+                        // Create unique key set to avoid duplicates
+                        const seenKeys = new Set();
                         const dayMembers = dates.map((date) => {
                             const dateStr = date.toISOString().split('T')[0];
                             return allMembers.map((member) => {
+                                // Create unique key for this member-date combination
+                                const memberKey = `${member.id || member.account_id}-${dateStr}`;
+
+                                // Skip if already seen (duplicate)
+                                if (seenKeys.has(memberKey)) {
+                                    return null;
+                                }
+                                seenKeys.add(memberKey);
+
                                 const existingRecord = attendance.find((schedule) => {
                                     const scheduleTeamId = schedule.team_member?.team_id || schedule.team_id;
                                     const scheduleShiftId = schedule.work_shift_id || schedule.work_shift?.id;
@@ -368,7 +392,7 @@ const WorkingAttendancePage = () => {
                                     schedule: existingRecord || null
                                 };
                             });
-                        }).flat();
+                        }).flat().filter(Boolean); // Remove null entries (duplicates)
 
                         if (dayMembers.length > 0) {
                             shiftDays.push({
