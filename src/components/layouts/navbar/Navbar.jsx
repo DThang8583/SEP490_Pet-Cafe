@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AppBar, Toolbar, Typography, Button, Box, IconButton, Avatar, Menu, MenuItem, useTheme, alpha, Container, Stack, Drawer, List, ListItemButton, ListItemIcon, ListItemText, Divider, Tooltip, ListSubheader, useMediaQuery } from '@mui/material';
-import { LocalCafe, Restaurant, ConfirmationNumber, LocationOn, AccountCircle, Menu as MenuIcon, Close, Pets, Schedule, Dashboard, People, Groups, Assignment, DesignServices, Inventory2, Logout, Vaccines, ShoppingCart, ReceiptLong, HealthAndSafety, Person, ChecklistRtl, AssignmentTurnedIn } from '@mui/icons-material';
+import { LocalCafe, Restaurant, ConfirmationNumber, LocationOn, AccountCircle, Menu as MenuIcon, Close, Pets, Schedule, Dashboard, People, Groups, Assignment, DesignServices, Inventory2, Logout, Vaccines, ShoppingCart, ReceiptLong, HealthAndSafety, Person, ChecklistRtl, AssignmentTurnedIn, Description } from '@mui/icons-material';
 import { COLORS } from '../../../constants/colors';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { authApi } from '../../../api/authApi';
@@ -100,7 +100,9 @@ const Navbar = () => {
         { label: 'Lịch & nhóm', icon: <Groups />, path: '/staff/teams' },
         { label: 'Nhiệm vụ hằng ngày', icon: <Assignment />, path: '/staff/daily-tasks' },
         { label: 'Điểm danh', icon: <ChecklistRtl />, path: '/staff/attendance' },
-        { label: 'Tiêm phòng', icon: <Vaccines />, path: '/staff/vaccination-records' }
+        { label: 'Tiêm phòng', icon: <Vaccines />, path: '/staff/vaccination-records' },
+        { label: 'Xem Booking', icon: <ReceiptLong />, path: '/staff/bookings' },
+        { label: 'Đơn xin nghỉ phép', icon: <Description />, path: '/staff/leave-request' }
     ]), []);
 
     const leaderItems = useMemo(() => ([

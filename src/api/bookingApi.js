@@ -1,4 +1,5 @@
 import axios from 'axios';
+import apiClient from '../config/config';
 
 // Base configuration
 const API_BASE_URL = 'http://localhost:8080/api';
@@ -880,6 +881,106 @@ const bookingApi = {
     }
 };
 
+/**
+ * Get bookings with filters
+ * Official API: GET /api/bookings
+ * Parameters: booking_status, from_date, to_date, team_id, service_id, customer_id, page, limit
+ */
+const getBookings = async (params = {}) => {
+    try {
+        const {
+            booking_status,
+            from_date,
+            to_date,
+            team_id,
+            service_id,
+            customer_id,
+            page = 1,
+            limit = 10
+        } = params;
+
+        const queryParams = new URLSearchParams();
+
+        if (booking_status) queryParams.append('booking_status', booking_status);
+        if (from_date) queryParams.append('from_date', from_date);
+        if (to_date) queryParams.append('to_date', to_date);
+        if (team_id) queryParams.append('team_id', team_id);
+        if (service_id) queryParams.append('service_id', service_id);
+        if (customer_id) queryParams.append('customer_id', customer_id);
+        queryParams.append('page', page);
+        queryParams.append('limit', limit);
+
+        const response = await apiClient.get(`/bookings?${queryParams.toString()}`, { timeout: 10000 });
+
+        return {
+            success: true,
+            data: response.data?.data || [],
+            pagination: response.data?.pagination || {
+                total_items_count: 0,
+                page_size: limit,
+                total_pages_count: 0,
+                page_index: page - 1,
+                has_next: false,
+                has_previous: false
+            }
+        };
+    } catch (error) {
+        console.error('Error fetching bookings:', error);
+
+        if (error.response?.data) {
+            const errorData = error.response.data;
+            if (errorData.message) {
+                throw new Error(Array.isArray(errorData.message) ? errorData.message.join('. ') : errorData.message);
+            }
+            if (errorData.error) {
+                throw new Error(Array.isArray(errorData.error) ? errorData.error.join('. ') : errorData.error);
+            }
+        }
+
+        throw error;
+    }
+};
+
+/**
+ * Update booking
+ * Official API: PUT /api/bookings/{id}
+ * Request: { booking_status, notes, cancel_reason }
+ */
+const updateBooking = async (bookingId, bookingData) => {
+    try {
+        if (!bookingId) {
+            throw new Error('ID booking là bắt buộc');
+        }
+
+        const requestData = {};
+        if (bookingData.booking_status) requestData.booking_status = bookingData.booking_status;
+        if (bookingData.notes !== undefined) requestData.notes = bookingData.notes;
+        if (bookingData.cancel_reason !== undefined) requestData.cancel_reason = bookingData.cancel_reason;
+
+        const response = await apiClient.put(`/bookings/${bookingId}`, requestData, { timeout: 10000 });
+
+        return {
+            success: true,
+            data: response.data,
+            message: 'Cập nhật booking thành công'
+        };
+    } catch (error) {
+        console.error('Error updating booking:', error);
+
+        if (error.response?.data) {
+            const errorData = error.response.data;
+            if (errorData.message) {
+                throw new Error(Array.isArray(errorData.message) ? errorData.message.join('. ') : errorData.message);
+            }
+            if (errorData.error) {
+                throw new Error(Array.isArray(errorData.error) ? errorData.error.join('. ') : errorData.error);
+            }
+        }
+
+        throw error;
+    }
+};
+
 // Export both named and default
-export { bookingApi };
+export { bookingApi, getBookings, updateBooking };
 export default bookingApi;

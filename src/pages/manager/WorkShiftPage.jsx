@@ -37,7 +37,7 @@ const WorkShiftPage = () => {
         applicable_days: []
     });
 
-    // Pagination states
+    // Pagination states for Teams (main pagination)
     const [page, setPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [pagination, setPagination] = useState({
@@ -96,25 +96,22 @@ const WorkShiftPage = () => {
         loadWorkTypes();
     }, []);
 
-    // Reload shifts when pagination changes
+    // Reload teams when pagination changes
     useEffect(() => {
-        loadShifts();
+        loadTeams();
     }, [page, itemsPerPage]);
 
     const loadShifts = async () => {
         try {
-            setIsLoading(true);
+            // Load all shifts without pagination (for schedule display)
             const response = await workShiftApi.getWorkShifts({
-                page_index: page - 1,
-                page_size: itemsPerPage
+                page_index: 0,
+                page_size: 1000
             });
             if (response.success) {
                 // Filter out deleted shifts by default (API might return them)
                 const activeShifts = (response.data || []).filter(s => !s.is_deleted);
                 setShifts(activeShifts);
-                if (response.pagination) {
-                    setPagination(response.pagination);
-                }
             } else {
                 setAlert({
                     open: true,
@@ -131,16 +128,42 @@ const WorkShiftPage = () => {
                 title: 'Lỗi',
                 message: error.message || 'Không thể tải danh sách ca làm việc'
             });
-        } finally {
-            setIsLoading(false);
         }
     };
 
     const loadTeams = async () => {
         try {
-            const response = await teamApi.getTeams();
-            if (response.success) {
-                // Load team members and work shifts for each team
+            setIsLoading(true);
+            // Fetch teams with pagination
+            // API uses 'page' and 'limit' parameters (not page_index and page_size)
+            const response = await teamApi.getTeams({
+                page: page - 1, // API uses 0-based index, UI uses 1-based
+                limit: itemsPerPage
+                // Explicitly NOT passing: is_active, working_day, start_working_time, end_working_time, work_type_id
+                // This ensures we get all teams regardless of their status
+            });
+
+            if (!response.success || !Array.isArray(response.data)) {
+                console.warn('loadTeams: invalid response', response);
+                setTeams([]);
+                setPagination({
+                    total_items_count: 0,
+                    page_size: itemsPerPage,
+                    total_pages_count: 0,
+                    page_index: page - 1,
+                    has_next: false,
+                    has_previous: false
+                });
+                return;
+            }
+
+            // Update pagination state
+            if (response.pagination) {
+                setPagination(response.pagination);
+            }
+
+            if (response.data.length > 0) {
+                // Load team members and work shifts for each team in current page
                 const teamsWithData = await Promise.all(
                     response.data.map(async (team) => {
                         try {
@@ -163,7 +186,7 @@ const WorkShiftPage = () => {
                                 team_work_shifts: teamWorkShifts
                             };
                         } catch (error) {
-                            console.warn(`Failed to load data for team ${team.id}:`, error);
+                            console.warn(`Failed to load data for team ${team.id} (${team.name}):`, error);
                             return {
                                 ...team,
                                 team_members: [],
@@ -172,10 +195,22 @@ const WorkShiftPage = () => {
                         }
                     })
                 );
+
                 setTeams(teamsWithData);
+            } else {
+                setTeams([]);
             }
         } catch (error) {
             console.error('Error loading teams:', error);
+            setTeams([]);
+            setAlert({
+                open: true,
+                type: 'error',
+                title: 'Lỗi',
+                message: error.message || 'Không thể tải danh sách nhóm'
+            });
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -263,9 +298,11 @@ const WorkShiftPage = () => {
         const totalShifts = shifts.length;
         // API doesn't have is_active field, so all shifts are considered active if not deleted
         const activeShifts = shifts.filter(s => !s.is_deleted).length;
-        const totalTeams = teams.length;
+        // Use pagination.total_items_count for total teams (from API), not teams.length (current page)
+        const totalTeams = pagination.total_items_count || 0;
 
-        // Count total staff assignments based on current team data
+        // Count total staff assignments based on current team data (only current page)
+        // Note: This is an approximation since we only have current page data
         const totalAssignments = teams.reduce((sum, team) => {
             const membersCount = (team.team_members?.length || 0);
             const leaderCount = team.leader ? 1 : 0;
@@ -278,7 +315,7 @@ const WorkShiftPage = () => {
             totalTeams,
             totalAssignments
         };
-    }, [shifts, teams]);
+    }, [shifts, teams, pagination]);
 
     // Shift CRUD handlers
     const handleOpenShiftDialog = () => {
@@ -638,6 +675,7 @@ const WorkShiftPage = () => {
             leader_id: '',
             work_type_ids: [],
             work_shift_ids: [],
+            member_ids: [], // Employee IDs to add as members
             scheduleMatrix: {},
             is_active: true
         });
@@ -660,59 +698,314 @@ const WorkShiftPage = () => {
     const handleSaveTeam = async () => {
         try {
             if (editingTeam) {
-                const response = await teamApi.updateTeam(editingTeam.id, teamFormData);
-                if (response.success) {
+                try {
+                    const response = await teamApi.updateTeam(editingTeam.id, teamFormData);
+                    if (response.success) {
+                        setAlert({
+                            open: true,
+                            type: 'success',
+                            title: 'Thành công',
+                            message: 'Cập nhật nhóm thành công!'
+                        });
+                        setOpenTeamDialog(false);
+                        await loadTeams();
+                        await loadSlots();
+                        return;
+                    } else {
+                        throw new Error(response.message || 'Không thể cập nhật nhóm');
+                    }
+                } catch (error) {
+                    console.error('Error updating team:', error);
+                    const errorMessage = error.response?.data?.message || error.message || 'Không thể cập nhật nhóm';
                     setAlert({
                         open: true,
-                        type: 'success',
-                        title: 'Thành công',
-                        message: 'Cập nhật nhóm thành công!'
+                        type: 'error',
+                        title: 'Lỗi',
+                        message: `Không thể cập nhật nhóm: ${errorMessage}`
                     });
-                    setOpenTeamDialog(false);
-                    await loadTeams();
-                    await loadSlots();
                     return;
                 }
             } else {
                 // Create team first
-                const response = await teamApi.createTeam(teamFormData);
+                try {
+                    // Prepare data for createTeam API - only send required fields
+                    const createTeamData = {
+                        name: teamFormData.name?.trim(),
+                        description: teamFormData.description?.trim(),
+                        leader_id: teamFormData.leader_id,
+                        work_type_ids: teamFormData.work_type_ids || []
+                    };
 
-                if (response.success) {
-                    const newTeamId = response.data.id;
+                    // Validate data before sending
+                    if (!createTeamData.name || !createTeamData.name.trim()) {
+                        setAlert({
+                            open: true,
+                            type: 'error',
+                            title: 'Lỗi',
+                            message: 'Tên nhóm là bắt buộc và không được để trống.'
+                        });
+                        return;
+                    }
+                    if (!createTeamData.description || !createTeamData.description.trim()) {
+                        setAlert({
+                            open: true,
+                            type: 'error',
+                            title: 'Lỗi',
+                            message: 'Mô tả là bắt buộc và không được để trống.'
+                        });
+                        return;
+                    }
+                    if (!createTeamData.leader_id) {
+                        setAlert({
+                            open: true,
+                            type: 'error',
+                            title: 'Lỗi',
+                            message: 'Trưởng nhóm là bắt buộc. Vui lòng chọn trưởng nhóm.'
+                        });
+                        return;
+                    }
+                    if (!Array.isArray(createTeamData.work_type_ids) || createTeamData.work_type_ids.length === 0) {
+                        setAlert({
+                            open: true,
+                            type: 'error',
+                            title: 'Lỗi',
+                            message: 'Phải chọn ít nhất một loại công việc.'
+                        });
+                        return;
+                    }
 
-                    // Then assign work shifts to the team
-                    if (teamFormData.work_shift_ids && teamFormData.work_shift_ids.length > 0) {
-                        try {
-                            await teamApi.assignTeamWorkShifts(newTeamId, {
-                                work_shift_ids: teamFormData.work_shift_ids
-                            });
-                        } catch (shiftError) {
-                            console.error('Error assigning work shifts:', shiftError);
-                            // Show warning but don't fail the whole operation
+                    // Validate UUID format for leader_id and work_type_ids
+                    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+                    if (!uuidRegex.test(createTeamData.leader_id)) {
+                        setAlert({
+                            open: true,
+                            type: 'error',
+                            title: 'Lỗi',
+                            message: 'Trưởng nhóm không hợp lệ. Vui lòng chọn lại trưởng nhóm.'
+                        });
+                        return;
+                    }
+                    for (const workTypeId of createTeamData.work_type_ids) {
+                        if (!uuidRegex.test(workTypeId)) {
                             setAlert({
                                 open: true,
-                                type: 'warning',
-                                title: 'Cảnh báo',
-                                message: 'Tạo nhóm thành công nhưng không thể phân công ca làm việc. Vui lòng thử lại sau.'
+                                type: 'error',
+                                title: 'Lỗi',
+                                message: 'Một hoặc nhiều loại công việc không hợp lệ. Vui lòng chọn lại.'
                             });
-                            setOpenTeamDialog(false);
-                            await loadTeams();
-                            await loadSlots();
                             return;
                         }
                     }
 
+                    if (process.env.NODE_ENV === 'development') {
+                        console.log('=== Creating Team - Form Data ===');
+                        console.log('Full formData:', JSON.stringify(teamFormData, null, 2));
+                        console.log('createTeamData:', JSON.stringify(createTeamData, null, 2));
+                        console.log('Leader ID:', createTeamData.leader_id, 'Type:', typeof createTeamData.leader_id);
+                        console.log('Work type IDs:', createTeamData.work_type_ids, 'Type:', Array.isArray(createTeamData.work_type_ids) ? 'array' : typeof createTeamData.work_type_ids);
+                        console.log('Member IDs from form:', teamFormData.member_ids);
+                        // Verify leader_id is from employee.id
+                        const leaderEmployee = allEmployees.find(emp => emp.id === createTeamData.leader_id);
+                        if (leaderEmployee) {
+                            console.log('✅ Leader employee found:', {
+                                id: leaderEmployee.id,
+                                account_id: leaderEmployee.account_id,
+                                full_name: leaderEmployee.full_name
+                            });
+                        } else {
+                            console.warn('❌ Leader employee NOT found with id:', createTeamData.leader_id);
+                            console.log('Available employees:', allEmployees.map(e => ({ id: e.id, name: e.full_name })));
+                        }
+                        // Verify work_type_ids
+                        if (createTeamData.work_type_ids && createTeamData.work_type_ids.length > 0) {
+                            console.log('Work type IDs validation:');
+                            createTeamData.work_type_ids.forEach((wtId, idx) => {
+                                console.log(`  [${idx}]: ${wtId} (${typeof wtId})`);
+                            });
+                        }
+                        console.log('================================');
+                    }
+
+                    let response;
+                    try {
+                        response = await teamApi.createTeam(createTeamData);
+                    } catch (apiError) {
+                        // Log full error details for debugging
+                        if (process.env.NODE_ENV === 'development') {
+                            console.error('Full API error:', apiError);
+                            console.error('Error response:', apiError.response?.data);
+                            console.error('Error status:', apiError.response?.status);
+                        }
+                        throw apiError;
+                    }
+
+                    if (!response.success) {
+                        throw new Error(response.message || 'Không thể tạo nhóm');
+                    }
+
+                    if (!response.data || !response.data.id) {
+                        throw new Error('API không trả về ID nhóm mới tạo');
+                    }
+
+                    const newTeamId = response.data.id;
+                    let workShiftsAssigned = false;
+                    let membersAdded = false;
+                    const errors = [];
+
+                    // IMPORTANT: Add members FIRST, then assign work shifts
+                    // API requires team to have active members before assigning work shifts
+
+                    // Step 1: Add members to the team
+                    // Note: Leader is already added by API when creating team, so exclude leader from members list
+                    // IMPORTANT: member_ids should contain employee.id (not account_id)
+                    const membersToAdd = (teamFormData.member_ids || []).filter(
+                        employeeId => employeeId !== teamFormData.leader_id
+                    );
+
+                    if (membersToAdd.length > 0) {
+                        try {
+                            // Map member_ids (which are employee.id) to { employee_id: ... }
+                            const membersData = membersToAdd.map(employeeId => {
+                                // Validate that employeeId is a valid UUID
+                                if (!uuidRegex.test(employeeId)) {
+                                    throw new Error(`Employee ID không hợp lệ: ${employeeId}`);
+                                }
+                                return {
+                                    employee_id: employeeId // employee_id = employee.id from form
+                                };
+                            });
+
+                            if (process.env.NODE_ENV === 'development') {
+                                console.log('Adding team members:', {
+                                    teamId: newTeamId,
+                                    member_ids_from_form: teamFormData.member_ids,
+                                    membersToAdd: membersToAdd,
+                                    membersData: membersData,
+                                    leader_id: teamFormData.leader_id
+                                });
+                            }
+
+                            await teamApi.addTeamMembers(newTeamId, membersData);
+                            membersAdded = true;
+
+                            // Add small delay to ensure members are fully committed before assigning work shifts
+                            await new Promise(resolve => setTimeout(resolve, 500));
+                        } catch (memberError) {
+                            console.error('Error adding team members:', memberError);
+                            const errorMessage = memberError.message || 'Lỗi không xác định';
+                            errors.push(`Thêm nhân viên: ${errorMessage}`);
+                        }
+                    }
+
+                    // Step 2: Assign work shifts to the team (AFTER members are added)
+                    if (teamFormData.work_shift_ids && teamFormData.work_shift_ids.length > 0) {
+                        try {
+                            if (process.env.NODE_ENV === 'development') {
+                                console.log('Assigning work shifts:', {
+                                    teamId: newTeamId,
+                                    work_shift_ids: teamFormData.work_shift_ids
+                                });
+                            }
+
+                            await teamApi.assignTeamWorkShifts(newTeamId, {
+                                work_shift_ids: teamFormData.work_shift_ids
+                            });
+                            workShiftsAssigned = true;
+                        } catch (shiftError) {
+                            console.error('Error assigning work shifts:', shiftError);
+                            const errorMessage = shiftError.message || 'Lỗi không xác định';
+                            errors.push(`Phân công ca làm việc: ${errorMessage}`);
+                        }
+                    }
+
+                    // Show appropriate message
+                    if (errors.length > 0) {
+                        setAlert({
+                            open: true,
+                            type: 'warning',
+                            title: 'Cảnh báo',
+                            message: `Tạo nhóm thành công nhưng có một số lỗi:\n${errors.join('\n')}\n\nBạn có thể thử lại sau.`
+                        });
+                    } else if (workShiftsAssigned && membersAdded) {
+                        setAlert({
+                            open: true,
+                            type: 'success',
+                            title: 'Thành công',
+                            message: 'Tạo nhóm, phân công ca làm việc và thêm nhân viên thành công!'
+                        });
+                    } else if (workShiftsAssigned) {
+                        setAlert({
+                            open: true,
+                            type: 'success',
+                            title: 'Thành công',
+                            message: 'Tạo nhóm và phân công ca làm việc thành công!'
+                        });
+                    } else if (membersAdded) {
+                        setAlert({
+                            open: true,
+                            type: 'success',
+                            title: 'Thành công',
+                            message: 'Tạo nhóm và thêm nhân viên thành công!'
+                        });
+                    } else {
+                        setAlert({
+                            open: true,
+                            type: 'success',
+                            title: 'Thành công',
+                            message: 'Tạo nhóm thành công!'
+                        });
+                    }
+
+                    // Close dialog and reload only if team was created successfully
+                    setOpenTeamDialog(false);
+                    // Add small delay to ensure API has committed the data
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                    await loadTeams();
+                    await loadSlots();
+                } catch (error) {
+                    console.error('Error creating team:', error);
+
+                    // Extract detailed error message
+                    let errorMessage = 'Không thể tạo nhóm';
+
+                    if (error.message) {
+                        errorMessage = error.message;
+                    } else if (error.response?.data) {
+                        const errorData = error.response.data;
+                        if (errorData.message) {
+                            errorMessage = Array.isArray(errorData.message)
+                                ? errorData.message.join('. ')
+                                : errorData.message;
+                        } else if (errorData.error) {
+                            errorMessage = Array.isArray(errorData.error)
+                                ? errorData.error.join('. ')
+                                : errorData.error;
+                        } else if (errorData.detail) {
+                            errorMessage = errorData.detail;
+                        } else if (typeof errorData === 'string') {
+                            errorMessage = errorData;
+                        }
+                    }
+
+                    // Log full error in development
+                    if (process.env.NODE_ENV === 'development') {
+                        console.error('Full error details:', {
+                            message: error.message,
+                            response: error.response?.data,
+                            status: error.response?.status
+                        });
+                    }
+
                     setAlert({
                         open: true,
-                        type: 'success',
-                        title: 'Thành công',
-                        message: 'Tạo nhóm và phân công ca làm việc thành công!'
+                        type: 'error',
+                        title: 'Lỗi',
+                        message: errorMessage
                     });
+                    // Don't close dialog or reload on error - let user fix and retry
+                    return;
                 }
             }
-            setOpenTeamDialog(false);
-            await loadTeams();
-            await loadSlots();
         } catch (error) {
             console.error('Error saving team:', error);
             setAlert({
@@ -1475,7 +1768,7 @@ const WorkShiftPage = () => {
 
             {/* Alert Modal */}
             <AlertModal
-                open={alert.open}
+                isOpen={alert.open}
                 onClose={() => setAlert({ ...alert, open: false })}
                 title={alert.title}
                 message={alert.message}
