@@ -14,6 +14,8 @@ import workShiftApi, { WEEKDAY_LABELS, WEEKDAYS } from '../../api/workShiftApi';
 import teamApi from '../../api/teamApi';
 import employeeApi from '../../api/employeeApi';
 import workTypeApi from '../../api/workTypeApi';
+import TeamAssignWorkShiftModal from '../../components/modals/TeamAssignWorkShiftModal';
+import TeamAssignMembersModal from '../../components/modals/TeamAssignMembersModal';
 
 const WorkShiftPage = () => {
     const [isLoading, setIsLoading] = useState(true);
@@ -51,17 +53,27 @@ const WorkShiftPage = () => {
 
     // Teams states
     const [teams, setTeams] = useState([]);
+    const [newTeams, setNewTeams] = useState([]); // Teams without workshifts and members
+    const [loadingNewTeams, setLoadingNewTeams] = useState(false);
     const [slots, setSlots] = useState([]);
     const [openTeamDialog, setOpenTeamDialog] = useState(false);
     const [editingTeam, setEditingTeam] = useState(null);
+    const [openAssignWorkShiftModal, setOpenAssignWorkShiftModal] = useState(false);
+    const [selectedTeamForWorkShift, setSelectedTeamForWorkShift] = useState(null);
+    const [selectedWorkShiftIds, setSelectedWorkShiftIds] = useState([]);
+    const [assigningWorkShifts, setAssigningWorkShifts] = useState(false);
+    const [openAssignMembersModal, setOpenAssignMembersModal] = useState(false);
+    const [selectedTeamForAssignMembers, setSelectedTeamForAssignMembers] = useState(null);
+    const [assignMembersExcludedIds, setAssignMembersExcludedIds] = useState([]);
+    const [assignMembersFetching, setAssignMembersFetching] = useState(false);
+    const [assigningMembers, setAssigningMembers] = useState(false);
     const [teamFormData, setTeamFormData] = useState({
         name: '',
         description: '',
         leader_id: '',
         work_type_ids: [],
-        work_shift_ids: [],
-        scheduleMatrix: {},
-        is_active: true
+        is_active: true,
+        status: 'ACTIVE'
     });
 
     // Data for team modal
@@ -91,6 +103,7 @@ const WorkShiftPage = () => {
     useEffect(() => {
         loadShifts();
         loadTeams();
+        loadNewTeams();
         loadSlots();
         loadEmployees();
         loadWorkTypes();
@@ -244,6 +257,92 @@ const WorkShiftPage = () => {
             }
         } catch (error) {
             console.error('Error loading work types:', error);
+        }
+    };
+
+    const loadNewTeams = async () => {
+        try {
+            setLoadingNewTeams(true);
+            // Fetch all teams across multiple pages
+            const allTeams = [];
+            let pageIndex = 0;
+            let hasNext = true;
+            const pageSize = 100;
+
+            while (hasNext && pageIndex < 50) {
+                try {
+                    const response = await teamApi.getTeams({
+                        page: pageIndex,
+                        limit: pageSize
+                    });
+
+                    if (response.success && Array.isArray(response.data)) {
+                        allTeams.push(...response.data);
+                        const pagination = response.pagination || {};
+                        hasNext = pagination.has_next === true || pagination.has_next === 'true';
+                        pageIndex++;
+
+                        if (!hasNext || allTeams.length >= (pagination.total_items_count || 0)) {
+                            break;
+                        }
+                    } else {
+                        break;
+                    }
+                } catch (pageError) {
+                    console.error(`Error loading page ${pageIndex}:`, pageError);
+                    break;
+                }
+            }
+
+            // Enrich teams with members and workshifts data
+            const teamsWithData = await Promise.all(
+                allTeams.map(async (team) => {
+                    try {
+                        const [membersResponse, workShiftsResponse] = await Promise.allSettled([
+                            teamApi.getTeamMembers(team.id),
+                            teamApi.getTeamWorkShifts(team.id, { page_index: 0, page_size: 100 })
+                        ]);
+
+                        const teamMembers = membersResponse.status === 'fulfilled' && membersResponse.value.success
+                            ? membersResponse.value.data || []
+                            : [];
+
+                        const teamWorkShifts = workShiftsResponse.status === 'fulfilled' && workShiftsResponse.value.success
+                            ? workShiftsResponse.value.data || []
+                            : [];
+
+                        return {
+                            ...team,
+                            team_members: teamMembers,
+                            team_work_shifts: teamWorkShifts
+                        };
+                    } catch (error) {
+                        console.warn(`Failed to load data for team ${team.id}:`, error);
+                        return {
+                            ...team,
+                            team_members: [],
+                            team_work_shifts: []
+                        };
+                    }
+                })
+            );
+
+            // Filter teams that are missing members or workshifts (excluding leader)
+            const filteredNewTeams = teamsWithData.filter(team => {
+                const hasWorkShifts = (team.team_work_shifts?.length || 0) > 0;
+                const hasMembers = (team.team_members?.filter(m => {
+                    const memberId = m.employee?.id || m.employee_id;
+                    return memberId && memberId !== team.leader_id;
+                }).length || 0) > 0;
+                return !(hasWorkShifts && hasMembers);
+            });
+
+            setNewTeams(filteredNewTeams);
+        } catch (error) {
+            console.error('Error loading new teams:', error);
+            setNewTeams([]);
+        } finally {
+            setLoadingNewTeams(false);
         }
     };
 
@@ -667,6 +766,23 @@ const WorkShiftPage = () => {
     };
 
     // Team CRUD handlers
+    const getStatusLabel = (status) => {
+        switch ((status || '').toUpperCase()) {
+            case 'ACTIVE':
+                return { text: 'Đang vận hành', color: COLORS.SUCCESS[700], bg: alpha(COLORS.SUCCESS[500], 0.1) };
+            case 'INACTIVE':
+                return { text: 'Tạm ngưng', color: COLORS.ERROR[700], bg: alpha(COLORS.ERROR[500], 0.1) };
+            default:
+                return { text: status || 'Không xác định', color: COLORS.TEXT.SECONDARY, bg: alpha(COLORS.GRAY[400], 0.15) };
+        }
+    };
+
+    const getActiveLabel = (isActive) => {
+        return isActive
+            ? { text: 'Kích hoạt', color: COLORS.INFO[700], bg: alpha(COLORS.INFO[500], 0.1) }
+            : { text: 'Ngừng kích hoạt', color: COLORS.GRAY[700], bg: alpha(COLORS.GRAY[400], 0.2) };
+    };
+
     const handleOpenTeamDialog = () => {
         setEditingTeam(null);
         setTeamFormData({
@@ -674,12 +790,129 @@ const WorkShiftPage = () => {
             description: '',
             leader_id: '',
             work_type_ids: [],
-            work_shift_ids: [],
-            member_ids: [], // Employee IDs to add as members
-            scheduleMatrix: {},
-            is_active: true
+            is_active: true,
+            status: 'ACTIVE'
         });
         setOpenTeamDialog(true);
+    };
+
+    const handleOpenAssignWorkShiftModal = (team) => {
+        if (!team) return;
+        const existingShifts = (team.team_work_shifts || []).map(tws => {
+            return tws.work_shift_id || tws.work_shift?.id || tws.id;
+        }).filter(Boolean);
+        setSelectedTeamForWorkShift(team);
+        setSelectedWorkShiftIds(existingShifts);
+        setOpenAssignWorkShiftModal(true);
+    };
+
+    const handleCloseAssignWorkShiftModal = () => {
+        setOpenAssignWorkShiftModal(false);
+        setSelectedTeamForWorkShift(null);
+        setSelectedWorkShiftIds([]);
+    };
+
+    const handleAssignWorkShifts = async (workShiftIds) => {
+        if (!selectedTeamForWorkShift) return;
+        if (!Array.isArray(workShiftIds) || workShiftIds.length === 0) {
+            setAlert({
+                open: true,
+                type: 'error',
+                title: 'Lỗi',
+                message: 'Vui lòng chọn ít nhất một ca làm việc'
+            });
+            return;
+        }
+        setAssigningWorkShifts(true);
+        try {
+            await teamApi.assignTeamWorkShifts(selectedTeamForWorkShift.id, { work_shift_ids: workShiftIds });
+            setAlert({
+                open: true,
+                type: 'success',
+                title: 'Thành công',
+                message: 'Phân ca cho nhóm thành công!'
+            });
+            handleCloseAssignWorkShiftModal();
+            await loadTeams();
+            await loadNewTeams();
+            await loadSlots();
+        } catch (error) {
+            setAlert({
+                open: true,
+                type: 'error',
+                title: 'Lỗi',
+                message: error.message || 'Không thể phân ca cho nhóm'
+            });
+        } finally {
+            setAssigningWorkShifts(false);
+        }
+    };
+
+    const handleOpenAssignMembersQuick = async (team) => {
+        if (!team) return;
+        setSelectedTeamForAssignMembers(team);
+        setOpenAssignMembersModal(true);
+        setAssignMembersFetching(true);
+        try {
+            const response = await teamApi.getTeamMembers(team.id);
+            if (response.success) {
+                const existingIds = (response.data || [])
+                    .map(member => member.employee?.id || member.employee_id)
+                    .filter(Boolean);
+                setAssignMembersExcludedIds(existingIds);
+            } else {
+                setAssignMembersExcludedIds([]);
+            }
+        } catch (error) {
+            console.error('Error loading team members for assign modal:', error);
+            setAssignMembersExcludedIds([]);
+        } finally {
+            setAssignMembersFetching(false);
+        }
+    };
+
+    const handleCloseAssignMembersModal = () => {
+        setOpenAssignMembersModal(false);
+        setSelectedTeamForAssignMembers(null);
+        setAssignMembersExcludedIds([]);
+        setAssignMembersFetching(false);
+    };
+
+    const handleAssignMembers = async (memberIds) => {
+        if (!selectedTeamForAssignMembers) return;
+        if (!Array.isArray(memberIds) || memberIds.length === 0) {
+            setAlert({
+                open: true,
+                type: 'error',
+                title: 'Lỗi',
+                message: 'Vui lòng chọn ít nhất một nhân viên'
+            });
+            return;
+        }
+        setAssigningMembers(true);
+        try {
+            const payload = memberIds.map(id => ({ employee_id: id }));
+            await teamApi.addTeamMembers(selectedTeamForAssignMembers.id, payload);
+            setAlert({
+                open: true,
+                type: 'success',
+                title: 'Thành công',
+                message: 'Thêm thành viên vào nhóm thành công!'
+            });
+            handleCloseAssignMembersModal();
+            await loadTeams();
+            await loadNewTeams();
+        } catch (error) {
+            console.error('Error assigning members:', error);
+            setAlert({
+                open: true,
+                type: 'error',
+                title: 'Lỗi',
+                message: error.message || 'Không thể thêm thành viên vào nhóm'
+            });
+        } finally {
+            setAssigningMembers(false);
+        }
     };
 
     const handleEditTeam = (team) => {
@@ -689,7 +922,8 @@ const WorkShiftPage = () => {
             description: team.description,
             leader_id: team.leader_id,
             work_type_ids: team.team_work_types?.map(wt => wt.work_type?.id || wt.work_type_id) || [],
-            is_active: team.is_active ?? true
+            is_active: team.is_active ?? true,
+            status: team.status || 'ACTIVE'
         });
         setOpenTeamDialog(true);
         setTeamMenuAnchor(null);
@@ -699,7 +933,14 @@ const WorkShiftPage = () => {
         try {
             if (editingTeam) {
                 try {
-                    const response = await teamApi.updateTeam(editingTeam.id, teamFormData);
+                    const response = await teamApi.updateTeam(editingTeam.id, {
+                        name: teamFormData.name?.trim(),
+                        description: teamFormData.description?.trim(),
+                        leader_id: teamFormData.leader_id,
+                        work_type_ids: teamFormData.work_type_ids || [],
+                        is_active: teamFormData.is_active ?? true,
+                        status: teamFormData.status || 'ACTIVE'
+                    });
                     if (response.success) {
                         setAlert({
                             open: true,
@@ -709,6 +950,7 @@ const WorkShiftPage = () => {
                         });
                         setOpenTeamDialog(false);
                         await loadTeams();
+                        await loadNewTeams();
                         await loadSlots();
                         return;
                     } else {
@@ -733,7 +975,8 @@ const WorkShiftPage = () => {
                         name: teamFormData.name?.trim(),
                         description: teamFormData.description?.trim(),
                         leader_id: teamFormData.leader_id,
-                        work_type_ids: teamFormData.work_type_ids || []
+                        work_type_ids: teamFormData.work_type_ids || [],
+                        status: teamFormData.status || 'ACTIVE'
                     };
 
                     // Validate data before sending
@@ -797,47 +1040,7 @@ const WorkShiftPage = () => {
                         }
                     }
 
-                    if (process.env.NODE_ENV === 'development') {
-                        console.log('=== Creating Team - Form Data ===');
-                        console.log('Full formData:', JSON.stringify(teamFormData, null, 2));
-                        console.log('createTeamData:', JSON.stringify(createTeamData, null, 2));
-                        console.log('Leader ID:', createTeamData.leader_id, 'Type:', typeof createTeamData.leader_id);
-                        console.log('Work type IDs:', createTeamData.work_type_ids, 'Type:', Array.isArray(createTeamData.work_type_ids) ? 'array' : typeof createTeamData.work_type_ids);
-                        console.log('Member IDs from form:', teamFormData.member_ids);
-                        // Verify leader_id is from employee.id
-                        const leaderEmployee = allEmployees.find(emp => emp.id === createTeamData.leader_id);
-                        if (leaderEmployee) {
-                            console.log('✅ Leader employee found:', {
-                                id: leaderEmployee.id,
-                                account_id: leaderEmployee.account_id,
-                                full_name: leaderEmployee.full_name
-                            });
-                        } else {
-                            console.warn('❌ Leader employee NOT found with id:', createTeamData.leader_id);
-                            console.log('Available employees:', allEmployees.map(e => ({ id: e.id, name: e.full_name })));
-                        }
-                        // Verify work_type_ids
-                        if (createTeamData.work_type_ids && createTeamData.work_type_ids.length > 0) {
-                            console.log('Work type IDs validation:');
-                            createTeamData.work_type_ids.forEach((wtId, idx) => {
-                                console.log(`  [${idx}]: ${wtId} (${typeof wtId})`);
-                            });
-                        }
-                        console.log('================================');
-                    }
-
-                    let response;
-                    try {
-                        response = await teamApi.createTeam(createTeamData);
-                    } catch (apiError) {
-                        // Log full error details for debugging
-                        if (process.env.NODE_ENV === 'development') {
-                            console.error('Full API error:', apiError);
-                            console.error('Error response:', apiError.response?.data);
-                            console.error('Error status:', apiError.response?.status);
-                        }
-                        throw apiError;
-                    }
+                    const response = await teamApi.createTeam(createTeamData);
 
                     if (!response.success) {
                         throw new Error(response.message || 'Không thể tạo nhóm');
@@ -847,120 +1050,16 @@ const WorkShiftPage = () => {
                         throw new Error('API không trả về ID nhóm mới tạo');
                     }
 
-                    const newTeamId = response.data.id;
-                    let workShiftsAssigned = false;
-                    let membersAdded = false;
-                    const errors = [];
+                    setAlert({
+                        open: true,
+                        type: 'success',
+                        title: 'Thành công',
+                        message: 'Tạo nhóm thành công!'
+                    });
 
-                    // IMPORTANT: Add members FIRST, then assign work shifts
-                    // API requires team to have active members before assigning work shifts
-
-                    // Step 1: Add members to the team
-                    // Note: Leader is already added by API when creating team, so exclude leader from members list
-                    // IMPORTANT: member_ids should contain employee.id (not account_id)
-                    const membersToAdd = (teamFormData.member_ids || []).filter(
-                        employeeId => employeeId !== teamFormData.leader_id
-                    );
-
-                    if (membersToAdd.length > 0) {
-                        try {
-                            // Map member_ids (which are employee.id) to { employee_id: ... }
-                            const membersData = membersToAdd.map(employeeId => {
-                                // Validate that employeeId is a valid UUID
-                                if (!uuidRegex.test(employeeId)) {
-                                    throw new Error(`Employee ID không hợp lệ: ${employeeId}`);
-                                }
-                                return {
-                                    employee_id: employeeId // employee_id = employee.id from form
-                                };
-                            });
-
-                            if (process.env.NODE_ENV === 'development') {
-                                console.log('Adding team members:', {
-                                    teamId: newTeamId,
-                                    member_ids_from_form: teamFormData.member_ids,
-                                    membersToAdd: membersToAdd,
-                                    membersData: membersData,
-                                    leader_id: teamFormData.leader_id
-                                });
-                            }
-
-                            await teamApi.addTeamMembers(newTeamId, membersData);
-                            membersAdded = true;
-
-                            // Add small delay to ensure members are fully committed before assigning work shifts
-                            await new Promise(resolve => setTimeout(resolve, 500));
-                        } catch (memberError) {
-                            console.error('Error adding team members:', memberError);
-                            const errorMessage = memberError.message || 'Lỗi không xác định';
-                            errors.push(`Thêm nhân viên: ${errorMessage}`);
-                        }
-                    }
-
-                    // Step 2: Assign work shifts to the team (AFTER members are added)
-                    if (teamFormData.work_shift_ids && teamFormData.work_shift_ids.length > 0) {
-                        try {
-                            if (process.env.NODE_ENV === 'development') {
-                                console.log('Assigning work shifts:', {
-                                    teamId: newTeamId,
-                                    work_shift_ids: teamFormData.work_shift_ids
-                                });
-                            }
-
-                            await teamApi.assignTeamWorkShifts(newTeamId, {
-                                work_shift_ids: teamFormData.work_shift_ids
-                            });
-                            workShiftsAssigned = true;
-                        } catch (shiftError) {
-                            console.error('Error assigning work shifts:', shiftError);
-                            const errorMessage = shiftError.message || 'Lỗi không xác định';
-                            errors.push(`Phân công ca làm việc: ${errorMessage}`);
-                        }
-                    }
-
-                    // Show appropriate message
-                    if (errors.length > 0) {
-                        setAlert({
-                            open: true,
-                            type: 'warning',
-                            title: 'Cảnh báo',
-                            message: `Tạo nhóm thành công nhưng có một số lỗi:\n${errors.join('\n')}\n\nBạn có thể thử lại sau.`
-                        });
-                    } else if (workShiftsAssigned && membersAdded) {
-                        setAlert({
-                            open: true,
-                            type: 'success',
-                            title: 'Thành công',
-                            message: 'Tạo nhóm, phân công ca làm việc và thêm nhân viên thành công!'
-                        });
-                    } else if (workShiftsAssigned) {
-                        setAlert({
-                            open: true,
-                            type: 'success',
-                            title: 'Thành công',
-                            message: 'Tạo nhóm và phân công ca làm việc thành công!'
-                        });
-                    } else if (membersAdded) {
-                        setAlert({
-                            open: true,
-                            type: 'success',
-                            title: 'Thành công',
-                            message: 'Tạo nhóm và thêm nhân viên thành công!'
-                        });
-                    } else {
-                        setAlert({
-                            open: true,
-                            type: 'success',
-                            title: 'Thành công',
-                            message: 'Tạo nhóm thành công!'
-                        });
-                    }
-
-                    // Close dialog and reload only if team was created successfully
                     setOpenTeamDialog(false);
-                    // Add small delay to ensure API has committed the data
-                    await new Promise(resolve => setTimeout(resolve, 300));
                     await loadTeams();
+                    await loadNewTeams();
                     await loadSlots();
                 } catch (error) {
                     console.error('Error creating team:', error);
@@ -1137,6 +1236,7 @@ const WorkShiftPage = () => {
 
             setOpenTeamMembersModal(false);
             await loadTeams(); // Reload to get updated data
+            await loadNewTeams(); // Reload new teams list
             await loadSlots(); // Reload slots to reflect changes
         } catch (error) {
             console.error('Error saving team members:', error);
@@ -1287,6 +1387,256 @@ const WorkShiftPage = () => {
                 </Button>
             </Stack>
 
+            {/* New Teams Section */}
+            {newTeams.length > 0 && (
+                <Box sx={{ mb: 4 }}>
+                    <Box
+                        sx={{
+                            bgcolor: COLORS.WARNING[500],
+                            color: 'white',
+                            p: 2,
+                            borderRadius: '8px 8px 0 0',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            mb: 0
+                        }}
+                    >
+                        <Typography variant="h6" fontWeight={700}>
+                            Các team mới
+                        </Typography>
+                        <Chip
+                            label={`${newTeams.length} team chưa được phân công`}
+                            sx={{
+                                bgcolor: 'white',
+                                color: COLORS.WARNING[700],
+                                fontWeight: 600
+                            }}
+                        />
+                    </Box>
+                    <Paper
+                        sx={{
+                            borderRadius: '0 0 8px 8px',
+                            boxShadow: `0 2px 12px ${alpha(COLORS.SHADOW.LIGHT, 0.08)}`,
+                            p: 3
+                        }}
+                    >
+                        <Grid container spacing={2}>
+                            {newTeams.map((team) => (
+                                <Grid item xs={12} sm={6} md={4} lg={3} key={team.id}>
+                                    <Card
+                                        sx={{
+                                            width: '100%',
+                                            height: '100%',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            border: `2px solid ${COLORS.WARNING[300]}`,
+                                            borderRadius: 2,
+                                            bgcolor: alpha(COLORS.WARNING[50], 0.3),
+                                            '&:hover': {
+                                                boxShadow: `0 4px 12px ${alpha(COLORS.WARNING[300], 0.3)}`,
+                                                borderColor: COLORS.WARNING[500]
+                                            },
+                                            transition: 'all 0.2s'
+                                        }}
+                                    >
+                                        <CardContent sx={{ p: 2, flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+                                            <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 1.5 }}>
+                                                <Box sx={{ flex: 1 }}>
+                                                    <Typography variant="subtitle2" fontWeight={700} color={COLORS.WARNING[700]} sx={{ mb: 0.5 }}>
+                                                        {team.name}
+                                                    </Typography>
+                                                    <Stack direction="row" spacing={0.5} alignItems="center" flexWrap="wrap" sx={{ gap: 0.5 }}>
+                                                        {(() => {
+                                                            const statusMeta = getStatusLabel(team.status);
+                                                            return (
+                                                                <Chip
+                                                                    label={statusMeta.text}
+                                                                    size="small"
+                                                                    sx={{
+                                                                        height: 18,
+                                                                        fontSize: '0.6rem',
+                                                                        bgcolor: statusMeta.bg,
+                                                                        color: statusMeta.color
+                                                                    }}
+                                                                />
+                                                            );
+                                                        })()}
+                                                        {(() => {
+                                                            const activeMeta = getActiveLabel(team.is_active);
+                                                            return (
+                                                                <Chip
+                                                                    label={activeMeta.text}
+                                                                    size="small"
+                                                                    sx={{
+                                                                        height: 18,
+                                                                        fontSize: '0.6rem',
+                                                                        bgcolor: activeMeta.bg,
+                                                                        color: activeMeta.color
+                                                                    }}
+                                                                />
+                                                            );
+                                                        })()}
+                                                    </Stack>
+                                                </Box>
+                                                <IconButton
+                                                    size="small"
+                                                    onClick={(e) => handleTeamMenuOpen(e, team)}
+                                                    sx={{
+                                                        p: 0.5,
+                                                        '&:hover': {
+                                                            bgcolor: alpha(COLORS.WARNING[500], 0.1)
+                                                        }
+                                                    }}
+                                                >
+                                                    <MoreVert sx={{ fontSize: 16 }} />
+                                                </IconButton>
+                                            </Stack>
+
+                                            {/* Description */}
+                                            {team.description && (
+                                                <Box sx={{ mb: 1.5 }}>
+                                                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem', lineHeight: 1.4 }}>
+                                                        {team.description}
+                                                    </Typography>
+                                                </Box>
+                                            )}
+
+                                            {/* Leader */}
+                                            {team.leader && (
+                                                <Box sx={{ mb: team.team_members && team.team_members.length > 0 ? 1 : 0 }}>
+                                                    <Stack direction="row" spacing={0.5} alignItems="center">
+                                                        <Person sx={{ fontSize: 14, color: COLORS.GRAY[500] }} />
+                                                        <Typography variant="caption" color="text.secondary" fontWeight={500}>
+                                                            Leader: {team.leader.full_name || 'N/A'}
+                                                        </Typography>
+                                                    </Stack>
+                                                    {(() => {
+                                                        const members = team.team_members
+                                                            ?.filter(m => {
+                                                                const memberId = m.employee?.id || m.employee_id;
+                                                                return memberId && memberId !== team.leader_id;
+                                                            })
+                                                            .map(m => ({
+                                                                id: m.employee?.id || m.employee_id,
+                                                                name: m.employee?.full_name || m.full_name
+                                                            }))
+                                                            .filter(m => m.id && m.name);
+                                                        if (!members || members.length === 0) {
+                                                            return null;
+                                                        }
+                                                        return (
+                                                            <Box sx={{ mt: 1 }}>
+                                                                <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, fontWeight: 600 }}>
+                                                                    Thành viên ({members.length}):
+                                                                </Typography>
+                                                                <Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ mt: 0.5, gap: 0.5 }}>
+                                                                    {members.map((member, idx) => (
+                                                                        <Chip
+                                                                            key={member.id || idx}
+                                                                            label={member.name}
+                                                                            size="small"
+                                                                            sx={{
+                                                                                height: 22,
+                                                                                fontSize: '0.65rem',
+                                                                                bgcolor: alpha(COLORS.PRIMARY[100], idx % 2 === 0 ? 0.7 : 0.4),
+                                                                                color: COLORS.PRIMARY[800],
+                                                                                fontWeight: 600
+                                                                            }}
+                                                                        />
+                                                                    ))}
+                                                                </Stack>
+                                                            </Box>
+                                                        );
+                                                    })()}
+                                                </Box>
+                                            )}
+
+                                            {/* Warning message */}
+                                            <Box sx={{ mt: 'auto', pt: 1.5, borderTop: `1px dashed ${COLORS.WARNING[300]}` }}>
+                                                <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mb: 1 }}>
+                                                    {(() => {
+                                                        const hasWorkShifts = (team.team_work_shifts?.length || 0) > 0;
+                                                        const hasMembers = (team.team_members?.filter(m => {
+                                                            const memberId = m.employee?.id || m.employee_id;
+                                                            return memberId && memberId !== team.leader_id;
+                                                        }).length || 0) > 0;
+                                                        let message = '⚠️ Chưa có ca làm việc và thành viên';
+                                                        if (hasWorkShifts && !hasMembers) {
+                                                            message = '⚠️ Chưa có thành viên';
+                                                        } else if (!hasWorkShifts && hasMembers) {
+                                                            message = '⚠️ Chưa có ca làm việc';
+                                                        }
+                                                        return (
+                                                            <Typography variant="caption" color={COLORS.WARNING[700]} fontWeight={600} sx={{ fontSize: '0.7rem' }}>
+                                                                {message}
+                                                            </Typography>
+                                                        );
+                                                    })()}
+                                                </Stack>
+                                                <Stack direction="row" spacing={1}>
+                                                    <Button
+                                                        size="small"
+                                                        variant="outlined"
+                                                        startIcon={<Schedule />}
+                                                        onClick={() => handleOpenAssignWorkShiftModal(team)}
+                                                        disabled={(() => {
+                                                            const membersCount = (team.team_members?.filter(m => {
+                                                                const memberId = m.employee?.id || m.employee_id;
+                                                                return memberId && memberId !== team.leader_id;
+                                                            }).length || 0);
+                                                            return membersCount === 0;
+                                                        })()}
+                                                        sx={{
+                                                            flex: 1,
+                                                            textTransform: 'none',
+                                                            fontSize: '0.7rem',
+                                                            py: 0.5,
+                                                            borderColor: COLORS.PRIMARY[500],
+                                                            color: COLORS.PRIMARY[700],
+                                                            '&:hover': {
+                                                                borderColor: COLORS.PRIMARY[600],
+                                                                bgcolor: alpha(COLORS.PRIMARY[500], 0.1)
+                                                            },
+                                                            '&.Mui-disabled': {
+                                                                borderColor: COLORS.GRAY[300],
+                                                                color: COLORS.GRAY[400]
+                                                            }
+                                                        }}
+                                                    >
+                                                        Phân ca
+                                                    </Button>
+                                                    <Button
+                                                        size="small"
+                                                        variant="outlined"
+                                                        startIcon={<PersonAdd />}
+                                                        onClick={() => handleOpenAssignMembersQuick(team)}
+                                                        sx={{
+                                                            flex: 1,
+                                                            textTransform: 'none',
+                                                            fontSize: '0.7rem',
+                                                            py: 0.5,
+                                                            borderColor: COLORS.SUCCESS[500],
+                                                            color: COLORS.SUCCESS[700],
+                                                            '&:hover': {
+                                                                borderColor: COLORS.SUCCESS[600],
+                                                                bgcolor: alpha(COLORS.SUCCESS[500], 0.1)
+                                                            }
+                                                        }}
+                                                    >
+                                                        Thêm thành viên
+                                                    </Button>
+                                                </Stack>
+                                            </Box>
+                                        </CardContent>
+                                    </Card>
+                                </Grid>
+                            ))}
+                        </Grid>
+                    </Paper>
+                </Box>
+            )}
+
             {/* Schedule by Day */}
             <Stack spacing={3}>
                 {WEEKDAYS.map((day) => {
@@ -1433,34 +1783,36 @@ const WorkShiftPage = () => {
                                                                                         {team.name}
                                                                                     </Typography>
                                                                                     <Stack direction="row" spacing={0.5} alignItems="center" flexWrap="wrap" sx={{ gap: 0.5 }}>
-                                                                                        <Chip
-                                                                                            label={team.status === 'ACTIVE' ? 'Hoạt động' : 'Không hoạt động'}
-                                                                                            size="small"
-                                                                                            sx={{
-                                                                                                height: 18,
-                                                                                                fontSize: '0.6rem',
-                                                                                                bgcolor: team.status === 'ACTIVE'
-                                                                                                    ? alpha(COLORS.SUCCESS[500], 0.1)
-                                                                                                    : alpha(COLORS.ERROR[500], 0.1),
-                                                                                                color: team.status === 'ACTIVE'
-                                                                                                    ? COLORS.SUCCESS[700]
-                                                                                                    : COLORS.ERROR[700]
-                                                                                            }}
-                                                                                        />
-                                                                                        <Chip
-                                                                                            label={team.is_active ? 'Kích hoạt' : 'Vô hiệu'}
-                                                                                            size="small"
-                                                                                            sx={{
-                                                                                                height: 18,
-                                                                                                fontSize: '0.6rem',
-                                                                                                bgcolor: team.is_active
-                                                                                                    ? alpha(COLORS.INFO[500], 0.1)
-                                                                                                    : alpha(COLORS.GRAY[500], 0.1),
-                                                                                                color: team.is_active
-                                                                                                    ? COLORS.INFO[700]
-                                                                                                    : COLORS.GRAY[700]
-                                                                                            }}
-                                                                                        />
+                                                                                        {(() => {
+                                                                                            const statusMeta = getStatusLabel(team.status);
+                                                                                            return (
+                                                                                                <Chip
+                                                                                                    label={statusMeta.text}
+                                                                                                    size="small"
+                                                                                                    sx={{
+                                                                                                        height: 18,
+                                                                                                        fontSize: '0.6rem',
+                                                                                                        bgcolor: statusMeta.bg,
+                                                                                                        color: statusMeta.color
+                                                                                                    }}
+                                                                                                />
+                                                                                            );
+                                                                                        })()}
+                                                                                        {(() => {
+                                                                                            const activeMeta = getActiveLabel(team.is_active);
+                                                                                            return (
+                                                                                                <Chip
+                                                                                                    label={activeMeta.text}
+                                                                                                    size="small"
+                                                                                                    sx={{
+                                                                                                        height: 18,
+                                                                                                        fontSize: '0.6rem',
+                                                                                                        bgcolor: activeMeta.bg,
+                                                                                                        color: activeMeta.color
+                                                                                                    }}
+                                                                                                />
+                                                                                            );
+                                                                                        })()}
                                                                                     </Stack>
                                                                                 </Box>
                                                                                 <Stack direction="row" spacing={0.5} alignItems="center">
@@ -1702,7 +2054,26 @@ const WorkShiftPage = () => {
                 onSave={handleSaveTeam}
                 allEmployees={allEmployees}
                 allWorkTypes={allWorkTypes}
-                allWorkShifts={shifts}
+            />
+
+            <TeamAssignWorkShiftModal
+                open={openAssignWorkShiftModal}
+                onClose={handleCloseAssignWorkShiftModal}
+                team={selectedTeamForWorkShift}
+                workShifts={shifts}
+                initialSelected={selectedWorkShiftIds}
+                loading={assigningWorkShifts}
+                onSubmit={handleAssignWorkShifts}
+            />
+            <TeamAssignMembersModal
+                open={openAssignMembersModal}
+                onClose={handleCloseAssignMembersModal}
+                team={selectedTeamForAssignMembers}
+                employees={allEmployees}
+                excludedIds={assignMembersExcludedIds}
+                loading={assignMembersFetching}
+                submitting={assigningMembers}
+                onSubmit={handleAssignMembers}
             />
 
             {/* Team Members Modal */}

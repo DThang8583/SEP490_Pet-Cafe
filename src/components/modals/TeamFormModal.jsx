@@ -1,8 +1,12 @@
 import React from 'react';
-import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Stack, Box, Typography, FormControl, InputLabel, Select, MenuItem, Alert, Chip, OutlinedInput, Switch, FormControlLabel, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Checkbox, alpha } from '@mui/material';
-import { Groups, Close, Info } from '@mui/icons-material';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Stack, Box, Typography, FormControl, InputLabel, Select, MenuItem, Alert, Chip, OutlinedInput, Switch, FormControlLabel, alpha } from '@mui/material';
+import { Groups, Info } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
-import { WEEKDAY_LABELS } from '../../api/workShiftApi';
+
+const TEAM_STATUS_OPTIONS = [
+    { value: 'ACTIVE', label: 'Đang vận hành' },
+    { value: 'INACTIVE', label: 'Tạm ngưng' }
+];
 
 const TeamFormModal = ({
     open,
@@ -13,36 +17,30 @@ const TeamFormModal = ({
     onFormChange,
     onSave,
     allEmployees = [],
-    allWorkTypes = [],
-    allWorkShifts = []
+    allWorkTypes = []
 }) => {
-    // Sort work shifts by start time
-    const sortedWorkShifts = [...allWorkShifts].sort((a, b) => {
-        const timeA = a.start_time || '00:00:00';
-        const timeB = b.start_time || '00:00:00';
-        return timeA.localeCompare(timeB);
-    });
-
-    const handleToggleWorkShift = (shiftId) => {
-        const selected = new Set(formData.work_shift_ids || []);
-        if (selected.has(shiftId)) {
-            selected.delete(shiftId);
-        } else {
-            selected.add(shiftId);
-        }
-        onFormChange({
-            ...formData,
-            work_shift_ids: Array.from(selected)
-        });
+    const isManagerRole = (employee) => {
+        if (!employee) return false;
+        const roleCandidates = [
+            employee.role,
+            employee.sub_role,
+            employee.account?.role,
+            employee.account?.sub_role
+        ].map((role) => (role || '').toString().toUpperCase());
+        return roleCandidates.includes('MANAGER');
     };
 
-    const formatTime = (timeStr) => {
-        if (!timeStr) return '--:--';
-        if (timeStr.includes(':') && timeStr.split(':').length >= 2) {
-            return `${timeStr.substring(0, 5)}`;
+    const leaderOptions = React.useMemo(() => {
+        if (!Array.isArray(allEmployees)) return [];
+        const filtered = allEmployees.filter(emp => !isManagerRole(emp));
+        if (editingTeam?.leader_id) {
+            const currentLeader = allEmployees.find(emp => emp.id === editingTeam.leader_id);
+            if (currentLeader && !filtered.some(emp => emp.id === currentLeader.id)) {
+                return [currentLeader, ...filtered];
+            }
         }
-        return timeStr;
-    };
+        return filtered;
+    }, [allEmployees, editingTeam?.leader_id]);
 
     // Validate before saving
     const handleSaveWithValidation = () => {
@@ -61,12 +59,6 @@ const TeamFormModal = ({
         if (!formData.work_type_ids || formData.work_type_ids.length === 0) {
             alert('Vui lòng chọn ít nhất một loại công việc');
             return;
-        }
-        if (!editingTeam) {
-            if (!formData.work_shift_ids || formData.work_shift_ids.length === 0) {
-                alert('Vui lòng chọn ít nhất một ca làm việc cho nhóm');
-                return;
-            }
         }
 
         onSave();
@@ -134,7 +126,7 @@ const TeamFormModal = ({
                             <MenuItem value="">
                                 <em>-- Chọn trưởng nhóm --</em>
                             </MenuItem>
-                            {allEmployees.map(emp => (
+                            {leaderOptions.map(emp => (
                                 <MenuItem key={emp.id} value={emp.id}>
                                     <Stack direction="row" spacing={1.5} alignItems="center">
                                         <Typography>{emp.full_name}</Typography>
@@ -196,187 +188,44 @@ const TeamFormModal = ({
                         </Select>
                     </FormControl>
 
-                    {/* Thêm nhân viên vào nhóm (chỉ cho create mode) */}
-                    {!editingTeam && (
-                        <>
-                            <Box>
-                                <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-                                    Thêm nhân viên vào nhóm
-                                </Typography>
-                                <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, display: 'block', mb: 2 }}>
-                                    Chọn các nhân viên để thêm vào nhóm. Trưởng nhóm đã được chọn ở trên sẽ tự động được thêm vào nhóm.
-                                </Typography>
-                                <FormControl fullWidth>
-                                    <InputLabel>Nhân viên</InputLabel>
-                                    <Select
-                                        multiple
-                                        value={formData.member_ids || []}
-                                        onChange={(e) => onFormChange({ ...formData, member_ids: e.target.value })}
-                                        input={<OutlinedInput label="Nhân viên" />}
-                                        renderValue={(selected) => (
-                                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                                                {selected.map((employeeId) => {
-                                                    const employee = allEmployees.find(emp => emp.id === employeeId);
-                                                    return (
-                                                        <Chip
-                                                            key={employeeId}
-                                                            label={employee?.full_name || employeeId}
-                                                            size="small"
-                                                            sx={{ height: 24 }}
-                                                        />
-                                                    );
-                                                })}
-                                            </Box>
-                                        )}
-                                        sx={{ minHeight: 56 }}
-                                    >
-                                        {allEmployees
-                                            .filter(emp => emp.id !== formData.leader_id) // Exclude leader from member list
-                                            .map(employee => (
-                                                <MenuItem key={employee.id} value={employee.id}>
-                                                    <Stack direction="row" spacing={1.5} alignItems="center" sx={{ width: '100%' }}>
-                                                        <Typography>{employee.full_name}</Typography>
-                                                        <Chip
-                                                            label={employee.sub_role === 'WORKING_STAFF' ? 'Working Staff' : 'Sale Staff'}
-                                                            size="small"
-                                                            sx={{
-                                                                height: 20,
-                                                                fontSize: '0.7rem',
-                                                                bgcolor: employee.sub_role === 'WORKING_STAFF' ? alpha(COLORS.INFO[100], 0.8) : alpha(COLORS.WARNING[100], 0.8),
-                                                                color: employee.sub_role === 'WORKING_STAFF' ? COLORS.INFO[700] : COLORS.WARNING[700]
-                                                            }}
-                                                        />
-                                                    </Stack>
-                                                </MenuItem>
-                                            ))}
-                                    </Select>
-                                </FormControl>
-                            </Box>
-                        </>
-                    )}
-
-                    {/* Lịch làm việc (chọn work shift có sẵn, chỉ cho create mode) */}
-                    {!editingTeam && (
-                        <>
-                            <Box>
-                                <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-                                    Lịch làm việc <span style={{ color: COLORS.ERROR[500] }}>*</span>
-                                </Typography>
-                                <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, display: 'block', mb: 2 }}>
-                                    Chọn các ca làm việc có sẵn. Mỗi ca đã bao gồm thông tin ngày áp dụng theo cấu hình work shift.
-                                </Typography>
-                                <TableContainer component={Paper} sx={{ border: `1px solid ${COLORS.BORDER.DEFAULT}` }}>
-                                    <Table size="small">
-                                        <TableHead>
-                                            <TableRow sx={{ bgcolor: alpha(COLORS.PRIMARY[100], 0.3) }}>
-                                                <TableCell sx={{ fontWeight: 700 }}>Ca làm việc</TableCell>
-                                                <TableCell sx={{ fontWeight: 700, minWidth: 160 }}>Thời gian</TableCell>
-                                                <TableCell sx={{ fontWeight: 700, minWidth: 200 }}>Ngày áp dụng</TableCell>
-                                                <TableCell sx={{ fontWeight: 700, minWidth: 200 }}>Mô tả</TableCell>
-                                                <TableCell align="center" sx={{ fontWeight: 700, width: 80 }}>Chọn</TableCell>
-                                            </TableRow>
-                                        </TableHead>
-                                        <TableBody>
-                                            {sortedWorkShifts.length === 0 ? (
-                                                <TableRow>
-                                                    <TableCell colSpan={5} align="center" sx={{ py: 4, color: COLORS.TEXT.SECONDARY }}>
-                                                        Chưa có ca làm việc nào. Vui lòng tạo work shift trước.
-                                                    </TableCell>
-                                                </TableRow>
-                                            ) : (
-                                                sortedWorkShifts.map((shift) => {
-                                                    const isChecked = (formData.work_shift_ids || []).includes(shift.id);
-                                                    return (
-                                                        <TableRow key={shift.id} hover>
-                                                            <TableCell>
-                                                                <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                                                                    {shift.name}
-                                                                </Typography>
-                                                                {shift.type && (
-                                                                    <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY }}>
-                                                                        {shift.type}
-                                                                    </Typography>
-                                                                )}
-                                                            </TableCell>
-                                                            <TableCell>
-                                                                <Chip
-                                                                    label={`${formatTime(shift.start_time)} - ${formatTime(shift.end_time)}`}
-                                                                    size="small"
-                                                                    sx={{ fontWeight: 600, bgcolor: alpha(COLORS.PRIMARY[100], 0.5) }}
-                                                                />
-                                                            </TableCell>
-                                                            <TableCell>
-                                                                <Stack direction="row" spacing={0.5} flexWrap="wrap">
-                                                                    {(shift.applicable_days || []).length > 0 ? (
-                                                                        shift.applicable_days.map((day) => (
-                                                                            <Chip
-                                                                                key={`${shift.id}-${day}`}
-                                                                                label={WEEKDAY_LABELS[day] || day}
-                                                                                size="small"
-                                                                                sx={{
-                                                                                    bgcolor: alpha(COLORS.SECONDARY[100], 0.6),
-                                                                                    color: COLORS.SECONDARY[700]
-                                                                                }}
-                                                                            />
-                                                                        ))
-                                                                    ) : (
-                                                                        <Typography variant="caption" sx={{ color: COLORS.TEXT.DISABLED }}>
-                                                                            Không xác định ngày
-                                                                        </Typography>
-                                                                    )}
-                                                                </Stack>
-                                                            </TableCell>
-                                                            <TableCell>
-                                                                <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
-                                                                    {shift.description || 'Không có mô tả'}
-                                                                </Typography>
-                                                            </TableCell>
-                                                            <TableCell align="center">
-                                                                <Checkbox
-                                                                    checked={isChecked}
-                                                                    onChange={() => handleToggleWorkShift(shift.id)}
-                                                                    sx={{
-                                                                        color: COLORS.PRIMARY[500],
-                                                                        '&.Mui-checked': { color: COLORS.PRIMARY[600] }
-                                                                    }}
-                                                                />
-                                                            </TableCell>
-                                                        </TableRow>
-                                                    );
-                                                })
-                                            )}
-                                        </TableBody>
-                                    </Table>
-                                </TableContainer>
-                            </Box>
-                        </>
-                    )}
-
-                    {/* Trạng thái (chỉ cho edit mode) */}
+                    {/* Trạng thái */}
                     {editingTeam && (
-                        <>
-                            <FormControlLabel
-                                control={
-                                    <Switch
-                                        checked={formData.is_active ?? true}
-                                        onChange={(e) => onFormChange({ ...formData, is_active: e.target.checked })}
-                                        color="success"
-                                    />
-                                }
-                                label={
-                                    <Typography sx={{ fontWeight: 600 }}>
-                                        {formData.is_active ? 'Đang hoạt động' : 'Không hoạt động'}
-                                    </Typography>
-                                }
-                            />
-                        </>
+                        <FormControlLabel
+                            control={
+                                <Switch
+                                    checked={formData.is_active ?? true}
+                                    onChange={(e) => onFormChange({ ...formData, is_active: e.target.checked })}
+                                    color="success"
+                                />
+                            }
+                            label={
+                                <Typography sx={{ fontWeight: 600 }}>
+                                    {formData.is_active ? 'Kích hoạt' : 'Ngừng kích hoạt'}
+                                </Typography>
+                            }
+                        />
                     )}
+                    <FormControl fullWidth>
+                        <InputLabel>Trạng thái</InputLabel>
+                        <Select
+                            value={formData.status || 'ACTIVE'}
+                            label="Trạng thái"
+                            onChange={(e) => onFormChange({ ...formData, status: e.target.value })}
+                            sx={{ height: 56 }}
+                        >
+                            {TEAM_STATUS_OPTIONS.map(option => (
+                                <MenuItem key={option.value} value={option.value}>
+                                    {option.label}
+                                </MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
 
                     {/* Info alert for create mode */}
                     {!editingTeam && (
                         <Alert severity="info" icon={<Info />}>
                             <Typography variant="body2">
-                                Nhóm mới sẽ được tạo với trạng thái <strong>Hoạt động</strong> mặc định. Hãy chọn các work shift phù hợp, mỗi work shift đã bao gồm thông tin ngày áp dụng và khung giờ.
+                                Nhóm mới sẽ được tạo với trạng thái <strong>Hoạt động</strong> mặc định.
                             </Typography>
                         </Alert>
                     )}
