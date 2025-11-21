@@ -252,11 +252,13 @@ const Navbar = () => {
                         <>
                             <Divider sx={{ my: 1 }} />
                             <List
-                                subheader={!collapsed ? (
-                                    <ListSubheader component="div" sx={{ background: 'transparent', color: COLORS.TEXT.SECONDARY, fontWeight: 700 }}>
-                                        Leader
-                                    </ListSubheader>
-                                ) : null}
+                                subheader={
+                                    !collapsed ? (
+                                        <ListSubheader component="div" sx={{ background: 'transparent', color: COLORS.TEXT.SECONDARY, fontWeight: 700 }}>
+                                            Leader
+                                        </ListSubheader>
+                                    ) : null
+                                }
                             >
                                 {leaderItems.map((item) => {
                                     const content = (
