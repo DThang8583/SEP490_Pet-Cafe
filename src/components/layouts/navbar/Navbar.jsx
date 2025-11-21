@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+ import React, { useEffect, useMemo, useState } from 'react';
 import { AppBar, Toolbar, Typography, Button, Box, IconButton, Avatar, Menu, MenuItem, useTheme, alpha, Container, Stack, Drawer, List, ListItemButton, ListItemIcon, ListItemText, Divider, Tooltip, ListSubheader, useMediaQuery } from '@mui/material';
 import { LocalCafe, Restaurant, ConfirmationNumber, LocationOn, AccountCircle, Menu as MenuIcon, Close, Pets, Schedule, Dashboard, People, Groups, Assignment, DesignServices, Inventory2, Logout, Vaccines, ShoppingCart, ReceiptLong, HealthAndSafety, Person, ChecklistRtl, AssignmentTurnedIn, Description } from '@mui/icons-material';
 import { COLORS } from '../../../constants/colors';
@@ -213,15 +213,6 @@ const Navbar = () => {
                             </ListSubheader>
                         ) : null}
                     >
-                        {(isManager ? managerItems : [
-                            { label: 'Dashboard', icon: <Dashboard />, path: '/sales/dashboard' },
-                            { label: 'Bán hàng', icon: <ShoppingCart />, path: '/sales/sales' },
-                            { label: 'Bán dịch vụ', icon: <DesignServices />, path: '/sales/services' },
-                            { label: 'Điểm danh', icon: <Schedule />, path: '/sales/attendance' },
-                            { label: 'Nhóm đã tham gia', icon: <Group />, path: '/sales/joined-groups' },
-                            { label: 'Hóa đơn', icon: <ReceiptLong />, path: '/sales/invoices' },
-                            { label: 'Tài khoản', icon: <AccountCircle />, path: '/profile' }
-                        ]).map((item) => {
                         {baseItems.map((item) => {
                             const content = (
                                 <ListItemButton
