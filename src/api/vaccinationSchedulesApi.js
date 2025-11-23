@@ -33,7 +33,11 @@ export const getAllVaccinationSchedules = async (params = {}) => {
     } = params;
 
     try {
-        const queryParams = {};
+        const queryParams = {
+            page: page_index,
+            limit: page_size
+        };
+
         if (PetId) {
             queryParams.PetId = PetId;
         }
@@ -100,6 +104,16 @@ export const getVaccinationScheduleById = async (scheduleId) => {
             throw new Error('Không tìm thấy lịch tiêm');
         }
 
+        // Debug: Log API response structure
+        console.log('📡 API Response for schedule:', {
+            scheduleId,
+            responseData: response.data,
+            has_team_id: !!response.data.team_id,
+            has_team_object: !!response.data.team,
+            team_id_value: response.data.team_id,
+            team_object: response.data.team
+        });
+
         return response.data;
     } catch (error) {
         console.error('Failed to fetch vaccination schedule from API:', error);
@@ -128,18 +142,17 @@ export const createVaccinationSchedule = async (scheduleData) => {
         if (!scheduled_date) {
             throw new Error('Ngày tiêm dự kiến là bắt buộc');
         }
+        if (!team_id) {
+            throw new Error('Nhóm là bắt buộc');
+        }
 
         const requestData = {
             pet_id,
             vaccine_type_id,
             scheduled_date,
-            notes: notes?.trim() || ''
+            notes: notes?.trim() || '',
+            team_id
         };
-
-        // Add team_id if provided
-        if (team_id) {
-            requestData.team_id = team_id;
-        }
 
         const response = await apiClient.post('/vaccination-schedules', requestData, { timeout: 10000 });
 
@@ -194,6 +207,7 @@ export const updateVaccinationSchedule = async (scheduleId, scheduleData) => {
         }
 
         if (scheduleData.team_id !== undefined) {
+            // team_id is required for creating daily task, but can be null for update
             requestData.team_id = scheduleData.team_id || null;
         }
 

@@ -845,7 +845,16 @@ const DailyTasksTab = ({ taskTemplates, slots, onRefresh }) => {
                                 const endTime = dailyTask.slot?.end_time || dailyTask.end_time;
 
                                 return (
-                                    <TableRow key={dailyTask.id} hover>
+                                    <TableRow
+                                        key={dailyTask.id}
+                                        hover
+                                        sx={{
+                                            '& .MuiTableCell-root': {
+                                                py: 2,
+                                                minHeight: 64
+                                            }
+                                        }}
+                                    >
                                         <TableCell>{(page - 1) * itemsPerPage + index + 1}</TableCell>
 
                                         <TableCell>
@@ -861,7 +870,14 @@ const DailyTasksTab = ({ taskTemplates, slots, onRefresh }) => {
 
                                         <TableCell>
                                             <Tooltip title={taskDescription || ''}>
-                                                <Typography variant="body2" fontWeight={500}>
+                                                <Typography
+                                                    variant="body2"
+                                                    fontWeight={500}
+                                                    sx={{
+                                                        wordBreak: 'break-word',
+                                                        lineHeight: 1.5
+                                                    }}
+                                                >
                                                     {taskTitle}
                                                 </Typography>
                                             </Tooltip>
@@ -870,7 +886,14 @@ const DailyTasksTab = ({ taskTemplates, slots, onRefresh }) => {
                                         <TableCell>
                                             {dailyTask.team ? (
                                                 <Tooltip title={dailyTask.team.description || ''}>
-                                                    <Typography variant="body2" color="text.secondary">
+                                                    <Typography
+                                                        variant="body2"
+                                                        color="text.secondary"
+                                                        sx={{
+                                                            wordBreak: 'break-word',
+                                                            lineHeight: 1.5
+                                                        }}
+                                                    >
                                                         {dailyTask.team.name}
                                                     </Typography>
                                                 </Tooltip>

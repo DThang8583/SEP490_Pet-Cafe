@@ -9,7 +9,7 @@ import VaccineTypeModal from '../../components/modals/VaccineTypeModal';
 import Pagination from '../../components/common/Pagination';
 import vaccineTypesApi from '../../api/vaccineTypesApi';
 
-const VaccineTypesTab = ({ species: speciesProp = [] }) => {
+const VaccineTypesTab = ({ species: speciesProp = [], onVaccineTypeChange }) => {
     const [isLoading, setIsLoading] = useState(true);
     const [vaccineTypes, setVaccineTypes] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
@@ -144,6 +144,10 @@ const VaccineTypesTab = ({ species: speciesProp = [] }) => {
 
             if (response.success) {
                 await loadVaccineTypes();
+                // Notify parent component to reload vaccine types
+                if (onVaccineTypeChange) {
+                    await onVaccineTypeChange();
+                }
                 handleCloseDialog();
                 setAlert({
                     open: true,
@@ -183,6 +187,10 @@ const VaccineTypesTab = ({ species: speciesProp = [] }) => {
 
             if (response.success) {
                 await loadVaccineTypes();
+                // Notify parent component to reload vaccine types
+                if (onVaccineTypeChange) {
+                    await onVaccineTypeChange();
+                }
                 handleCloseDeleteDialog();
                 setAlert({
                     open: true,

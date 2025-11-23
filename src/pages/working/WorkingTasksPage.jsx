@@ -1,34 +1,52 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Box, Paper, Typography, Stack, TextField, MenuItem, Chip, Button, Table, TableHead, TableBody, TableRow, TableCell, TableContainer, alpha, Snackbar, Alert, Skeleton, Tabs, Tab, IconButton } from '@mui/material';
-import { Assignment, TaskAlt, ViewWeek, CalendarMonth, NavigateBefore, NavigateNext } from '@mui/icons-material';
+import { Box, Paper, Typography, Stack, TextField, MenuItem, Chip, Button, Table, TableHead, TableBody, TableRow, TableCell, TableContainer, alpha, Snackbar, Alert, Skeleton, Tabs, Tab, IconButton, Menu, ListItemIcon, ListItemText, Tooltip } from '@mui/material';
+import { Assignment, TaskAlt, ViewWeek, CalendarMonth, NavigateBefore, NavigateNext, CheckCircle, PlayArrow, Cancel, Block, RadioButtonUnchecked, MoreVert, Visibility, Add } from '@mui/icons-material';
 import workingStaffApi from '../../api/workingStaffApi';
 import { COLORS } from '../../constants/colors';
 import { useLocation } from 'react-router-dom';
+import DailyTaskDetailsModal from '../../components/modals/DailyTaskDetailsModal';
+import VaccinationRecordModal from '../../components/modals/VaccinationRecordModal';
+import { TASK_PRIORITY } from '../../api/dailyTasksApi';
+import { createVaccinationRecord } from '../../api/vaccinationRecordsApi';
+import { updateVaccinationSchedule, getVaccinationScheduleById } from '../../api/vaccinationSchedulesApi';
 
-const statusColorMap = {
-    SCHEDULED: {
-        label: 'Đã lên lịch',
-        color: 'default',
-        bgColor: alpha(COLORS.GRAY[500], 0.1),
-        textColor: COLORS.GRAY[700]
-    },
-    IN_PROGRESS: {
-        label: 'Đang làm',
-        color: 'warning',
-        bgColor: alpha(COLORS.WARNING[500], 0.1),
-        textColor: COLORS.WARNING[700]
-    },
-    COMPLETED: {
-        label: 'Hoàn thành',
-        color: 'success',
-        bgColor: alpha(COLORS.SUCCESS[500], 0.1),
-        textColor: COLORS.SUCCESS[700]
-    },
-    CANCELLED: {
-        label: 'Đã hủy',
-        color: 'error',
-        bgColor: alpha(COLORS.ERROR[500], 0.1),
-        textColor: COLORS.ERROR[700]
+const getStatusDisplay = (status) => {
+    switch (status) {
+        case 'COMPLETED':
+            return {
+                icon: <CheckCircle fontSize="small" />,
+                label: 'Hoàn thành',
+                color: COLORS.SUCCESS[600],
+                bg: alpha(COLORS.SUCCESS[100], 0.8)
+            };
+        case 'IN_PROGRESS':
+            return {
+                icon: <PlayArrow fontSize="small" />,
+                label: 'Đang làm',
+                color: COLORS.INFO[600],
+                bg: alpha(COLORS.INFO[100], 0.8)
+            };
+        case 'CANCELLED':
+            return {
+                icon: <Cancel fontSize="small" />,
+                label: 'Đã hủy',
+                color: COLORS.WARNING[600],
+                bg: alpha(COLORS.WARNING[100], 0.8)
+            };
+        case 'MISSED':
+            return {
+                icon: <Block fontSize="small" />,
+                label: 'Bỏ lỡ',
+                color: COLORS.ERROR[600],
+                bg: alpha(COLORS.ERROR[100], 0.8)
+            };
+        default: // SCHEDULED
+            return {
+                icon: <RadioButtonUnchecked fontSize="small" />,
+                label: 'Đã lên lịch',
+                color: COLORS.GRAY[600],
+                bg: alpha(COLORS.GRAY[100], 0.8)
+            };
     }
 };
 
@@ -41,6 +59,22 @@ const formatTime = (timeStr) => {
         return `${match[1]}:${match[2]}`;
     }
     return timeStr.substring(0, 5); // Fallback
+};
+
+// Priority display
+const getPriorityDisplay = (priority) => {
+    switch (priority) {
+        case TASK_PRIORITY.URGENT:
+            return { label: 'Khẩn cấp', color: COLORS.ERROR[600], bg: alpha(COLORS.ERROR[100], 0.8) };
+        case TASK_PRIORITY.HIGH:
+            return { label: 'Cao', color: COLORS.WARNING[600], bg: alpha(COLORS.WARNING[100], 0.8) };
+        case TASK_PRIORITY.MEDIUM:
+            return { label: 'Trung bình', color: COLORS.INFO[600], bg: alpha(COLORS.INFO[100], 0.8) };
+        case TASK_PRIORITY.LOW:
+            return { label: 'Thấp', color: COLORS.GRAY[600], bg: alpha(COLORS.GRAY[100], 0.8) };
+        default:
+            return { label: priority || 'N/A', color: COLORS.GRAY[600], bg: alpha(COLORS.GRAY[100], 0.8) };
+    }
 };
 
 const WorkingTasksPage = () => {
@@ -66,6 +100,29 @@ const WorkingTasksPage = () => {
     const [tasks, setTasks] = useState([]);
     const [loading, setLoading] = useState(false);
     const [snackbar, setSnackbar] = useState(null);
+
+    // Menu state for MoreVert
+    const [menuAnchor, setMenuAnchor] = useState(null);
+    const [selectedTask, setSelectedTask] = useState(null);
+
+    // Detail modal state
+    const [detailModalOpen, setDetailModalOpen] = useState(false);
+
+    // VaccinationRecord modal state
+    const [vaccinationRecordModalOpen, setVaccinationRecordModalOpen] = useState(false);
+    const [selectedVaccinationSchedule, setSelectedVaccinationSchedule] = useState(null);
+    const [isCreatingRecord, setIsCreatingRecord] = useState(false);
+
+    // Get current user profile (EXACTLY like WorkingAttendancePage line 92-100)
+    const [profileData] = useState(() => {
+        const p = workingStaffApi.getProfile();
+        return {
+            id: p?.id,
+            employee_id: p?.employee_id,
+            account_id: p?.account_id,
+            leader: p?.leader || false
+        };
+    });
 
     useEffect(() => {
         let mounted = true;
@@ -185,7 +242,7 @@ const WorkingTasksPage = () => {
 
     useEffect(() => {
         if (!dateRange.fromDate || !dateRange.toDate) return;
-        if (selectedTeam === 'all' && teams.length === 0) return; // Wait for teams to load
+        if (teams.length === 0) return; // Wait for teams to load
         if (selectedTeam !== 'all' && !selectedTeam) return; // Wait for team selection
 
         let mounted = true;
@@ -195,26 +252,45 @@ const WorkingTasksPage = () => {
                 let allTasks = [];
 
                 if (selectedTeam === 'all') {
-                    // Load tasks for all teams
+                    // Load tasks for all teams that user belongs to (only user's teams)
                     if (teams.length === 0) {
                         if (mounted) setTasks([]);
                         return;
                     }
-                    const teamTasksPromises = teams.map(team =>
-                        workingStaffApi.getTeamDailyTasksInRange(team.id, dateRange.fromDate, dateRange.toDate)
+                    // Get team IDs that user belongs to
+                    const userTeamIds = teams.map(team => team.id);
+
+                    // Load tasks for each team using TeamId parameter
+                    const teamTasksPromises = userTeamIds.map(teamId =>
+                        workingStaffApi.getTeamDailyTasksInRange(teamId, dateRange.fromDate, dateRange.toDate)
                     );
                     const results = await Promise.allSettled(teamTasksPromises);
                     results.forEach((result, index) => {
                         if (result.status === 'fulfilled') {
-                            allTasks.push(...result.value);
+                            // Filter to ensure tasks belong to user's teams
+                            const teamTasks = (result.value || []).filter(task => {
+                                const taskTeamId = task.team_id || task.team?.id;
+                                return userTeamIds.includes(taskTeamId);
+                            });
+                            allTasks.push(...teamTasks);
                         } else {
                             console.warn(`Failed to load tasks for team ${teams[index]?.name}`, result.reason);
                         }
                     });
                 } else if (selectedTeam) {
-                    // Load tasks for selected team
+                    // Load tasks for selected team (must be one of user's teams)
+                    const isUserTeam = teams.some(team => team.id === selectedTeam);
+                    if (!isUserTeam) {
+                        console.warn('Selected team is not one of user\'s teams');
+                        if (mounted) setTasks([]);
+                        return;
+                    }
                     const data = await workingStaffApi.getTeamDailyTasksInRange(selectedTeam, dateRange.fromDate, dateRange.toDate);
-                    allTasks = data;
+                    // Filter to ensure tasks belong to selected team
+                    allTasks = (data || []).filter(task => {
+                        const taskTeamId = task.team_id || task.team?.id;
+                        return taskTeamId === selectedTeam;
+                    });
                 }
 
                 // Remove duplicates and sort by date and time
@@ -248,16 +324,147 @@ const WorkingTasksPage = () => {
         return teams.find((team) => team.id === selectedTeam);
     }, [teams, selectedTeam]);
 
+    // Build candidate IDs for current user (EXACTLY like WorkingAttendancePage line 278-285)
+    const candidateIds = useMemo(() => {
+        const ids = [
+            profileData.id,
+            profileData.employee_id,
+            profileData.account_id
+        ];
+        return Array.from(new Set(ids.filter(Boolean)));
+    }, [profileData.id, profileData.employee_id, profileData.account_id]);
+
+    // Check if current user is leader of the team for a task (exactly like WorkingAttendancePage)
+    const isLeaderOfTaskTeam = useMemo(() => {
+        return (task) => {
+            // Early returns
+            if (!task) return false;
+            if (candidateIds.length === 0) return false;
+
+            // Get task team - try from task.team first, then from teams array
+            const taskTeamId = task.team_id || task.team?.id;
+            if (!taskTeamId) return false;
+
+            // Try to get team from task.team first (most reliable)
+            let team = task.team;
+
+            // If task.team doesn't have leader_id, try to find from teams array
+            if (!team || !team.leader_id) {
+                team = teams.find(t => t.id === taskTeamId);
+            }
+
+            if (!team) return false;
+
+            // Check if current user is leader (EXACTLY same logic as WorkingAttendancePage line 290-297)
+            const leaderAccountId = team.leader?.account_id;
+            const leaderId = team.leader?.id;
+            const isTeamLeader = candidateIds.some(id =>
+                id === team.leader_id ||
+                id === leaderId ||
+                id === leaderAccountId
+            );
+
+            return isTeamLeader;
+        };
+    }, [teams, candidateIds]);
+
 
     const handleUpdateStatus = async (taskId, status) => {
         try {
+            const task = tasks.find(t => t.id === taskId);
             await workingStaffApi.updateDailyTaskStatus(taskId, status);
+
+            // If task is cancelled or missed, cancel related vaccination schedule
+            if ((status === 'CANCELLED' || status === 'MISSED') && task?.vaccination_schedule_id) {
+                try {
+                    await updateVaccinationSchedule(task.vaccination_schedule_id, { status: 'CANCELLED' });
+                    console.log('✅ Vaccination schedule cancelled:', task.vaccination_schedule_id);
+                } catch (error) {
+                    console.error('Failed to cancel vaccination schedule:', error);
+                    // Don't show error to user, just log it
+                }
+            }
+
             setTasks((prev) => prev.map((task) => (task.id === taskId ? { ...task, status } : task)));
             setSnackbar({ message: 'Cập nhật trạng thái thành công', severity: 'success' });
+            setMenuAnchor(null);
+            setSelectedTask(null);
         } catch (error) {
             console.error('Failed to update task status', error);
             setSnackbar({ message: 'Không thể cập nhật trạng thái', severity: 'error' });
         }
+    };
+
+    const handleOpenVaccinationRecordModal = async (task) => {
+        if (!task.vaccination_schedule_id) {
+            setSnackbar({ message: 'Không tìm thấy lịch tiêm liên quan', severity: 'error' });
+            return;
+        }
+
+        try {
+            // Fetch vaccination schedule details
+            const schedule = await getVaccinationScheduleById(task.vaccination_schedule_id);
+            setSelectedVaccinationSchedule(schedule);
+            setSelectedTask(task);
+            setVaccinationRecordModalOpen(true);
+        } catch (error) {
+            console.error('Failed to load vaccination schedule:', error);
+            setSnackbar({ message: 'Không thể tải thông tin lịch tiêm', severity: 'error' });
+        }
+    };
+
+    const handleCreateVaccinationRecord = async (recordData) => {
+        if (!selectedTask || !selectedVaccinationSchedule) return;
+
+        setIsCreatingRecord(true);
+        try {
+            // Create vaccination record
+            await createVaccinationRecord(recordData);
+
+            // Update vaccination schedule status to COMPLETED
+            await updateVaccinationSchedule(selectedVaccinationSchedule.id, { status: 'COMPLETED' });
+
+            // Update task in local state
+            setTasks((prev) => prev.map((task) =>
+                task.id === selectedTask.id
+                    ? { ...task, vaccination_schedule: { ...task.vaccination_schedule, status: 'COMPLETED' } }
+                    : task
+            ));
+
+            setSnackbar({ message: 'Tạo hồ sơ tiêm phòng và cập nhật lịch tiêm thành công', severity: 'success' });
+            setVaccinationRecordModalOpen(false);
+            setSelectedVaccinationSchedule(null);
+            setSelectedTask(null);
+        } catch (error) {
+            console.error('Failed to create vaccination record:', error);
+            const errorMessage = error.message || 'Không thể tạo hồ sơ tiêm phòng';
+            setSnackbar({ message: errorMessage, severity: 'error' });
+        } finally {
+            setIsCreatingRecord(false);
+        }
+    };
+
+    const handleOpenMenu = (event, task) => {
+        setMenuAnchor(event.currentTarget);
+        setSelectedTask(task);
+    };
+
+    const handleCloseMenu = () => {
+        setMenuAnchor(null);
+        // Don't clear selectedTask here, it will be cleared when modal closes
+    };
+
+    const handleViewDetails = () => {
+        setMenuAnchor(null); // Close menu first
+        // Use setTimeout to ensure menu closes before opening modal
+        setTimeout(() => {
+            setDetailModalOpen(true);
+        }, 100);
+    };
+
+    const handleCloseDetailModal = () => {
+        setDetailModalOpen(false);
+        setSelectedTask(null); // Clear selectedTask when modal closes
     };
 
     return (
@@ -466,15 +673,15 @@ const WorkingTasksPage = () => {
                                             Nhiệm vụ
                                         </TableCell>
                                         <TableCell sx={{ fontWeight: 700, color: COLORS.TEXT.PRIMARY, py: 2 }}>
+                                            Độ ưu tiên
+                                        </TableCell>
+                                        <TableCell sx={{ fontWeight: 700, color: COLORS.TEXT.PRIMARY, py: 2 }}>
                                             Thời gian
                                         </TableCell>
                                         <TableCell sx={{ fontWeight: 700, color: COLORS.TEXT.PRIMARY, py: 2 }}>
                                             Khu vực
                                         </TableCell>
                                         <TableCell sx={{ fontWeight: 700, color: COLORS.TEXT.PRIMARY, py: 2 }}>
-                                            Khách hàng
-                                        </TableCell>
-                                        <TableCell align="center" sx={{ fontWeight: 700, color: COLORS.TEXT.PRIMARY, py: 2 }}>
                                             Trạng thái
                                         </TableCell>
                                         <TableCell align="right" sx={{ fontWeight: 700, color: COLORS.TEXT.PRIMARY, py: 2 }}>
@@ -510,7 +717,7 @@ const WorkingTasksPage = () => {
                                     ) : (
                                         tasks.map((task, index) => {
                                             const taskTeam = teams.find(t => t.id === task.team_id);
-                                            const statusInfo = statusColorMap[task.status] || statusColorMap.SCHEDULED;
+                                            const statusDisplay = getStatusDisplay(task.status);
                                             const formatTaskDate = (dateStr) => {
                                                 if (!dateStr) return '—';
                                                 const d = new Date(dateStr);
@@ -554,6 +761,24 @@ const WorkingTasksPage = () => {
                                                         </Stack>
                                                     </TableCell>
                                                     <TableCell sx={{ py: 2.5 }}>
+                                                        {(() => {
+                                                            const taskPriority = task.task?.priority || task.priority;
+                                                            const priorityDisplay = getPriorityDisplay(taskPriority);
+                                                            return (
+                                                                <Chip
+                                                                    label={priorityDisplay.label}
+                                                                    size="small"
+                                                                    sx={{
+                                                                        bgcolor: priorityDisplay.bg,
+                                                                        color: priorityDisplay.color,
+                                                                        fontWeight: 600,
+                                                                        fontSize: '0.75rem'
+                                                                    }}
+                                                                />
+                                                            );
+                                                        })()}
+                                                    </TableCell>
+                                                    <TableCell sx={{ py: 2.5 }}>
                                                         <Typography variant="body2" sx={{ color: COLORS.TEXT.PRIMARY, fontFamily: 'monospace' }}>
                                                             {formatTime(task.start_time)} - {formatTime(task.end_time)}
                                                         </Typography>
@@ -564,103 +789,196 @@ const WorkingTasksPage = () => {
                                                         </Typography>
                                                     </TableCell>
                                                     <TableCell sx={{ py: 2.5 }}>
-                                                        <Stack spacing={0.5}>
-                                                            <Typography variant="body2" sx={{ fontWeight: 500, color: COLORS.TEXT.PRIMARY }}>
-                                                                {task.customer?.name || 'Khách lẻ'}
-                                                            </Typography>
-                                                            {task.pet?.name && (
-                                                                <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY }}>
-                                                                    {task.pet.name}{task.pet?.type ? ` • ${task.pet.type}` : ''}
-                                                                </Typography>
-                                                            )}
-                                                        </Stack>
-                                                    </TableCell>
-                                                    <TableCell align="center" sx={{ py: 2.5 }}>
-                                                        <Chip
-                                                            label={statusInfo.label}
-                                                            size="small"
-                                                            sx={{
-                                                                bgcolor: statusInfo.bgColor,
-                                                                color: statusInfo.textColor,
-                                                                fontWeight: 600,
-                                                                minWidth: 110,
-                                                                height: 28,
-                                                                fontSize: '0.75rem',
-                                                                border: `1px solid ${alpha(statusInfo.textColor, 0.2)}`
-                                                            }}
-                                                        />
+                                                        {(() => {
+                                                            const canUpdate = isLeaderOfTaskTeam(task);
+                                                            const taskStatus = task.status;
+
+                                                            // Debug log for button display
+                                                            if (taskStatus === 'SCHEDULED' || taskStatus === 'IN_PROGRESS') {
+                                                                console.log('🔧 Button display check:', {
+                                                                    taskTitle: task.title?.substring(0, 40),
+                                                                    taskStatus,
+                                                                    canUpdate,
+                                                                    willShowButtons: canUpdate && (taskStatus === 'SCHEDULED' || taskStatus === 'IN_PROGRESS')
+                                                                });
+                                                            }
+
+                                                            if (canUpdate && (taskStatus === 'SCHEDULED' || taskStatus === 'IN_PROGRESS')) {
+                                                                // Leader view: Show Chip + Action Buttons (like attendance page)
+                                                                return (
+                                                                    <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" sx={{ gap: 1 }}>
+                                                                        {/* Current Status Chip */}
+                                                                        <Chip
+                                                                            icon={statusDisplay.icon}
+                                                                            label={statusDisplay.label}
+                                                                            sx={{
+                                                                                bgcolor: statusDisplay.bg,
+                                                                                color: statusDisplay.color,
+                                                                                fontWeight: 700,
+                                                                                height: 36,
+                                                                                fontSize: '0.875rem',
+                                                                                border: `2px solid ${alpha(statusDisplay.color, 0.3)}`,
+                                                                                boxShadow: taskStatus !== 'SCHEDULED' ? `0 2px 8px ${alpha(statusDisplay.color, 0.15)}` : 'none'
+                                                                            }}
+                                                                            size="medium"
+                                                                        />
+                                                                        {/* Action Buttons */}
+                                                                        {taskStatus === 'SCHEDULED' && (
+                                                                            <>
+                                                                                <Tooltip title="Bắt đầu thực hiện nhiệm vụ" arrow placement="top">
+                                                                                    <Button
+                                                                                        variant="outlined"
+                                                                                        color="info"
+                                                                                        size="small"
+                                                                                        startIcon={<PlayArrow fontSize="small" />}
+                                                                                        onClick={() => handleUpdateStatus(task.id, 'IN_PROGRESS')}
+                                                                                        sx={{
+                                                                                            borderRadius: 2,
+                                                                                            minWidth: 110,
+                                                                                            textTransform: 'none',
+                                                                                            fontWeight: 600,
+                                                                                            px: 2,
+                                                                                            py: 0.75,
+                                                                                            fontSize: '0.8rem',
+                                                                                            borderWidth: 2,
+                                                                                            '&:hover': {
+                                                                                                borderWidth: 2,
+                                                                                                boxShadow: `0 4px 12px ${alpha(COLORS.INFO[500], 0.25)}`,
+                                                                                                transform: 'translateY(-2px)',
+                                                                                                bgcolor: alpha(COLORS.INFO[50], 0.5)
+                                                                                            },
+                                                                                            transition: 'all 0.2s'
+                                                                                        }}
+                                                                                    >
+                                                                                        Bắt đầu
+                                                                                    </Button>
+                                                                                </Tooltip>
+                                                                                <Tooltip title="Đánh dấu nhiệm vụ đã hoàn thành" arrow placement="top">
+                                                                                    <Button
+                                                                                        variant="outlined"
+                                                                                        color="success"
+                                                                                        size="small"
+                                                                                        startIcon={<CheckCircle fontSize="small" />}
+                                                                                        onClick={() => handleUpdateStatus(task.id, 'COMPLETED')}
+                                                                                        sx={{
+                                                                                            borderRadius: 2,
+                                                                                            minWidth: 110,
+                                                                                            textTransform: 'none',
+                                                                                            fontWeight: 600,
+                                                                                            px: 2,
+                                                                                            py: 0.75,
+                                                                                            fontSize: '0.8rem',
+                                                                                            borderWidth: 2,
+                                                                                            '&:hover': {
+                                                                                                borderWidth: 2,
+                                                                                                boxShadow: `0 4px 12px ${alpha(COLORS.SUCCESS[500], 0.25)}`,
+                                                                                                transform: 'translateY(-2px)',
+                                                                                                bgcolor: alpha(COLORS.SUCCESS[50], 0.5)
+                                                                                            },
+                                                                                            transition: 'all 0.2s'
+                                                                                        }}
+                                                                                    >
+                                                                                        Hoàn thành
+                                                                                    </Button>
+                                                                                </Tooltip>
+                                                                            </>
+                                                                        )}
+                                                                        {taskStatus === 'IN_PROGRESS' && (
+                                                                            <Tooltip title="Đánh dấu nhiệm vụ đã hoàn thành" arrow placement="top">
+                                                                                <Button
+                                                                                    variant="outlined"
+                                                                                    color="success"
+                                                                                    size="small"
+                                                                                    startIcon={<CheckCircle fontSize="small" />}
+                                                                                    onClick={() => handleUpdateStatus(task.id, 'COMPLETED')}
+                                                                                    sx={{
+                                                                                        borderRadius: 2,
+                                                                                        minWidth: 110,
+                                                                                        textTransform: 'none',
+                                                                                        fontWeight: 600,
+                                                                                        px: 2,
+                                                                                        py: 0.75,
+                                                                                        fontSize: '0.8rem',
+                                                                                        borderWidth: 2,
+                                                                                        '&:hover': {
+                                                                                            borderWidth: 2,
+                                                                                            boxShadow: `0 4px 12px ${alpha(COLORS.SUCCESS[500], 0.25)}`,
+                                                                                            transform: 'translateY(-2px)',
+                                                                                            bgcolor: alpha(COLORS.SUCCESS[50], 0.5)
+                                                                                        },
+                                                                                        transition: 'all 0.2s'
+                                                                                    }}
+                                                                                >
+                                                                                    Hoàn thành
+                                                                                </Button>
+                                                                            </Tooltip>
+                                                                        )}
+                                                                    </Stack>
+                                                                );
+                                                            } else {
+                                                                // Non-leader or completed/cancelled tasks: Show only Chip
+                                                                return (
+                                                                    <Chip
+                                                                        icon={statusDisplay.icon}
+                                                                        label={statusDisplay.label}
+                                                                        size="small"
+                                                                        sx={{
+                                                                            bgcolor: statusDisplay.bg,
+                                                                            color: statusDisplay.color,
+                                                                            fontWeight: 600
+                                                                        }}
+                                                                    />
+                                                                );
+                                                            }
+                                                        })()}
                                                     </TableCell>
                                                     <TableCell align="right" sx={{ py: 2.5 }}>
-                                                        <Stack direction="row" spacing={1} justifyContent="flex-end">
-                                                            {task.status === 'SCHEDULED' && (
-                                                                <>
-                                                                    <Button
-                                                                        size="small"
-                                                                        variant="outlined"
-                                                                        onClick={() => handleUpdateStatus(task.id, 'IN_PROGRESS')}
-                                                                        sx={{
-                                                                            borderColor: COLORS.PRIMARY[600],
-                                                                            color: COLORS.PRIMARY[600],
-                                                                            fontWeight: 600,
-                                                                            textTransform: 'uppercase',
-                                                                            fontSize: '0.75rem',
-                                                                            px: 2,
-                                                                            py: 0.75,
-                                                                            '&:hover': {
-                                                                                borderColor: COLORS.PRIMARY[700],
-                                                                                bgcolor: alpha(COLORS.PRIMARY[50], 0.5)
-                                                                            }
-                                                                        }}
-                                                                    >
-                                                                        BẮT ĐẦU
-                                                                    </Button>
-                                                                    <Button
-                                                                        size="small"
-                                                                        variant="contained"
-                                                                        color="success"
-                                                                        onClick={() => handleUpdateStatus(task.id, 'COMPLETED')}
-                                                                        sx={{
-                                                                            fontWeight: 600,
-                                                                            textTransform: 'uppercase',
-                                                                            fontSize: '0.75rem',
-                                                                            px: 2,
-                                                                            py: 0.75
-                                                                        }}
-                                                                    >
-                                                                        HOÀN THÀNH
-                                                                    </Button>
-                                                                </>
-                                                            )}
-                                                            {task.status === 'IN_PROGRESS' && (
-                                                                <Button
-                                                                    size="small"
-                                                                    variant="contained"
-                                                                    color="success"
-                                                                    onClick={() => handleUpdateStatus(task.id, 'COMPLETED')}
-                                                                    sx={{
-                                                                        fontWeight: 600,
-                                                                        textTransform: 'uppercase',
-                                                                        fontSize: '0.75rem',
-                                                                        px: 2,
-                                                                        py: 0.75
-                                                                    }}
-                                                                >
-                                                                    HOÀN THÀNH
-                                                                </Button>
-                                                            )}
-                                                            {(task.status === 'COMPLETED' || task.status === 'CANCELLED') && (
-                                                                <Typography
-                                                                    variant="body2"
-                                                                    sx={{
-                                                                        color: COLORS.TEXT.SECONDARY,
-                                                                        fontStyle: 'italic',
-                                                                        alignSelf: 'center',
-                                                                        px: 2
-                                                                    }}
-                                                                >
-                                                                    —
-                                                                </Typography>
-                                                            )}
+                                                        <Stack direction="row" spacing={1} alignItems="center" justifyContent="flex-end">
+                                                            {/* Show "Tạo VaccinationRecord" button for completed tasks with vaccination_schedule_id */}
+                                                            {(() => {
+                                                                const canUpdate = isLeaderOfTaskTeam(task);
+                                                                const isCompleted = task.status === 'COMPLETED';
+                                                                const hasVaccinationSchedule = task.vaccination_schedule_id;
+                                                                const scheduleNotCompleted = !task.vaccination_schedule || task.vaccination_schedule.status !== 'COMPLETED';
+
+                                                                if (canUpdate && isCompleted && hasVaccinationSchedule && scheduleNotCompleted) {
+                                                                    return (
+                                                                        <Tooltip title="Tạo hồ sơ tiêm phòng" arrow placement="top">
+                                                                            <Button
+                                                                                size="small"
+                                                                                variant="contained"
+                                                                                color="success"
+                                                                                startIcon={<Add fontSize="small" />}
+                                                                                onClick={() => handleOpenVaccinationRecordModal(task)}
+                                                                                sx={{
+                                                                                    textTransform: 'none',
+                                                                                    fontWeight: 600,
+                                                                                    fontSize: '0.75rem',
+                                                                                    px: 2,
+                                                                                    py: 0.75,
+                                                                                    borderRadius: 2
+                                                                                }}
+                                                                            >
+                                                                                Tạo Hồ Sơ
+                                                                            </Button>
+                                                                        </Tooltip>
+                                                                    );
+                                                                }
+                                                                return null;
+                                                            })()}
+                                                            <IconButton
+                                                                size="small"
+                                                                onClick={(e) => handleOpenMenu(e, task)}
+                                                                sx={{
+                                                                    color: COLORS.TEXT.SECONDARY,
+                                                                    '&:hover': {
+                                                                        bgcolor: alpha(COLORS.PRIMARY[50], 0.5),
+                                                                        color: COLORS.PRIMARY[600]
+                                                                    }
+                                                                }}
+                                                            >
+                                                                <MoreVert fontSize="small" />
+                                                            </IconButton>
                                                         </Stack>
                                                     </TableCell>
                                                 </TableRow>
@@ -673,6 +991,116 @@ const WorkingTasksPage = () => {
                     )}
                 </Paper>
             </Stack>
+
+            {/* MoreVert Menu */}
+            <Menu
+                anchorEl={menuAnchor}
+                open={Boolean(menuAnchor)}
+                onClose={handleCloseMenu}
+                anchorOrigin={{
+                    vertical: 'bottom',
+                    horizontal: 'right'
+                }}
+                transformOrigin={{
+                    vertical: 'top',
+                    horizontal: 'right'
+                }}
+            >
+                <MenuItem onClick={handleViewDetails}>
+                    <ListItemIcon>
+                        <Visibility fontSize="small" />
+                    </ListItemIcon>
+                    <ListItemText>Xem chi tiết</ListItemText>
+                </MenuItem>
+                {selectedTask && (() => {
+                    const canUpdate = isLeaderOfTaskTeam(selectedTask);
+                    // Normalize status: if null/undefined/empty, treat as SCHEDULED (default case in getStatusDisplay)
+                    const taskStatus = selectedTask.status || 'SCHEDULED';
+
+                    // Debug log
+                    console.log('🔧 MoreVert Menu - Button display check:', {
+                        taskTitle: selectedTask.title?.substring(0, 40),
+                        originalStatus: selectedTask.status,
+                        normalizedStatus: taskStatus,
+                        canUpdate,
+                        willShowButtons: canUpdate && (taskStatus === 'SCHEDULED' || taskStatus === 'IN_PROGRESS'),
+                        candidateIds,
+                        taskTeamId: selectedTask.team_id || selectedTask.team?.id,
+                        taskTeamName: selectedTask.team?.name,
+                        profileData
+                    });
+
+                    // Only show buttons for Leader and tasks with SCHEDULED or IN_PROGRESS status
+                    if (!canUpdate || (taskStatus !== 'SCHEDULED' && taskStatus !== 'IN_PROGRESS')) {
+                        console.log('❌ Not showing buttons - canUpdate:', canUpdate, 'taskStatus:', taskStatus);
+                        return null;
+                    }
+
+                    console.log('✅ Showing buttons for Leader');
+
+                    if (taskStatus === 'SCHEDULED') {
+                        return (
+                            <>
+                                <MenuItem onClick={() => {
+                                    handleUpdateStatus(selectedTask.id, 'IN_PROGRESS');
+                                }}>
+                                    <ListItemIcon>
+                                        <PlayArrow fontSize="small" />
+                                    </ListItemIcon>
+                                    <ListItemText>Bắt đầu</ListItemText>
+                                </MenuItem>
+                                <MenuItem onClick={() => {
+                                    handleUpdateStatus(selectedTask.id, 'COMPLETED');
+                                }}>
+                                    <ListItemIcon>
+                                        <CheckCircle fontSize="small" />
+                                    </ListItemIcon>
+                                    <ListItemText>Hoàn thành</ListItemText>
+                                </MenuItem>
+                            </>
+                        );
+                    }
+
+                    if (taskStatus === 'IN_PROGRESS') {
+                        return (
+                            <MenuItem onClick={() => {
+                                handleUpdateStatus(selectedTask.id, 'COMPLETED');
+                            }}>
+                                <ListItemIcon>
+                                    <CheckCircle fontSize="small" />
+                                </ListItemIcon>
+                                <ListItemText>Hoàn thành</ListItemText>
+                            </MenuItem>
+                        );
+                    }
+
+                    return null;
+                })()}
+            </Menu>
+
+            {/* Daily Task Details Modal */}
+            {selectedTask && (
+                <DailyTaskDetailsModal
+                    open={detailModalOpen}
+                    onClose={handleCloseDetailModal}
+                    dailyTask={selectedTask}
+                />
+            )}
+
+            {/* VaccinationRecord Modal */}
+            {selectedTask && selectedVaccinationSchedule && (
+                <VaccinationRecordModal
+                    open={vaccinationRecordModalOpen}
+                    onClose={() => {
+                        setVaccinationRecordModalOpen(false);
+                        setSelectedVaccinationSchedule(null);
+                    }}
+                    onSubmit={handleCreateVaccinationRecord}
+                    dailyTask={selectedTask}
+                    vaccinationSchedule={selectedVaccinationSchedule}
+                    isLoading={isCreatingRecord}
+                />
+            )}
 
             <Snackbar
                 open={Boolean(snackbar)}

@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { Box, Typography, Paper, Stack, Avatar, Chip, alpha, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Dialog, DialogTitle, DialogContent, DialogActions, Button, Divider, IconButton, Tabs, Tab, Menu, MenuItem, ListItemIcon, ListItemText, FormControl, InputLabel, Select, TextField, InputAdornment } from '@mui/material';
+import { Box, Typography, Paper, Stack, Avatar, Chip, alpha, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Dialog, DialogTitle, DialogContent, DialogActions, Button, Divider, IconButton, Tabs, Tab, Menu, MenuItem, ListItemIcon, ListItemText, FormControl, InputLabel, Select, TextField, InputAdornment, Grid } from '@mui/material';
 import { Vaccines, Schedule, Visibility, Close, Pets, CalendarToday, MedicalServices, Event, Add, MoreVert, Edit, Delete, Search } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 import Loading from '../../components/loading/Loading';
@@ -138,8 +138,15 @@ const VaccinationsPage = () => {
             // Load only vaccination schedules data for the table
             const upcomingRes = await vaccinationSchedulesApi.getAllVaccinationSchedules(scheduleParams);
 
-            // Process schedules data
+            // Process schedules data - DO NOT FILTER HERE, store all data from API
             let upcomingData = upcomingRes?.data || [];
+
+            // Debug: Log to check if all data is received
+            console.log('📊 Vaccination Schedules from API:', {
+                totalFromAPI: upcomingData.length,
+                pagination: upcomingRes?.pagination,
+                scheduleParams
+            });
 
             // Populate pet data if not already included (use pets from state if available)
             const currentPets = pets.length > 0 ? pets : [];
@@ -161,87 +168,8 @@ const VaccinationsPage = () => {
                 return item;
             });
 
-            // Client-side filters
-            if (filterVaccineType) {
-                upcomingData = upcomingData.filter(item => {
-                    const itemVaccineTypeId = item.vaccine_type_id || item.vaccine_type?.id;
-                    const itemIdStr = String(itemVaccineTypeId || '');
-                    const filterIdStr = String(filterVaccineType || '');
-                    return itemIdStr === filterIdStr && itemIdStr !== '';
-                });
-            }
-
-            // Filter by pet
-            if (filterPetId) {
-                upcomingData = upcomingData.filter(item => {
-                    const itemPetId = item.pet_id || item.pet?.id;
-                    return itemPetId === filterPetId;
-                });
-            }
-
-            // Filter by status
-            if (filterStatus) {
-                upcomingData = upcomingData.filter(item => {
-                    return item.status === filterStatus;
-                });
-            }
-
-            // Filter by date range
-            if (filterFromDate) {
-                // filterFromDate should be in YYYY-MM-DD format from date input
-                if (filterFromDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
-                    const fromDate = new Date(filterFromDate + 'T00:00:00');
-                    if (!isNaN(fromDate.getTime())) {
-                        fromDate.setHours(0, 0, 0, 0);
-                        upcomingData = upcomingData.filter(item => {
-                            if (!item.scheduled_date) return false;
-                            const scheduledDate = new Date(item.scheduled_date);
-                            scheduledDate.setHours(0, 0, 0, 0);
-                            return scheduledDate >= fromDate;
-                        });
-                    }
-                }
-            }
-
-            if (filterToDate) {
-                // filterToDate should be in YYYY-MM-DD format from date input
-                if (filterToDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
-                    const toDate = new Date(filterToDate + 'T23:59:59');
-                    if (!isNaN(toDate.getTime())) {
-                        toDate.setHours(23, 59, 59, 999);
-                        upcomingData = upcomingData.filter(item => {
-                            if (!item.scheduled_date) return false;
-                            const scheduledDate = new Date(item.scheduled_date);
-                            return scheduledDate <= toDate;
-                        });
-                    }
-                }
-            }
-
-            // Client-side search filter
-            if (searchQuery) {
-                const searchLower = searchQuery.toLowerCase();
-                upcomingData = upcomingData.filter(item => {
-                    const petName = item.pet?.name?.toLowerCase() || '';
-                    const vaccineName = item.vaccine_type?.name?.toLowerCase() || '';
-                    const notes = item.notes?.toLowerCase() || '';
-                    return petName.includes(searchLower) ||
-                        vaccineName.includes(searchLower) ||
-                        notes.includes(searchLower);
-                });
-            }
-
-            const now = new Date();
-            const sortedUpcoming = upcomingData
-                .map(item => ({
-                    ...item,
-                    timeDiff: Math.abs(new Date(item.scheduled_date) - now)
-                }))
-                .sort((a, b) => a.timeDiff - b.timeDiff)
-                .map(({ timeDiff, ...item }) => item);
-
-            setUpcomingVaccinations(sortedUpcoming);
-            setAllUpcomingVaccinations(sortedUpcoming); // Store all data for client-side filtering
+            // Store ALL data from API without filtering - filtering will be done in useMemo
+            setAllUpcomingVaccinations(upcomingData);
         } catch (error) {
             console.error('Error loading vaccination schedules:', error);
             setUpcomingVaccinations([]);
@@ -258,6 +186,18 @@ const VaccinationsPage = () => {
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [searchQuery, filterPetId, filterVaccineType, filterStatus]);
+
+    // Reload vaccine types - can be called from child components
+    const reloadVaccineTypes = async () => {
+        try {
+            const vaccineTypesRes = await vaccineTypesApi.getAllVaccineTypes({ page_size: 1000 });
+            const vaccineTypesData = vaccineTypesRes?.data || [];
+            setVaccineTypes(vaccineTypesData);
+            console.log('🔄 Reloaded vaccine types:', vaccineTypesData.length);
+        } catch (error) {
+            console.error('Error reloading vaccine types:', error);
+        }
+    };
 
     // Load all vaccination data (stats, schedules, records) - only on initial load
     const loadAllVaccinationData = async () => {
@@ -300,7 +240,7 @@ const VaccinationsPage = () => {
                 setVaccinationRecords(recordsRes.data);
             }
 
-            // Process schedules data (no filtering here - will be filtered client-side)
+            // Process schedules data - DO NOT FILTER HERE, store all data from API
             let upcomingData = upcomingRes?.data || [];
 
             // Populate pet data if not already included
@@ -322,18 +262,8 @@ const VaccinationsPage = () => {
                 return item;
             });
 
-            // Sort by closest date
-            const now = new Date();
-            const sortedUpcoming = upcomingData
-                .map(item => ({
-                    ...item,
-                    timeDiff: Math.abs(new Date(item.scheduled_date) - now)
-                }))
-                .sort((a, b) => a.timeDiff - b.timeDiff)
-                .map(({ timeDiff, ...item }) => item);
-
-            setUpcomingVaccinations(sortedUpcoming);
-            setAllUpcomingVaccinations(sortedUpcoming); // Store all data for client-side filtering
+            // Store ALL data from API without filtering - filtering will be done in useMemo
+            setAllUpcomingVaccinations(upcomingData);
         } catch (error) {
             console.error('Error loading vaccination data:', error);
             setAlert({
@@ -392,9 +322,39 @@ const VaccinationsPage = () => {
     };
 
     // Handle open schedule modal
-    const handleOpenScheduleModal = (schedule = null) => {
+    const handleOpenScheduleModal = async (schedule = null) => {
+        if (schedule) {
+            // If editing, fetch full schedule details to ensure we have all fields including team_id
+            try {
+                const fullScheduleResponse = await vaccinationSchedulesApi.getVaccinationScheduleById(schedule.id);
+                const fullSchedule = fullScheduleResponse || schedule;
+
+                // Debug: Log to see what API returns
+                console.log('🔍 Fetched schedule detail from API:', {
+                    scheduleId: schedule.id,
+                    fullScheduleResponse,
+                    team_id: fullSchedule.team_id,
+                    team: fullSchedule.team,
+                    allKeys: Object.keys(fullSchedule)
+                });
+
+                setCurrentSchedule(fullSchedule);
+            } catch (error) {
+                console.error('Error loading schedule details:', error);
+                // Fallback to using schedule data from list
+                console.log('⚠️ Using schedule data from list:', {
+                    scheduleId: schedule.id,
+                    team_id: schedule.team_id,
+                    team: schedule.team
+                });
+                setCurrentSchedule(schedule);
+            }
+        } else {
+            // When creating new schedule, reload vaccine types to ensure latest data
+            await reloadVaccineTypes();
+            setCurrentSchedule(null);
+        }
         setScheduleEditMode(!!schedule);
-        setCurrentSchedule(schedule);
         setScheduleModalOpen(true);
     };
 
@@ -447,24 +407,25 @@ const VaccinationsPage = () => {
         try {
             setIsLoading(true);
 
+            // Prepare schedule data according to API specification
             const scheduleData = {
                 pet_id: formData.pet_id,
                 vaccine_type_id: formData.vaccine_type_id,
-                scheduled_date: new Date(formData.scheduled_date).toISOString(),
-                notes: formData.notes || ''
+                scheduled_date: formData.scheduled_date, // Already in ISO format from modal
+                notes: formData.notes || '',
+                team_id: formData.team_id || null // API accepts team_id, send null if empty
             };
-
-            // Add team_id if provided
-            if (formData.team_id) {
-                scheduleData.team_id = formData.team_id;
-            }
 
             let response;
             if (scheduleEditMode && currentSchedule) {
-                // Update existing schedule
+                // Update existing schedule - include all fields that can be updated
                 const updateData = {
-                    ...scheduleData,
-                    status: formData.status || currentSchedule.status
+                    pet_id: scheduleData.pet_id,
+                    vaccine_type_id: scheduleData.vaccine_type_id,
+                    scheduled_date: scheduleData.scheduled_date,
+                    notes: scheduleData.notes,
+                    team_id: scheduleData.team_id,
+                    status: formData.status || currentSchedule.status // Include status for update
                 };
                 response = await vaccinationSchedulesApi.updateVaccinationSchedule(currentSchedule.id, updateData);
             } else {
@@ -580,7 +541,32 @@ const VaccinationsPage = () => {
             }
         }
 
-        return filtered;
+        // Sort by closest date (nearest first)
+        const now = new Date();
+        const sorted = filtered
+            .map(item => ({
+                ...item,
+                timeDiff: Math.abs(new Date(item.scheduled_date) - now)
+            }))
+            .sort((a, b) => a.timeDiff - b.timeDiff)
+            .map(({ timeDiff, ...item }) => item);
+
+        // Debug: Log filtered results
+        if (filterPetId || filterVaccineType || filterStatus || filterFromDate || filterToDate || searchQuery) {
+            console.log('🔍 Filtered vaccination schedules:', {
+                total: sorted.length,
+                filters: {
+                    petId: filterPetId,
+                    vaccineType: filterVaccineType,
+                    status: filterStatus,
+                    fromDate: filterFromDate,
+                    toDate: filterToDate,
+                    search: searchQuery
+                }
+            });
+        }
+
+        return sorted;
     }, [allUpcomingVaccinations, searchQuery, filterPetId, filterVaccineType, filterStatus, filterFromDate, filterToDate]);
 
     // Paginated data for upcoming vaccinations
@@ -1086,6 +1072,7 @@ const VaccinationsPage = () => {
                                                 <TableCell sx={{ fontWeight: 800 }}>Thú cưng</TableCell>
                                                 <TableCell sx={{ fontWeight: 800 }}>Vaccine</TableCell>
                                                 <TableCell sx={{ fontWeight: 800 }}>Ngày tiêm dự kiến</TableCell>
+                                                <TableCell sx={{ fontWeight: 800, display: { xs: 'none', lg: 'table-cell' } }}>Ngày hoàn thành</TableCell>
                                                 <TableCell sx={{ fontWeight: 800, display: { xs: 'none', md: 'table-cell' } }}>Ghi chú</TableCell>
                                                 <TableCell sx={{ fontWeight: 800 }}>Trạng thái</TableCell>
                                                 <TableCell sx={{ fontWeight: 800, textAlign: 'right' }}>Thao tác</TableCell>
@@ -1128,6 +1115,22 @@ const VaccinationsPage = () => {
                                                                 day: 'numeric'
                                                             }) : '—'}
                                                         </Typography>
+                                                    </TableCell>
+                                                    <TableCell sx={{ display: { xs: 'none', lg: 'table-cell' } }}>
+                                                        {item.completed_date ? (
+                                                            <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.SUCCESS[700] }}>
+                                                                {new Date(item.completed_date).toLocaleDateString('vi-VN', {
+                                                                    weekday: 'long',
+                                                                    year: 'numeric',
+                                                                    month: 'long',
+                                                                    day: 'numeric'
+                                                                })}
+                                                            </Typography>
+                                                        ) : (
+                                                            <Typography variant="body2" sx={{ color: COLORS.TEXT.DISABLED, fontStyle: 'italic' }}>
+                                                                Chưa hoàn thành
+                                                            </Typography>
+                                                        )}
                                                     </TableCell>
                                                     <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
                                                         <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, maxWidth: 400 }}>
@@ -1198,7 +1201,7 @@ const VaccinationsPage = () => {
 
                 {/* Tab Content: Vaccine Types Management */}
                 {currentTab === 2 && (
-                    <VaccineTypesTab species={species} />
+                    <VaccineTypesTab species={species} onVaccineTypeChange={reloadVaccineTypes} />
                 )}
             </Box>
 

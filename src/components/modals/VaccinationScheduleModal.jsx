@@ -34,14 +34,39 @@ const VaccinationScheduleModal = ({
                 const pet = pets.find(p => p.id === initialData.pet_id);
                 const speciesId = pet?.species_id || pet?.species?.id || '';
 
+                const scheduledDate = initialData.scheduled_date ? new Date(initialData.scheduled_date) : null;
+
+                // Load team_id - check multiple possible locations in API response
+                // API might return team_id directly, or as team.id, or team_id in team object
+                let teamId = '';
+                if (initialData.team_id) {
+                    teamId = initialData.team_id;
+                } else if (initialData.team?.id) {
+                    teamId = initialData.team.id;
+                } else if (initialData.team_id === null || initialData.team_id === undefined) {
+                    // If explicitly null/undefined, keep empty string
+                    teamId = '';
+                }
+
                 setFormData({
                     species_id: speciesId,
                     vaccine_type_id: initialData.vaccine_type_id || '',
                     pet_id: initialData.pet_id || '',
-                    scheduled_date: initialData.scheduled_date ? new Date(initialData.scheduled_date).toISOString().split('T')[0] : '',
+                    scheduled_date: scheduledDate ? scheduledDate.toISOString().split('T')[0] : '',
                     notes: initialData.notes || '',
-                    team_id: initialData.team_id || '',
+                    team_id: teamId, // Load team_id from initialData
                     status: initialData.status || 'PENDING'
+                });
+
+                // Debug: Log to check if team_id is loaded
+                console.log('📋 Loading schedule data for edit:', {
+                    scheduleId: initialData.id,
+                    team_id_direct: initialData.team_id,
+                    team_object: initialData.team,
+                    team_id_from_team_object: initialData.team?.id,
+                    team_id_loaded_to_form: teamId,
+                    all_initialData_keys: Object.keys(initialData),
+                    full_initialData: initialData
                 });
             } else {
                 setFormData({
@@ -77,13 +102,25 @@ const VaccinationScheduleModal = ({
             newErrors.scheduled_date = 'Vui lòng chọn ngày tiêm';
         }
 
+        if (!formData.team_id) {
+            newErrors.team_id = 'Vui lòng chọn nhóm';
+        }
+
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
 
     const handleSubmit = () => {
         if (validate()) {
-            onSubmit(formData);
+            // Convert date to ISO string (set time to 00:00:00)
+            const scheduledDateTime = formData.scheduled_date
+                ? new Date(`${formData.scheduled_date}T00:00:00`).toISOString()
+                : '';
+
+            onSubmit({
+                ...formData,
+                scheduled_date: scheduledDateTime
+            });
         }
     };
 
@@ -371,18 +408,18 @@ const VaccinationScheduleModal = ({
                             </FormControl>
                         )}
 
-                        {/* Team Selection - Optional */}
+                        {/* Team Selection - Required */}
                         {teams.length > 0 && (
-                            <FormControl fullWidth>
-                                <InputLabel>Nhóm (tùy chọn)</InputLabel>
+                            <FormControl fullWidth required error={Boolean(errors.team_id)}>
+                                <InputLabel>Nhóm</InputLabel>
                                 <Select
                                     value={formData.team_id}
                                     onChange={(e) => setFormData({ ...formData, team_id: e.target.value })}
-                                    label="Nhóm (tùy chọn)"
+                                    label="Nhóm"
                                 >
                                     <MenuItem value="">
                                         <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
-                                            Không chọn
+                                            -- Chọn nhóm --
                                         </Typography>
                                     </MenuItem>
                                     {teams.map(team => (
@@ -391,6 +428,11 @@ const VaccinationScheduleModal = ({
                                         </MenuItem>
                                     ))}
                                 </Select>
+                                {errors.team_id && (
+                                    <Typography variant="caption" sx={{ color: COLORS.ERROR[600], mt: 0.5, ml: 1.5 }}>
+                                        {errors.team_id}
+                                    </Typography>
+                                )}
                             </FormControl>
                         )}
 
@@ -427,12 +469,12 @@ const VaccinationScheduleModal = ({
                                     </Typography>
                                     <Typography variant="body2">
                                         <strong>Ngày:</strong>{' '}
-                                        {new Date(formData.scheduled_date).toLocaleDateString('vi-VN', {
+                                        {formData.scheduled_date ? new Date(`${formData.scheduled_date}T00:00:00`).toLocaleDateString('vi-VN', {
                                             weekday: 'long',
                                             year: 'numeric',
                                             month: 'long',
                                             day: 'numeric'
-                                        })}
+                                        }) : '—'}
                                     </Typography>
                                 </Stack>
                             </Box>
