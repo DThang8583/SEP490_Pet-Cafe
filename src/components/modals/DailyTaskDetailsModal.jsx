@@ -1,5 +1,5 @@
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Box, Typography, Stack, Chip, Divider, alpha, Avatar, Grid, Paper } from '@mui/material';
-import { Assignment, CalendarToday, Schedule, Group, Notes, Info, Warning, AccessTime, Person, Work, AttachMoney, LocationOn, Pets, Event } from '@mui/icons-material';
+import { Assignment, CalendarToday, Schedule, Group, Info, Work, AttachMoney, LocationOn, Pets, Event } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 import { DAILY_TASK_STATUS, TASK_PRIORITY } from '../../api/dailyTasksApi';
 import { WEEKDAY_LABELS } from '../../api/slotApi';
@@ -418,7 +418,18 @@ const DailyTaskDetailsModal = ({ open, onClose, dailyTask }) => {
                                                     </Box>
                                                 </Stack>
                                             )}
-                                            {dailyTask.slot.area_id && (
+                                            {dailyTask.slot.area && (
+                                                <Stack direction="row" spacing={1} alignItems="center">
+                                                    <LocationOn sx={{ color: COLORS.GRAY[500], fontSize: 18 }} />
+                                                    <Box sx={{ flex: 1 }}>
+                                                        <Typography variant="caption" color="text.secondary">Khu vực</Typography>
+                                                        <Typography variant="body2" fontWeight={500}>
+                                                            {dailyTask.slot.area.name || dailyTask.slot.area_id || '--'}
+                                                        </Typography>
+                                                    </Box>
+                                                </Stack>
+                                            )}
+                                            {dailyTask.slot.area_id && !dailyTask.slot.area && (
                                                 <Stack direction="row" spacing={1} alignItems="center">
                                                     <LocationOn sx={{ color: COLORS.GRAY[500], fontSize: 18 }} />
                                                     <Box sx={{ flex: 1 }}>
@@ -458,157 +469,6 @@ const DailyTaskDetailsModal = ({ open, onClose, dailyTask }) => {
                         </>
                     )}
 
-                    {/* Team Details */}
-                    {dailyTask.team && (
-                        <>
-                            <Divider />
-                            <Box>
-                                <Typography variant="subtitle2" fontWeight={600} color={COLORS.PRIMARY[700]} gutterBottom>
-                                    👥 Chi tiết team
-                                </Typography>
-                                <Stack spacing={1.5} sx={{ mt: 1.5 }}>
-                                    {dailyTask.team.leader && (
-                                        <Stack direction="row" spacing={1} alignItems="center">
-                                            <Person sx={{ color: COLORS.GRAY[500], fontSize: 18 }} />
-                                            <Box sx={{ flex: 1 }}>
-                                                <Typography variant="caption" color="text.secondary">Leader</Typography>
-                                                <Typography variant="body2" fontWeight={500}>
-                                                    {dailyTask.team.leader.full_name || dailyTask.team.leader.name || '--'}
-                                                </Typography>
-                                                {dailyTask.team.leader.email && (
-                                                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-                                                        {dailyTask.team.leader.email}
-                                                    </Typography>
-                                                )}
-                                            </Box>
-                                        </Stack>
-                                    )}
-                                    {dailyTask.team.team_members && dailyTask.team.team_members.length > 0 && (
-                                        <Stack direction="row" spacing={1} alignItems="flex-start">
-                                            <Group sx={{ color: COLORS.GRAY[500], fontSize: 18, mt: 0.5 }} />
-                                            <Box sx={{ flex: 1 }}>
-                                                <Typography variant="caption" color="text.secondary">Thành viên ({dailyTask.team.team_members.length})</Typography>
-                                                <Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ gap: 0.5, mt: 0.5 }}>
-                                                    {dailyTask.team.team_members.slice(0, 5).map((member, idx) => (
-                                                        <Chip
-                                                            key={member.employee?.id || member.employee_id || idx}
-                                                            label={member.employee?.full_name || '--'}
-                                                            size="small"
-                                                            sx={{ height: 24 }}
-                                                        />
-                                                    ))}
-                                                    {dailyTask.team.team_members.length > 5 && (
-                                                        <Chip
-                                                            label={`+${dailyTask.team.team_members.length - 5}`}
-                                                            size="small"
-                                                            sx={{ height: 24 }}
-                                                        />
-                                                    )}
-                                                </Stack>
-                                            </Box>
-                                        </Stack>
-                                    )}
-                                    {dailyTask.team.team_work_types && dailyTask.team.team_work_types.length > 0 && (
-                                        <Stack direction="row" spacing={1} alignItems="flex-start">
-                                            <Work sx={{ color: COLORS.GRAY[500], fontSize: 18, mt: 0.5 }} />
-                                            <Box sx={{ flex: 1 }}>
-                                                <Typography variant="caption" color="text.secondary">Loại công việc ({dailyTask.team.team_work_types.length})</Typography>
-                                                <Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ gap: 0.5, mt: 0.5 }}>
-                                                    {dailyTask.team.team_work_types.map((twt, idx) => (
-                                                        <Chip
-                                                            key={twt.id || twt.work_type_id || idx}
-                                                            label={twt.work_type?.name || '--'}
-                                                            size="small"
-                                                            sx={{ height: 24 }}
-                                                        />
-                                                    ))}
-                                                </Stack>
-                                            </Box>
-                                        </Stack>
-                                    )}
-                                    {dailyTask.team.team_work_shifts && dailyTask.team.team_work_shifts.length > 0 && (
-                                        <Stack direction="row" spacing={1} alignItems="center">
-                                            <Schedule sx={{ color: COLORS.GRAY[500], fontSize: 18 }} />
-                                            <Box sx={{ flex: 1 }}>
-                                                <Typography variant="caption" color="text.secondary">Ca làm việc ({dailyTask.team.team_work_shifts.length})</Typography>
-                                                <Typography variant="body2" fontWeight={500} sx={{ mt: 0.5 }}>
-                                                    {dailyTask.team.team_work_shifts.length} ca
-                                                </Typography>
-                                            </Box>
-                                        </Stack>
-                                    )}
-                                </Stack>
-                            </Box>
-                        </>
-                    )}
-
-                    {/* Notes */}
-                    <Divider />
-                    <Box>
-                        <Typography variant="subtitle2" fontWeight={600} color={COLORS.PRIMARY[700]} gutterBottom>
-                            📝 Ghi chú
-                        </Typography>
-                        <Stack spacing={2} sx={{ mt: 1.5 }}>
-                            {/* Slot Special Notes */}
-                            {dailyTask.slot?.special_notes && (
-                                <Box sx={{
-                                    p: 2,
-                                    borderRadius: 2,
-                                    bgcolor: alpha(COLORS.WARNING[50], 0.5),
-                                    border: `1px solid ${COLORS.WARNING[200]}`
-                                }}>
-                                    <Stack direction="row" spacing={1} alignItems="flex-start">
-                                        <Warning sx={{ color: COLORS.WARNING[600], fontSize: 20, mt: 0.2 }} />
-                                        <Box sx={{ flex: 1 }}>
-                                            <Typography variant="caption" fontWeight={600} color={COLORS.WARNING[700]}>
-                                                Hướng dẫn
-                                            </Typography>
-                                            <Typography variant="body2" sx={{ mt: 0.5 }}>
-                                                {dailyTask.slot.special_notes}
-                                            </Typography>
-                                        </Box>
-                                    </Stack>
-                                </Box>
-                            )}
-
-                            {/* Daily Task Notes */}
-                            {dailyTask.notes ? (
-                                <Box sx={{
-                                    p: 2,
-                                    borderRadius: 2,
-                                    bgcolor: alpha(COLORS.INFO[50], 0.5),
-                                    border: `1px solid ${COLORS.INFO[200]}`
-                                }}>
-                                    <Stack direction="row" spacing={1} alignItems="flex-start">
-                                        <Notes sx={{ color: COLORS.INFO[600], fontSize: 20, mt: 0.2 }} />
-                                        <Box sx={{ flex: 1 }}>
-                                            <Typography variant="caption" fontWeight={600} color={COLORS.INFO[700]}>
-                                                Báo cáo
-                                            </Typography>
-                                            <Typography variant="body2" sx={{ mt: 0.5 }}>
-                                                {dailyTask.notes}
-                                            </Typography>
-                                        </Box>
-                                    </Stack>
-                                </Box>
-                            ) : (
-                                !dailyTask.slot?.special_notes && (
-                                    <Box sx={{
-                                        p: 2,
-                                        borderRadius: 2,
-                                        bgcolor: alpha(COLORS.GRAY[50], 0.5),
-                                        border: `1px dashed ${COLORS.GRAY[300]}`,
-                                        textAlign: 'center'
-                                    }}>
-                                        <Typography variant="body2" color="text.secondary">
-                                            Chưa có ghi chú
-                                        </Typography>
-                                    </Box>
-                                )
-                            )}
-                        </Stack>
-                    </Box>
-
                     {/* Completion Info */}
                     {dailyTask.completion_date && (
                         <>
@@ -620,42 +480,6 @@ const DailyTaskDetailsModal = ({ open, onClose, dailyTask }) => {
                                 <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
                                     Ngày hoàn thành: {formatDate(dailyTask.completion_date)}
                                 </Typography>
-                            </Box>
-                        </>
-                    )}
-
-                    {/* Metadata */}
-                    {(dailyTask.created_at || dailyTask.updated_at) && (
-                        <>
-                            <Divider />
-                            <Box>
-                                <Typography variant="subtitle2" fontWeight={600} color={COLORS.PRIMARY[700]} gutterBottom>
-                                    📅 Thông tin hệ thống
-                                </Typography>
-                                <Stack spacing={1} sx={{ mt: 1.5 }}>
-                                    {dailyTask.created_at && (
-                                        <Stack direction="row" spacing={1} alignItems="center">
-                                            <CalendarToday sx={{ color: COLORS.GRAY[500], fontSize: 18 }} />
-                                            <Box sx={{ flex: 1 }}>
-                                                <Typography variant="caption" color="text.secondary">Ngày tạo</Typography>
-                                                <Typography variant="body2" fontWeight={500}>
-                                                    {formatDate(dailyTask.created_at)}
-                                                </Typography>
-                                            </Box>
-                                        </Stack>
-                                    )}
-                                    {dailyTask.updated_at && (
-                                        <Stack direction="row" spacing={1} alignItems="center">
-                                            <AccessTime sx={{ color: COLORS.GRAY[500], fontSize: 18 }} />
-                                            <Box sx={{ flex: 1 }}>
-                                                <Typography variant="caption" color="text.secondary">Ngày cập nhật</Typography>
-                                                <Typography variant="body2" fontWeight={500}>
-                                                    {formatDate(dailyTask.updated_at)}
-                                                </Typography>
-                                            </Box>
-                                        </Stack>
-                                    )}
-                                </Stack>
                             </Box>
                         </>
                     )}
