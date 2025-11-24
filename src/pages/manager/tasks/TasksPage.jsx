@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
-import { Box, Typography, Button, Tabs, Tab, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, IconButton, TextField, Stack, Toolbar, Avatar, Select, MenuItem, FormControl, InputLabel, Tooltip, Menu, ListItemIcon, ListItemText } from '@mui/material';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { Box, Typography, Button, Tabs, Tab, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, IconButton, TextField, Stack, Toolbar, Avatar, Select, MenuItem, FormControl, InputLabel, Tooltip, Menu, ListItemIcon, ListItemText, LinearProgress } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, Schedule as ScheduleIcon, Public as PublicIcon, Lock as LockIcon, Visibility as VisibilityIcon, Assignment as AssignmentIcon, MoreVert as MoreVertIcon } from '@mui/icons-material';
 import { COLORS } from '../../../constants/colors';
@@ -25,10 +25,23 @@ const TasksPage = () => {
     const [currentTab, setCurrentTab] = useState(0);
 
     // Loading states
-    const [loading, setLoading] = useState(true);
+    const [baseDataLoading, setBaseDataLoading] = useState(true);
+    const [taskListLoading, setTaskListLoading] = useState(false);
+    const [taskListInitialized, setTaskListInitialized] = useState(false);
+
+    // Pagination
+    const [page, setPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
 
     // Data
     const [taskTemplates, setTaskTemplates] = useState([]);
+    const [taskList, setTaskList] = useState([]);
+    const [taskPagination, setTaskPagination] = useState({
+        total_items_count: 0,
+        total_pages_count: 0,
+        page_index: 0,
+        page_size: 10
+    });
     const [slots, setSlots] = useState([]);
     const [workTypes, setWorkTypes] = useState([]);
     const [services, setServices] = useState([]);
@@ -44,10 +57,6 @@ const TasksPage = () => {
     const [filterIsPublic, setFilterIsPublic] = useState('all');
     const [filterSlotStatus, setFilterSlotStatus] = useState('all');
     const [filterSlotTask, setFilterSlotTask] = useState('all');
-
-    // Pagination
-    const [page, setPage] = useState(1);
-    const [itemsPerPage, setItemsPerPage] = useState(10);
 
     // Modals
     const [taskFormOpen, setTaskFormOpen] = useState(false);
@@ -73,6 +82,8 @@ const TasksPage = () => {
     const [editingTask, setEditingTask] = useState(null);
     const [deleteTarget, setDeleteTarget] = useState(null);
 
+    const isInitialLoading = baseDataLoading || !taskListInitialized;
+
     // Load data on mount
     useEffect(() => {
         loadData();
@@ -96,12 +107,12 @@ const TasksPage = () => {
         });
 
         return {
-            totalTasks: taskTemplates.length,
+            totalTasks: taskPagination.total_items_count || taskTemplates.length,
             totalSlots: slots.length,
             slotsByStatus,
             tasksByWorkType
         };
-    }, [taskTemplates, slots, workTypes]);
+    }, [taskPagination.total_items_count, taskTemplates, slots, workTypes]);
 
     const PRIORITY_CONFIG = {
         [TASK_PRIORITY.URGENT]: {
@@ -151,44 +162,6 @@ const TasksPage = () => {
         });
     };
 
-    // Filter task templates
-    const filteredTemplates = useMemo(() => {
-        return taskTemplates.filter(t => {
-            // Search filter
-            if (searchQuery) {
-                const searchLower = searchQuery.toLowerCase();
-                const matchSearch = (t.title || t.name || '').toLowerCase().includes(searchLower) ||
-                    t.description.toLowerCase().includes(searchLower);
-                if (!matchSearch) return false;
-            }
-
-            // Work type filter
-            if (filterTaskType !== 'all' && t.work_type_id !== filterTaskType) {
-                return false;
-            }
-
-            // Status filter
-            if (filterStatus !== 'all' && t.status !== filterStatus) {
-                return false;
-            }
-
-            // Priority filter
-            if (filterPriority !== 'all' && t.priority !== filterPriority) {
-                return false;
-            }
-
-            // Is Public filter
-            if (filterIsPublic !== 'all') {
-                const isPublic = filterIsPublic === 'true';
-                if (t.is_public !== isPublic) {
-                    return false;
-                }
-            }
-
-            return true;
-        });
-    }, [taskTemplates, searchQuery, filterTaskType, filterStatus, filterPriority, filterIsPublic]);
-
     // Filter slots
     const filteredSlots = useMemo(() => {
         return slots.filter(s => {
@@ -218,21 +191,28 @@ const TasksPage = () => {
 
     // Pagination
     const currentPageItems = useMemo(() => {
-        const items = currentTab === 0 ? filteredTemplates : filteredSlots;
+        if (currentTab === 0) {
+            return taskList;
+        }
         const startIndex = (page - 1) * itemsPerPage;
-        return items.slice(startIndex, startIndex + itemsPerPage);
-    }, [currentTab, filteredTemplates, filteredSlots, page, itemsPerPage]);
+        return filteredSlots.slice(startIndex, startIndex + itemsPerPage);
+    }, [currentTab, taskList, filteredSlots, page, itemsPerPage]);
 
     const totalPages = useMemo(() => {
-        const items = currentTab === 0 ? filteredTemplates : filteredSlots;
-        return Math.ceil(items.length / itemsPerPage);
-    }, [currentTab, filteredTemplates, filteredSlots, itemsPerPage]);
+        if (currentTab === 0) {
+            const total = taskPagination.total_pages_count ||
+                Math.ceil((taskPagination.total_items_count || 0) / itemsPerPage) ||
+                1;
+            return Math.max(1, total);
+        }
+        return Math.max(1, Math.ceil(filteredSlots.length / itemsPerPage) || 1);
+    }, [currentTab, taskPagination, itemsPerPage, filteredSlots.length]);
 
     // Load all data (resilient: don't block others if one fails)
     const loadData = async () => {
-        setLoading(true);
+        setBaseDataLoading(true);
         const results = await Promise.allSettled([
-            loadTaskTemplates(),
+            loadAllTaskTemplates(),
             loadSlots(),
             loadWorkTypes(),
             loadServices(),
@@ -250,17 +230,72 @@ const TasksPage = () => {
                 type: 'warning'
             });
         }
-        setLoading(false);
+        setBaseDataLoading(false);
     };
 
-    const loadTaskTemplates = async () => {
+    const loadAllTaskTemplates = async () => {
         try {
-            const response = await taskTemplateApi.getAllTaskTemplates();
+            const response = await taskTemplateApi.getAllTaskTemplates({
+                page: 0,
+                limit: 1000
+            });
             setTaskTemplates(response.data || []);
         } catch (error) {
             throw error;
         }
     };
+
+    const loadTaskList = useCallback(async () => {
+        setTaskListLoading(true);
+        try {
+            const response = await taskTemplateApi.getAllTaskTemplates({
+                page: page - 1,
+                limit: itemsPerPage,
+                work_type_id: filterTaskType !== 'all' ? filterTaskType : undefined,
+                status: filterStatus !== 'all' ? filterStatus : undefined,
+                priority: filterPriority !== 'all' ? filterPriority : undefined,
+                is_public: filterIsPublic === 'all' ? undefined : filterIsPublic === 'true',
+                search: searchQuery?.trim() || undefined
+            });
+
+            setTaskList(response.data || []);
+
+            if (response.pagination) {
+                setTaskPagination({
+                    total_items_count: response.pagination.total_items_count ?? 0,
+                    total_pages_count: response.pagination.total_pages_count ?? 0,
+                    page_index: response.pagination.page_index ?? (page - 1),
+                    page_size: response.pagination.page_size ?? itemsPerPage
+                });
+            } else {
+                const total = response.data?.length || 0;
+                setTaskPagination({
+                    total_items_count: total,
+                    total_pages_count: Math.ceil(total / itemsPerPage) || 0,
+                    page_index: page - 1,
+                    page_size: itemsPerPage
+                });
+            }
+        } catch (error) {
+            setAlert({
+                open: true,
+                title: 'Lỗi',
+                message: error.message || 'Không thể tải danh sách nhiệm vụ',
+                type: 'error'
+            });
+            setTaskList([]);
+        } finally {
+            setTaskListLoading(false);
+            setTaskListInitialized(true);
+        }
+    }, [page, itemsPerPage, filterTaskType, filterStatus, filterPriority, filterIsPublic, searchQuery]);
+
+    // Load task list when filters or pagination change
+    useEffect(() => {
+        if (!baseDataLoading) {
+            loadTaskList();
+        }
+    }, [loadTaskList, baseDataLoading]);
 
     const loadWorkTypes = async () => {
         try {
@@ -357,7 +392,8 @@ const TasksPage = () => {
                     type: 'success'
                 });
             }
-            await loadTaskTemplates();
+            await loadAllTaskTemplates();
+            await loadTaskList();
             setTaskFormOpen(false);
         } catch (error) {
             throw error;
@@ -432,6 +468,8 @@ const TasksPage = () => {
                 }
             }
 
+            await loadAllTaskTemplates();
+            await loadTaskList();
             setSlotFormOpen(false);
             setEditingSlot(null);
             setSlotFormMode('create');
@@ -519,7 +557,8 @@ const TasksPage = () => {
         try {
             if (deleteTarget.type === 'task') {
                 await taskTemplateApi.deleteTaskTemplate(deleteTarget.data.id);
-                await loadTaskTemplates();
+                await loadAllTaskTemplates();
+                await loadTaskList();
                 setAlert({
                     open: true,
                     title: 'Thành công',
@@ -579,7 +618,7 @@ const TasksPage = () => {
         };
     };
 
-    if (loading) {
+    if (isInitialLoading) {
         return <Loading fullScreen />;
     }
 
@@ -615,7 +654,7 @@ const TasksPage = () => {
                         }
                     }}
                 >
-                    <Tab label={`Nhiệm vụ (${taskTemplates.length})`} />
+                    <Tab label={`Nhiệm vụ (${taskPagination.total_items_count || taskTemplates.length})`} />
                     <Tab label="Loại công việc" />
                     <Tab label="Nhiệm vụ hằng ngày" />
                 </Tabs>
@@ -772,6 +811,12 @@ const TasksPage = () => {
                             </Button>
                         </Toolbar>
                     </Paper>
+
+                    {taskListLoading && (
+                        <Box sx={{ mb: 2 }}>
+                            <LinearProgress />
+                        </Box>
+                    )}
 
                     {/* Table */}
                     <TableContainer component={Paper} sx={{ borderRadius: 3, border: `2px solid ${alpha(COLORS.PRIMARY[200], 0.4)}`, boxShadow: `0 10px 24px ${alpha(COLORS.PRIMARY[200], 0.15)}`, overflowX: 'auto' }}>
@@ -1011,7 +1056,7 @@ const TasksPage = () => {
                                 setItemsPerPage(value);
                                 setPage(1);
                             }}
-                            totalItems={filteredTemplates.length}
+                            totalItems={currentTab === 0 ? (taskPagination.total_items_count || 0) : filteredSlots.length}
                         />
                     </Box>
                 </>

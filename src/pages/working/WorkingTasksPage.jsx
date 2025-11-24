@@ -832,16 +832,16 @@ const WorkingTasksPage = () => {
                                                         </Typography>
                                                     </TableCell>
                                                     <TableCell sx={{ py: 2.5 }}>
-                                                        <Chip
-                                                            icon={statusDisplay.icon}
-                                                            label={statusDisplay.label}
-                                                            size="small"
-                                                            sx={{
-                                                                bgcolor: statusDisplay.bg,
-                                                                color: statusDisplay.color,
-                                                                fontWeight: 600
-                                                            }}
-                                                        />
+                                                                        <Chip
+                                                                            icon={statusDisplay.icon}
+                                                                            label={statusDisplay.label}
+                                                                        size="small"
+                                                                        sx={{
+                                                                            bgcolor: statusDisplay.bg,
+                                                                            color: statusDisplay.color,
+                                                                            fontWeight: 600
+                                                                        }}
+                                                                    />
                                                     </TableCell>
                                                     <TableCell align="right" sx={{ py: 2.5 }}>
                                                         <Stack direction="row" spacing={1} alignItems="center" justifyContent="flex-end">
@@ -973,14 +973,14 @@ const WorkingTasksPage = () => {
                     if (taskStatus === 'IN_PROGRESS') {
                         return (
                             <>
-                                <MenuItem onClick={() => {
-                                    handleUpdateStatus(selectedTask.id, 'COMPLETED');
-                                }}>
-                                    <ListItemIcon>
-                                        <CheckCircle fontSize="small" />
-                                    </ListItemIcon>
-                                    <ListItemText>Hoàn thành</ListItemText>
-                                </MenuItem>
+                            <MenuItem onClick={() => {
+                                handleUpdateStatus(selectedTask.id, 'COMPLETED');
+                            }}>
+                                <ListItemIcon>
+                                    <CheckCircle fontSize="small" />
+                                </ListItemIcon>
+                                <ListItemText>Hoàn thành</ListItemText>
+                            </MenuItem>
                                 <MenuItem onClick={() => {
                                     handleUpdateStatus(selectedTask.id, 'CANCELLED');
                                 }}>
