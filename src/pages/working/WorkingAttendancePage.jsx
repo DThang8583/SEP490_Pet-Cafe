@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { Box, Paper, Typography, Stack, TextField, MenuItem, Chip, Button, Table, TableHead, TableBody, TableRow, TableCell, Alert, Snackbar, Skeleton, Avatar, Divider, Select, FormControl, InputLabel, alpha, Grid, Dialog, DialogTitle, DialogContent, DialogActions, TableContainer, IconButton, Tooltip, Card, CardContent } from '@mui/material';
 import { ChecklistRtl, CheckCircle, AccessTime, Block, Person, Groups, Event, Close, Edit, CalendarToday, ChevronLeft, ChevronRight } from '@mui/icons-material';
 import workingStaffApi from '../../api/workingStaffApi';
@@ -88,6 +88,13 @@ const getDayKeyFromDate = (dateString) => {
     return WEEKDAYS[index];
 };
 
+const normalizeDateOnly = (dateString) => {
+    if (!dateString) return null;
+    const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) return null;
+    return date.toISOString().split('T')[0];
+};
+
 const WorkingAttendancePage = () => {
     const [profileData] = useState(() => {
         const p = workingStaffApi.getProfile();
@@ -109,6 +116,82 @@ const WorkingAttendancePage = () => {
     const [viewMode, setViewMode] = useState('day');
     const [attendanceDialog, setAttendanceDialog] = useState(null);
     const [activeDayTab, setActiveDayTab] = useState({}); // { shiftId: dayKey }
+
+    const fetchSchedulesForTeams = useCallback(async (teamIds, params) => {
+        if (!Array.isArray(teamIds) || teamIds.length === 0) {
+            return [];
+        }
+
+        const schedulePromises = teamIds.map((teamId) =>
+            getDailySchedules({
+                ...params,
+                TeamId: teamId
+            }).catch((error) => {
+                console.warn(`Failed to load attendance for team ${teamId}:`, error);
+                return { success: true, data: [] };
+            })
+        );
+
+        const responses = await Promise.all(schedulePromises);
+        let combined = [];
+        responses.forEach((response) => {
+            if (response.success && Array.isArray(response.data) && response.data.length > 0) {
+                combined.push(...response.data);
+            }
+        });
+
+        if (combined.length === 0) {
+            try {
+                const fallbackResponse = await getDailySchedules(params);
+                if (fallbackResponse.success && Array.isArray(fallbackResponse.data)) {
+                    const validTeamIds = new Set(teamIds);
+                    combined = fallbackResponse.data.filter((schedule) => {
+                        const scheduleTeamId = schedule.team_member?.team_id || schedule.team_id;
+                        return scheduleTeamId && validTeamIds.has(scheduleTeamId);
+                    });
+                }
+            } catch (fallbackError) {
+                console.warn('Fallback attendance load failed:', fallbackError);
+            }
+        }
+
+        return combined;
+    }, []);
+    const upsertAttendanceRecord = useCallback((record) => {
+        if (!record) return;
+        const targetMemberId = record.team_member_id || record.team_member?.id;
+        if (!targetMemberId) return;
+        const targetDate = normalizeDateOnly(record.date);
+
+        setAttendance((prev) => {
+            let updated = false;
+            const next = prev.map((item) => {
+                const itemMemberId = item.team_member_id || item.team_member?.id;
+                const itemDate = normalizeDateOnly(item.date);
+                if (
+                    itemMemberId === targetMemberId &&
+                    (!targetDate || !itemDate || itemDate === targetDate)
+                ) {
+                    updated = true;
+                    return {
+                        ...item,
+                        ...record,
+                        date: record.date || item.date,
+                        team_member: record.team_member || item.team_member
+                    };
+                }
+                return item;
+            });
+            if (!updated) {
+                next.push({
+                    ...record,
+                    date: record.date || new Date().toISOString(),
+                    team_member_id: targetMemberId
+                });
+            }
+            return next;
+        });
+    }, []);
 
     // Load teams data
     useEffect(() => {
@@ -165,21 +248,7 @@ const WorkingAttendancePage = () => {
                     ToDate: dateRange.toDate
                 };
 
-                const schedulePromises = teamIds.map(teamId =>
-                    getDailySchedules({
-                        ...baseParams,
-                        TeamId: teamId
-                    }).catch(() => ({ success: true, data: [] }))
-                );
-
-                const responses = await Promise.all(schedulePromises);
-
-                let allSchedules = [];
-                responses.forEach(response => {
-                    if (response.success && Array.isArray(response.data)) {
-                        allSchedules.push(...response.data);
-                    }
-                });
+                let allSchedules = await fetchSchedulesForTeams(teamIds, baseParams);
 
                 const validTeamIds = new Set(teamIds);
                 allSchedules = allSchedules.filter(schedule => {
@@ -187,7 +256,6 @@ const WorkingAttendancePage = () => {
                     return scheduleTeamId && validTeamIds.has(scheduleTeamId);
                 });
 
-                // Filter for non-leaders: only show their own attendance
                 if (!isLeader) {
                     const employeeId = profileData.id || profileData.employee_id || profileData.account_id;
                     const accountId = profileData.account_id;
@@ -212,7 +280,7 @@ const WorkingAttendancePage = () => {
         return () => {
             mounted = false;
         };
-    }, [teams, dateRange.fromDate, dateRange.toDate, isLeader, profileData.id, profileData.employee_id, profileData.account_id]);
+    }, [teams, dateRange.fromDate, dateRange.toDate, isLeader, profileData.id, profileData.employee_id, profileData.account_id, fetchSchedulesForTeams]);
 
     // Get all team members including leader (with deduplication)
     const getAllTeamMembers = (team) => {
@@ -356,10 +424,16 @@ const WorkingAttendancePage = () => {
                                 );
                             });
 
+                            const teamMemberId = existingRecord?.team_member_id ||
+                                existingRecord?.team_member?.id ||
+                                member.team_member_id ||
+                                null;
+
                             return {
                                 member,
                                 date: dateStr,
-                                schedule: existingRecord || null
+                                schedule: existingRecord || null,
+                                teamMemberId
                             };
                         });
 
@@ -408,10 +482,16 @@ const WorkingAttendancePage = () => {
                                     );
                                 });
 
+                                const teamMemberId = existingRecord?.team_member_id ||
+                                    existingRecord?.team_member?.id ||
+                                    member.team_member_id ||
+                                    null;
+
                                 return {
                                     member,
                                     date: dateStr,
-                                    schedule: existingRecord || null
+                                    schedule: existingRecord || null,
+                                    teamMemberId
                                 };
                             });
                         }).flat().filter(Boolean); // Remove null entries (duplicates)
@@ -495,14 +575,19 @@ const WorkingAttendancePage = () => {
             teamId,
             shiftId,
             date,
-            notes: memberData.schedule?.notes || ''
+            notes: memberData.schedule?.notes || '',
+            teamMemberId: memberData.teamMemberId ||
+                memberData.schedule?.team_member_id ||
+                memberData.schedule?.team_member?.id ||
+                memberData.member?.team_member_id ||
+                null
         });
     };
 
     const handleStatusChange = async () => {
         if (!attendanceDialog) return;
 
-        const { memberData, newStatus, teamId, shiftId, date, notes } = attendanceDialog;
+        const { memberData, newStatus, teamId, shiftId, date, notes, teamMemberId: dialogTeamMemberId } = attendanceDialog;
         const { member, schedule } = memberData;
 
         try {
@@ -514,75 +599,60 @@ const WorkingAttendancePage = () => {
                 return;
             }
 
-            // Find team_member_id for this member (including Leader)
-            // First, try to get from schedule if it exists
-            let teamMemberId = schedule?.team_member_id || schedule?.team_member?.id;
+            const resolveTeamMemberId = () => {
+                if (dialogTeamMemberId) return dialogTeamMemberId;
+                if (memberData.teamMemberId) return memberData.teamMemberId;
+                if (schedule?.team_member_id) return schedule.team_member_id;
+                if (schedule?.team_member?.id) return schedule.team_member.id;
+                if (member.team_member_id) return member.team_member_id;
 
-            // If not found, try from member object
-            if (!teamMemberId) {
-                teamMemberId = member.team_member_id;
-            }
-
-            // If still not found, search in team.members list
-            if (!teamMemberId && team.members && team.members.length > 0) {
-                const memberId = member.id || member.employee_id;
-                const memberAccountId = member.account_id;
-                const leaderId = team.leader_id;
-                const leaderAccountId = team.leader?.account_id;
-
-                // Try to find by matching employee_id or account_id
-                const foundMember = team.members.find(tm => {
-                    const tmEmployeeId = tm.employee_id || tm.employee?.id;
-                    const tmEmployeeAccountId = tm.employee?.account_id;
-
-                    // Match by member's ID
-                    if (memberId && (tmEmployeeId === memberId || tmEmployeeAccountId === memberId)) {
-                        return true;
-                    }
-                    // Match by member's account_id
-                    if (memberAccountId && (tmEmployeeId === memberAccountId || tmEmployeeAccountId === memberAccountId)) {
-                        return true;
-                    }
-                    // If member is Leader, also try matching by leader_id
-                    if (member.isLeader) {
-                        if (leaderId && (tmEmployeeId === leaderId || tmEmployeeAccountId === leaderId)) {
-                            return true;
-                        }
-                        if (leaderAccountId && (tmEmployeeId === leaderAccountId || tmEmployeeAccountId === leaderAccountId)) {
-                            return true;
-                        }
-                    }
-                    return false;
-                });
-
-                if (foundMember) {
-                    teamMemberId = foundMember.id;
-                }
-            }
-
-            // If still not found and member is Leader, try to find by checking if Leader is also a team member
-            if (!teamMemberId && member.isLeader && team.members && team.members.length > 0) {
-                // Check if any team member's employee matches the leader
-                const leaderAsMember = team.members.find(tm => {
-                    const tmEmployeeId = tm.employee_id || tm.employee?.id;
-                    const tmEmployeeAccountId = tm.employee?.account_id;
-                    const leaderId = team.leader_id;
-                    const leaderAccountId = team.leader?.account_id;
+                if (team.members && team.members.length > 0) {
                     const memberId = member.id || member.employee_id;
                     const memberAccountId = member.account_id;
+                    const leaderId = team.leader_id;
+                    const leaderAccountId = team.leader?.account_id;
 
-                    return (
-                        (leaderId && (tmEmployeeId === leaderId || tmEmployeeAccountId === leaderId)) ||
-                        (leaderAccountId && (tmEmployeeId === leaderAccountId || tmEmployeeAccountId === leaderAccountId)) ||
-                        (memberId && (tmEmployeeId === memberId || tmEmployeeAccountId === memberId)) ||
-                        (memberAccountId && (tmEmployeeId === memberAccountId || tmEmployeeAccountId === memberAccountId))
-                    );
-                });
+                    const foundMember = team.members.find(tm => {
+                        const tmEmployeeId = tm.employee_id || tm.employee?.id;
+                        const tmEmployeeAccountId = tm.employee?.account_id;
 
-                if (leaderAsMember) {
-                    teamMemberId = leaderAsMember.id;
+                        if (memberId && (tmEmployeeId === memberId || tmEmployeeAccountId === memberId)) return true;
+                        if (memberAccountId && (tmEmployeeId === memberAccountId || tmEmployeeAccountId === memberAccountId)) return true;
+
+                        if (member.isLeader) {
+                            if (leaderId && (tmEmployeeId === leaderId || tmEmployeeAccountId === leaderId)) return true;
+                            if (leaderAccountId && (tmEmployeeId === leaderAccountId || tmEmployeeAccountId === leaderAccountId)) return true;
+                        }
+                        return false;
+                    });
+
+                    if (foundMember) {
+                        return foundMember.id;
+                    }
+
+                    if (member.isLeader) {
+                        const leaderAsMember = team.members.find(tm => {
+                            const tmEmployeeId = tm.employee_id || tm.employee?.id;
+                            const tmEmployeeAccountId = tm.employee?.account_id;
+
+                            return (
+                                (leaderId && (tmEmployeeId === leaderId || tmEmployeeAccountId === leaderId)) ||
+                                (leaderAccountId && (tmEmployeeId === leaderAccountId || tmEmployeeAccountId === leaderAccountId)) ||
+                                (memberId && (tmEmployeeId === memberId || tmEmployeeAccountId === memberId)) ||
+                                (memberAccountId && (tmEmployeeId === memberAccountId || tmEmployeeAccountId === memberAccountId))
+                            );
+                        });
+
+                        if (leaderAsMember) {
+                            return leaderAsMember.id;
+                        }
+                    }
                 }
-            }
+
+                return null;
+            };
+
+            let teamMemberId = resolveTeamMemberId();
 
             // API requires id to be team_member_id (not schedule.id)
             if (!teamMemberId) {
@@ -616,32 +686,34 @@ const WorkingAttendancePage = () => {
                 }
             }
 
+            const localRecordBase = {
+                team_member_id: teamMemberId,
+                status: newStatus,
+                notes: notes || schedule?.notes || null,
+                date: date || schedule?.date || updatedScheduleFromResponse?.date || new Date().toISOString(),
+                team_id: schedule?.team_member?.team_id || teamId,
+                work_shift_id: schedule?.work_shift_id || shiftId,
+                employee_id: schedule?.employee_id || member.id || member.employee_id,
+                team_member: schedule?.team_member || {
+                    id: teamMemberId,
+                    team_id: teamId,
+                    employee_id: member.id || member.employee_id,
+                    employee: schedule?.team_member?.employee || member
+                }
+            };
+
+            const mergedRecord = {
+                ...(updatedScheduleFromResponse || {}),
+                ...localRecordBase
+            };
+
+            upsertAttendanceRecord(mergedRecord);
+
             await new Promise(resolve => setTimeout(resolve, 1000));
 
             const teamIds = teams.map(team => team.id).filter(Boolean);
 
             if (teamIds.length === 0) {
-                if (updatedScheduleFromResponse) {
-                    setAttendance(prev => {
-                        const existing = prev.find(item => {
-                            const itemTeamMemberId = item.team_member_id || item.team_member?.id;
-                            const updatedTeamMemberId = updatedScheduleFromResponse.team_member_id || updatedScheduleFromResponse.team_member?.id;
-                            return itemTeamMemberId === updatedTeamMemberId && item.date === updatedScheduleFromResponse.date;
-                        });
-                        if (existing) {
-                            return prev.map(item => {
-                                const itemTeamMemberId = item.team_member_id || item.team_member?.id;
-                                const updatedTeamMemberId = updatedScheduleFromResponse.team_member_id || updatedScheduleFromResponse.team_member?.id;
-                                if (itemTeamMemberId === updatedTeamMemberId && item.date === updatedScheduleFromResponse.date) {
-                                    return { ...item, ...updatedScheduleFromResponse, status: newStatus, notes: notes || '' };
-                                }
-                                return item;
-                            });
-                        } else {
-                            return [...prev, { ...updatedScheduleFromResponse, status: newStatus, notes: notes || '' }];
-                        }
-                    });
-                }
                 setSnackbar({ message: 'Cập nhật điểm danh thành công', severity: 'success' });
                 setAttendanceDialog(null);
                 return;
@@ -654,24 +726,7 @@ const WorkingAttendancePage = () => {
                 ToDate: dateRange.toDate
             };
 
-            const schedulePromises = teamIds.map(teamId =>
-                getDailySchedules({
-                    ...baseParams,
-                    TeamId: teamId
-                }).catch(error => {
-                    console.warn(`Failed to reload attendance for team ${teamId}:`, error);
-                    return { success: true, data: [] };
-                })
-            );
-
-            const responses = await Promise.all(schedulePromises);
-
-            let updatedSchedules = [];
-            responses.forEach((response) => {
-                if (response.success && Array.isArray(response.data) && response.data.length > 0) {
-                    updatedSchedules.push(...response.data);
-                }
-            });
+            let updatedSchedules = await fetchSchedulesForTeams(teamIds, baseParams);
 
             if (updatedSchedules.length === 0 && schedule) {
                 const manuallyUpdatedSchedule = {
@@ -768,20 +823,7 @@ const WorkingAttendancePage = () => {
             } else {
                 await new Promise(resolve => setTimeout(resolve, 1500));
 
-                const retryPromises = teamIds.map(teamId =>
-                    getDailySchedules({
-                        ...baseParams,
-                        TeamId: teamId
-                    }).catch(() => ({ success: true, data: [] }))
-                );
-
-                const retryResponses = await Promise.all(retryPromises);
-                let retrySchedules = [];
-                retryResponses.forEach(response => {
-                    if (response.success && Array.isArray(response.data) && response.data.length > 0) {
-                        retrySchedules.push(...response.data);
-                    }
-                });
+                let retrySchedules = await fetchSchedulesForTeams(teamIds, baseParams);
 
                 const validTeamIds = new Set(teamIds);
                 retrySchedules = retrySchedules.filter(schedule => {
@@ -927,6 +969,22 @@ const WorkingAttendancePage = () => {
                                     await apiClient.put(`/teams/${teamId}/daily-schedules`, leaderPayload, {
                                         timeout: 10000,
                                         headers: { 'Content-Type': 'application/json' }
+                                    });
+
+                                    upsertAttendanceRecord({
+                                        team_member_id: leaderTeamMemberId,
+                                        status: 'PRESENT',
+                                        notes: 'Tự động điểm danh sau khi điểm danh tất cả thành viên',
+                                        date: targetDateStr || new Date().toISOString(),
+                                        team_id: teamId,
+                                        work_shift_id: shiftId,
+                                        team_member: {
+                                            id: leaderTeamMemberId,
+                                            team_id: teamId,
+                                            employee_id: team.leader?.id || team.leader?.employee_id,
+                                            employee: team.leader
+                                        },
+                                        employee_id: team.leader?.id || team.leader?.employee_id
                                     });
 
                                     const reloadTeamIds = teams.map(team => team.id).filter(Boolean);
@@ -1591,7 +1649,17 @@ const WorkingAttendancePage = () => {
                                                                                                 const schedule = isMemberView ? item.schedule : item;
                                                                                                 const dateStr = isMemberView ? item.date : (schedule?.date || '');
                                                                                                 const currentStatus = schedule?.status || 'PENDING';
-                                                                                                const memberData = isMemberView ? item : { member, date: dateStr, schedule };
+                                                                                                const memberData = isMemberView
+                                                                                                    ? item
+                                                                                                    : {
+                                                                                                        member,
+                                                                                                        date: dateStr,
+                                                                                                        schedule,
+                                                                                                        teamMemberId: schedule?.team_member_id ||
+                                                                                                            schedule?.team_member?.id ||
+                                                                                                            member.team_member_id ||
+                                                                                                            null
+                                                                                                    };
 
                                                                                                 return (
                                                                                                     <TableRow

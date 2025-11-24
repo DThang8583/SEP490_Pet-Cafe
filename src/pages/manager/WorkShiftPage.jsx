@@ -15,7 +15,6 @@ import teamApi from '../../api/teamApi';
 import employeeApi from '../../api/employeeApi';
 import workTypeApi from '../../api/workTypeApi';
 import TeamAssignWorkShiftModal from '../../components/modals/TeamAssignWorkShiftModal';
-import TeamAssignMembersModal from '../../components/modals/TeamAssignMembersModal';
 
 const WorkShiftPage = () => {
     const [isLoading, setIsLoading] = useState(true);
@@ -62,11 +61,6 @@ const WorkShiftPage = () => {
     const [selectedTeamForWorkShift, setSelectedTeamForWorkShift] = useState(null);
     const [selectedWorkShiftIds, setSelectedWorkShiftIds] = useState([]);
     const [assigningWorkShifts, setAssigningWorkShifts] = useState(false);
-    const [openAssignMembersModal, setOpenAssignMembersModal] = useState(false);
-    const [selectedTeamForAssignMembers, setSelectedTeamForAssignMembers] = useState(null);
-    const [assignMembersExcludedIds, setAssignMembersExcludedIds] = useState([]);
-    const [assignMembersFetching, setAssignMembersFetching] = useState(false);
-    const [assigningMembers, setAssigningMembers] = useState(false);
     const [teamFormData, setTeamFormData] = useState({
         name: '',
         description: '',
@@ -134,7 +128,6 @@ const WorkShiftPage = () => {
                 });
             }
         } catch (error) {
-            console.error('Error loading shifts:', error);
             setAlert({
                 open: true,
                 type: 'error',
@@ -157,7 +150,6 @@ const WorkShiftPage = () => {
             });
 
             if (!response.success || !Array.isArray(response.data)) {
-                console.warn('loadTeams: invalid response', response);
                 setTeams([]);
                 setPagination({
                     total_items_count: 0,
@@ -199,7 +191,6 @@ const WorkShiftPage = () => {
                                 team_work_shifts: teamWorkShifts
                             };
                         } catch (error) {
-                            console.warn(`Failed to load data for team ${team.id} (${team.name}):`, error);
                             return {
                                 ...team,
                                 team_members: [],
@@ -214,7 +205,6 @@ const WorkShiftPage = () => {
                 setTeams([]);
             }
         } catch (error) {
-            console.error('Error loading teams:', error);
             setTeams([]);
             setAlert({
                 open: true,
@@ -234,7 +224,6 @@ const WorkShiftPage = () => {
                 setSlots(response.data);
             }
         } catch (error) {
-            console.error('Error loading slots:', error);
         }
     };
 
@@ -245,7 +234,6 @@ const WorkShiftPage = () => {
                 setAllEmployees(response.data);
             }
         } catch (error) {
-            console.error('Error loading employees:', error);
         }
     };
 
@@ -256,7 +244,6 @@ const WorkShiftPage = () => {
                 setAllWorkTypes(response.data);
             }
         } catch (error) {
-            console.error('Error loading work types:', error);
         }
     };
 
@@ -289,7 +276,6 @@ const WorkShiftPage = () => {
                         break;
                     }
                 } catch (pageError) {
-                    console.error(`Error loading page ${pageIndex}:`, pageError);
                     break;
                 }
             }
@@ -317,7 +303,6 @@ const WorkShiftPage = () => {
                             team_work_shifts: teamWorkShifts
                         };
                     } catch (error) {
-                        console.warn(`Failed to load data for team ${team.id}:`, error);
                         return {
                             ...team,
                             team_members: [],
@@ -339,7 +324,6 @@ const WorkShiftPage = () => {
 
             setNewTeams(filteredNewTeams);
         } catch (error) {
-            console.error('Error loading new teams:', error);
             setNewTeams([]);
         } finally {
             setLoadingNewTeams(false);
@@ -537,13 +521,6 @@ const WorkShiftPage = () => {
                 }
             }
         } catch (error) {
-            console.error('Error saving shift:', error);
-            console.error('Error details:', {
-                message: error.message,
-                response: error.response?.data,
-                editingShift: editingShift?.id
-            });
-
             // Display error message from API
             let errorMessage = error.message || 'Không thể lưu ca làm việc';
 
@@ -735,8 +712,6 @@ const WorkShiftPage = () => {
             await loadShifts();
             await loadSlots();
         } catch (error) {
-            console.error('Error deleting shift:', error);
-
             // Parse error message for time conflict
             let errorMessage = error.message || 'Không thể xóa ca làm việc';
 
@@ -848,73 +823,6 @@ const WorkShiftPage = () => {
         }
     };
 
-    const handleOpenAssignMembersQuick = async (team) => {
-        if (!team) return;
-        setSelectedTeamForAssignMembers(team);
-        setOpenAssignMembersModal(true);
-        setAssignMembersFetching(true);
-        try {
-            const response = await teamApi.getTeamMembers(team.id);
-            if (response.success) {
-                const existingIds = (response.data || [])
-                    .map(member => member.employee?.id || member.employee_id)
-                    .filter(Boolean);
-                setAssignMembersExcludedIds(existingIds);
-            } else {
-                setAssignMembersExcludedIds([]);
-            }
-        } catch (error) {
-            console.error('Error loading team members for assign modal:', error);
-            setAssignMembersExcludedIds([]);
-        } finally {
-            setAssignMembersFetching(false);
-        }
-    };
-
-    const handleCloseAssignMembersModal = () => {
-        setOpenAssignMembersModal(false);
-        setSelectedTeamForAssignMembers(null);
-        setAssignMembersExcludedIds([]);
-        setAssignMembersFetching(false);
-    };
-
-    const handleAssignMembers = async (memberIds) => {
-        if (!selectedTeamForAssignMembers) return;
-        if (!Array.isArray(memberIds) || memberIds.length === 0) {
-            setAlert({
-                open: true,
-                type: 'error',
-                title: 'Lỗi',
-                message: 'Vui lòng chọn ít nhất một nhân viên'
-            });
-            return;
-        }
-        setAssigningMembers(true);
-        try {
-            const payload = memberIds.map(id => ({ employee_id: id }));
-            await teamApi.addTeamMembers(selectedTeamForAssignMembers.id, payload);
-            setAlert({
-                open: true,
-                type: 'success',
-                title: 'Thành công',
-                message: 'Thêm thành viên vào nhóm thành công!'
-            });
-            handleCloseAssignMembersModal();
-            await loadTeams();
-            await loadNewTeams();
-        } catch (error) {
-            console.error('Error assigning members:', error);
-            setAlert({
-                open: true,
-                type: 'error',
-                title: 'Lỗi',
-                message: error.message || 'Không thể thêm thành viên vào nhóm'
-            });
-        } finally {
-            setAssigningMembers(false);
-        }
-    };
-
     const handleEditTeam = (team) => {
         setEditingTeam(team);
         setTeamFormData({
@@ -957,7 +865,6 @@ const WorkShiftPage = () => {
                         throw new Error(response.message || 'Không thể cập nhật nhóm');
                     }
                 } catch (error) {
-                    console.error('Error updating team:', error);
                     const errorMessage = error.response?.data?.message || error.message || 'Không thể cập nhật nhóm';
                     setAlert({
                         open: true,
@@ -1062,8 +969,6 @@ const WorkShiftPage = () => {
                     await loadNewTeams();
                     await loadSlots();
                 } catch (error) {
-                    console.error('Error creating team:', error);
-
                     // Extract detailed error message
                     let errorMessage = 'Không thể tạo nhóm';
 
@@ -1087,14 +992,6 @@ const WorkShiftPage = () => {
                     }
 
                     // Log full error in development
-                    if (process.env.NODE_ENV === 'development') {
-                        console.error('Full error details:', {
-                            message: error.message,
-                            response: error.response?.data,
-                            status: error.response?.status
-                        });
-                    }
-
                     setAlert({
                         open: true,
                         type: 'error',
@@ -1106,7 +1003,6 @@ const WorkShiftPage = () => {
                 }
             }
         } catch (error) {
-            console.error('Error saving team:', error);
             setAlert({
                 open: true,
                 type: 'error',
@@ -1135,7 +1031,6 @@ const WorkShiftPage = () => {
                 setOriginalTeamMembers(JSON.parse(JSON.stringify(membersWithDefaultActive))); // Deep copy
             }
         } catch (error) {
-            console.error('Error loading team members:', error);
             setTeamMembers([]);
             setOriginalTeamMembers([]);
         }
@@ -1223,8 +1118,10 @@ const WorkShiftPage = () => {
             }
 
             for (const member of removedMembers) {
-                const employeeId = member.employee?.id || member.employee_id;
-                await teamApi.removeTeamMember(teamId, employeeId);
+                const teamMemberId = member.id || member.team_member_id;
+                if (teamMemberId) {
+                    await teamApi.removeTeamMember(teamMemberId);
+                }
             }
 
             setAlert({
@@ -1239,7 +1136,6 @@ const WorkShiftPage = () => {
             await loadNewTeams(); // Reload new teams list
             await loadSlots(); // Reload slots to reflect changes
         } catch (error) {
-            console.error('Error saving team members:', error);
             setAlert({
                 open: true,
                 type: 'error',
@@ -1610,7 +1506,7 @@ const WorkShiftPage = () => {
                                                         size="small"
                                                         variant="outlined"
                                                         startIcon={<PersonAdd />}
-                                                        onClick={() => handleOpenAssignMembersQuick(team)}
+                                                        onClick={() => handleOpenTeamMembersModal(team)}
                                                         sx={{
                                                             flex: 1,
                                                             textTransform: 'none',
@@ -1624,7 +1520,7 @@ const WorkShiftPage = () => {
                                                             }
                                                         }}
                                                     >
-                                                        Thêm thành viên
+                                                        Quản lý thành viên
                                                     </Button>
                                                 </Stack>
                                             </Box>
@@ -2065,17 +1961,6 @@ const WorkShiftPage = () => {
                 loading={assigningWorkShifts}
                 onSubmit={handleAssignWorkShifts}
             />
-            <TeamAssignMembersModal
-                open={openAssignMembersModal}
-                onClose={handleCloseAssignMembersModal}
-                team={selectedTeamForAssignMembers}
-                employees={allEmployees}
-                excludedIds={assignMembersExcludedIds}
-                loading={assignMembersFetching}
-                submitting={assigningMembers}
-                onSubmit={handleAssignMembers}
-            />
-
             {/* Team Members Modal */}
             <TeamMembersModal
                 open={openTeamMembersModal}

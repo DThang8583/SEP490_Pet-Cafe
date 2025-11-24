@@ -109,8 +109,10 @@ const taskTemplateApi = {
     async getAllTaskTemplates(filters = {}) {
         try {
             const {
-                page_index = 0,
-                page_size = 100,
+                page = undefined,
+                limit = undefined,
+                page_index = undefined,
+                page_size = undefined,
                 work_type_id,
                 status,
                 priority,
@@ -118,9 +120,16 @@ const taskTemplateApi = {
                 search
             } = filters;
 
+            const resolvedPage = typeof page === 'number'
+                ? page
+                : (typeof page_index === 'number' ? page_index : 0);
+            const resolvedLimit = typeof limit === 'number'
+                ? limit
+                : (typeof page_size === 'number' ? page_size : 100);
+
             const params = {
-                page_index,
-                page_size,
+                page: resolvedPage,
+                limit: resolvedLimit,
                 _t: Date.now()
             };
 
@@ -134,7 +143,9 @@ const taskTemplateApi = {
                 params.priority = priority;
             }
             if (is_public !== undefined && is_public !== 'all') {
-                params.is_public = is_public;
+                params.is_public = typeof is_public === 'string'
+                    ? is_public === 'true'
+                    : Boolean(is_public);
             }
             if (search) {
                 params.search = search;
@@ -167,8 +178,8 @@ const taskTemplateApi = {
             const finalPagination = buildPagination(
                 pagination,
                 normalizedTasks.length,
-                page_size,
-                page_index
+                resolvedLimit,
+                resolvedPage
             );
 
             return {
@@ -371,8 +382,8 @@ const taskTemplateApi = {
     async getStatistics() {
         try {
             const response = await this.getAllTaskTemplates({
-                page_index: 0,
-                page_size: 1000
+                page: 0,
+                limit: 1000
             });
 
             const tasks = response.data || [];

@@ -521,21 +521,6 @@ export const createTeam = async (teamData) => {
             work_type_ids: teamData.work_type_ids
         };
 
-        // Log exact request data being sent
-        if (process.env.NODE_ENV === 'development') {
-            console.log('=== createTeam API Call ===');
-            console.log('Request URL:', '/teams');
-            console.log('Request Data (exact):', JSON.stringify(requestData, null, 2));
-            console.log('Request Data types:', {
-                name: typeof requestData.name,
-                description: typeof requestData.description,
-                leader_id: typeof requestData.leader_id,
-                work_type_ids: Array.isArray(requestData.work_type_ids) ? 'array' : typeof requestData.work_type_ids,
-                work_type_ids_length: requestData.work_type_ids?.length
-            });
-            console.log('========================');
-        }
-
         const response = await apiClient.post('/teams', requestData, { timeout: 10000 });
 
         return {
@@ -544,14 +529,6 @@ export const createTeam = async (teamData) => {
             message: 'Tạo nhóm thành công'
         };
     } catch (error) {
-        // Log full error for debugging
-        if (process.env.NODE_ENV === 'development') {
-            console.error('createTeam error:', error);
-            console.error('Error response:', error.response?.data);
-            console.error('Error status:', error.response?.status);
-            console.error('Full error object:', JSON.stringify(error.response?.data, null, 2));
-        }
-
         // Extract error message from response
         if (error.response?.data) {
             const errorData = error.response.data;
@@ -900,13 +877,15 @@ export const updateTeamMembers = async (teamId, members) => {
 
 /**
  * Remove member from team
+ * Official API: DELETE /api/team-members/{id}
+ * Request param: id is team_member_id (not employee_id)
  */
-export const removeTeamMember = async (teamId, employeeId) => {
+export const removeTeamMember = async (teamMemberId) => {
     try {
-        if (!teamId || !employeeId) {
-            throw new Error('ID nhóm và ID nhân viên là bắt buộc');
+        if (!teamMemberId) {
+            throw new Error('ID thành viên nhóm là bắt buộc');
         }
-        await apiClient.delete(`/teams/${teamId}/members/${employeeId}`, { timeout: 10000 });
+        await apiClient.delete(`/team-members/${teamMemberId}`, { timeout: 10000 });
         return {
             success: true,
             message: 'Xóa thành viên khỏi nhóm thành công'
