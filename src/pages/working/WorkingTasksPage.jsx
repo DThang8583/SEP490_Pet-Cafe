@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Box, Paper, Typography, Stack, TextField, MenuItem, Chip, Button, Table, TableHead, TableBody, TableRow, TableCell, TableContainer, alpha, Snackbar, Alert, Skeleton, Tabs, Tab, IconButton, Menu, ListItemIcon, ListItemText, Tooltip } from '@mui/material';
-import { Assignment, TaskAlt, ViewWeek, CalendarMonth, NavigateBefore, NavigateNext, CheckCircle, PlayArrow, Cancel, Block, RadioButtonUnchecked, MoreVert, Visibility, Add } from '@mui/icons-material';
+import { Assignment, TaskAlt, ViewWeek, CalendarMonth, NavigateBefore, NavigateNext, CheckCircle, PlayArrow, Cancel, Block, RadioButtonUnchecked, MoreVert, Visibility, Add, SkipNext } from '@mui/icons-material';
 import workingStaffApi from '../../api/workingStaffApi';
 import { COLORS } from '../../constants/colors';
 import { useLocation } from 'react-router-dom';
@@ -40,6 +40,13 @@ const getStatusDisplay = (status) => {
                 color: COLORS.ERROR[600],
                 bg: alpha(COLORS.ERROR[100], 0.8)
             };
+        case 'SKIPPED':
+            return {
+                icon: <SkipNext fontSize="small" />,
+                label: 'Bỏ qua',
+                color: COLORS.WARNING[600],
+                bg: alpha(COLORS.WARNING[100], 0.8)
+            };
         default: // SCHEDULED
             return {
                 icon: <RadioButtonUnchecked fontSize="small" />,
@@ -59,6 +66,24 @@ const formatTime = (timeStr) => {
         return `${match[1]}:${match[2]}`;
     }
     return timeStr.substring(0, 5); // Fallback
+};
+
+// Format completion date from ISO string to "DD/MM/YYYY HH:mm"
+const formatCompletionDate = (dateStr) => {
+    if (!dateStr) return '—';
+    try {
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return '—';
+        const day = String(d.getDate()).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const year = d.getFullYear();
+        const hours = String(d.getHours()).padStart(2, '0');
+        const minutes = String(d.getMinutes()).padStart(2, '0');
+        return `${day}/${month}/${year} ${hours}:${minutes}`;
+    } catch (error) {
+        console.warn('Failed to format completion date:', dateStr, error);
+        return '—';
+    }
 };
 
 // Priority display
@@ -120,6 +145,7 @@ const WorkingTasksPage = () => {
             id: p?.id,
             employee_id: p?.employee_id,
             account_id: p?.account_id,
+            email: p?.email || p?.account?.email,
             leader: p?.leader || false
         };
     });
@@ -297,13 +323,46 @@ const WorkingTasksPage = () => {
                 const uniqueTasks = Array.from(
                     new Map(allTasks.map(task => [task.id, task])).values()
                 );
-                uniqueTasks.sort((a, b) => {
+
+                // Auto-mark MISSED for tasks past their assigned date that are still SCHEDULED
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+
+                const tasksWithAutoMissed = [];
+                const tasksToUpdate = [];
+
+                for (const task of uniqueTasks) {
+                    if (task.status === 'SCHEDULED' && task.assigned_date) {
+                        const assignedDate = new Date(task.assigned_date);
+                        assignedDate.setHours(0, 0, 0, 0);
+
+                        if (assignedDate < today) {
+                            tasksWithAutoMissed.push({ ...task, status: 'MISSED' });
+                            tasksToUpdate.push({ taskId: task.id, status: 'MISSED' });
+                        } else {
+                            tasksWithAutoMissed.push(task);
+                        }
+                    } else {
+                        tasksWithAutoMissed.push(task);
+                    }
+                }
+
+                // Silently update MISSED status in background
+                if (tasksToUpdate.length > 0 && mounted) {
+                    Promise.allSettled(
+                        tasksToUpdate.map(({ taskId, status }) =>
+                            workingStaffApi.updateDailyTaskStatus(taskId, status).catch(() => null)
+                        )
+                    );
+                }
+
+                tasksWithAutoMissed.sort((a, b) => {
                     const dateCompare = (a.assigned_date || '').localeCompare(b.assigned_date || '');
                     if (dateCompare !== 0) return dateCompare;
                     return (a.start_time || '').localeCompare(b.start_time || '');
                 });
 
-                if (mounted) setTasks(uniqueTasks);
+                if (mounted) setTasks(tasksWithAutoMissed);
             } catch (error) {
                 console.error('Failed to load tasks', error);
                 if (mounted) {
@@ -324,49 +383,25 @@ const WorkingTasksPage = () => {
         return teams.find((team) => team.id === selectedTeam);
     }, [teams, selectedTeam]);
 
-    // Build candidate IDs for current user (EXACTLY like WorkingAttendancePage line 278-285)
-    const candidateIds = useMemo(() => {
-        const ids = [
-            profileData.id,
-            profileData.employee_id,
-            profileData.account_id
-        ];
-        return Array.from(new Set(ids.filter(Boolean)));
-    }, [profileData.id, profileData.employee_id, profileData.account_id]);
 
-    // Check if current user is leader of the team for a task (exactly like WorkingAttendancePage)
+    // Check if current user is leader of the team for a task by comparing email
     const isLeaderOfTaskTeam = useMemo(() => {
         return (task) => {
-            // Early returns
-            if (!task) return false;
-            if (candidateIds.length === 0) return false;
+            if (!task || !profileData.email) return false;
 
-            // Get task team - try from task.team first, then from teams array
             const taskTeamId = task.team_id || task.team?.id;
             if (!taskTeamId) return false;
 
-            // Try to get team from task.team first (most reliable)
             let team = task.team;
-
-            // If task.team doesn't have leader_id, try to find from teams array
-            if (!team || !team.leader_id) {
+            if (!team || !team.leader) {
                 team = teams.find(t => t.id === taskTeamId);
             }
 
-            if (!team) return false;
+            if (!team?.leader?.email) return false;
 
-            // Check if current user is leader (EXACTLY same logic as WorkingAttendancePage line 290-297)
-            const leaderAccountId = team.leader?.account_id;
-            const leaderId = team.leader?.id;
-            const isTeamLeader = candidateIds.some(id =>
-                id === team.leader_id ||
-                id === leaderId ||
-                id === leaderAccountId
-            );
-
-            return isTeamLeader;
+            return profileData.email.toLowerCase().trim() === team.leader.email.toLowerCase().trim();
         };
-    }, [teams, candidateIds]);
+    }, [teams, profileData.email]);
 
 
     const handleUpdateStatus = async (taskId, status) => {
@@ -374,8 +409,8 @@ const WorkingTasksPage = () => {
             const task = tasks.find(t => t.id === taskId);
             await workingStaffApi.updateDailyTaskStatus(taskId, status);
 
-            // If task is cancelled or missed, cancel related vaccination schedule
-            if ((status === 'CANCELLED' || status === 'MISSED') && task?.vaccination_schedule_id) {
+            // If task is cancelled, missed, or skipped, cancel related vaccination schedule
+            if ((status === 'CANCELLED' || status === 'MISSED' || status === 'SKIPPED') && task?.vaccination_schedule_id) {
                 try {
                     await updateVaccinationSchedule(task.vaccination_schedule_id, { status: 'CANCELLED' });
                     console.log('✅ Vaccination schedule cancelled:', task.vaccination_schedule_id);
@@ -684,6 +719,9 @@ const WorkingTasksPage = () => {
                                         <TableCell sx={{ fontWeight: 700, color: COLORS.TEXT.PRIMARY, py: 2 }}>
                                             Trạng thái
                                         </TableCell>
+                                        <TableCell sx={{ fontWeight: 700, color: COLORS.TEXT.PRIMARY, py: 2 }}>
+                                            Thời gian hoàn thành
+                                        </TableCell>
                                         <TableCell align="right" sx={{ fontWeight: 700, color: COLORS.TEXT.PRIMARY, py: 2 }}>
                                             Hành động
                                         </TableCell>
@@ -696,7 +734,7 @@ const WorkingTasksPage = () => {
                                                 colSpan={
                                                     (selectedTeam === 'all' ? 1 : 0) +
                                                     (viewMode === 'month' ? 1 : 0) +
-                                                    6
+                                                    7
                                                 }
                                                 align="center"
                                                 sx={{
@@ -789,148 +827,21 @@ const WorkingTasksPage = () => {
                                                         </Typography>
                                                     </TableCell>
                                                     <TableCell sx={{ py: 2.5 }}>
-                                                        {(() => {
-                                                            const canUpdate = isLeaderOfTaskTeam(task);
-                                                            const taskStatus = task.status;
-
-                                                            // Debug log for button display
-                                                            if (taskStatus === 'SCHEDULED' || taskStatus === 'IN_PROGRESS') {
-                                                                console.log('🔧 Button display check:', {
-                                                                    taskTitle: task.title?.substring(0, 40),
-                                                                    taskStatus,
-                                                                    canUpdate,
-                                                                    willShowButtons: canUpdate && (taskStatus === 'SCHEDULED' || taskStatus === 'IN_PROGRESS')
-                                                                });
-                                                            }
-
-                                                            if (canUpdate && (taskStatus === 'SCHEDULED' || taskStatus === 'IN_PROGRESS')) {
-                                                                // Leader view: Show Chip + Action Buttons (like attendance page)
-                                                                return (
-                                                                    <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" sx={{ gap: 1 }}>
-                                                                        {/* Current Status Chip */}
-                                                                        <Chip
-                                                                            icon={statusDisplay.icon}
-                                                                            label={statusDisplay.label}
-                                                                            sx={{
-                                                                                bgcolor: statusDisplay.bg,
-                                                                                color: statusDisplay.color,
-                                                                                fontWeight: 700,
-                                                                                height: 36,
-                                                                                fontSize: '0.875rem',
-                                                                                border: `2px solid ${alpha(statusDisplay.color, 0.3)}`,
-                                                                                boxShadow: taskStatus !== 'SCHEDULED' ? `0 2px 8px ${alpha(statusDisplay.color, 0.15)}` : 'none'
-                                                                            }}
-                                                                            size="medium"
-                                                                        />
-                                                                        {/* Action Buttons */}
-                                                                        {taskStatus === 'SCHEDULED' && (
-                                                                            <>
-                                                                                <Tooltip title="Bắt đầu thực hiện nhiệm vụ" arrow placement="top">
-                                                                                    <Button
-                                                                                        variant="outlined"
-                                                                                        color="info"
-                                                                                        size="small"
-                                                                                        startIcon={<PlayArrow fontSize="small" />}
-                                                                                        onClick={() => handleUpdateStatus(task.id, 'IN_PROGRESS')}
-                                                                                        sx={{
-                                                                                            borderRadius: 2,
-                                                                                            minWidth: 110,
-                                                                                            textTransform: 'none',
-                                                                                            fontWeight: 600,
-                                                                                            px: 2,
-                                                                                            py: 0.75,
-                                                                                            fontSize: '0.8rem',
-                                                                                            borderWidth: 2,
-                                                                                            '&:hover': {
-                                                                                                borderWidth: 2,
-                                                                                                boxShadow: `0 4px 12px ${alpha(COLORS.INFO[500], 0.25)}`,
-                                                                                                transform: 'translateY(-2px)',
-                                                                                                bgcolor: alpha(COLORS.INFO[50], 0.5)
-                                                                                            },
-                                                                                            transition: 'all 0.2s'
-                                                                                        }}
-                                                                                    >
-                                                                                        Bắt đầu
-                                                                                    </Button>
-                                                                                </Tooltip>
-                                                                                <Tooltip title="Đánh dấu nhiệm vụ đã hoàn thành" arrow placement="top">
-                                                                                    <Button
-                                                                                        variant="outlined"
-                                                                                        color="success"
-                                                                                        size="small"
-                                                                                        startIcon={<CheckCircle fontSize="small" />}
-                                                                                        onClick={() => handleUpdateStatus(task.id, 'COMPLETED')}
-                                                                                        sx={{
-                                                                                            borderRadius: 2,
-                                                                                            minWidth: 110,
-                                                                                            textTransform: 'none',
-                                                                                            fontWeight: 600,
-                                                                                            px: 2,
-                                                                                            py: 0.75,
-                                                                                            fontSize: '0.8rem',
-                                                                                            borderWidth: 2,
-                                                                                            '&:hover': {
-                                                                                                borderWidth: 2,
-                                                                                                boxShadow: `0 4px 12px ${alpha(COLORS.SUCCESS[500], 0.25)}`,
-                                                                                                transform: 'translateY(-2px)',
-                                                                                                bgcolor: alpha(COLORS.SUCCESS[50], 0.5)
-                                                                                            },
-                                                                                            transition: 'all 0.2s'
-                                                                                        }}
-                                                                                    >
-                                                                                        Hoàn thành
-                                                                                    </Button>
-                                                                                </Tooltip>
-                                                                            </>
-                                                                        )}
-                                                                        {taskStatus === 'IN_PROGRESS' && (
-                                                                            <Tooltip title="Đánh dấu nhiệm vụ đã hoàn thành" arrow placement="top">
-                                                                                <Button
-                                                                                    variant="outlined"
-                                                                                    color="success"
-                                                                                    size="small"
-                                                                                    startIcon={<CheckCircle fontSize="small" />}
-                                                                                    onClick={() => handleUpdateStatus(task.id, 'COMPLETED')}
-                                                                                    sx={{
-                                                                                        borderRadius: 2,
-                                                                                        minWidth: 110,
-                                                                                        textTransform: 'none',
-                                                                                        fontWeight: 600,
-                                                                                        px: 2,
-                                                                                        py: 0.75,
-                                                                                        fontSize: '0.8rem',
-                                                                                        borderWidth: 2,
-                                                                                        '&:hover': {
-                                                                                            borderWidth: 2,
-                                                                                            boxShadow: `0 4px 12px ${alpha(COLORS.SUCCESS[500], 0.25)}`,
-                                                                                            transform: 'translateY(-2px)',
-                                                                                            bgcolor: alpha(COLORS.SUCCESS[50], 0.5)
-                                                                                        },
-                                                                                        transition: 'all 0.2s'
-                                                                                    }}
-                                                                                >
-                                                                                    Hoàn thành
-                                                                                </Button>
-                                                                            </Tooltip>
-                                                                        )}
-                                                                    </Stack>
-                                                                );
-                                                            } else {
-                                                                // Non-leader or completed/cancelled tasks: Show only Chip
-                                                                return (
-                                                                    <Chip
-                                                                        icon={statusDisplay.icon}
-                                                                        label={statusDisplay.label}
-                                                                        size="small"
-                                                                        sx={{
-                                                                            bgcolor: statusDisplay.bg,
-                                                                            color: statusDisplay.color,
-                                                                            fontWeight: 600
-                                                                        }}
-                                                                    />
-                                                                );
-                                                            }
-                                                        })()}
+                                                        <Typography variant="body2" sx={{ color: task.completion_date ? COLORS.TEXT.PRIMARY : COLORS.TEXT.SECONDARY }}>
+                                                            {formatCompletionDate(task.completion_date)}
+                                                        </Typography>
+                                                    </TableCell>
+                                                    <TableCell sx={{ py: 2.5 }}>
+                                                        <Chip
+                                                            icon={statusDisplay.icon}
+                                                            label={statusDisplay.label}
+                                                            size="small"
+                                                            sx={{
+                                                                bgcolor: statusDisplay.bg,
+                                                                color: statusDisplay.color,
+                                                                fontWeight: 600
+                                                            }}
+                                                        />
                                                     </TableCell>
                                                     <TableCell align="right" sx={{ py: 2.5 }}>
                                                         <Stack direction="row" spacing={1} alignItems="center" justifyContent="flex-end">
@@ -1014,29 +925,11 @@ const WorkingTasksPage = () => {
                 </MenuItem>
                 {selectedTask && (() => {
                     const canUpdate = isLeaderOfTaskTeam(selectedTask);
-                    // Normalize status: if null/undefined/empty, treat as SCHEDULED (default case in getStatusDisplay)
                     const taskStatus = selectedTask.status || 'SCHEDULED';
 
-                    // Debug log
-                    console.log('🔧 MoreVert Menu - Button display check:', {
-                        taskTitle: selectedTask.title?.substring(0, 40),
-                        originalStatus: selectedTask.status,
-                        normalizedStatus: taskStatus,
-                        canUpdate,
-                        willShowButtons: canUpdate && (taskStatus === 'SCHEDULED' || taskStatus === 'IN_PROGRESS'),
-                        candidateIds,
-                        taskTeamId: selectedTask.team_id || selectedTask.team?.id,
-                        taskTeamName: selectedTask.team?.name,
-                        profileData
-                    });
-
-                    // Only show buttons for Leader and tasks with SCHEDULED or IN_PROGRESS status
                     if (!canUpdate || (taskStatus !== 'SCHEDULED' && taskStatus !== 'IN_PROGRESS')) {
-                        console.log('❌ Not showing buttons - canUpdate:', canUpdate, 'taskStatus:', taskStatus);
                         return null;
                     }
-
-                    console.log('✅ Showing buttons for Leader');
 
                     if (taskStatus === 'SCHEDULED') {
                         return (
@@ -1057,20 +950,54 @@ const WorkingTasksPage = () => {
                                     </ListItemIcon>
                                     <ListItemText>Hoàn thành</ListItemText>
                                 </MenuItem>
+                                <MenuItem onClick={() => {
+                                    handleUpdateStatus(selectedTask.id, 'CANCELLED');
+                                }}>
+                                    <ListItemIcon>
+                                        <Cancel fontSize="small" />
+                                    </ListItemIcon>
+                                    <ListItemText>Hủy</ListItemText>
+                                </MenuItem>
+                                <MenuItem onClick={() => {
+                                    handleUpdateStatus(selectedTask.id, 'SKIPPED');
+                                }}>
+                                    <ListItemIcon>
+                                        <SkipNext fontSize="small" />
+                                    </ListItemIcon>
+                                    <ListItemText>Bỏ qua</ListItemText>
+                                </MenuItem>
                             </>
                         );
                     }
 
                     if (taskStatus === 'IN_PROGRESS') {
                         return (
-                            <MenuItem onClick={() => {
-                                handleUpdateStatus(selectedTask.id, 'COMPLETED');
-                            }}>
-                                <ListItemIcon>
-                                    <CheckCircle fontSize="small" />
-                                </ListItemIcon>
-                                <ListItemText>Hoàn thành</ListItemText>
-                            </MenuItem>
+                            <>
+                                <MenuItem onClick={() => {
+                                    handleUpdateStatus(selectedTask.id, 'COMPLETED');
+                                }}>
+                                    <ListItemIcon>
+                                        <CheckCircle fontSize="small" />
+                                    </ListItemIcon>
+                                    <ListItemText>Hoàn thành</ListItemText>
+                                </MenuItem>
+                                <MenuItem onClick={() => {
+                                    handleUpdateStatus(selectedTask.id, 'CANCELLED');
+                                }}>
+                                    <ListItemIcon>
+                                        <Cancel fontSize="small" />
+                                    </ListItemIcon>
+                                    <ListItemText>Hủy</ListItemText>
+                                </MenuItem>
+                                <MenuItem onClick={() => {
+                                    handleUpdateStatus(selectedTask.id, 'SKIPPED');
+                                }}>
+                                    <ListItemIcon>
+                                        <SkipNext fontSize="small" />
+                                    </ListItemIcon>
+                                    <ListItemText>Bỏ qua</ListItemText>
+                                </MenuItem>
+                            </>
                         );
                     }
 

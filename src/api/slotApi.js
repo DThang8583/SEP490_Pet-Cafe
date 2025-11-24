@@ -135,20 +135,86 @@ const slotApi = {
 
     async createSlot(slotData) {
         // Build payload exactly as per official API specification
-        // No extra validation or auto-calculation - let backend handle it
+        // Validate required fields
+        if (!slotData.task_id) {
+            throw new Error('Task ID là bắt buộc');
+        }
+
+        // Validate task_id is a valid UUID format
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (typeof slotData.task_id !== 'string' || !uuidRegex.test(slotData.task_id.trim())) {
+            throw new Error('Task ID phải là UUID hợp lệ');
+        }
+
+        if (!slotData.start_time) {
+            throw new Error('Giờ bắt đầu là bắt buộc');
+        }
+        if (!slotData.end_time) {
+            throw new Error('Giờ kết thúc là bắt buộc');
+        }
+        if (slotData.is_recurring === undefined && !slotData.day_of_week && !slotData.specific_date) {
+            throw new Error('Phải có day_of_week hoặc specific_date');
+        }
+
+        // Process specific_date: ensure it's ISO datetime string or null
+        let processedSpecificDate = null;
+        if (slotData.specific_date) {
+            if (typeof slotData.specific_date === 'string') {
+                // If already in ISO format, use as is
+                if (slotData.specific_date.includes('T') && (slotData.specific_date.includes('Z') || slotData.specific_date.includes('+'))) {
+                    processedSpecificDate = slotData.specific_date;
+                } else if (slotData.specific_date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+                    // If just date (YYYY-MM-DD), convert to ISO datetime
+                    const date = new Date(slotData.specific_date + 'T00:00:00.000Z');
+                    processedSpecificDate = date.toISOString();
+                } else {
+                    processedSpecificDate = slotData.specific_date;
+                }
+            }
+        }
+
+        // Process is_recurring: use provided value or infer from day_of_week
+        const isRecurring = slotData.is_recurring !== undefined
+            ? Boolean(slotData.is_recurring)
+            : !!slotData.day_of_week;
+
+        // Helper function to ensure UUID fields are null (not empty string) if not provided
+        const ensureUUIDOrNull = (value) => {
+            // Handle null, undefined, empty string, or whitespace-only string
+            if (value === null || value === undefined) return null;
+            if (typeof value === 'string') {
+                const trimmed = value.trim();
+                if (trimmed === '' || trimmed === 'null' || trimmed === 'undefined') return null;
+                // Check if it's a valid UUID format
+                const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+                if (uuidRegex.test(trimmed)) {
+                    return trimmed;
+                }
+            }
+            // For non-string values, try to convert and validate
+            const strValue = String(value).trim();
+            if (strValue === '' || strValue === 'null' || strValue === 'undefined') return null;
+            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+            if (uuidRegex.test(strValue)) {
+                return strValue;
+            }
+            return null;
+        };
+
+        // Ensure UUID fields are null (not empty string) if not provided
         const payload = {
-            task_id: slotData.task_id,
-            area_id: slotData.area_id || null,
-            pet_group_id: slotData.pet_group_id || null,
-            team_id: slotData.team_id || null,
-            pet_id: slotData.pet_id || null,
-            start_time: slotData.start_time,
-            end_time: slotData.end_time,
-            max_capacity: slotData.max_capacity ?? 0,
-            special_notes: slotData.special_notes || null,
-            is_recurring: slotData.is_recurring !== undefined ? slotData.is_recurring : !!slotData.day_of_week,
-            specific_date: slotData.specific_date || null,
-            day_of_week: slotData.day_of_week || null
+            task_id: slotData.task_id.trim(), // Required, UUID string (already validated above)
+            area_id: ensureUUIDOrNull(slotData.area_id),
+            pet_group_id: ensureUUIDOrNull(slotData.pet_group_id),
+            team_id: ensureUUIDOrNull(slotData.team_id),
+            pet_id: ensureUUIDOrNull(slotData.pet_id),
+            start_time: typeof slotData.start_time === 'string' ? slotData.start_time.trim() : String(slotData.start_time), // Required, "HH:mm:ss" format
+            end_time: typeof slotData.end_time === 'string' ? slotData.end_time.trim() : String(slotData.end_time), // Required, "HH:mm:ss" format
+            max_capacity: typeof slotData.max_capacity === 'number' ? slotData.max_capacity : (parseInt(slotData.max_capacity) || 0), // Required, number >= 0
+            special_notes: (slotData.special_notes && typeof slotData.special_notes === 'string' && slotData.special_notes.trim()) ? slotData.special_notes.trim() : null,
+            is_recurring: isRecurring, // Required, boolean
+            day_of_week: (slotData.day_of_week && typeof slotData.day_of_week === 'string' && slotData.day_of_week.trim()) ? slotData.day_of_week.trim() : null,
+            specific_date: processedSpecificDate // Optional, ISO datetime string or null
         };
 
         // Add optional fields if provided
@@ -159,13 +225,30 @@ const slotApi = {
             payload.service_status = slotData.service_status;
         }
 
+        // Final validation: ensure no empty strings in UUID fields (double check)
+        const finalPayload = {
+            ...payload,
+            area_id: payload.area_id === '' || payload.area_id === undefined ? null : payload.area_id,
+            pet_group_id: payload.pet_group_id === '' || payload.pet_group_id === undefined ? null : payload.pet_group_id,
+            team_id: payload.team_id === '' || payload.team_id === undefined ? null : payload.team_id,
+            pet_id: payload.pet_id === '' || payload.pet_id === undefined ? null : payload.pet_id
+        };
+
         try {
-            console.log('[createSlot] Request payload:', payload);
-            const response = await apiClient.post('/slots', payload, { timeout: 10000 });
+            console.log('[createSlot] Request payload (final):', JSON.stringify(finalPayload, null, 2));
+            console.log('[createSlot] UUID fields check:', {
+                area_id: { value: finalPayload.area_id, type: typeof finalPayload.area_id, isNull: finalPayload.area_id === null },
+                pet_group_id: { value: finalPayload.pet_group_id, type: typeof finalPayload.pet_group_id, isNull: finalPayload.pet_group_id === null },
+                team_id: { value: finalPayload.team_id, type: typeof finalPayload.team_id, isNull: finalPayload.team_id === null },
+                pet_id: { value: finalPayload.pet_id, type: typeof finalPayload.pet_id, isNull: finalPayload.pet_id === null }
+            });
+
+            const response = await apiClient.post('/slots', finalPayload, { timeout: 10000 });
             console.log('[createSlot] Response:', response.data);
             return { success: true, data: response.data, message: 'Tạo slot thành công' };
         } catch (error) {
             console.error('[createSlot] Error:', error);
+            console.error('[createSlot] Error response:', error.response?.data);
             throw new Error(extractErrorMessage(error, 'Không thể tạo slot'));
         }
     },
