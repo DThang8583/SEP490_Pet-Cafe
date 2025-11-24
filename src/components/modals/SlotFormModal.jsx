@@ -412,20 +412,70 @@ const SlotFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, 
         try {
             // Base submit data - exactly as per official API specification
             // Convert HH:mm to HH:mm:ss format for API (official format)
-            const submitData = {
-                task_id: formData.task_id,
-                area_id: formData.area_id || null,
-                pet_group_id: formData.pet_group_id || null,
-                team_id: formData.team_id || null,
-                pet_id: formData.pet_id || null,
-                start_time: formatTimeForAPI(formData.start_time),
-                end_time: formatTimeForAPI(formData.end_time),
-                max_capacity: parseInt(formData.max_capacity) || 0,
-                special_notes: formData.special_notes || null,
-                is_recurring: !!formData.day_of_week,
-                day_of_week: formData.day_of_week || null,
-                specific_date: formData.specific_date || null
+
+            // Process specific_date: ensure it's ISO datetime string or null
+            let processedSpecificDate = null;
+            if (formData.specific_date) {
+                // If already in ISO format, use as is
+                if (formData.specific_date.includes('T') && formData.specific_date.includes('Z')) {
+                    processedSpecificDate = formData.specific_date;
+                } else if (formData.specific_date.includes('T')) {
+                    // If has T but no Z, assume it's already ISO format
+                    processedSpecificDate = formData.specific_date;
+                } else {
+                    // If just date string (YYYY-MM-DD), convert to ISO datetime
+                    const date = new Date(formData.specific_date + 'T00:00:00.000Z');
+                    processedSpecificDate = date.toISOString();
+                }
+            }
+
+            // Process is_recurring: true if day_of_week is set, false if specific_date is set
+            const isRecurring = !!formData.day_of_week;
+
+            // Helper function to ensure UUID fields are null (not empty string) if not provided
+            const ensureUUIDOrNull = (value) => {
+                // Handle null, undefined, empty string, or whitespace-only string
+                if (value === null || value === undefined) return null;
+                if (typeof value === 'string') {
+                    const trimmed = value.trim();
+                    if (trimmed === '' || trimmed === 'null' || trimmed === 'undefined') return null;
+                    // Check if it's a valid UUID format
+                    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+                    if (uuidRegex.test(trimmed)) {
+                        return trimmed;
+                    }
+                }
+                // For non-string values, try to convert and validate
+                const strValue = String(value).trim();
+                if (strValue === '' || strValue === 'null' || strValue === 'undefined') return null;
+                const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+                if (uuidRegex.test(strValue)) {
+                    return strValue;
+                }
+                return null;
             };
+
+            // Ensure UUID fields are null (not empty string) if not provided
+            const submitData = {
+                task_id: formData.task_id ? String(formData.task_id).trim() : formData.task_id, // Required, must be valid UUID
+                area_id: ensureUUIDOrNull(formData.area_id),
+                pet_group_id: ensureUUIDOrNull(formData.pet_group_id),
+                team_id: ensureUUIDOrNull(formData.team_id),
+                pet_id: ensureUUIDOrNull(formData.pet_id),
+                start_time: formatTimeForAPI(formData.start_time), // Required, format: "HH:mm:ss"
+                end_time: formatTimeForAPI(formData.end_time), // Required, format: "HH:mm:ss"
+                max_capacity: parseInt(formData.max_capacity) || 0, // Required, number >= 0
+                special_notes: (formData.special_notes && formData.special_notes.trim()) ? formData.special_notes.trim() : null,
+                is_recurring: isRecurring, // Required, boolean
+                day_of_week: (formData.day_of_week && formData.day_of_week.trim()) ? formData.day_of_week.trim() : null,
+                specific_date: processedSpecificDate // Optional, ISO datetime string or null
+            };
+
+            // Final safety check: ensure no empty strings in UUID fields
+            if (submitData.area_id === '' || submitData.area_id === undefined) submitData.area_id = null;
+            if (submitData.pet_group_id === '' || submitData.pet_group_id === undefined) submitData.pet_group_id = null;
+            if (submitData.team_id === '' || submitData.team_id === undefined) submitData.team_id = null;
+            if (submitData.pet_id === '' || submitData.pet_id === undefined) submitData.pet_id = null;
 
             // Add fields for edit mode according to official API
             if (mode === 'edit') {

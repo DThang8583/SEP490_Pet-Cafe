@@ -145,27 +145,53 @@ const WorkingAttendancePage = () => {
         }
     }, [viewMode, selectedDate, selectedMonth, selectedYear]);
 
-    // Load attendance data
+    // Load attendance data for teams user belongs to
     useEffect(() => {
         if (teams.length === 0) return;
         let mounted = true;
         const loadAttendance = async () => {
             try {
-                const params = {
+                const teamIds = teams.map(team => team.id).filter(Boolean);
+
+                if (teamIds.length === 0) {
+                    if (mounted) setAttendance([]);
+                    return;
+                }
+
+                const baseParams = {
                     page_index: 0,
                     page_size: 1000,
                     FromDate: dateRange.fromDate,
                     ToDate: dateRange.toDate
                 };
 
-                const response = await getDailySchedules(params);
-                let schedules = response.data || [];
+                const schedulePromises = teamIds.map(teamId =>
+                    getDailySchedules({
+                        ...baseParams,
+                        TeamId: teamId
+                    }).catch(() => ({ success: true, data: [] }))
+                );
+
+                const responses = await Promise.all(schedulePromises);
+
+                let allSchedules = [];
+                responses.forEach(response => {
+                    if (response.success && Array.isArray(response.data)) {
+                        allSchedules.push(...response.data);
+                    }
+                });
+
+                const validTeamIds = new Set(teamIds);
+                allSchedules = allSchedules.filter(schedule => {
+                    const scheduleTeamId = schedule.team_member?.team_id || schedule.team_id;
+                    return scheduleTeamId && validTeamIds.has(scheduleTeamId);
+                });
 
                 // Filter for non-leaders: only show their own attendance
                 if (!isLeader) {
                     const employeeId = profileData.id || profileData.employee_id || profileData.account_id;
                     const accountId = profileData.account_id;
-                    schedules = schedules.filter((schedule) => {
+                    allSchedules = allSchedules.filter((schedule) => {
                         const scheduleEmployeeId = schedule.employee_id || schedule.employee?.id || schedule.team_member?.employee_id;
                         const scheduleAccountId = schedule.employee?.account_id;
                         return (
@@ -176,7 +202,7 @@ const WorkingAttendancePage = () => {
                     });
                 }
 
-                if (mounted) setAttendance(schedules);
+                if (mounted) setAttendance(allSchedules);
             } catch (error) {
                 console.error('Failed to load attendance', error);
                 if (mounted) setSnackbar({ message: 'Không thể tải dữ liệu điểm danh', severity: 'error' });
@@ -186,7 +212,7 @@ const WorkingAttendancePage = () => {
         return () => {
             mounted = false;
         };
-    }, [teams.length, dateRange.fromDate, dateRange.toDate, isLeader, profileData.id, profileData.employee_id, profileData.account_id]);
+    }, [teams, dateRange.fromDate, dateRange.toDate, isLeader, profileData.id, profileData.employee_id, profileData.account_id]);
 
     // Get all team members including leader (with deduplication)
     const getAllTeamMembers = (team) => {
@@ -211,7 +237,6 @@ const WorkingAttendancePage = () => {
             }
         }
 
-        // Add Leader to members list (if exists)
         if (team.leader) {
             const leaderMemberId = team.leader.id || team.leader.account_id;
             if (leaderMemberId && !seenIds.has(leaderMemberId)) {
@@ -224,14 +249,12 @@ const WorkingAttendancePage = () => {
             }
         }
 
-        // Add other members (excluding Leader if already added)
         (team.members || []).forEach((tm) => {
             if (tm.employee) {
                 const tmEmployeeId = tm.employee_id || tm.employee?.id;
                 const tmEmployeeAccountId = tm.employee?.account_id;
                 const memberId = tmEmployeeId || tmEmployeeAccountId;
 
-                // Skip if already seen (duplicate)
                 if (memberId && seenIds.has(memberId)) {
                     return;
                 }
@@ -240,7 +263,6 @@ const WorkingAttendancePage = () => {
                     (leaderId && (tmEmployeeId === leaderId || tmEmployeeAccountId === leaderId)) ||
                     (leaderAccountId && (tmEmployeeId === leaderAccountId || tmEmployeeAccountId === leaderAccountId));
 
-                // Only add if not the leader (leader already added above)
                 if (!isLeaderMember && memberId) {
                     seenIds.add(memberId);
                     members.push({
@@ -456,6 +478,16 @@ const WorkingAttendancePage = () => {
             return;
         }
 
+        // Leader không thể tự điểm danh cho chính mình
+        const member = memberData.member || memberData.employee || memberData.team_member?.employee || {};
+        if (member.isLeader) {
+            setSnackbar({
+                message: 'Leader không cần tự điểm danh. Trạng thái sẽ tự động đổi thành PRESENT sau khi bạn điểm danh tất cả thành viên.',
+                severity: 'info'
+            });
+            return;
+        }
+
         setAttendanceDialog({
             open: true,
             memberData,
@@ -552,80 +584,408 @@ const WorkingAttendancePage = () => {
                 }
             }
 
-            // Debug logging (only in development)
-            if (process.env.NODE_ENV === 'development') {
-                console.log('Attendance Debug:', {
-                    member: {
-                        id: member.id,
-                        employeeId: member.employee_id,
-                        accountId: member.account_id,
-                        isLeader: member.isLeader,
-                        teamMemberIdFromMember: member.team_member_id
-                    },
-                    schedule: {
-                        exists: !!schedule,
-                        id: schedule?.id,
-                        teamMemberId: schedule?.team_member_id,
-                        teamMemberIdFromNested: schedule?.team_member?.id
-                    },
-                    team: {
-                        id: team.id,
-                        leaderId: team.leader_id,
-                        leaderAccountId: team.leader?.account_id,
-                        membersCount: (team.members || []).length
-                    },
-                    foundTeamMemberId: teamMemberId,
-                    shiftId,
-                    date
+            // API requires id to be team_member_id (not schedule.id)
+            if (!teamMemberId) {
+                setSnackbar({
+                    message: 'Không tìm thấy team_member_id. Vui lòng liên hệ quản lý.',
+                    severity: 'error'
                 });
+                setAttendanceDialog(null);
+                return;
             }
 
-            if (schedule && schedule.id) {
-                // Update existing record
-                const payload = [
-                    {
-                        id: schedule.id,
-                        status: newStatus,
-                        notes: notes || ''
-                    }
-                ];
+            const payload = [
+                {
+                    id: teamMemberId,
+                    status: newStatus,
+                    notes: notes || ''
+                }
+            ];
 
-                const response = await apiClient.put(`/teams/${teamId}/daily-schedules`, payload, {
-                    timeout: 10000,
-                    headers: { 'Content-Type': 'application/json' }
-                });
+            const response = await apiClient.put(`/teams/${teamId}/daily-schedules`, payload, {
+                timeout: 10000,
+                headers: { 'Content-Type': 'application/json' }
+            });
 
-                const updatedSchedule = Array.isArray(response.data) ? response.data[0] : response.data;
-                setAttendance((prev) => {
-                    const existing = prev.find(item => item.id === schedule.id);
-                    if (existing) {
-                        return prev.map((item) =>
-                            item.id === schedule.id ? { ...item, ...updatedSchedule, status: newStatus, notes: notes || '' } : item
-                        );
-                    } else {
-                        return [...prev, { ...schedule, ...updatedSchedule, status: newStatus, notes: notes || '' }];
-                    }
-                });
+            let updatedScheduleFromResponse = null;
+            if (response.data) {
+                if (Array.isArray(response.data) && response.data.length > 0) {
+                    updatedScheduleFromResponse = response.data[0];
+                } else if (response.data && !Array.isArray(response.data)) {
+                    updatedScheduleFromResponse = response.data;
+                }
+            }
 
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
+            const teamIds = teams.map(team => team.id).filter(Boolean);
+
+            if (teamIds.length === 0) {
+                if (updatedScheduleFromResponse) {
+                    setAttendance(prev => {
+                        const existing = prev.find(item => {
+                            const itemTeamMemberId = item.team_member_id || item.team_member?.id;
+                            const updatedTeamMemberId = updatedScheduleFromResponse.team_member_id || updatedScheduleFromResponse.team_member?.id;
+                            return itemTeamMemberId === updatedTeamMemberId && item.date === updatedScheduleFromResponse.date;
+                        });
+                        if (existing) {
+                            return prev.map(item => {
+                                const itemTeamMemberId = item.team_member_id || item.team_member?.id;
+                                const updatedTeamMemberId = updatedScheduleFromResponse.team_member_id || updatedScheduleFromResponse.team_member?.id;
+                                if (itemTeamMemberId === updatedTeamMemberId && item.date === updatedScheduleFromResponse.date) {
+                                    return { ...item, ...updatedScheduleFromResponse, status: newStatus, notes: notes || '' };
+                                }
+                                return item;
+                            });
+                        } else {
+                            return [...prev, { ...updatedScheduleFromResponse, status: newStatus, notes: notes || '' }];
+                        }
+                    });
+                }
                 setSnackbar({ message: 'Cập nhật điểm danh thành công', severity: 'success' });
                 setAttendanceDialog(null);
+                return;
+            }
+
+            const baseParams = {
+                page_index: 0,
+                page_size: 1000,
+                FromDate: dateRange.fromDate,
+                ToDate: dateRange.toDate
+            };
+
+            const schedulePromises = teamIds.map(teamId =>
+                getDailySchedules({
+                    ...baseParams,
+                    TeamId: teamId
+                }).catch(error => {
+                    console.warn(`Failed to reload attendance for team ${teamId}:`, error);
+                    return { success: true, data: [] };
+                })
+            );
+
+            const responses = await Promise.all(schedulePromises);
+
+            let updatedSchedules = [];
+            responses.forEach((response) => {
+                if (response.success && Array.isArray(response.data) && response.data.length > 0) {
+                    updatedSchedules.push(...response.data);
+                }
+            });
+
+            if (updatedSchedules.length === 0 && schedule) {
+                const manuallyUpdatedSchedule = {
+                    ...schedule,
+                    status: newStatus,
+                    notes: notes || schedule.notes || null,
+                    team_member_id: teamMemberId,
+                    employee_id: schedule.employee_id || member.id || member.employee_id,
+                    work_shift_id: shiftId,
+                    date: date || schedule.date
+                };
+                updatedSchedules.push(manuallyUpdatedSchedule);
+
+                const currentAttendance = attendance.filter(a => {
+                    const aId = a.id || a.team_member_id || a.team_member?.id;
+                    const sId = schedule.id || schedule.team_member_id || schedule.team_member?.id;
+                    return aId !== sId;
+                });
+                updatedSchedules = [...currentAttendance, manuallyUpdatedSchedule];
             } else {
-                // No existing schedule record - cannot create new one via PUT endpoint
-                // API PUT /teams/{id}/daily-schedules only supports updating existing records (requires id)
-                // New records must be created by Manager first
-                let errorMsg = 'Chưa có bản ghi điểm danh cho ngày này. ';
-                if (member.isLeader) {
-                    errorMsg += 'Vui lòng liên hệ quản lý để tạo lịch làm việc (daily schedule) cho team trước khi có thể điểm danh.';
-                } else {
-                    errorMsg += 'Vui lòng liên hệ quản lý hoặc Leader để tạo lịch làm việc trước.';
+                if (updatedScheduleFromResponse) {
+                    const exists = updatedSchedules.some(s => {
+                        const sTeamMemberId = s.team_member_id || s.team_member?.id;
+                        const updatedTeamMemberId = updatedScheduleFromResponse.team_member_id || updatedScheduleFromResponse.team_member?.id;
+                        const sDate = s.date ? new Date(s.date).toISOString().split('T')[0] : null;
+                        const updatedDate = updatedScheduleFromResponse.date ? new Date(updatedScheduleFromResponse.date).toISOString().split('T')[0] : null;
+                        return sTeamMemberId === updatedTeamMemberId && sDate === updatedDate;
+                    });
+                    if (!exists) {
+                        updatedSchedules.push(updatedScheduleFromResponse);
+                    } else {
+                        updatedSchedules = updatedSchedules.map(s => {
+                            const sTeamMemberId = s.team_member_id || s.team_member?.id;
+                            const updatedTeamMemberId = updatedScheduleFromResponse.team_member_id || updatedScheduleFromResponse.team_member?.id;
+                            const sDate = s.date ? new Date(s.date).toISOString().split('T')[0] : null;
+                            const updatedDate = updatedScheduleFromResponse.date ? new Date(updatedScheduleFromResponse.date).toISOString().split('T')[0] : null;
+                            if (sTeamMemberId === updatedTeamMemberId && sDate === updatedDate) {
+                                return { ...s, ...updatedScheduleFromResponse, status: newStatus, notes: notes || '' };
+                            }
+                            return s;
+                        });
+                    }
+                } else if (schedule) {
+                    const existingIndex = updatedSchedules.findIndex(s => {
+                        const sId = s.id || s.team_member_id || s.team_member?.id;
+                        const scheduleId = schedule.id || schedule.team_member_id || schedule.team_member?.id;
+                        return sId === scheduleId;
+                    });
+
+                    if (existingIndex !== -1) {
+                        updatedSchedules[existingIndex] = {
+                            ...updatedSchedules[existingIndex],
+                            status: newStatus,
+                            notes: notes || updatedSchedules[existingIndex].notes || null
+                        };
+                    } else {
+                        updatedSchedules.push({
+                            ...schedule,
+                            status: newStatus,
+                            notes: notes || schedule.notes || null,
+                            team_member_id: teamMemberId,
+                            employee_id: schedule.employee_id || member.id || member.employee_id,
+                            work_shift_id: shiftId,
+                            date: date || schedule.date
+                        });
+                    }
+                }
+            }
+
+            const validTeamIds = new Set(teamIds);
+            updatedSchedules = updatedSchedules.filter(schedule => {
+                const scheduleTeamId = schedule.team_member?.team_id || schedule.team_id;
+                return scheduleTeamId && validTeamIds.has(scheduleTeamId);
+            });
+
+            // Filter for non-leaders: only show their own attendance
+            if (!isLeader) {
+                const employeeId = profileData.id || profileData.employee_id || profileData.account_id;
+                const accountId = profileData.account_id;
+                updatedSchedules = updatedSchedules.filter((schedule) => {
+                    const scheduleEmployeeId = schedule.employee_id || schedule.employee?.id || schedule.team_member?.employee_id;
+                    const scheduleAccountId = schedule.employee?.account_id;
+                    return (
+                        scheduleEmployeeId === employeeId ||
+                        scheduleAccountId === accountId ||
+                        scheduleAccountId === employeeId
+                    );
+                });
+            }
+
+            if (updatedSchedules.length > 0) {
+                setAttendance(updatedSchedules);
+                setSnackbar({ message: 'Cập nhật điểm danh thành công', severity: 'success' });
+            } else {
+                await new Promise(resolve => setTimeout(resolve, 1500));
+
+                const retryPromises = teamIds.map(teamId =>
+                    getDailySchedules({
+                        ...baseParams,
+                        TeamId: teamId
+                    }).catch(() => ({ success: true, data: [] }))
+                );
+
+                const retryResponses = await Promise.all(retryPromises);
+                let retrySchedules = [];
+                retryResponses.forEach(response => {
+                    if (response.success && Array.isArray(response.data) && response.data.length > 0) {
+                        retrySchedules.push(...response.data);
+                    }
+                });
+
+                const validTeamIds = new Set(teamIds);
+                retrySchedules = retrySchedules.filter(schedule => {
+                    const scheduleTeamId = schedule.team_member?.team_id || schedule.team_id;
+                    return scheduleTeamId && validTeamIds.has(scheduleTeamId);
+                });
+
+                if (!isLeader) {
+                    const employeeId = profileData.id || profileData.employee_id || profileData.account_id;
+                    const accountId = profileData.account_id;
+                    retrySchedules = retrySchedules.filter((schedule) => {
+                        const scheduleEmployeeId = schedule.employee_id || schedule.employee?.id || schedule.team_member?.employee_id;
+                        const scheduleAccountId = schedule.employee?.account_id;
+                        return (
+                            scheduleEmployeeId === employeeId ||
+                            scheduleAccountId === accountId ||
+                            scheduleAccountId === employeeId
+                        );
+                    });
                 }
 
-                setSnackbar({
-                    message: errorMsg,
-                    severity: 'warning'
-                });
-                setAttendanceDialog(null);
+                if (retrySchedules.length > 0) {
+                    setAttendance(retrySchedules);
+                    setSnackbar({ message: 'Cập nhật điểm danh thành công', severity: 'success' });
+                } else {
+                    if (schedule) {
+                        const manuallyUpdated = {
+                            ...schedule,
+                            status: newStatus,
+                            notes: notes || schedule.notes || null,
+                            team_member_id: teamMemberId,
+                            employee_id: schedule.employee_id || member.id || member.employee_id,
+                            work_shift_id: shiftId,
+                            date: date || schedule.date
+                        };
+                        setAttendance(prev => {
+                            const existing = prev.find(item => {
+                                const itemId = item.id || item.team_member_id || item.team_member?.id;
+                                const scheduleId = schedule.id || schedule.team_member_id || schedule.team_member?.id;
+                                const itemDate = item.date ? new Date(item.date).toISOString().split('T')[0] : null;
+                                const scheduleDate = schedule.date ? new Date(schedule.date).toISOString().split('T')[0] : null;
+                                return itemId === scheduleId && itemDate === scheduleDate;
+                            });
+                            if (existing) {
+                                return prev.map(item => {
+                                    const itemId = item.id || item.team_member_id || item.team_member?.id;
+                                    const scheduleId = schedule.id || schedule.team_member_id || schedule.team_member?.id;
+                                    const itemDate = item.date ? new Date(item.date).toISOString().split('T')[0] : null;
+                                    const scheduleDate = schedule.date ? new Date(schedule.date).toISOString().split('T')[0] : null;
+                                    if (itemId === scheduleId && itemDate === scheduleDate) {
+                                        return { ...item, ...manuallyUpdated };
+                                    }
+                                    return item;
+                                });
+                            }
+                            return [...prev, manuallyUpdated];
+                        });
+                        setSnackbar({
+                            message: 'Đã gửi yêu cầu cập nhật điểm danh. Vui lòng làm mới trang để xem dữ liệu mới nhất.',
+                            severity: 'warning'
+                        });
+                    } else {
+                        setSnackbar({
+                            message: 'Không thể tải lại dữ liệu điểm danh. Vui lòng làm mới trang.',
+                            severity: 'warning'
+                        });
+                    }
+                }
             }
+
+            setAttendanceDialog(null);
+
+            // Auto-mark Leader as PRESENT if all members are checked
+            if (isLeader && !member.isLeader) {
+                const allTeamMembers = getAllTeamMembers(team).filter(m => !m.isLeader);
+
+                if (allTeamMembers.length > 0) {
+                    const targetDateStr = date || schedule?.date;
+                    const teamSchedulesForDate = updatedSchedules.filter(s => {
+                        const scheduleTeamId = s.team_member?.team_id || s.team_id;
+                        const scheduleShiftId = s.work_shift_id || s.work_shift?.id;
+                        const scheduleDate = s.date ? new Date(s.date).toISOString().split('T')[0] : null;
+                        const targetDate = targetDateStr;
+
+                        return (
+                            scheduleTeamId === teamId &&
+                            scheduleShiftId === shiftId &&
+                            scheduleDate === targetDate
+                        );
+                    });
+
+                    // Kiểm tra xem tất cả members (không bao gồm Leader) đã được điểm danh chưa
+                    const allMembersChecked = allTeamMembers.every(teamMember => {
+                        const memberEmployeeId = teamMember.id || teamMember.employee_id;
+                        const memberAccountId = teamMember.account_id;
+
+                        const memberSchedule = teamSchedulesForDate.find(s => {
+                            const scheduleEmployeeId = s.employee_id || s.employee?.id || s.team_member?.employee_id;
+                            const scheduleAccountId = s.employee?.account_id;
+                            const scheduleTeamMemberId = s.team_member_id || s.team_member?.id;
+
+                            return (
+                                scheduleEmployeeId === memberEmployeeId ||
+                                scheduleAccountId === memberAccountId ||
+                                scheduleEmployeeId === memberAccountId ||
+                                scheduleTeamMemberId === teamMember.team_member_id
+                            );
+                        });
+
+                        return memberSchedule && memberSchedule.status && memberSchedule.status !== 'PENDING';
+                    });
+
+                    if (allMembersChecked) {
+                        const leaderMember = getAllTeamMembers(team).find(m => m.isLeader);
+                        const leaderTeamMemberId = leaderMember?.team_member_id ||
+                            team.members?.find(tm => {
+                                const tmEmployeeId = tm.employee_id || tm.employee?.id;
+                                const tmEmployeeAccountId = tm.employee?.account_id;
+                                const leaderId = team.leader_id;
+                                const leaderAccountId = team.leader?.account_id;
+                                return (
+                                    (leaderId && (tmEmployeeId === leaderId || tmEmployeeAccountId === leaderId)) ||
+                                    (leaderAccountId && (tmEmployeeId === leaderAccountId || tmEmployeeAccountId === leaderAccountId))
+                                );
+                            })?.id;
+
+                        if (leaderTeamMemberId) {
+                            const leaderSchedule = teamSchedulesForDate.find(s => {
+                                const scheduleTeamMemberId = s.team_member_id || s.team_member?.id;
+                                return scheduleTeamMemberId === leaderTeamMemberId;
+                            });
+
+                            if (!leaderSchedule || leaderSchedule.status === 'PENDING') {
+                                const leaderPayload = [
+                                    {
+                                        id: leaderTeamMemberId,
+                                        status: 'PRESENT',
+                                        notes: 'Tự động điểm danh sau khi điểm danh tất cả thành viên'
+                                    }
+                                ];
+
+                                try {
+                                    await apiClient.put(`/teams/${teamId}/daily-schedules`, leaderPayload, {
+                                        timeout: 10000,
+                                        headers: { 'Content-Type': 'application/json' }
+                                    });
+
+                                    const reloadTeamIds = teams.map(team => team.id).filter(Boolean);
+                                    if (reloadTeamIds.length > 0) {
+                                        const reloadBaseParams = {
+                                            page_index: 0,
+                                            page_size: 1000,
+                                            FromDate: dateRange.fromDate,
+                                            ToDate: dateRange.toDate
+                                        };
+
+                                        const reloadPromises = reloadTeamIds.map(teamId =>
+                                            getDailySchedules({
+                                                ...reloadBaseParams,
+                                                TeamId: teamId
+                                            }).catch(() => ({ success: true, data: [] }))
+                                        );
+
+                                        const reloadResponses = await Promise.all(reloadPromises);
+
+                                        let finalSchedules = [];
+                                        reloadResponses.forEach(response => {
+                                            if (response.success && Array.isArray(response.data)) {
+                                                finalSchedules.push(...response.data);
+                                            }
+                                        });
+
+                                        const validTeamIds = new Set(reloadTeamIds);
+                                        finalSchedules = finalSchedules.filter(schedule => {
+                                            const scheduleTeamId = schedule.team_member?.team_id || schedule.team_id;
+                                            return scheduleTeamId && validTeamIds.has(scheduleTeamId);
+                                        });
+
+                                        if (!isLeader) {
+                                            const employeeId = profileData.id || profileData.employee_id || profileData.account_id;
+                                            const accountId = profileData.account_id;
+                                            finalSchedules = finalSchedules.filter((schedule) => {
+                                                const scheduleEmployeeId = schedule.employee_id || schedule.employee?.id || schedule.team_member?.employee_id;
+                                                const scheduleAccountId = schedule.employee?.account_id;
+                                                return (
+                                                    scheduleEmployeeId === employeeId ||
+                                                    scheduleAccountId === accountId ||
+                                                    scheduleAccountId === employeeId
+                                                );
+                                            });
+                                        }
+                                        setAttendance(finalSchedules);
+                                    }
+                                } catch (leaderError) {
+                                    // Silently fail - auto-check is background operation
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            setSnackbar({ message: 'Cập nhật điểm danh thành công', severity: 'success' });
+            setAttendanceDialog(null);
         } catch (error) {
             console.error('Failed to update attendance', error);
             const errorMsg = error.response?.data?.message || error.message || 'Không thể cập nhật điểm danh';
@@ -1299,9 +1659,72 @@ const WorkingAttendancePage = () => {
                                                                                                             </Typography>
                                                                                                         </TableCell>
                                                                                                         <TableCell align="center" sx={{ py: 2.5 }}>
-                                                                                                            {isTeamLeader ? (
-                                                                                                                <Stack direction="row" spacing={1.5} alignItems="center" justifyContent="center" flexWrap="wrap" sx={{ gap: 1 }}>
-                                                                                                                    {/* Current Status Chip */}
+                                                                                                            {/* Leader không thể tự điểm danh cho chính mình - chỉ hiển thị status */}
+                                                                                                            {isTeamLeader && member.isLeader ? (
+                                                                                                                <Chip
+                                                                                                                    icon={STATUS_OPTIONS.find((opt) => opt.value === currentStatus)?.icon}
+                                                                                                                    label={STATUS_OPTIONS.find((opt) => opt.value === currentStatus)?.label || currentStatus}
+                                                                                                                    sx={{
+                                                                                                                        bgcolor: STATUS_COLORS[currentStatus]?.bg || COLORS.GRAY[100],
+                                                                                                                        color: STATUS_COLORS[currentStatus]?.color || COLORS.GRAY[700],
+                                                                                                                        fontWeight: 700,
+                                                                                                                        height: 36,
+                                                                                                                        fontSize: '0.875rem',
+                                                                                                                        border: `2px solid ${alpha(STATUS_COLORS[currentStatus]?.color || COLORS.GRAY[700], 0.3)}`,
+                                                                                                                        boxShadow: currentStatus !== 'PENDING' ? `0 2px 8px ${alpha(STATUS_COLORS[currentStatus]?.color || COLORS.GRAY[700], 0.15)}` : 'none'
+                                                                                                                    }}
+                                                                                                                    size="medium"
+                                                                                                                />
+                                                                                                            ) : isTeamLeader ? (
+                                                                                                                currentStatus === 'PENDING' ? (
+                                                                                                                    <Stack direction="row" spacing={1.5} alignItems="center" justifyContent="center" flexWrap="wrap" sx={{ gap: 1 }}>
+                                                                                                                        <Chip
+                                                                                                                            icon={STATUS_OPTIONS.find((opt) => opt.value === currentStatus)?.icon}
+                                                                                                                            label={STATUS_OPTIONS.find((opt) => opt.value === currentStatus)?.label || currentStatus}
+                                                                                                                            sx={{
+                                                                                                                                bgcolor: STATUS_COLORS[currentStatus]?.bg || COLORS.GRAY[100],
+                                                                                                                                color: STATUS_COLORS[currentStatus]?.color || COLORS.GRAY[700],
+                                                                                                                                fontWeight: 700,
+                                                                                                                                height: 36,
+                                                                                                                                fontSize: '0.875rem',
+                                                                                                                                border: `2px solid ${alpha(STATUS_COLORS[currentStatus]?.color || COLORS.GRAY[700], 0.3)}`
+                                                                                                                            }}
+                                                                                                                            size="medium"
+                                                                                                                        />
+                                                                                                                        {STATUS_OPTIONS.filter(option =>
+                                                                                                                            option.value !== 'PENDING'
+                                                                                                                        ).map((option) => (
+                                                                                                                            <Tooltip key={option.value} title={`Đánh dấu: ${option.label}`} arrow placement="top">
+                                                                                                                                <Button
+                                                                                                                                    variant="outlined"
+                                                                                                                                    color={option.color}
+                                                                                                                                    size="small"
+                                                                                                                                    startIcon={option.icon}
+                                                                                                                                    onClick={() => handleStatusClick(memberData || { member, date: dateStr, schedule }, option.value, team.id, shift.id, dateStr, isTeamLeader)}
+                                                                                                                                    sx={{
+                                                                                                                                        borderRadius: 2,
+                                                                                                                                        minWidth: 110,
+                                                                                                                                        textTransform: 'none',
+                                                                                                                                        fontWeight: 600,
+                                                                                                                                        px: 2,
+                                                                                                                                        py: 0.75,
+                                                                                                                                        fontSize: '0.8rem',
+                                                                                                                                        borderWidth: 2,
+                                                                                                                                        '&:hover': {
+                                                                                                                                            borderWidth: 2,
+                                                                                                                                            boxShadow: `0 4px 12px ${alpha(COLORS[option.color.toUpperCase()]?.[500] || COLORS.PRIMARY[500], 0.25)}`,
+                                                                                                                                            transform: 'translateY(-2px)',
+                                                                                                                                            bgcolor: alpha(COLORS[option.color.toUpperCase()]?.[50] || COLORS.PRIMARY[50], 0.5)
+                                                                                                                                        },
+                                                                                                                                        transition: 'all 0.2s'
+                                                                                                                                    }}
+                                                                                                                                >
+                                                                                                                                    {option.label}
+                                                                                                                                </Button>
+                                                                                                                            </Tooltip>
+                                                                                                                        ))}
+                                                                                                                    </Stack>
+                                                                                                                ) : (
                                                                                                                     <Chip
                                                                                                                         icon={STATUS_OPTIONS.find((opt) => opt.value === currentStatus)?.icon}
                                                                                                                         label={STATUS_OPTIONS.find((opt) => opt.value === currentStatus)?.label || currentStatus}
@@ -1312,45 +1735,11 @@ const WorkingAttendancePage = () => {
                                                                                                                             height: 36,
                                                                                                                             fontSize: '0.875rem',
                                                                                                                             border: `2px solid ${alpha(STATUS_COLORS[currentStatus]?.color || COLORS.GRAY[700], 0.3)}`,
-                                                                                                                            boxShadow: currentStatus !== 'PENDING' ? `0 2px 8px ${alpha(STATUS_COLORS[currentStatus]?.color || COLORS.GRAY[700], 0.15)}` : 'none'
+                                                                                                                            boxShadow: `0 2px 8px ${alpha(STATUS_COLORS[currentStatus]?.color || COLORS.GRAY[700], 0.15)}`
                                                                                                                         }}
                                                                                                                         size="medium"
                                                                                                                     />
-                                                                                                                    {/* Action Buttons - Show all status options */}
-                                                                                                                    {STATUS_OPTIONS.filter(option =>
-                                                                                                                        option.value !== 'PENDING' &&
-                                                                                                                        option.value !== currentStatus
-                                                                                                                    ).map((option) => (
-                                                                                                                        <Tooltip key={option.value} title={`Đánh dấu: ${option.label}`} arrow placement="top">
-                                                                                                                            <Button
-                                                                                                                                variant="outlined"
-                                                                                                                                color={option.color}
-                                                                                                                                size="small"
-                                                                                                                                startIcon={option.icon}
-                                                                                                                                onClick={() => handleStatusClick(memberData || { member, date: dateStr, schedule }, option.value, team.id, shift.id, dateStr, isTeamLeader)}
-                                                                                                                                sx={{
-                                                                                                                                    borderRadius: 2,
-                                                                                                                                    minWidth: 110,
-                                                                                                                                    textTransform: 'none',
-                                                                                                                                    fontWeight: 600,
-                                                                                                                                    px: 2,
-                                                                                                                                    py: 0.75,
-                                                                                                                                    fontSize: '0.8rem',
-                                                                                                                                    borderWidth: 2,
-                                                                                                                                    '&:hover': {
-                                                                                                                                        borderWidth: 2,
-                                                                                                                                        boxShadow: `0 4px 12px ${alpha(COLORS[option.color.toUpperCase()]?.[500] || COLORS.PRIMARY[500], 0.25)}`,
-                                                                                                                                        transform: 'translateY(-2px)',
-                                                                                                                                        bgcolor: alpha(COLORS[option.color.toUpperCase()]?.[50] || COLORS.PRIMARY[50], 0.5)
-                                                                                                                                    },
-                                                                                                                                    transition: 'all 0.2s'
-                                                                                                                                }}
-                                                                                                                            >
-                                                                                                                                {option.label}
-                                                                                                                            </Button>
-                                                                                                                        </Tooltip>
-                                                                                                                    ))}
-                                                                                                                </Stack>
+                                                                                                                )
                                                                                                             ) : (
                                                                                                                 <Chip
                                                                                                                     icon={STATUS_OPTIONS.find((opt) => opt.value === currentStatus)?.icon}
@@ -1521,3 +1910,4 @@ const WorkingAttendancePage = () => {
 };
 
 export default WorkingAttendancePage;
+

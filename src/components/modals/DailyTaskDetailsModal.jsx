@@ -1,5 +1,5 @@
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Box, Typography, Stack, Chip, Divider, alpha, Avatar, Grid, Paper } from '@mui/material';
-import { Assignment, CalendarToday, Schedule, Group, Info, Work, AttachMoney, LocationOn, Pets, Event } from '@mui/icons-material';
+import { Assignment, CalendarToday, Schedule, Group, Info, Work, AttachMoney, LocationOn, Pets, Event, AccessTime } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 import { DAILY_TASK_STATUS, TASK_PRIORITY } from '../../api/dailyTasksApi';
 import { WEEKDAY_LABELS } from '../../api/slotApi';

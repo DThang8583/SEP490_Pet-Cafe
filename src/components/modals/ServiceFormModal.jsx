@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Box, Alert, InputAdornment, Typography, Paper, Divider, IconButton, Stack, alpha } from '@mui/material';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Box, Alert, InputAdornment, Typography, Paper, Divider, IconButton, Stack, alpha, CircularProgress } from '@mui/material';
 import { CloudUpload as CloudUploadIcon, Delete as DeleteIcon, Image as ImageIcon } from '@mui/icons-material';
 import { formatPrice } from '../../utils/formatPrice';
 import { COLORS } from '../../constants/colors';
+import { uploadFile } from '../../api/fileApi';
 
 const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, mode = 'create' }) => {
     const [formData, setFormData] = useState({
@@ -17,6 +18,7 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
 
     const [errors, setErrors] = useState({});
     const [loading, setLoading] = useState(false);
+    const [uploadingImages, setUploadingImages] = useState(false);
     const [imagePreviews, setImagePreviews] = useState([]);
 
     // Initialize form data when modal opens
@@ -87,7 +89,7 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
     };
 
     // Handle multiple images upload
-    const handleImagesUpload = (event) => {
+    const handleImagesUpload = async (event) => {
         const files = Array.from(event.target.files);
         if (files.length === 0) return;
 
@@ -126,17 +128,22 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
             validFiles.push(file);
         }
 
-        // Read all files
-        const readPromises = validFiles.map(file => {
-            return new Promise((resolve) => {
-                const reader = new FileReader();
-                reader.onloadend = () => resolve(reader.result);
-                reader.readAsDataURL(file);
-            });
-        });
+        // Clear previous errors
+        setErrors(prev => ({
+            ...prev,
+            images: ''
+        }));
 
-        Promise.all(readPromises).then(results => {
-            const newPreviews = [...imagePreviews, ...results];
+        // Set uploading state
+        setUploadingImages(true);
+
+        try {
+            // Upload all files to server
+            const uploadPromises = validFiles.map(file => uploadFile(file));
+            const uploadedUrls = await Promise.all(uploadPromises);
+
+            // Create preview URLs (use uploaded URLs for preview)
+            const newPreviews = [...imagePreviews, ...uploadedUrls];
             setImagePreviews(newPreviews);
 
             // Set first image as main image_url, rest as thumbnails
@@ -150,9 +157,16 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
                 ...prev,
                 images: ''
             }));
-
+        } catch (error) {
+            console.error('Error uploading images:', error);
+            setErrors(prev => ({
+                ...prev,
+                images: error.message || 'Không thể tải ảnh lên. Vui lòng thử lại.'
+            }));
+        } finally {
+            setUploadingImages(false);
             event.target.value = '';
-        });
+        }
     };
 
     // Handle remove single image
@@ -197,8 +211,8 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
             newErrors.duration_minutes = 'Thời gian phải lớn hơn 0';
         }
 
-        if (formData.base_price === undefined || formData.base_price === null || formData.base_price < 0) {
-            newErrors.base_price = 'Giá dịch vụ là bắt buộc và không được âm';
+        if (formData.base_price === undefined || formData.base_price === null || formData.base_price <= 0) {
+            newErrors.base_price = 'Giá dịch vụ là bắt buộc và phải lớn hơn 0';
         }
 
         setErrors(newErrors);
@@ -219,16 +233,13 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
                 description: formData.description.trim(),
                 duration_minutes: parseInt(formData.duration_minutes),
                 base_price: parseFloat(formData.base_price),
-                task_id: formData.task_id
+                task_id: formData.task_id,
+                // Always include image fields - use null/empty array if not provided
+                image_url: formData.image_url && formData.image_url.trim() ? formData.image_url.trim() : null,
+                thumbnails: formData.thumbnails && Array.isArray(formData.thumbnails) && formData.thumbnails.length > 0
+                    ? formData.thumbnails.filter(url => url && url.trim()).map(url => url.trim())
+                    : []
             };
-
-            // Only include image fields if they have values
-            if (formData.image_url) {
-                submitData.image_url = formData.image_url;
-            }
-            if (formData.thumbnails && formData.thumbnails.length > 0) {
-                submitData.thumbnails = formData.thumbnails;
-            }
 
             await onSubmit(submitData);
             handleClose();
@@ -316,100 +327,190 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
                         <Button
                             component="label"
                             variant="outlined"
-                            startIcon={<CloudUploadIcon />}
-                            disabled={loading || imagePreviews.length >= 5}
+                            startIcon={uploadingImages ? <CircularProgress size={16} /> : <CloudUploadIcon />}
+                            disabled={loading || uploadingImages || imagePreviews.length >= 5}
                             sx={{ mb: 2 }}
                         >
-                            {imagePreviews.length > 0 ? 'Thêm ảnh' : 'Tải ảnh lên'}
+                            {uploadingImages ? 'Đang tải lên...' : (imagePreviews.length > 0 ? 'Thêm ảnh' : 'Tải ảnh lên')}
                             <input
                                 type="file"
                                 hidden
                                 multiple
                                 accept="image/*"
                                 onChange={handleImagesUpload}
+                                disabled={uploadingImages}
                             />
                         </Button>
 
                         {/* Image Previews Grid */}
                         {imagePreviews.length > 0 && (
-                            <Box sx={{
-                                display: 'grid',
-                                gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))',
-                                gap: 2,
-                                mb: 1
-                            }}>
-                                {imagePreviews.map((preview, index) => (
-                                    <Box
-                                        key={index}
-                                        sx={{
-                                            position: 'relative',
-                                            paddingTop: '100%',
-                                            borderRadius: 1,
-                                            overflow: 'hidden',
-                                            border: index === 0 ? '2px solid' : '1px solid',
-                                            borderColor: index === 0 ? 'primary.main' : 'divider'
-                                        }}
-                                    >
-                                        {index === 0 && (
+                            <Box sx={{ mb: 1 }}>
+                                {/* Main Image Section */}
+                                {imagePreviews.length > 0 && (
+                                    <Box sx={{ mb: 2 }}>
+                                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1, fontWeight: 600 }}>
+                                            📸 Ảnh chính (image_url)
+                                        </Typography>
+                                        <Box sx={{
+                                            display: 'grid',
+                                            gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))',
+                                            gap: 2,
+                                            maxWidth: '300px'
+                                        }}>
                                             <Box
                                                 sx={{
-                                                    position: 'absolute',
-                                                    top: 0,
-                                                    left: 0,
-                                                    bgcolor: 'primary.main',
-                                                    color: 'white',
-                                                    px: 1,
-                                                    py: 0.5,
-                                                    fontSize: '0.625rem',
-                                                    fontWeight: 600,
-                                                    zIndex: 1
+                                                    position: 'relative',
+                                                    paddingTop: '100%',
+                                                    borderRadius: 1,
+                                                    overflow: 'hidden',
+                                                    border: '2px solid',
+                                                    borderColor: 'primary.main',
+                                                    boxShadow: `0 2px 8px ${alpha(COLORS.PRIMARY[200], 0.3)}`
                                                 }}
                                             >
-                                                ẢNH CHÍNH
+                                                <Box
+                                                    sx={{
+                                                        position: 'absolute',
+                                                        top: 0,
+                                                        left: 0,
+                                                        bgcolor: 'primary.main',
+                                                        color: 'white',
+                                                        px: 1,
+                                                        py: 0.5,
+                                                        fontSize: '0.625rem',
+                                                        fontWeight: 600,
+                                                        zIndex: 1,
+                                                        width: '100%',
+                                                        textAlign: 'center'
+                                                    }}
+                                                >
+                                                    ẢNH CHÍNH
+                                                </Box>
+                                                <Box
+                                                    component="img"
+                                                    src={imagePreviews[0]}
+                                                    alt="Main image"
+                                                    sx={{
+                                                        position: 'absolute',
+                                                        top: 0,
+                                                        left: 0,
+                                                        width: '100%',
+                                                        height: '100%',
+                                                        objectFit: 'cover'
+                                                    }}
+                                                />
+                                                <IconButton
+                                                    size="small"
+                                                    onClick={() => handleRemoveImage(0)}
+                                                    sx={{
+                                                        position: 'absolute',
+                                                        top: 4,
+                                                        right: 4,
+                                                        bgcolor: 'rgba(0, 0, 0, 0.6)',
+                                                        color: 'white',
+                                                        '&:hover': {
+                                                            bgcolor: 'rgba(0, 0, 0, 0.8)'
+                                                        }
+                                                    }}
+                                                >
+                                                    <DeleteIcon fontSize="small" />
+                                                </IconButton>
                                             </Box>
-                                        )}
-                                        <Box
-                                            component="img"
-                                            src={preview}
-                                            alt={`Preview ${index + 1}`}
-                                            sx={{
-                                                position: 'absolute',
-                                                top: 0,
-                                                left: 0,
-                                                width: '100%',
-                                                height: '100%',
-                                                objectFit: 'cover'
-                                            }}
-                                        />
-                                        <IconButton
-                                            size="small"
-                                            onClick={() => handleRemoveImage(index)}
-                                            sx={{
-                                                position: 'absolute',
-                                                top: 4,
-                                                right: 4,
-                                                bgcolor: 'rgba(0, 0, 0, 0.6)',
-                                                color: 'white',
-                                                '&:hover': {
-                                                    bgcolor: 'rgba(0, 0, 0, 0.8)'
-                                                }
-                                            }}
-                                        >
-                                            <DeleteIcon fontSize="small" />
-                                        </IconButton>
+                                        </Box>
                                     </Box>
-                                ))}
+                                )}
+
+                                {/* Thumbnails Section */}
+                                {imagePreviews.length > 1 && (
+                                    <Box>
+                                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1, fontWeight: 600 }}>
+                                            🖼️ Ảnh phụ - Thumbnails ({imagePreviews.length - 1} ảnh)
+                                        </Typography>
+                                        <Box sx={{
+                                            display: 'grid',
+                                            gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))',
+                                            gap: 2
+                                        }}>
+                                            {imagePreviews.slice(1).map((preview, index) => (
+                                                <Box
+                                                    key={index + 1}
+                                                    sx={{
+                                                        position: 'relative',
+                                                        paddingTop: '100%',
+                                                        borderRadius: 1,
+                                                        overflow: 'hidden',
+                                                        border: '1px solid',
+                                                        borderColor: 'divider'
+                                                    }}
+                                                >
+                                                    <Box
+                                                        sx={{
+                                                            position: 'absolute',
+                                                            top: 0,
+                                                            left: 0,
+                                                            bgcolor: alpha(COLORS.SECONDARY[500], 0.8),
+                                                            color: 'white',
+                                                            px: 0.5,
+                                                            py: 0.25,
+                                                            fontSize: '0.5rem',
+                                                            fontWeight: 600,
+                                                            zIndex: 1,
+                                                            width: '100%',
+                                                            textAlign: 'center'
+                                                        }}
+                                                    >
+                                                        THUMBNAIL {index + 1}
+                                                    </Box>
+                                                    <Box
+                                                        component="img"
+                                                        src={preview}
+                                                        alt={`Thumbnail ${index + 1}`}
+                                                        sx={{
+                                                            position: 'absolute',
+                                                            top: 0,
+                                                            left: 0,
+                                                            width: '100%',
+                                                            height: '100%',
+                                                            objectFit: 'cover'
+                                                        }}
+                                                    />
+                                                    <IconButton
+                                                        size="small"
+                                                        onClick={() => handleRemoveImage(index + 1)}
+                                                        sx={{
+                                                            position: 'absolute',
+                                                            top: 4,
+                                                            right: 4,
+                                                            bgcolor: 'rgba(0, 0, 0, 0.6)',
+                                                            color: 'white',
+                                                            '&:hover': {
+                                                                bgcolor: 'rgba(0, 0, 0, 0.8)'
+                                                            }
+                                                        }}
+                                                    >
+                                                        <DeleteIcon fontSize="small" />
+                                                    </IconButton>
+                                                </Box>
+                                            ))}
+                                        </Box>
+                                    </Box>
+                                )}
                             </Box>
                         )}
 
                         {errors.images && (
-                            <Typography variant="caption" color="error" sx={{ display: 'block' }}>
+                            <Typography variant="caption" color="error" sx={{ display: 'block', mt: 1 }}>
                                 {errors.images}
                             </Typography>
                         )}
-                        {!errors.images && (
-                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                                📌 Ảnh đầu tiên sẽ là ảnh chính, các ảnh sau là ảnh phụ (thumbnails)
+                        {!errors.images && imagePreviews.length === 0 && (
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                                📌 <strong>Hướng dẫn:</strong> Ảnh đầu tiên sẽ là <strong>ảnh chính (image_url)</strong>, các ảnh sau sẽ là <strong>ảnh phụ (thumbnails)</strong>
+                            </Typography>
+                        )}
+                        {!errors.images && imagePreviews.length > 0 && (
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                                ✅ Đã tải {imagePreviews.length} ảnh: 1 ảnh chính + {Math.max(0, imagePreviews.length - 1)} thumbnails
                             </Typography>
                         )}
                     </Box>
