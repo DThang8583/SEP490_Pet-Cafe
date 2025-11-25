@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Box, Typography, Paper, Stack, IconButton, Grid, alpha, Chip, Dialog, DialogTitle, DialogContent, DialogActions, Button, Avatar, Divider } from '@mui/material';
-import { ChevronLeft, ChevronRight, Close, Vaccines, Pets } from '@mui/icons-material';
+import { ChevronLeft, ChevronRight, Close, Vaccines, Pets, CheckCircle, Cancel, Schedule as ScheduleIcon, CalendarToday, Category } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 import { API_BASE_URL } from '../../config/config';
 
@@ -312,31 +312,32 @@ const VaccinationCalendar = ({ upcomingVaccinations }) => {
             <Dialog
                 open={detailDialogOpen}
                 onClose={() => setDetailDialogOpen(false)}
-                maxWidth="sm"
+                maxWidth="md"
                 fullWidth
                 PaperProps={{
                     sx: {
-                        borderRadius: 3,
-                        boxShadow: `0 20px 60px ${alpha(COLORS.PRIMARY[900], 0.3)}`
+                        borderRadius: 2,
+                        boxShadow: `0 8px 32px ${alpha(COLORS.SHADOW.LIGHT, 0.15)}`
                     }
                 }}
             >
                 <DialogTitle
                     sx={{
-                        background: COLORS.WARNING[500],
+                        background: COLORS.PRIMARY[600],
                         color: '#fff',
-                        fontWeight: 800,
-                        py: 2.5
+                        fontWeight: 700,
+                        py: 2.5,
+                        px: 3
                     }}
                 >
                     <Stack direction="row" alignItems="center" justifyContent="space-between">
-                        <Stack direction="row" alignItems="center" spacing={1.5}>
-                            <Vaccines sx={{ fontSize: 28 }} />
+                        <Stack direction="row" alignItems="center" spacing={2}>
+                            <Vaccines sx={{ fontSize: 32 }} />
                             <Box>
-                                <Typography variant="h6" sx={{ fontWeight: 800 }}>
+                                <Typography variant="h6" sx={{ fontWeight: 700, lineHeight: 1.3, fontSize: '1.25rem' }}>
                                     Lịch tiêm ngày {selectedDate?.day}/{selectedDate?.month + 1}/{selectedDate?.year}
                                 </Typography>
-                                <Typography variant="caption" sx={{ opacity: 0.9 }}>
+                                <Typography variant="body2" sx={{ opacity: 0.9, mt: 0.25, fontSize: '0.875rem' }}>
                                     {selectedDate?.vaccinations?.length || 0} lịch hẹn
                                 </Typography>
                             </Box>
@@ -345,82 +346,280 @@ const VaccinationCalendar = ({ upcomingVaccinations }) => {
                             onClick={() => setDetailDialogOpen(false)}
                             sx={{
                                 color: '#fff',
-                                '&:hover': { background: alpha('#fff', 0.2) }
+                                '&:hover': {
+                                    bgcolor: alpha('#fff', 0.15)
+                                }
                             }}
                         >
                             <Close />
                         </IconButton>
                     </Stack>
                 </DialogTitle>
-                <DialogContent sx={{ p: 3, mt: 2 }}>
-                    <Stack spacing={2}>
-                        {selectedDate?.vaccinations?.map((vaccination, index) => (
-                            <Paper
-                                key={index}
-                                elevation={0}
-                                sx={{
-                                    p: 2,
-                                    borderRadius: 2,
-                                    background: alpha(COLORS.WARNING[50], 0.3),
-                                    border: `1px solid ${alpha(COLORS.WARNING[200], 0.4)}`
-                                }}
-                            >
-                                <Stack direction="row" alignItems="center" spacing={2}>
-                                    <Avatar
-                                        src={getPetImageUrl(vaccination.pet)}
-                                        alt={vaccination.pet?.name}
+                <DialogContent sx={{ p: 3 }}>
+                    <Grid container spacing={2.5}>
+                        {selectedDate?.vaccinations?.map((vaccination, index) => {
+                            const getStatusDisplay = (status) => {
+                                switch (status) {
+                                    case 'COMPLETED':
+                                        return {
+                                            label: 'Đã hoàn thành',
+                                            icon: <CheckCircle fontSize="small" />,
+                                            color: COLORS.SUCCESS[700],
+                                            bg: alpha(COLORS.SUCCESS[50], 0.6),
+                                            borderColor: alpha(COLORS.SUCCESS[300], 0.4)
+                                        };
+                                    case 'CANCELLED':
+                                        return {
+                                            label: 'Đã hủy',
+                                            icon: <Cancel fontSize="small" />,
+                                            color: COLORS.ERROR[700],
+                                            bg: alpha(COLORS.ERROR[50], 0.6),
+                                            borderColor: alpha(COLORS.ERROR[300], 0.4)
+                                        };
+                                    case 'SCHEDULED':
+                                    default:
+                                        return {
+                                            label: 'Đã lên lịch',
+                                            icon: <ScheduleIcon fontSize="small" />,
+                                            color: COLORS.INFO[700],
+                                            bg: alpha(COLORS.INFO[50], 0.6),
+                                            borderColor: alpha(COLORS.INFO[300], 0.4)
+                                        };
+                                }
+                            };
+
+                            const statusDisplay = getStatusDisplay(vaccination.status);
+
+                            return (
+                                <Grid item xs={12} md={6} key={index}>
+                                    <Paper
+                                        elevation={1}
                                         sx={{
-                                            width: 50,
-                                            height: 50,
-                                            border: `2px solid ${COLORS.WARNING[300]}`
+                                            p: 3,
+                                            height: '100%',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            borderRadius: 2,
+                                            border: `1px solid ${alpha(COLORS.BORDER.PRIMARY, 0.12)}`,
+                                            bgcolor: '#fff',
+                                            transition: 'all 0.2s',
+                                            '&:hover': {
+                                                boxShadow: `0 4px 12px ${alpha(COLORS.SHADOW.LIGHT, 0.12)}`,
+                                                borderColor: alpha(COLORS.PRIMARY[300], 0.3)
+                                            }
                                         }}
                                     >
-                                        <Pets />
-                                    </Avatar>
-                                    <Box sx={{ flex: 1 }}>
-                                        <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.5 }}>
-                                            <Pets sx={{ fontSize: 18, color: COLORS.PRIMARY[600] }} />
-                                            <Typography variant="subtitle1" sx={{ fontWeight: 700, color: COLORS.PRIMARY[700] }}>
-                                                {vaccination.pet?.name}
-                                            </Typography>
-                                        </Stack>
-                                        <Stack direction="row" alignItems="center" spacing={1}>
-                                            <Vaccines sx={{ fontSize: 16, color: COLORS.WARNING[600] }} />
-                                            <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.WARNING[700] }}>
-                                                {vaccination.vaccine_type?.name}
-                                            </Typography>
-                                        </Stack>
-                                        {vaccination.notes && (
-                                            <>
-                                                <Divider sx={{ my: 1 }} />
-                                                <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, display: 'block' }}>
-                                                    📝 {vaccination.notes}
+                                        <Stack spacing={2.5} sx={{ flex: 1 }}>
+                                            {/* Header: Pet Info & Status */}
+                                            <Stack direction="row" spacing={2} alignItems="flex-start">
+                                                <Avatar
+                                                    src={getPetImageUrl(vaccination.pet)}
+                                                    alt={vaccination.pet?.name}
+                                                    sx={{
+                                                        width: 60,
+                                                        height: 60,
+                                                        border: `2px solid ${alpha(COLORS.PRIMARY[200], 0.5)}`
+                                                    }}
+                                                >
+                                                    <Pets sx={{ fontSize: 32 }} />
+                                                </Avatar>
+
+                                                <Box sx={{ flex: 1, minWidth: 0 }}>
+                                                    <Typography
+                                                        variant="h6"
+                                                        sx={{
+                                                            fontWeight: 700,
+                                                            color: COLORS.TEXT.PRIMARY,
+                                                            mb: 0.5,
+                                                            lineHeight: 1.3,
+                                                            fontSize: '1.125rem'
+                                                        }}
+                                                    >
+                                                        {vaccination.pet?.name}
+                                                    </Typography>
+
+                                                    {/* Species & Breed */}
+                                                    <Typography
+                                                        variant="body2"
+                                                        sx={{
+                                                            color: COLORS.TEXT.SECONDARY,
+                                                            fontWeight: 500,
+                                                            fontSize: '0.875rem'
+                                                        }}
+                                                    >
+                                                        {[vaccination.pet?.species?.name, vaccination.pet?.breed?.name]
+                                                            .filter(Boolean)
+                                                            .join(' • ')}
+                                                    </Typography>
+                                                </Box>
+
+                                                {/* Status Badge */}
+                                                <Chip
+                                                    icon={statusDisplay.icon}
+                                                    label={statusDisplay.label}
+                                                    sx={{
+                                                        height: 32,
+                                                        fontWeight: 600,
+                                                        fontSize: '0.8125rem',
+                                                        bgcolor: statusDisplay.bg,
+                                                        color: statusDisplay.color,
+                                                        border: `1px solid ${alpha(statusDisplay.borderColor, 0.5)}`,
+                                                        '& .MuiChip-icon': {
+                                                            color: statusDisplay.color,
+                                                            fontSize: 18
+                                                        }
+                                                    }}
+                                                />
+                                            </Stack>
+
+                                            <Divider />
+
+                                            {/* Vaccine Info */}
+                                            <Box>
+                                                <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 1 }}>
+                                                    <Vaccines sx={{ fontSize: 20, color: COLORS.WARNING[600] }} />
+                                                    <Typography
+                                                        variant="caption"
+                                                        sx={{
+                                                            color: COLORS.TEXT.SECONDARY,
+                                                            fontWeight: 600,
+                                                            fontSize: '0.8125rem',
+                                                            textTransform: 'uppercase',
+                                                            letterSpacing: 0.5
+                                                        }}
+                                                    >
+                                                        Loại vaccine
+                                                    </Typography>
+                                                </Stack>
+                                                <Typography
+                                                    variant="body1"
+                                                    sx={{
+                                                        fontWeight: 600,
+                                                        color: COLORS.TEXT.PRIMARY,
+                                                        lineHeight: 1.4,
+                                                        fontSize: '0.9375rem',
+                                                        mb: 0.75
+                                                    }}
+                                                >
+                                                    {vaccination.vaccine_type?.name}
                                                 </Typography>
-                                            </>
-                                        )}
-                                    </Box>
-                                    <Chip
-                                        label={vaccination.vaccine_type?.is_required ? 'Bắt buộc' : 'Không bắt buộc'}
-                                        size="small"
-                                        color={vaccination.vaccine_type?.is_required ? 'error' : 'info'}
-                                        sx={{ fontWeight: 700 }}
-                                    />
-                                </Stack>
-                            </Paper>
-                        ))}
-                    </Stack>
+                                                {vaccination.vaccine_type?.is_required && (
+                                                    <Chip
+                                                        label="Bắt buộc"
+                                                        size="small"
+                                                        sx={{
+                                                            height: 24,
+                                                            fontSize: '0.75rem',
+                                                            fontWeight: 600,
+                                                            bgcolor: alpha(COLORS.ERROR[50], 0.8),
+                                                            color: COLORS.ERROR[700],
+                                                            border: `1px solid ${alpha(COLORS.ERROR[200], 0.5)}`
+                                                        }}
+                                                    />
+                                                )}
+                                            </Box>
+
+                                            {/* Completion Date */}
+                                            {vaccination.completed_date && (
+                                                <Box
+                                                    sx={{
+                                                        p: 2,
+                                                        borderRadius: 1.5,
+                                                        bgcolor: alpha(COLORS.SUCCESS[50], 0.5),
+                                                        border: `1px solid ${alpha(COLORS.SUCCESS[200], 0.3)}`
+                                                    }}
+                                                >
+                                                    <Stack direction="row" spacing={1.5} alignItems="center">
+                                                        <CalendarToday sx={{ fontSize: 20, color: COLORS.SUCCESS[600] }} />
+                                                        <Box>
+                                                            <Typography
+                                                                variant="caption"
+                                                                sx={{
+                                                                    display: 'block',
+                                                                    color: COLORS.SUCCESS[700],
+                                                                    fontWeight: 600,
+                                                                    fontSize: '0.75rem',
+                                                                    mb: 0.25
+                                                                }}
+                                                            >
+                                                                Đã hoàn thành
+                                                            </Typography>
+                                                            <Typography
+                                                                variant="body2"
+                                                                sx={{
+                                                                    fontWeight: 600,
+                                                                    color: COLORS.SUCCESS[800],
+                                                                    fontSize: '0.875rem'
+                                                                }}
+                                                            >
+                                                                {new Date(vaccination.completed_date).toLocaleDateString('vi-VN', {
+                                                                    day: '2-digit',
+                                                                    month: '2-digit',
+                                                                    year: 'numeric',
+                                                                    hour: '2-digit',
+                                                                    minute: '2-digit'
+                                                                })}
+                                                            </Typography>
+                                                        </Box>
+                                                    </Stack>
+                                                </Box>
+                                            )}
+
+                                            {/* Spacer để đẩy notes xuống dưới */}
+                                            <Box sx={{ flexGrow: 1 }} />
+
+                                            {/* Notes */}
+                                            {vaccination.notes && (
+                                                <Box
+                                                    sx={{
+                                                        p: 2,
+                                                        borderRadius: 1.5,
+                                                        bgcolor: alpha(COLORS.GRAY[50], 0.5),
+                                                        border: `1px solid ${alpha(COLORS.GRAY[200], 0.5)}`
+                                                    }}
+                                                >
+                                                    <Typography
+                                                        variant="body2"
+                                                        sx={{
+                                                            color: COLORS.TEXT.SECONDARY,
+                                                            lineHeight: 1.6,
+                                                            fontSize: '0.875rem',
+                                                            fontWeight: 500
+                                                        }}
+                                                    >
+                                                        <strong style={{ color: COLORS.TEXT.PRIMARY }}>Ghi chú:</strong> {vaccination.notes}
+                                                    </Typography>
+                                                </Box>
+                                            )}
+                                        </Stack>
+                                    </Paper>
+                                </Grid>
+                            );
+                        })}
+                    </Grid>
                 </DialogContent>
-                <DialogActions sx={{ p: 2.5, background: alpha(COLORS.BACKGROUND.NEUTRAL, 0.5) }}>
+                <DialogActions
+                    sx={{
+                        p: 2.5,
+                        borderTop: `1px solid ${alpha(COLORS.BORDER.PRIMARY, 0.1)}`,
+                        bgcolor: alpha(COLORS.GRAY[50], 0.3)
+                    }}
+                >
                     <Button
                         onClick={() => setDetailDialogOpen(false)}
                         variant="contained"
+                        size="large"
                         sx={{
-                            background: COLORS.WARNING[500],
+                            bgcolor: COLORS.PRIMARY[600],
                             color: '#fff',
-                            fontWeight: 700,
-                            px: 3,
+                            fontWeight: 600,
+                            py: 1.25,
+                            px: 4,
+                            fontSize: '0.9375rem',
+                            textTransform: 'none',
+                            borderRadius: 1.5,
                             '&:hover': {
-                                background: COLORS.WARNING[600]
+                                bgcolor: COLORS.PRIMARY[700]
                             }
                         }}
                     >
