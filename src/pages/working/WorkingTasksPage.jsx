@@ -356,13 +356,37 @@ const WorkingTasksPage = () => {
                     );
                 }
 
-                tasksWithAutoMissed.sort((a, b) => {
+                // Enrich tasks with vaccination_schedule details if they have vaccination_schedule_id
+                const enrichedTasks = await Promise.all(
+                    tasksWithAutoMissed.map(async (task) => {
+                        if (task.vaccination_schedule_id && task.status === 'COMPLETED') {
+                            try {
+                                const schedule = await getVaccinationScheduleById(task.vaccination_schedule_id);
+                                return {
+                                    ...task,
+                                    vaccination_schedule: {
+                                        ...task.vaccination_schedule,
+                                        status: schedule.status,
+                                        record_id: schedule.record_id,
+                                        completed_date: schedule.completed_date
+                                    }
+                                };
+                            } catch (error) {
+                                console.warn('Failed to fetch vaccination schedule for task:', task.id, error);
+                                return task;
+                            }
+                        }
+                        return task;
+                    })
+                );
+
+                enrichedTasks.sort((a, b) => {
                     const dateCompare = (a.assigned_date || '').localeCompare(b.assigned_date || '');
                     if (dateCompare !== 0) return dateCompare;
                     return (a.start_time || '').localeCompare(b.start_time || '');
                 });
 
-                if (mounted) setTasks(tasksWithAutoMissed);
+                if (mounted) setTasks(enrichedTasks);
             } catch (error) {
                 console.error('Failed to load tasks', error);
                 if (mounted) {
@@ -439,6 +463,22 @@ const WorkingTasksPage = () => {
         try {
             // Fetch vaccination schedule details
             const schedule = await getVaccinationScheduleById(task.vaccination_schedule_id);
+
+            // Double-check: If schedule already has a record_id or status is COMPLETED, prevent creation
+            if (schedule.record_id || schedule.status === 'COMPLETED') {
+                setSnackbar({
+                    message: 'Hồ sơ tiêm phòng cho lịch tiêm này đã được tạo rồi!',
+                    severity: 'warning'
+                });
+                // Update local task state to reflect this
+                setTasks((prev) => prev.map((t) =>
+                    t.id === task.id
+                        ? { ...t, vaccination_schedule: { ...t.vaccination_schedule, status: 'COMPLETED', record_id: schedule.record_id } }
+                        : t
+                ));
+                return;
+            }
+
             setSelectedVaccinationSchedule(schedule);
             setSelectedTask(task);
             setVaccinationRecordModalOpen(true);
@@ -454,15 +494,23 @@ const WorkingTasksPage = () => {
         setIsCreatingRecord(true);
         try {
             // Create vaccination record
-            await createVaccinationRecord(recordData);
+            const createResult = await createVaccinationRecord(recordData);
+            const createdRecordId = createResult?.data?.id;
 
             // Update vaccination schedule status to COMPLETED
             await updateVaccinationSchedule(selectedVaccinationSchedule.id, { status: 'COMPLETED' });
 
-            // Update task in local state
+            // Update task in local state with both status and record_id
             setTasks((prev) => prev.map((task) =>
                 task.id === selectedTask.id
-                    ? { ...task, vaccination_schedule: { ...task.vaccination_schedule, status: 'COMPLETED' } }
+                    ? {
+                        ...task,
+                        vaccination_schedule: {
+                            ...task.vaccination_schedule,
+                            status: 'COMPLETED',
+                            record_id: createdRecordId
+                        }
+                    }
                     : task
             ));
 
@@ -832,16 +880,16 @@ const WorkingTasksPage = () => {
                                                         </Typography>
                                                     </TableCell>
                                                     <TableCell sx={{ py: 2.5 }}>
-                                                                        <Chip
-                                                                            icon={statusDisplay.icon}
-                                                                            label={statusDisplay.label}
-                                                                        size="small"
-                                                                        sx={{
-                                                                            bgcolor: statusDisplay.bg,
-                                                                            color: statusDisplay.color,
-                                                                            fontWeight: 600
-                                                                        }}
-                                                                    />
+                                                        <Chip
+                                                            icon={statusDisplay.icon}
+                                                            label={statusDisplay.label}
+                                                            size="small"
+                                                            sx={{
+                                                                bgcolor: statusDisplay.bg,
+                                                                color: statusDisplay.color,
+                                                                fontWeight: 600
+                                                            }}
+                                                        />
                                                     </TableCell>
                                                     <TableCell align="right" sx={{ py: 2.5 }}>
                                                         <Stack direction="row" spacing={1} alignItems="center" justifyContent="flex-end">
@@ -850,7 +898,11 @@ const WorkingTasksPage = () => {
                                                                 const canUpdate = isLeaderOfTaskTeam(task);
                                                                 const isCompleted = task.status === 'COMPLETED';
                                                                 const hasVaccinationSchedule = task.vaccination_schedule_id;
-                                                                const scheduleNotCompleted = !task.vaccination_schedule || task.vaccination_schedule.status !== 'COMPLETED';
+                                                                // Check if schedule is not completed AND doesn't have a record_id yet
+                                                                // This prevents duplicate record creation
+                                                                const scheduleNotCompleted = !task.vaccination_schedule ||
+                                                                    (task.vaccination_schedule.status !== 'COMPLETED' &&
+                                                                        !task.vaccination_schedule.record_id);
 
                                                                 if (canUpdate && isCompleted && hasVaccinationSchedule && scheduleNotCompleted) {
                                                                     return (
@@ -973,14 +1025,14 @@ const WorkingTasksPage = () => {
                     if (taskStatus === 'IN_PROGRESS') {
                         return (
                             <>
-                            <MenuItem onClick={() => {
-                                handleUpdateStatus(selectedTask.id, 'COMPLETED');
-                            }}>
-                                <ListItemIcon>
-                                    <CheckCircle fontSize="small" />
-                                </ListItemIcon>
-                                <ListItemText>Hoàn thành</ListItemText>
-                            </MenuItem>
+                                <MenuItem onClick={() => {
+                                    handleUpdateStatus(selectedTask.id, 'COMPLETED');
+                                }}>
+                                    <ListItemIcon>
+                                        <CheckCircle fontSize="small" />
+                                    </ListItemIcon>
+                                    <ListItemText>Hoàn thành</ListItemText>
+                                </MenuItem>
                                 <MenuItem onClick={() => {
                                     handleUpdateStatus(selectedTask.id, 'CANCELLED');
                                 }}>
