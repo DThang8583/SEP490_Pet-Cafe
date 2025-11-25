@@ -31,6 +31,7 @@ const ServicesPage = () => {
     // Data
     const [taskTemplates, setTaskTemplates] = useState([]);
     const [services, setServices] = useState([]);
+    const [allServices, setAllServices] = useState([]); // State mới: lưu TẤT CẢ services để tính availableTasks
     const [slots, setSlots] = useState([]);
     const [workTypes, setWorkTypes] = useState([]);
     const [areas, setAreas] = useState([]);
@@ -41,7 +42,7 @@ const ServicesPage = () => {
 
     // Search and filters
     const [searchQuery, setSearchQuery] = useState('');
-    const [filterServiceStatus, setFilterServiceStatus] = useState('all');
+    const [filterServiceStatus, setFilterServiceStatus] = useState('active'); // Mặc định là Hoạt động
     const [filterTaskId, setFilterTaskId] = useState('all');
     const [filterStartTime, setFilterStartTime] = useState('');
     const [filterEndTime, setFilterEndTime] = useState('');
@@ -88,32 +89,38 @@ const ServicesPage = () => {
         loadData();
     }, []);
 
-    // Statistics
+    // Statistics - dùng allServices để tính chính xác
     const stats = useMemo(() => {
-        const servicedTaskIds = services.map(s => s.task_id).filter(Boolean);
+        const servicedTaskIds = allServices.map(s => s.task_id).filter(Boolean);
         const publicTasks = taskTemplates.filter(t => t.is_public === true);
         const availablePublicTasks = publicTasks.filter(t => !servicedTaskIds.includes(t.id));
 
         return {
             totalTasks: publicTasks.length,
             availableTasks: availablePublicTasks.length,
-            totalServices: services.length,
-            activeServices: services.filter(s => s.is_active === true).length,
-            inactiveServices: services.filter(s => s.is_active === false).length
+            totalServices: allServices.length,
+            activeServices: allServices.filter(s => s.is_active === true).length,
+            inactiveServices: allServices.filter(s => s.is_active === false).length
         };
-    }, [taskTemplates, services]);
+    }, [taskTemplates, allServices]);
 
     // Calculate available tasks (tasks with is_public = true and no service yet)
+    // QUAN TRỌNG: Dùng allServices (TẤT CẢ services) thay vì services (đã filter)
+    // để tránh đẩy các dịch vụ "Không hoạt động" sang tab "Nhiệm vụ chưa có Dịch vụ"
     const availableTasks = useMemo(() => {
-        const servicedTaskIds = services.map(s => s.task_id).filter(Boolean);
-        return taskTemplates.filter(t => {
-            // Check if task already has service
-            if (servicedTaskIds.includes(t.id)) return false;
+        const servicedTaskIds = allServices.map(s => s.task_id).filter(Boolean);
+        console.log('[availableTasks] Calculating...');
+        console.log('[availableTasks] allServices count:', allServices.length);
+        console.log('[availableTasks] servicedTaskIds:', servicedTaskIds);
 
-            // Check if task is public (Công khai)
-            return t.is_public === true;
-        });
-    }, [taskTemplates, services]);
+        const publicTasks = taskTemplates.filter(t => t.is_public === true);
+        const available = publicTasks.filter(t => !servicedTaskIds.includes(t.id));
+
+        console.log('[availableTasks] Public tasks:', publicTasks.length);
+        console.log('[availableTasks] Available tasks (no service yet):', available.length);
+
+        return available;
+    }, [taskTemplates, allServices]);
 
     // Filter available tasks
     const filteredAvailableTasks = useMemo(() => {
@@ -179,7 +186,8 @@ const ServicesPage = () => {
             setLoading(true);
             await Promise.all([
                 loadTaskTemplates(),
-                loadServices(),
+                loadAllServices(), // Load ALL services first
+                loadServices(),    // Then load filtered services
                 loadSlots(),
                 loadWorkTypes(),
                 loadAreas(),
@@ -210,12 +218,45 @@ const ServicesPage = () => {
         }
     };
 
+    // Load ALL services (both active and inactive) for availableTasks calculation
+    // Note: API default behavior returns only active services when is_active is not specified
+    // So we need to fetch both active and inactive separately, then merge
+    const loadAllServices = async () => {
+        try {
+            console.log('[loadAllServices] Loading ALL services (active + inactive)...');
+
+            // Fetch active and inactive services in parallel
+            const [activeResponse, inactiveResponse] = await Promise.all([
+                serviceApi.getAllServices({ is_active: true, page: 0, limit: 9999 }),
+                serviceApi.getAllServices({ is_active: false, page: 0, limit: 9999 })
+            ]);
+
+            // Merge both results
+            const allServicesData = [
+                ...(activeResponse.data || []),
+                ...(inactiveResponse.data || [])
+            ];
+
+            console.log('[loadAllServices] Loaded services:', {
+                active: activeResponse.data?.length || 0,
+                inactive: inactiveResponse.data?.length || 0,
+                total: allServicesData.length
+            });
+
+            setAllServices(allServicesData);
+        } catch (error) {
+            console.error('[loadAllServices] Error loading all services:', error);
+            setAllServices([]);
+        }
+    };
+
     const loadServices = async () => {
         try {
             // If there's a search query, load all data (no pagination) for client-side filtering
             // Otherwise, use server-side pagination
             const shouldLoadAll = searchQuery && searchQuery.trim().length > 0;
 
+            // Load filtered services (cho tab "Dịch vụ")
             const response = await serviceApi.getAllServices({
                 task_id: filterTaskId !== 'all' ? filterTaskId : undefined,
                 start_time: filterStartTime || undefined,
@@ -225,11 +266,12 @@ const ServicesPage = () => {
                 area_ids: filterAreaIds.length > 0 ? filterAreaIds : undefined,
                 min_price: filterMinPrice === '' ? undefined : Number(filterMinPrice),
                 max_price: filterMaxPrice === '' ? undefined : Number(filterMaxPrice),
-                is_active: filterServiceStatus === 'active' ? true : filterServiceStatus === 'inactive' ? false : undefined,
+                is_active: filterServiceStatus === 'active' ? true : false,
                 page: shouldLoadAll ? 0 : page - 1, // Convert to 0-based
                 limit: shouldLoadAll ? 9999 : itemsPerPage // Load all if searching
             });
             setServices(response.data || []);
+
             // Update pagination from API response
             if (response.pagination && !shouldLoadAll) {
                 setTotalPages(response.pagination.total_pages_count || 1);
@@ -271,6 +313,14 @@ const ServicesPage = () => {
         filterMinPrice,
         filterMaxPrice
     ]);
+
+    // Refresh allServices when switching to "Nhiệm vụ chưa có Dịch vụ" tab
+    useEffect(() => {
+        if (currentTab === 1) {
+            loadAllServices();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [currentTab]);
 
     // Format helpers for price inputs
     const formatNumberVi = (value) => new Intl.NumberFormat('vi-VN').format(value);
@@ -425,7 +475,7 @@ const ServicesPage = () => {
                     type: 'success'
                 });
             }
-            await loadServices();
+            await Promise.all([loadAllServices(), loadServices()]);
             setServiceFormOpen(false);
         } catch (error) {
             throw error;
@@ -456,7 +506,7 @@ const ServicesPage = () => {
                 message: 'Service đã được vô hiệu hóa!',
                 type: 'success'
             });
-            await loadServices();
+            await Promise.all([loadAllServices(), loadServices()]);
         } catch (error) {
             console.error('Error disabling service:', error);
             setAlert({
@@ -482,7 +532,7 @@ const ServicesPage = () => {
                 message: 'Service đã được kích hoạt!',
                 type: 'success'
             });
-            await loadServices();
+            await Promise.all([loadAllServices(), loadServices()]);
         } catch (error) {
             console.error('Error enabling service:', error);
             setAlert({
@@ -507,7 +557,7 @@ const ServicesPage = () => {
 
         try {
             await serviceApi.deleteService(deleteTarget.id);
-            await loadServices();
+            await Promise.all([loadAllServices(), loadServices()]);
             setAlert({
                 open: true,
                 title: 'Thành công',
@@ -745,7 +795,6 @@ const ServicesPage = () => {
                                 <FormControl size="small" sx={{ width: 200 }}>
                                     <InputLabel>Trạng thái</InputLabel>
                                     <Select value={filterServiceStatus} onChange={(e) => { setFilterServiceStatus(e.target.value); setPage(1); loadServices(); }} label="Trạng thái">
-                                        <MenuItem value="all">Tất cả</MenuItem>
                                         <MenuItem value="active">Hoạt động</MenuItem>
                                         <MenuItem value="inactive">Không hoạt động</MenuItem>
                                     </Select>

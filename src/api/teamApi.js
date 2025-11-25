@@ -913,6 +913,33 @@ export const removeTeamMember = async (teamMemberId) => {
  * Official API: POST /api/teams/{id}/work-shifts
  * Request: { work_shift_ids: ["uuid", ...] }
  */
+export const deleteTeamWorkShift = async (teamWorkShiftId) => {
+    try {
+        if (!teamWorkShiftId) {
+            throw new Error('ID ca làm việc là bắt buộc');
+        }
+
+        const response = await apiClient.delete(`/team-work-shifts/${teamWorkShiftId}`, { timeout: 10000 });
+
+        return {
+            success: true,
+            data: response.data,
+            message: 'Đã xóa ca làm việc khỏi nhóm'
+        };
+    } catch (error) {
+        if (error.response?.status === 404) {
+            throw new Error('Không tìm thấy ca làm việc');
+        }
+
+        if (error.response?.data) {
+            const errorData = error.response.data;
+            throw new Error(errorData.message || errorData.error || 'Không thể xóa ca làm việc');
+        }
+
+        throw new Error(error.message || 'Không thể xóa ca làm việc');
+    }
+};
+
 export const assignTeamWorkShifts = async (teamId, data) => {
     try {
         if (!teamId) {
@@ -956,6 +983,145 @@ export const assignTeamWorkShifts = async (teamId, data) => {
     }
 };
 
+/**
+ * Get daily schedules by team
+ * Official API: GET /api/teams/{id}/daily-schedules
+ * Query params: FromDate, ToDate, Status, page, limit
+ * @param {string} teamId - Team ID
+ * @param {Object} params - Query parameters { FromDate, ToDate, Status, page, limit }
+ * @returns {Promise<Object>} { data, pagination }
+ */
+export const getDailySchedulesByTeam = async (teamId, params = {}) => {
+    try {
+        if (!teamId) {
+            throw new Error('ID nhóm là bắt buộc');
+        }
+
+        const {
+            FromDate,
+            ToDate,
+            Status,
+            page = 0,
+            limit = 10
+        } = params;
+
+        const queryParams = {
+            page,
+            limit
+        };
+
+        if (FromDate) queryParams.FromDate = FromDate;
+        if (ToDate) queryParams.ToDate = ToDate;
+        if (Status) queryParams.Status = Status;
+
+        console.log('[getDailySchedulesByTeam] Request:', { teamId, queryParams });
+
+        const response = await apiClient.get(`/teams/${teamId}/daily-schedules`, {
+            params: queryParams,
+            timeout: 10000
+        });
+
+        console.log('[getDailySchedulesByTeam] Response:', response.data);
+
+        return {
+            success: true,
+            data: response.data?.data || [],
+            pagination: response.data?.pagination || {
+                total_items_count: 0,
+                page_size: limit,
+                total_pages_count: 0,
+                page_index: page,
+                has_next: false,
+                has_previous: false
+            }
+        };
+    } catch (error) {
+        console.error('[getDailySchedulesByTeam] Error:', error);
+
+        if (error.response?.status === 404) {
+            throw new Error('Không tìm thấy nhóm');
+        }
+
+        if (error.response?.data) {
+            const errorData = error.response.data;
+            if (errorData.message) {
+                throw new Error(Array.isArray(errorData.message) ? errorData.message.join('. ') : errorData.message);
+            }
+            if (errorData.error) {
+                const errorMsg = Array.isArray(errorData.error) ? errorData.error.join('. ') : errorData.error;
+                throw new Error(errorMsg);
+            }
+        }
+
+        throw new Error(error.message || 'Không thể tải danh sách điểm danh');
+    }
+};
+
+/**
+ * Update daily schedules (bulk attendance update)
+ * Official API: PUT /api/teams/{id}/daily-schedules
+ * Request body: [{ id: "daily_schedule_id", status: "PRESENT|ABSENT|LATE", notes: "string" }]
+ * @param {string} teamId - Team ID
+ * @param {Array} schedules - Array of { id, status, notes }
+ * @returns {Promise<Object>}
+ */
+export const updateDailySchedules = async (teamId, schedules) => {
+    try {
+        if (!teamId) {
+            throw new Error('ID nhóm là bắt buộc');
+        }
+
+        if (!Array.isArray(schedules) || schedules.length === 0) {
+            throw new Error('Danh sách điểm danh không được trống');
+        }
+
+        // Validate schedule items
+        for (const schedule of schedules) {
+            if (!schedule.id) {
+                throw new Error('ID lịch điểm danh là bắt buộc');
+            }
+            if (!schedule.status) {
+                throw new Error('Trạng thái điểm danh là bắt buộc');
+            }
+        }
+
+        console.log('[updateDailySchedules] Request:', { teamId, schedules });
+
+        const response = await apiClient.put(
+            `/teams/${teamId}/daily-schedules`,
+            schedules,
+            { timeout: 10000 }
+        );
+
+        console.log('[updateDailySchedules] Response:', response.data);
+
+        return {
+            success: true,
+            data: response.data,
+            message: `Đã cập nhật điểm danh cho ${schedules.length} thành viên`
+        };
+    } catch (error) {
+        console.error('[updateDailySchedules] Error:', error);
+
+        if (error.response?.status === 404) {
+            throw new Error('Không tìm thấy nhóm hoặc lịch điểm danh');
+        }
+
+        if (error.response?.data) {
+            const errorData = error.response.data;
+            if (errorData.message) {
+                throw new Error(Array.isArray(errorData.message) ? errorData.message.join('. ') : errorData.message);
+            }
+            if (errorData.error) {
+                const errorMsg = Array.isArray(errorData.error) ? errorData.error.join('. ') : errorData.error;
+                throw new Error(errorMsg);
+            }
+        }
+
+        throw new Error(error.message || 'Không thể cập nhật điểm danh');
+    }
+};
+
 export default {
     getTeams,
     getTeamById,
@@ -970,7 +1136,10 @@ export default {
     addTeamMembers,
     updateTeamMembers,
     removeTeamMember,
-    assignTeamWorkShifts
+    assignTeamWorkShifts,
+    deleteTeamWorkShift,
+    getDailySchedulesByTeam,
+    updateDailySchedules
 };
 
 // No mock exports. Use official APIs only.

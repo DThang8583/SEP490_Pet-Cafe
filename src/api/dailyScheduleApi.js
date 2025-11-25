@@ -32,6 +32,11 @@ export const getDailySchedules = async (params = {}) => {
     } = params;
 
     try {
+        // Validate TeamId is required
+        if (!TeamId) {
+            throw new Error('TeamId is required to fetch daily schedules');
+        }
+
         // API uses 'page' (0-based) and 'limit' according to Swagger documentation
         const queryParams = {
             page: page_index, // API uses 'page' (0-based), not 'page_index'
@@ -39,9 +44,6 @@ export const getDailySchedules = async (params = {}) => {
             _t: Date.now() // Cache busting
         };
 
-        if (TeamId) {
-            queryParams.TeamId = TeamId;
-        }
         if (FromDate) {
             queryParams.FromDate = FromDate;
         }
@@ -52,10 +54,13 @@ export const getDailySchedules = async (params = {}) => {
             queryParams.Status = Status;
         }
 
-        console.log('dailyScheduleApi: Calling API with params', queryParams);
+        const apiUrl = `/teams/${TeamId}/daily-schedules`;
+        console.log('[dailyScheduleApi] URL:', apiUrl);
+        console.log('[dailyScheduleApi] Params:', queryParams);
+        console.log('[dailyScheduleApi] Full URL:', apiUrl + '?' + new URLSearchParams(queryParams).toString());
 
-        // Add timestamp to prevent caching
-        const response = await apiClient.get('/daily-schedules', {
+        // API endpoint: /teams/{teamId}/daily-schedules
+        const response = await apiClient.get(apiUrl, {
             params: queryParams,
             timeout: 10000,
             headers: {
@@ -63,15 +68,7 @@ export const getDailySchedules = async (params = {}) => {
             }
         });
 
-        console.log('dailyScheduleApi: API response', {
-            status: response.status,
-            dataLength: response.data?.data?.length,
-            pagination: response.data?.pagination,
-            page: queryParams.page,
-            limit: queryParams.limit,
-            firstItemId: response.data?.data?.[0]?.id,
-            lastItemId: response.data?.data?.[response.data?.data?.length - 1]?.id
-        });
+        console.log('[dailyScheduleApi] Status:', response.status, 'Data length:', response.data?.data?.length);
 
         const responseData = response.data;
         if (responseData?.data && Array.isArray(responseData.data)) {
