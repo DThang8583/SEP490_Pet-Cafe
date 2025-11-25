@@ -290,6 +290,28 @@ const serviceApi = {
     },
 
     /**
+     * Toggle service status (active/inactive)
+     * @param {string} serviceId
+     * @returns {Promise<Object>}
+     */
+    async toggleServiceStatus(serviceId) {
+        try {
+            console.log('[toggleServiceStatus] Request serviceId:', serviceId);
+
+            const response = await apiClient.put(`/services/${serviceId}/toggle-status`, {}, {
+                timeout: 30000
+            });
+
+            console.log('[toggleServiceStatus] Response:', response.data);
+
+            return response.data;
+        } catch (error) {
+            console.error('[toggleServiceStatus] Error:', error);
+            throw new Error(error.response?.data?.error || error.message || 'Không thể thay đổi trạng thái dịch vụ');
+        }
+    },
+
+    /**
      * Get feedbacks of a service
      * @param {string} serviceId
      * @param {Object} params - { page, limit }

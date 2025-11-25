@@ -9,7 +9,7 @@ import ConfirmModal from '../../components/modals/ConfirmModal';
 import ShiftFormModal from '../../components/modals/ShiftFormModal';
 import TeamFormModal from '../../components/modals/TeamFormModal';
 import TeamMembersModal from '../../components/modals/TeamMembersModal';
-import { Edit, Delete, Schedule, AccessTime, GroupAdd, Groups, Search, MoreVert, Person, PersonAdd, Book, Assignment, Event, CalendarToday, Email, Phone, Work } from '@mui/icons-material';
+import { Edit, Delete, Schedule, AccessTime, GroupAdd, Groups, Search, MoreVert, Person, PersonAdd } from '@mui/icons-material';
 import workShiftApi, { WEEKDAY_LABELS, WEEKDAYS } from '../../api/workShiftApi';
 import teamApi from '../../api/teamApi';
 import employeeApi from '../../api/employeeApi';
@@ -25,6 +25,10 @@ const WorkShiftPage = () => {
     // Confirm modals
     const [confirmDeleteShiftOpen, setConfirmDeleteShiftOpen] = useState(false);
     const [deleteShiftTarget, setDeleteShiftTarget] = useState(null);
+    const [confirmDeleteTeamOpen, setConfirmDeleteTeamOpen] = useState(false);
+    const [deleteTeamTarget, setDeleteTeamTarget] = useState(null);
+    const [confirmDeleteTeamWorkShiftOpen, setConfirmDeleteTeamWorkShiftOpen] = useState(false);
+    const [deleteTeamWorkShiftTarget, setDeleteTeamWorkShiftTarget] = useState(null);
 
     // Work Shifts states
     const [shifts, setShifts] = useState([]);
@@ -89,6 +93,7 @@ const WorkShiftPage = () => {
     const [menuShiftDay, setMenuShiftDay] = useState(null); // Store the day context when opening menu
     const [teamMenuAnchor, setTeamMenuAnchor] = useState(null);
     const [menuTeam, setMenuTeam] = useState(null);
+    const [menuTeamShiftContext, setMenuTeamShiftContext] = useState(null); // Store shift context when opening team menu
 
     // View and filter states
     const [searchQuery, setSearchQuery] = useState('');
@@ -1156,14 +1161,122 @@ const WorkShiftPage = () => {
         setShiftMenuAnchor(null);
     };
 
-    const handleTeamMenuOpen = (event, team) => {
+    const handleTeamMenuOpen = (event, team, shiftContext = null) => {
         setTeamMenuAnchor(event.currentTarget);
         setMenuTeam(team);
+        setMenuTeamShiftContext(shiftContext);
     };
 
     const handleTeamMenuClose = () => {
         setTeamMenuAnchor(null);
         setMenuTeam(null);
+        setMenuTeamShiftContext(null);
+    };
+
+    const handleDeleteTeam = (team) => {
+        setDeleteTeamTarget(team);
+        setConfirmDeleteTeamOpen(true);
+        setTeamMenuAnchor(null);
+    };
+
+    const handleConfirmDeleteTeam = async () => {
+        try {
+            const team = deleteTeamTarget;
+
+            if (!team) {
+                throw new Error('Không tìm thấy team');
+            }
+
+            const response = await teamApi.deleteTeam(team.id);
+            if (response.success) {
+                setAlert({
+                    open: true,
+                    type: 'success',
+                    title: 'Thành công',
+                    message: 'Xóa team thành công!'
+                });
+            }
+            await loadTeams();
+            await loadNewTeams();
+        } catch (error) {
+            setAlert({
+                open: true,
+                type: 'error',
+                title: 'Lỗi',
+                message: error?.response?.data?.message || error.message || 'Có lỗi xảy ra khi xóa team'
+            });
+        } finally {
+            setConfirmDeleteTeamOpen(false);
+            setDeleteTeamTarget(null);
+        }
+    };
+
+    const handleDeleteTeamWorkShift = (team, shift) => {
+        if (!team || !shift) {
+            setAlert({
+                open: true,
+                type: 'error',
+                title: 'Lỗi',
+                message: 'Không thể xác định team hoặc ca làm việc'
+            });
+            return;
+        }
+
+        // Find the team_work_shift ID
+        const teamWorkShift = team.team_work_shifts?.find(tws => {
+            const workShiftId = tws.work_shift_id || tws.work_shift?.id;
+            return workShiftId === shift.id;
+        });
+
+        if (!teamWorkShift || !teamWorkShift.id) {
+            setAlert({
+                open: true,
+                type: 'error',
+                title: 'Lỗi',
+                message: 'Không tìm thấy thông tin ca làm việc của team này'
+            });
+            return;
+        }
+
+        setDeleteTeamWorkShiftTarget({
+            teamWorkShiftId: teamWorkShift.id,
+            teamName: team.name,
+            shiftName: shift.name
+        });
+        setConfirmDeleteTeamWorkShiftOpen(true);
+        setTeamMenuAnchor(null);
+    };
+
+    const handleConfirmDeleteTeamWorkShift = async () => {
+        try {
+            const target = deleteTeamWorkShiftTarget;
+
+            if (!target || !target.teamWorkShiftId) {
+                throw new Error('Không tìm thấy thông tin ca làm việc');
+            }
+
+            const response = await teamApi.deleteTeamWorkShift(target.teamWorkShiftId);
+            if (response.success) {
+                setAlert({
+                    open: true,
+                    type: 'success',
+                    title: 'Thành công',
+                    message: `Đã xóa ca "${target.shiftName}" khỏi team "${target.teamName}"!`
+                });
+            }
+            await loadTeams();
+            await loadNewTeams();
+        } catch (error) {
+            setAlert({
+                open: true,
+                type: 'error',
+                title: 'Lỗi',
+                message: error?.response?.data?.message || error.message || 'Có lỗi xảy ra khi xóa ca làm việc khỏi team'
+            });
+        } finally {
+            setConfirmDeleteTeamWorkShiftOpen(false);
+            setDeleteTeamWorkShiftTarget(null);
+        }
     };
 
     // Format time
@@ -1727,7 +1840,7 @@ const WorkShiftPage = () => {
                                                                                     />
                                                                                     <IconButton
                                                                                         size="small"
-                                                                                        onClick={(e) => handleTeamMenuOpen(e, team)}
+                                                                                        onClick={(e) => handleTeamMenuOpen(e, team, shift)}
                                                                                         sx={{
                                                                                             p: 0.5,
                                                                                             '&:hover': {
@@ -1927,6 +2040,24 @@ const WorkShiftPage = () => {
                     </ListItemIcon>
                     <ListItemText>Quản lý thành viên</ListItemText>
                 </MenuItem>
+                {menuTeamShiftContext && (
+                    <>
+                        <Divider />
+                        <MenuItem onClick={() => handleDeleteTeamWorkShift(menuTeam, menuTeamShiftContext)}>
+                            <ListItemIcon>
+                                <Delete fontSize="small" sx={{ color: COLORS.WARNING[600] }} />
+                            </ListItemIcon>
+                            <ListItemText>Xóa ca làm việc này</ListItemText>
+                        </MenuItem>
+                    </>
+                )}
+                <Divider />
+                <MenuItem onClick={() => handleDeleteTeam(menuTeam)}>
+                    <ListItemIcon>
+                        <Delete fontSize="small" sx={{ color: COLORS.ERROR[600] }} />
+                    </ListItemIcon>
+                    <ListItemText>Xóa team</ListItemText>
+                </MenuItem>
             </Menu>
 
             {/* Shift Form Modal */}
@@ -2020,6 +2151,36 @@ const WorkShiftPage = () => {
                 confirmText="Xóa"
                 cancelText="Hủy"
                 type="error"
+            />
+
+            {/* Confirm Delete Team Modal */}
+            <ConfirmModal
+                isOpen={confirmDeleteTeamOpen}
+                onClose={() => {
+                    setConfirmDeleteTeamOpen(false);
+                    setDeleteTeamTarget(null);
+                }}
+                onConfirm={handleConfirmDeleteTeam}
+                title="Xác nhận xóa team"
+                message={`Bạn có chắc chắn muốn xóa team "${deleteTeamTarget?.name}"? Hành động này không thể hoàn tác.`}
+                confirmText="Xóa"
+                cancelText="Hủy"
+                type="error"
+            />
+
+            {/* Confirm Delete Team Work Shift Modal */}
+            <ConfirmModal
+                isOpen={confirmDeleteTeamWorkShiftOpen}
+                onClose={() => {
+                    setConfirmDeleteTeamWorkShiftOpen(false);
+                    setDeleteTeamWorkShiftTarget(null);
+                }}
+                onConfirm={handleConfirmDeleteTeamWorkShift}
+                title="Xác nhận xóa ca làm việc"
+                message={deleteTeamWorkShiftTarget ? `Bạn có chắc chắn muốn xóa ca "${deleteTeamWorkShiftTarget.shiftName}" khỏi team "${deleteTeamWorkShiftTarget.teamName}"?` : ''}
+                confirmText="Xóa"
+                cancelText="Hủy"
+                type="warning"
             />
 
             {/* Alert Modal */}
