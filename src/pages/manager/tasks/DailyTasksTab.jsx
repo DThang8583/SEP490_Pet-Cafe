@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, IconButton, Stack, Toolbar, Button, FormControl, InputLabel, Select, MenuItem, Tooltip, alpha, Menu, ListItemIcon, ListItemText, Tabs, Tab } from '@mui/material';
-import { CheckCircle, RadioButtonUnchecked, PlayArrow, Cancel, NavigateBefore, NavigateNext, TrendingUp, Notes as NotesIcon, Flag, Block, SkipNext, MoreVert as MoreVertIcon, Add as AddIcon, Visibility as VisibilityIcon, CalendarMonth, ViewWeek } from '@mui/icons-material';
+import { CheckCircle, RadioButtonUnchecked, PlayArrow, Cancel, NavigateBefore, NavigateNext, TrendingUp, Notes as NotesIcon, Flag, Block, SkipNext, MoreVert as MoreVertIcon, Add as AddIcon, Visibility as VisibilityIcon, CalendarMonth, ViewWeek, Delete as DeleteIcon } from '@mui/icons-material';
 import { COLORS } from '../../../constants/colors';
 import Loading from '../../../components/loading/Loading';
 import Pagination from '../../../components/common/Pagination';
@@ -8,11 +8,13 @@ import AlertModal from '../../../components/modals/AlertModal';
 import DailyTaskNotesModal from '../../../components/modals/DailyTaskNotesModal';
 import DailyTaskFormModal from '../../../components/modals/DailyTaskFormModal';
 import DailyTaskDetailsModal from '../../../components/modals/DailyTaskDetailsModal';
+import ConfirmModal from '../../../components/modals/ConfirmModal';
 import dailyTasksApi, { DAILY_TASK_STATUS, TASK_PRIORITY } from '../../../api/dailyTasksApi';
 import { WEEKDAY_LABELS } from '../../../api/slotApi';
 
 const DailyTasksTab = ({ taskTemplates, slots, onRefresh }) => {
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState(null);
     const [dailyTasks, setDailyTasks] = useState([]);
     const [stats, setStats] = useState({
         total: 0,
@@ -59,6 +61,10 @@ const DailyTasksTab = ({ taskTemplates, slots, onRefresh }) => {
     // Menu state
     const [menuAnchor, setMenuAnchor] = useState(null);
     const [menuTask, setMenuTask] = useState(null);
+
+    // Delete confirmation
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [taskToDelete, setTaskToDelete] = useState(null);
 
     const [alert, setAlert] = useState({ open: false, message: '', type: 'info', title: 'Thông báo' });
 
@@ -168,6 +174,8 @@ const DailyTasksTab = ({ taskTemplates, slots, onRefresh }) => {
                 allTasks = [];
             }
 
+            setError(null); // Clear any previous errors
+
             // Filter by date range on client side (since we're not using date filters in API for now)
             const filterStartDate = new Date(startDate);
             filterStartDate.setHours(0, 0, 0, 0);
@@ -248,11 +256,36 @@ const DailyTasksTab = ({ taskTemplates, slots, onRefresh }) => {
             });
         } catch (error) {
             console.error('Error loading daily tasks:', error);
+
+            // Check if it's a transient error
+            const errorMessage = error.message || 'Không thể tải dữ liệu';
+            const isTransientError = errorMessage.includes('transient failure') ||
+                errorMessage.includes('timeout') ||
+                errorMessage.includes('connection');
+
+            setError(errorMessage);
             setAlert({
                 open: true,
-                title: 'Lỗi',
-                message: error.message || 'Không thể tải dữ liệu',
+                title: isTransientError ? 'Lỗi kết nối tạm thời' : 'Lỗi',
+                message: isTransientError
+                    ? 'Không thể kết nối với máy chủ. Vui lòng thử lại sau vài giây.'
+                    : errorMessage,
                 type: 'error'
+            });
+
+            // For transient errors, show empty state instead of keeping old data
+            setDailyTasks([]);
+            setStats({
+                total: 0,
+                scheduled: 0,
+                in_progress: 0,
+                completed: 0,
+                cancelled: 0,
+                missed: 0,
+                skipped: 0,
+                completion_rate: 0,
+                week_completion_rate: 0,
+                month_completion_rate: 0
             });
         } finally {
             setLoading(false);
@@ -433,6 +466,48 @@ const DailyTasksTab = ({ taskTemplates, slots, onRefresh }) => {
                 type: 'error'
             });
             throw error;
+        }
+    };
+
+    // Handle delete daily task
+    const handleDeleteDailyTask = (task) => {
+        setTaskToDelete(task);
+        setDeleteDialogOpen(true);
+        setMenuAnchor(null);
+        setMenuTask(null);
+    };
+
+    // Confirm delete daily task
+    const confirmDeleteDailyTask = async () => {
+        if (!taskToDelete) return;
+
+        try {
+            setLoading(true);
+            await dailyTasksApi.deleteDailyTask(taskToDelete.id);
+
+            setAlert({
+                open: true,
+                title: 'Thành công',
+                message: 'Xóa nhiệm vụ thành công!',
+                type: 'success'
+            });
+
+            // Close dialog
+            setDeleteDialogOpen(false);
+            setTaskToDelete(null);
+
+            // Reload data
+            await loadDailyTasks();
+        } catch (error) {
+            console.error('Error deleting daily task:', error);
+            setAlert({
+                open: true,
+                title: 'Lỗi',
+                message: error.message || 'Không thể xóa nhiệm vụ',
+                type: 'error'
+            });
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -1078,6 +1153,24 @@ const DailyTasksTab = ({ taskTemplates, slots, onRefresh }) => {
                             </MenuItem>
                         </>
                     )}
+
+                {/* Delete option - always available */}
+                {menuTask && (
+                    <MenuItem
+                        onClick={() => handleDeleteDailyTask(menuTask)}
+                        sx={{
+                            color: COLORS.ERROR[600],
+                            '&:hover': {
+                                bgcolor: alpha(COLORS.ERROR[50], 0.8)
+                            }
+                        }}
+                    >
+                        <ListItemIcon>
+                            <DeleteIcon fontSize="small" sx={{ color: COLORS.ERROR[600] }} />
+                        </ListItemIcon>
+                        <ListItemText>Xóa nhiệm vụ</ListItemText>
+                    </MenuItem>
+                )}
             </Menu>
 
             {/* Create Form Modal */}
@@ -1113,6 +1206,22 @@ const DailyTasksTab = ({ taskTemplates, slots, onRefresh }) => {
                 newStatus={pendingStatus}
                 taskName={selectedDailyTask ? selectedDailyTask.title : ''}
                 slotInfo={selectedDailyTask ? `${selectedDailyTask.start_time?.substring(0, 5)} - ${selectedDailyTask.end_time?.substring(0, 5)}` : ''}
+            />
+
+            {/* Delete Confirmation Modal */}
+            <ConfirmModal
+                isOpen={deleteDialogOpen}
+                onClose={() => {
+                    setDeleteDialogOpen(false);
+                    setTaskToDelete(null);
+                }}
+                onConfirm={confirmDeleteDailyTask}
+                title="Xóa nhiệm vụ"
+                message={`Bạn có chắc chắn muốn xóa nhiệm vụ "${taskToDelete?.title || '—'}"? Hành động này không thể hoàn tác.`}
+                confirmText="Xóa"
+                cancelText="Hủy"
+                type="error"
+                isLoading={loading}
             />
 
             {/* Alert Modal */}

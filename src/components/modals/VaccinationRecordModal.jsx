@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Stack, IconButton, Typography, alpha, Box } from '@mui/material';
 import { Close, CalendarToday } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
@@ -22,6 +22,15 @@ const VaccinationRecordModal = ({
 
     const [errors, setErrors] = useState({});
 
+    // Calculate next_due_date based on vaccination_date and vaccine frequency
+    const calculateNextDueDate = useCallback((vaccinationDate, frequencyInMonths) => {
+        if (!vaccinationDate || !frequencyInMonths) return '';
+
+        const date = new Date(vaccinationDate);
+        date.setMonth(date.getMonth() + frequencyInMonths);
+        return date.toISOString().split('T')[0];
+    }, []);
+
     useEffect(() => {
         if (open && dailyTask && vaccinationSchedule) {
             // Set default vaccination_date to today
@@ -29,10 +38,14 @@ const VaccinationRecordModal = ({
             today.setHours(0, 0, 0, 0);
             const todayStr = today.toISOString().split('T')[0];
 
-            // Calculate next_due_date (default to 1 year from today, can be adjusted)
-            const nextDue = new Date(today);
-            nextDue.setFullYear(nextDue.getFullYear() + 1);
-            const nextDueStr = nextDue.toISOString().split('T')[0];
+            // Get frequency from vaccine_type (in months)
+            // Backend uses interval_months field
+            const frequencyInMonths = vaccinationSchedule.vaccine_type?.interval_months ||
+                vaccinationSchedule.vaccine_type?.frequency_in_months ||
+                12; // Default 12 months if not specified
+
+            // Calculate next_due_date based on frequency
+            const nextDueStr = calculateNextDueDate(todayStr, frequencyInMonths);
 
             setFormData({
                 vaccination_date: todayStr,
@@ -45,6 +58,29 @@ const VaccinationRecordModal = ({
             setErrors({});
         }
     }, [open, dailyTask, vaccinationSchedule]);
+
+    // Auto-calculate next_due_date when vaccination_date changes
+    useEffect(() => {
+        const frequencyInMonths = vaccinationSchedule?.vaccine_type?.interval_months ||
+            vaccinationSchedule?.vaccine_type?.frequency_in_months;
+
+        if (formData.vaccination_date && frequencyInMonths) {
+            const calculatedNextDue = calculateNextDueDate(formData.vaccination_date, frequencyInMonths);
+
+            // Only update if different to avoid infinite loop
+            if (calculatedNextDue && calculatedNextDue !== formData.next_due_date) {
+                setFormData(prev => {
+                    // Double-check to prevent loop
+                    if (prev.next_due_date === calculatedNextDue) return prev;
+                    return {
+                        ...prev,
+                        next_due_date: calculatedNextDue
+                    };
+                });
+            }
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [formData.vaccination_date, vaccinationSchedule?.vaccine_type?.interval_months, vaccinationSchedule?.vaccine_type?.frequency_in_months]);
 
     const validate = () => {
         const newErrors = {};
@@ -151,6 +187,11 @@ const VaccinationRecordModal = ({
                         <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
                             Loại vaccine: {vaccinationSchedule.vaccine_type?.name || vaccinationSchedule.vaccine_type_id || 'N/A'}
                         </Typography>
+                        {(vaccinationSchedule.vaccine_type?.interval_months || vaccinationSchedule.vaccine_type?.frequency_in_months) && (
+                            <Typography variant="body2" sx={{ color: COLORS.WARNING[700], fontWeight: 600 }}>
+                                Chu kỳ tiêm lại: {vaccinationSchedule.vaccine_type.interval_months || vaccinationSchedule.vaccine_type.frequency_in_months} tháng
+                            </Typography>
+                        )}
                         <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
                             Ngày dự kiến: {vaccinationSchedule.scheduled_date ? new Date(vaccinationSchedule.scheduled_date).toLocaleDateString('vi-VN') : 'N/A'}
                         </Typography>
@@ -161,7 +202,10 @@ const VaccinationRecordModal = ({
                         label="Ngày tiêm *"
                         type="date"
                         value={formData.vaccination_date}
-                        onChange={(e) => setFormData({ ...formData, vaccination_date: e.target.value })}
+                        onChange={(e) => {
+                            const newVaccinationDate = e.target.value;
+                            setFormData({ ...formData, vaccination_date: newVaccinationDate });
+                        }}
                         fullWidth
                         required
                         error={Boolean(errors.vaccination_date)}
@@ -181,7 +225,12 @@ const VaccinationRecordModal = ({
                         fullWidth
                         required
                         error={Boolean(errors.next_due_date)}
-                        helperText={errors.next_due_date}
+                        helperText={
+                            errors.next_due_date ||
+                            ((vaccinationSchedule.vaccine_type?.interval_months || vaccinationSchedule.vaccine_type?.frequency_in_months)
+                                ? `Tự động tính: ${vaccinationSchedule.vaccine_type.interval_months || vaccinationSchedule.vaccine_type.frequency_in_months} tháng sau ngày tiêm`
+                                : 'Có thể chỉnh sửa nếu cần')
+                        }
                         InputLabelProps={{ shrink: true }}
                         InputProps={{
                             startAdornment: <CalendarToday sx={{ mr: 1, color: COLORS.TEXT.SECONDARY }} />

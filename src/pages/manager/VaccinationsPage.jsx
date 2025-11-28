@@ -30,6 +30,42 @@ const VaccinationsPage = () => {
     const [vaccineTypes, setVaccineTypes] = useState([]);
     const [teams, setTeams] = useState([]);
 
+    // Helper function to format scheduled_date without timezone conversion
+    // Backend stores time as "fake UTC" representing local Vietnam time
+    const formatScheduledDate = (isoString, includeTime = false) => {
+        if (!isoString) return '—';
+
+        // Extract date/time directly from string to avoid timezone issues
+        const match = isoString.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+        if (!match) return isoString;
+
+        const [, year, month, day, hours, minutes] = match;
+        const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+
+        const dateStr = date.toLocaleDateString('vi-VN', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+
+        if (includeTime) {
+            return `${dateStr}, ${hours}:${minutes}`;
+        }
+        return dateStr;
+    };
+
+    // Helper for short format (DD/MM/YYYY HH:MM)
+    const formatScheduledDateShort = (isoString) => {
+        if (!isoString) return '—';
+
+        const match = isoString.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+        if (!match) return isoString;
+
+        const [, year, month, day, hours, minutes] = match;
+        return `${day}/${month}/${year}, ${hours}:${minutes}`;
+    };
+
     // Detail dialog
     const [detailDialogOpen, setDetailDialogOpen] = useState(false);
     const [selectedItem, setSelectedItem] = useState(null);
@@ -1108,22 +1144,18 @@ const VaccinationsPage = () => {
                                                     </TableCell>
                                                     <TableCell>
                                                         <Typography variant="body2">
-                                                            {item.scheduled_date ? new Date(item.scheduled_date).toLocaleDateString('vi-VN', {
-                                                                weekday: 'long',
-                                                                year: 'numeric',
-                                                                month: 'long',
-                                                                day: 'numeric'
-                                                            }) : '—'}
+                                                            {formatScheduledDateShort(item.scheduled_date)}
                                                         </Typography>
                                                     </TableCell>
                                                     <TableCell sx={{ display: { xs: 'none', lg: 'table-cell' } }}>
                                                         {item.completed_date ? (
                                                             <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.SUCCESS[700] }}>
                                                                 {new Date(item.completed_date).toLocaleDateString('vi-VN', {
-                                                                    weekday: 'long',
                                                                     year: 'numeric',
-                                                                    month: 'long',
-                                                                    day: 'numeric'
+                                                                    month: '2-digit',
+                                                                    day: '2-digit',
+                                                                    hour: '2-digit',
+                                                                    minute: '2-digit'
                                                                 })}
                                                             </Typography>
                                                         ) : (
@@ -1506,14 +1538,7 @@ const VaccinationsPage = () => {
                                             Ngày tiêm dự kiến
                                         </Typography>
                                         <Typography variant="body1" sx={{ fontWeight: 600, lineHeight: 1.5 }}>
-                                            {selectedItem.scheduled_date ? new Date(selectedItem.scheduled_date).toLocaleDateString('vi-VN', {
-                                                weekday: 'long',
-                                                year: 'numeric',
-                                                month: 'long',
-                                                day: 'numeric',
-                                                hour: '2-digit',
-                                                minute: '2-digit'
-                                            }) : '—'}
+                                            {formatScheduledDate(selectedItem.scheduled_date, true)}
                                         </Typography>
                                     </Stack>
 

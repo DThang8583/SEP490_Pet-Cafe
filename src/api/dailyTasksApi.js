@@ -39,6 +39,40 @@ export const DAY_OF_WEEK_MAP = {
 };
 
 /**
+ * Helper function to retry API calls on transient failures
+ * @param {Function} apiCall - The API call function
+ * @param {number} maxRetries - Maximum number of retries
+ * @param {number} retryDelay - Delay between retries in ms
+ * @returns {Promise<any>}
+ */
+const retryApiCall = async (apiCall, maxRetries = 2, retryDelay = 1000) => {
+    let lastError;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+            return await apiCall();
+        } catch (error) {
+            lastError = error;
+            const errorMessage = error.response?.data?.message || error.message || '';
+            const isTransientError =
+                errorMessage.includes('transient failure') ||
+                errorMessage.includes('timeout') ||
+                errorMessage.includes('connection') ||
+                error.code === 'ECONNABORTED' ||
+                error.code === 'ETIMEDOUT';
+
+            if (isTransientError && attempt < maxRetries) {
+                console.warn(`⚠️ Transient error detected (attempt ${attempt + 1}/${maxRetries + 1}), retrying in ${retryDelay}ms...`, errorMessage);
+                await new Promise(resolve => setTimeout(resolve, retryDelay));
+                retryDelay *= 1.5; // Exponential backoff
+                continue;
+            }
+            throw error;
+        }
+    }
+    throw lastError;
+};
+
+/**
  * Get all daily tasks from official API
  * @param {Object} params - { page_index, page_size, TeamId, FromDate, ToDate, Status }
  * @returns {Promise<Object>} { data, pagination }
@@ -53,109 +87,116 @@ export const getDailyTasksFromAPI = async (params = {}) => {
         Status = null
     } = params;
 
-    try {
-        // API uses 'page' (0-based) and 'limit' according to Swagger documentation
-        const queryParams = {
-            page: page_index, // API uses 'page' (0-based), not 'page_index'
-            limit: page_size, // API uses 'limit' instead of 'page_size'
-            _t: Date.now() // Cache busting
-        };
-
-        if (TeamId) {
-            queryParams.TeamId = TeamId;
-        }
-        if (FromDate) {
-            queryParams.FromDate = FromDate;
-        }
-        if (ToDate) {
-            queryParams.ToDate = ToDate;
-        }
-        if (Status) {
-            queryParams.Status = Status;
-        }
-
-        // Add timestamp to prevent caching
-        console.log('📡 Calling daily-tasks API with params:', queryParams);
-
-        const response = await apiClient.get('/daily-tasks', {
-            params: queryParams,
-            timeout: 10000,
-            headers: {
-                'Cache-Control': 'no-cache'
-            }
-        });
-
-        console.log('📥 Daily-tasks API response:', {
-            status: response.status,
-            dataLength: response.data?.data?.length,
-            hasData: !!response.data?.data,
-            pagination: response.data?.pagination,
-            fullResponse: response.data
-        });
-
-        const responseData = response.data;
-
-        // Handle response with data array
-        if (responseData?.data && Array.isArray(responseData.data)) {
-            console.log('✅ Found data array in response.data.data, length:', responseData.data.length);
-            return {
-                success: true,
-                data: responseData.data,
-                pagination: responseData.pagination || {
-                    total_items_count: responseData.data.length,
-                    page_size: page_size,
-                    total_pages_count: Math.ceil((responseData.pagination?.total_items_count || responseData.data.length) / page_size) || 0,
-                    page_index: page_index,
-                    has_next: responseData.pagination?.has_next || false,
-                    has_previous: responseData.pagination?.has_previous || false
-                }
+    // Wrap API call with retry logic
+    return await retryApiCall(async () => {
+        try {
+            // API uses 'page' (0-based) and 'limit' according to Swagger documentation
+            const queryParams = {
+                page: page_index, // API uses 'page' (0-based), not 'page_index'
+                limit: page_size, // API uses 'limit' instead of 'page_size'
+                _t: Date.now() // Cache busting
             };
-        }
 
-        // Handle direct array response
-        if (Array.isArray(responseData)) {
-            console.log('✅ Found direct array response, length:', responseData.length);
+            if (TeamId) {
+                queryParams.TeamId = TeamId;
+            }
+            if (FromDate) {
+                queryParams.FromDate = FromDate;
+            }
+            if (ToDate) {
+                queryParams.ToDate = ToDate;
+            }
+            if (Status) {
+                queryParams.Status = Status;
+            }
+
+            // Add timestamp to prevent caching
+            console.log('📡 Calling daily-tasks API with params:', queryParams);
+
+            const response = await apiClient.get('/daily-tasks', {
+                params: queryParams,
+                timeout: 15000, // Increased timeout to 15s
+                headers: {
+                    'Cache-Control': 'no-cache'
+                }
+            });
+
+            console.log('📥 Daily-tasks API response:', {
+                status: response.status,
+                dataLength: response.data?.data?.length,
+                hasData: !!response.data?.data,
+                pagination: response.data?.pagination,
+                fullResponse: response.data
+            });
+
+            const responseData = response.data;
+
+            // Handle response with data array
+            if (responseData?.data && Array.isArray(responseData.data)) {
+                console.log('✅ Found data array in response.data.data, length:', responseData.data.length);
+                return {
+                    success: true,
+                    data: responseData.data,
+                    pagination: responseData.pagination || {
+                        total_items_count: responseData.data.length,
+                        page_size: page_size,
+                        total_pages_count: Math.ceil((responseData.pagination?.total_items_count || responseData.data.length) / page_size) || 0,
+                        page_index: page_index,
+                        has_next: responseData.pagination?.has_next || false,
+                        has_previous: responseData.pagination?.has_previous || false
+                    }
+                };
+            }
+
+            // Handle direct array response
+            if (Array.isArray(responseData)) {
+                console.log('✅ Found direct array response, length:', responseData.length);
+                return {
+                    success: true,
+                    data: responseData,
+                    pagination: {
+                        total_items_count: responseData.length,
+                        page_size: page_size,
+                        total_pages_count: Math.ceil(responseData.length / page_size) || 0,
+                        page_index: page_index,
+                        has_next: false,
+                        has_previous: false
+                    }
+                };
+            }
+
+            // No data found
+            console.warn('⚠️ No data found in response. Response structure:', {
+                hasData: !!responseData?.data,
+                isArray: Array.isArray(responseData),
+                responseData: responseData
+            });
+
             return {
                 success: true,
-                data: responseData,
-                pagination: {
-                    total_items_count: responseData.length,
+                data: [],
+                pagination: responseData?.pagination || {
+                    total_items_count: 0,
                     page_size: page_size,
-                    total_pages_count: Math.ceil(responseData.length / page_size) || 0,
+                    total_pages_count: 0,
                     page_index: page_index,
                     has_next: false,
                     has_previous: false
                 }
             };
+        } catch (error) {
+            console.error('❌ Failed to fetch daily tasks from API:', error);
+            console.error('   Error details:', {
+                message: error.message,
+                response: error.response?.data,
+                status: error.response?.status,
+                code: error.code
+            });
+
+            // Re-throw to trigger retry logic
+            throw error;
         }
-
-        // No data found
-        console.warn('⚠️ No data found in response. Response structure:', {
-            hasData: !!responseData?.data,
-            isArray: Array.isArray(responseData),
-            responseData: responseData
-        });
-
-        return {
-            success: true,
-            data: [],
-            pagination: responseData?.pagination || {
-                total_items_count: 0,
-                page_size: page_size,
-                total_pages_count: 0,
-                page_index: page_index,
-                has_next: false,
-                has_previous: false
-            }
-        };
-    } catch (error) {
-        console.error('Failed to fetch daily tasks from API:', error);
-        const errorMessage = error.response?.data?.message ||
-            error.response?.data?.error ||
-            error.message ||
-            'Không thể tải danh sách nhiệm vụ hằng ngày';
-        throw new Error(errorMessage);
-    }
+    }, 2, 1500); // Retry up to 2 times with 1.5s initial delay
 };
 
 /**
@@ -203,7 +244,7 @@ export const updateDailyTask = async (dailyTaskId, updateData) => {
         });
 
         return {
-                success: true,
+            success: true,
             data: response.data,
             message: 'Cập nhật nhiệm vụ hằng ngày thành công'
         };
@@ -280,7 +321,7 @@ export const deleteDailyTask = async (dailyTaskId) => {
         });
 
         return {
-                success: true,
+            success: true,
             message: 'Xóa nhiệm vụ hằng ngày thành công'
         };
     } catch (error) {
@@ -327,28 +368,28 @@ export const getDailyTasksStatistics = async (startDate, endDate, teamId = null,
 
         const tasksInRange = response.data || [];
 
-            const total = tasksInRange.length;
-            const scheduled = tasksInRange.filter(dt => dt.status === DAILY_TASK_STATUS.SCHEDULED).length;
-            const in_progress = tasksInRange.filter(dt => dt.status === DAILY_TASK_STATUS.IN_PROGRESS).length;
-            const completed = tasksInRange.filter(dt => dt.status === DAILY_TASK_STATUS.COMPLETED).length;
-            const cancelled = tasksInRange.filter(dt => dt.status === DAILY_TASK_STATUS.CANCELLED).length;
-            const missed = tasksInRange.filter(dt => dt.status === DAILY_TASK_STATUS.MISSED).length;
-            const skipped = tasksInRange.filter(dt => dt.status === DAILY_TASK_STATUS.SKIPPED).length;
+        const total = tasksInRange.length;
+        const scheduled = tasksInRange.filter(dt => dt.status === DAILY_TASK_STATUS.SCHEDULED).length;
+        const in_progress = tasksInRange.filter(dt => dt.status === DAILY_TASK_STATUS.IN_PROGRESS).length;
+        const completed = tasksInRange.filter(dt => dt.status === DAILY_TASK_STATUS.COMPLETED).length;
+        const cancelled = tasksInRange.filter(dt => dt.status === DAILY_TASK_STATUS.CANCELLED).length;
+        const missed = tasksInRange.filter(dt => dt.status === DAILY_TASK_STATUS.MISSED).length;
+        const skipped = tasksInRange.filter(dt => dt.status === DAILY_TASK_STATUS.SKIPPED).length;
 
-            const completion_rate = total > 0 ? Math.round((completed / total) * 100) : 0;
+        const completion_rate = total > 0 ? Math.round((completed / total) * 100) : 0;
 
         return {
-                success: true,
-                data: {
-                    total,
-                    scheduled,
-                    in_progress,
-                    completed,
-                    cancelled,
-                    missed,
-                    skipped,
-                    completion_rate
-                }
+            success: true,
+            data: {
+                total,
+                scheduled,
+                in_progress,
+                completed,
+                cancelled,
+                missed,
+                skipped,
+                completion_rate
+            }
         };
     } catch (error) {
         console.error('Failed to get daily tasks statistics:', error);
