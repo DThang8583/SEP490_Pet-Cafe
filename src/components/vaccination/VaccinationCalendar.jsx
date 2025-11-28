@@ -474,6 +474,34 @@ const VaccinationCalendar = ({ upcomingVaccinations }) => {
 
                                             <Divider />
 
+                                            {/* Scheduled Time */}
+                                            <Box
+                                                sx={{
+                                                    p: 1.5,
+                                                    borderRadius: 1.5,
+                                                    bgcolor: alpha(COLORS.INFO[50], 0.4),
+                                                    border: `1px solid ${alpha(COLORS.INFO[200], 0.3)}`
+                                                }}
+                                            >
+                                                <Stack direction="row" spacing={1.5} alignItems="center">
+                                                    <ScheduleIcon sx={{ fontSize: 20, color: COLORS.INFO[600] }} />
+                                                    <Typography
+                                                        variant="body2"
+                                                        sx={{
+                                                            fontWeight: 600,
+                                                            color: COLORS.INFO[800],
+                                                            fontSize: '0.875rem'
+                                                        }}
+                                                    >
+                                                        {(() => {
+                                                            // Extract time directly without timezone conversion
+                                                            const match = vaccination.scheduled_date?.match(/T(\d{2}:\d{2})/);
+                                                            return match ? match[1] : '—';
+                                                        })()}
+                                                    </Typography>
+                                                </Stack>
+                                            </Box>
+
                                             {/* Vaccine Info */}
                                             <Box>
                                                 <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 1 }}>
@@ -552,13 +580,13 @@ const VaccinationCalendar = ({ upcomingVaccinations }) => {
                                                                     fontSize: '0.875rem'
                                                                 }}
                                                             >
-                                                                {new Date(vaccination.completed_date).toLocaleDateString('vi-VN', {
-                                                                    day: '2-digit',
-                                                                    month: '2-digit',
-                                                                    year: 'numeric',
-                                                                    hour: '2-digit',
-                                                                    minute: '2-digit'
-                                                                })}
+                                                                {(() => {
+                                                                    // Extract date/time directly without timezone conversion
+                                                                    const match = vaccination.completed_date?.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+                                                                    if (!match) return '—';
+                                                                    const [, year, month, day, hours, minutes] = match;
+                                                                    return `${day}/${month}/${year}, ${hours}:${minutes}`;
+                                                                })()}
                                                             </Typography>
                                                         </Box>
                                                     </Stack>

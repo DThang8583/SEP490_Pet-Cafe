@@ -20,6 +20,7 @@ const VaccinationScheduleModal = ({
         vaccine_type_id: '',
         pet_id: '',
         scheduled_date: '',
+        scheduled_time: '09:00', // Default time 9:00 AM to match backend
         notes: '',
         team_id: '',
         status: 'PENDING' // PENDING, COMPLETED, CANCELLED, IN_PROGRESS
@@ -32,9 +33,32 @@ const VaccinationScheduleModal = ({
             if (editMode && initialData) {
                 // Get species_id from pet if available
                 const pet = pets.find(p => p.id === initialData.pet_id);
-                const speciesId = pet?.species_id || pet?.species?.id || '';
+                const speciesId = pet ? extractSpeciesId(pet) : '';
 
-                const scheduledDate = initialData.scheduled_date ? new Date(initialData.scheduled_date) : null;
+                // WORKAROUND: Backend stores time as "fake UTC" representing local Vietnam time
+                // Example: "2025-11-28T15:00:00Z" means 15:00 Vietnam time (not UTC)
+                // So we extract time directly from the string without timezone conversion
+                let dateOnly = '';
+                let timeOnly = '09:00'; // Default time
+
+                if (initialData.scheduled_date) {
+                    // Extract date and time directly from ISO string without Date conversion
+                    // This avoids timezone conversion issues
+                    const isoString = initialData.scheduled_date;
+                    const match = isoString.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/);
+
+                    if (match) {
+                        dateOnly = match[1]; // YYYY-MM-DD
+                        timeOnly = match[2]; // HH:MM
+
+                        console.log('📥 Loading vaccination schedule time:', {
+                            rawFromBackend: isoString,
+                            extractedDate: dateOnly,
+                            extractedTime: timeOnly,
+                            note: 'Time is stored as UTC but represents local Vietnam time'
+                        });
+                    }
+                }
 
                 // Load team_id - check multiple possible locations in API response
                 // API might return team_id directly, or as team.id, or team_id in team object
@@ -52,7 +76,8 @@ const VaccinationScheduleModal = ({
                     species_id: speciesId,
                     vaccine_type_id: initialData.vaccine_type_id || '',
                     pet_id: initialData.pet_id || '',
-                    scheduled_date: scheduledDate ? scheduledDate.toISOString().split('T')[0] : '',
+                    scheduled_date: dateOnly,
+                    scheduled_time: timeOnly,
                     notes: initialData.notes || '',
                     team_id: teamId, // Load team_id from initialData
                     status: initialData.status || 'PENDING'
@@ -74,6 +99,7 @@ const VaccinationScheduleModal = ({
                     vaccine_type_id: '',
                     pet_id: '',
                     scheduled_date: '',
+                    scheduled_time: '09:00',
                     notes: '',
                     team_id: '',
                     status: 'PENDING'
@@ -102,6 +128,10 @@ const VaccinationScheduleModal = ({
             newErrors.scheduled_date = 'Vui lòng chọn ngày tiêm';
         }
 
+        if (!formData.scheduled_time) {
+            newErrors.scheduled_time = 'Vui lòng chọn giờ tiêm';
+        }
+
         if (!formData.team_id) {
             newErrors.team_id = 'Vui lòng chọn nhóm';
         }
@@ -112,10 +142,22 @@ const VaccinationScheduleModal = ({
 
     const handleSubmit = () => {
         if (validate()) {
-            // Convert date to ISO string (set time to 00:00:00)
-            const scheduledDateTime = formData.scheduled_date
-                ? new Date(`${formData.scheduled_date}T00:00:00`).toISOString()
+            // WORKAROUND: Backend extracts time from UTC timestamp without timezone conversion
+            // So we send local time AS IF it were UTC (with Z suffix)
+            // Example: User selects 15:00 Vietnam time → Send "2025-11-28T15:00:00Z"
+            // Backend will extract 15:00 and use it directly for daily task
+            const scheduledDateTime = formData.scheduled_date && formData.scheduled_time
+                ? `${formData.scheduled_date}T${formData.scheduled_time}:00Z`
                 : '';
+
+            console.log('📤 Sending vaccination schedule with time:', {
+                userInput: {
+                    date: formData.scheduled_date,
+                    time: formData.scheduled_time
+                },
+                sentToBackend: scheduledDateTime,
+                note: 'Time is sent as UTC but represents local Vietnam time'
+            });
 
             onSubmit({
                 ...formData,
@@ -130,6 +172,7 @@ const VaccinationScheduleModal = ({
             vaccine_type_id: '',
             pet_id: '',
             scheduled_date: '',
+            scheduled_time: '09:00',
             notes: '',
             team_id: '',
             status: 'PENDING'
@@ -142,6 +185,16 @@ const VaccinationScheduleModal = ({
     const capitalizeName = (name) => {
         if (!name) return name;
         return name.charAt(0).toUpperCase() + name.slice(1);
+    };
+
+    // Helper function to extract species_id from pet object
+    const extractSpeciesId = (pet) => {
+        // Try multiple sources for species_id
+        if (pet.species_id) return pet.species_id;
+        if (pet.species?.id) return pet.species.id;
+        if (pet.breed?.species_id) return pet.breed.species_id;
+        if (pet.breed?.species?.id) return pet.breed.species.id;
+        return null;
     };
 
     // Get species name by ID
@@ -178,10 +231,13 @@ const VaccinationScheduleModal = ({
         if (!formData.species_id) {
             return [];
         }
-        return pets.filter(pet => {
-            const petSpeciesId = pet.species_id || pet.species?.id;
+
+        const filtered = pets.filter(pet => {
+            const petSpeciesId = extractSpeciesId(pet);
             return petSpeciesId === formData.species_id;
         });
+
+        return filtered;
     }, [formData.species_id, pets]);
 
     if (!isOpen) return null;
@@ -245,9 +301,13 @@ const VaccinationScheduleModal = ({
                                     </MenuItem>
                                 ))}
                             </Select>
-                            {errors.species_id && (
+                            {errors.species_id ? (
                                 <Typography variant="caption" sx={{ color: COLORS.ERROR[600], mt: 0.5, ml: 1.5 }}>
                                     {errors.species_id}
+                                </Typography>
+                            ) : (
+                                <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, mt: 0.5, ml: 1.5 }}>
+                                    Có {species.length} loài
                                 </Typography>
                             )}
                         </FormControl>
@@ -287,9 +347,13 @@ const VaccinationScheduleModal = ({
                                     </MenuItem>
                                 )}
                             </Select>
-                            {errors.vaccine_type_id && (
+                            {errors.vaccine_type_id ? (
                                 <Typography variant="caption" sx={{ color: COLORS.ERROR[600], mt: 0.5, ml: 1.5 }}>
                                     {errors.vaccine_type_id}
+                                </Typography>
+                            ) : formData.species_id && (
+                                <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, mt: 0.5, ml: 1.5 }}>
+                                    Tìm thấy {availableVaccineTypes.length} loại vaccine (Tổng: {vaccineTypes.length})
                                 </Typography>
                             )}
                         </FormControl>
@@ -317,9 +381,13 @@ const VaccinationScheduleModal = ({
                                     </MenuItem>
                                 )}
                             </Select>
-                            {errors.pet_id && (
+                            {errors.pet_id ? (
                                 <Typography variant="caption" sx={{ color: COLORS.ERROR[600], mt: 0.5, ml: 1.5 }}>
                                     {errors.pet_id}
+                                </Typography>
+                            ) : formData.species_id && (
+                                <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, mt: 0.5, ml: 1.5 }}>
+                                    Tìm thấy {availablePets.length} thú cưng (Tổng: {pets.length})
                                 </Typography>
                             )}
                         </FormControl>
@@ -337,6 +405,21 @@ const VaccinationScheduleModal = ({
                             }}
                             error={Boolean(errors.scheduled_date)}
                             helperText={errors.scheduled_date}
+                        />
+
+                        {/* Scheduled Time */}
+                        <TextField
+                            label="Giờ tiêm dự kiến"
+                            type="time"
+                            value={formData.scheduled_time}
+                            onChange={(e) => setFormData({ ...formData, scheduled_time: e.target.value })}
+                            fullWidth
+                            required
+                            InputLabelProps={{
+                                shrink: true
+                            }}
+                            error={Boolean(errors.scheduled_time)}
+                            helperText={errors.scheduled_time || 'Mặc định: 09:00 (9h sáng)'}
                         />
 
                         {/* Status - Only in Edit Mode */}
