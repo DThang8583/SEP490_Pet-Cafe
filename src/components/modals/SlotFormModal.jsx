@@ -471,6 +471,13 @@ const SlotFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, 
                 specific_date: processedSpecificDate // Optional, ISO datetime string or null
             };
 
+            console.log('[SlotFormModal] Before submit - Time conversion:', {
+                input_start: formData.start_time,
+                input_end: formData.end_time,
+                output_start: submitData.start_time,
+                output_end: submitData.end_time
+            });
+
             // Final safety check: ensure no empty strings in UUID fields
             if (submitData.area_id === '' || submitData.area_id === undefined) submitData.area_id = null;
             if (submitData.pet_group_id === '' || submitData.pet_group_id === undefined) submitData.pet_group_id = null;

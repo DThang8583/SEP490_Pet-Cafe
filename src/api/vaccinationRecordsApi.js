@@ -4,6 +4,9 @@ import apiClient from '../config/config';
  * Get all vaccination records from official API
  * @param {Object} params - { page_index, page_size, PetId }
  * @returns {Promise<Object>} { data, pagination }
+ * 
+ * ⚠️ WARNING: Backend doesn't have GET /vaccination-records endpoint (returns 405)
+ * Use vaccination schedules with status='COMPLETED' and record_id instead
  */
 export const getAllVaccinationRecords = async (params = {}) => {
     const {
@@ -13,6 +16,8 @@ export const getAllVaccinationRecords = async (params = {}) => {
     } = params;
 
     try {
+        console.warn('[getAllVaccinationRecords] ⚠️ This endpoint returns 405 error. Use vaccination schedules instead.');
+
         const queryParams = {
             page: page_index,
             limit: page_size

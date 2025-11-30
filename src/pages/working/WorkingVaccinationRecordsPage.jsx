@@ -50,8 +50,10 @@ const WorkingVaccinationRecordsPage = () => {
         const loadData = async () => {
             try {
                 setLoading(true);
-                const [recordsRes, petsRes, vaccineTypesRes, schedulesRes, speciesRes] = await Promise.allSettled([
-                    getAllVaccinationRecords({ page_index: 0, page_size: 1000 }),
+
+                // TEMPORARY FIX: Backend doesn't have GET /vaccination-records endpoint (405 error)
+                // Load vaccination records from schedules instead
+                const [petsRes, vaccineTypesRes, schedulesRes, speciesRes] = await Promise.allSettled([
                     getAllPets({ page_index: 0, page_size: 1000 }),
                     getAllVaccineTypes({ page_index: 0, page_size: 1000 }),
                     getAllVaccinationSchedules({ page_index: 0, page_size: 1000 }),
@@ -59,11 +61,33 @@ const WorkingVaccinationRecordsPage = () => {
                 ]);
 
                 if (mounted) {
-                    setRecords(recordsRes.status === 'fulfilled' ? (recordsRes.value.data || []) : []);
+                    // Extract records from schedules that have record_id
+                    const schedulesData = schedulesRes.status === 'fulfilled' ? (schedulesRes.value.data || []) : [];
+                    const recordsFromSchedules = schedulesData
+                        .filter(schedule => schedule.status === 'COMPLETED' && schedule.record_id)
+                        .map(schedule => ({
+                            id: schedule.record_id,
+                            vaccination_schedule_id: schedule.id,
+                            pet_id: schedule.pet_id,
+                            pet: schedule.pet,
+                            vaccine_type_id: schedule.vaccine_type_id,
+                            vaccine_type: schedule.vaccine_type,
+                            vaccination_date: schedule.completed_date || schedule.scheduled_date,
+                            veterinarian: schedule.veterinarian || '—',
+                            clinic_name: 'Pet Cafe',
+                            notes: schedule.notes || '',
+                            next_due_date: schedule.next_due_date,
+                            batch_number: schedule.batch_number || '—',
+                            created_at: schedule.updated_at || schedule.created_at
+                        }));
+
+                    setRecords(recordsFromSchedules);
                     setPets(petsRes.status === 'fulfilled' ? (petsRes.value.data || []) : []);
                     setVaccineTypes(vaccineTypesRes.status === 'fulfilled' ? (vaccineTypesRes.value.data || []) : []);
-                    setSchedules(schedulesRes.status === 'fulfilled' ? (schedulesRes.value.data || []) : []);
+                    setSchedules(schedulesData);
                     setSpecies(speciesRes.status === 'fulfilled' ? (speciesRes.value.data || []) : []);
+
+                    console.log('[WorkingVaccinationRecordsPage] Loaded records from schedules:', recordsFromSchedules.length);
                 }
             } catch (error) {
                 console.error('Failed to load data', error);

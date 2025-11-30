@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Stack, IconButton, FormControl, InputLabel, Select, MenuItem, FormControlLabel, Switch, Typography, alpha, Box } from '@mui/material';
 import { Vaccines, Close } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
+import AlertModal from './AlertModal';
 
 const VaccineTypeModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData = null, species = [], isLoading = false }) => {
     const [formData, setFormData] = useState({
@@ -9,10 +10,17 @@ const VaccineTypeModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
         description: '',
         species_id: '',
         interval_months: '',
-        is_required: true
+        is_required: true,
+        required_doses: ''
     });
 
     const [errors, setErrors] = useState({});
+    const [alertModal, setAlertModal] = useState({
+        open: false,
+        type: 'error',
+        title: 'Lỗi',
+        message: ''
+    });
 
     useEffect(() => {
         if (isOpen) {
@@ -28,7 +36,8 @@ const VaccineTypeModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
                     description: initialData.description || '',
                     species_id: String(speciesId),
                     interval_months: initialData.interval_months || '',
-                    is_required: initialData.is_required !== undefined ? initialData.is_required : true
+                    is_required: initialData.is_required !== undefined ? initialData.is_required : true,
+                    required_doses: initialData.required_doses || ''
                 });
             } else {
                 setFormData({
@@ -36,7 +45,8 @@ const VaccineTypeModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
                     description: '',
                     species_id: '',
                     interval_months: '',
-                    is_required: true
+                    is_required: true,
+                    required_doses: ''
                 });
             }
             setErrors({});
@@ -45,20 +55,40 @@ const VaccineTypeModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
 
     const validate = () => {
         const newErrors = {};
+        const errorMessages = [];
 
         if (!formData.name.trim()) {
             newErrors.name = 'Tên vaccine là bắt buộc';
+            errorMessages.push('• Tên vaccine là bắt buộc');
         }
 
         if (!formData.species_id) {
             newErrors.species_id = 'Loài thú cưng là bắt buộc';
+            errorMessages.push('• Loài thú cưng là bắt buộc');
         }
 
         if (!formData.interval_months || formData.interval_months <= 0) {
             newErrors.interval_months = 'Chu kỳ tiêm lại phải lớn hơn 0';
+            errorMessages.push('• Chu kỳ tiêm lại phải lớn hơn 0');
+        }
+
+        if (!formData.required_doses || formData.required_doses <= 0) {
+            newErrors.required_doses = 'Số mũi tiêm phải lớn hơn 0';
+            errorMessages.push('• Số mũi tiêm phải lớn hơn 0');
         }
 
         setErrors(newErrors);
+
+        // Show AlertModal if there are validation errors
+        if (errorMessages.length > 0) {
+            setAlertModal({
+                open: true,
+                type: 'error',
+                title: 'Lỗi xác thực',
+                message: 'Vui lòng kiểm tra lại các thông tin sau:\n\n' + errorMessages.join('\n')
+            });
+        }
+
         return Object.keys(newErrors).length === 0;
     };
 
@@ -74,7 +104,8 @@ const VaccineTypeModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
             description: '',
             species_id: '',
             interval_months: '',
-            is_required: true
+            is_required: true,
+            required_doses: ''
         });
         setErrors({});
         onClose();
@@ -162,7 +193,18 @@ const VaccineTypeModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
                         type="number"
                         inputProps={{ min: 1 }}
                         error={Boolean(errors.interval_months)}
-                        helperText={errors.interval_months}
+                        helperText={errors.interval_months || 'Khoảng thời gian giữa các mũi tiêm'}
+                    />
+                    <TextField
+                        label="Số mũi tiêm tối đa"
+                        value={formData.required_doses}
+                        onChange={(e) => setFormData({ ...formData, required_doses: e.target.value })}
+                        fullWidth
+                        required
+                        type="number"
+                        inputProps={{ min: 1 }}
+                        error={Boolean(errors.required_doses)}
+                        helperText={errors.required_doses || 'Số mũi tiêm tối đa cho mỗi thú cưng (VD: 3)'}
                     />
                     <FormControlLabel
                         control={
@@ -187,6 +229,7 @@ const VaccineTypeModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
                     />
                 </Stack>
             </DialogContent>
+
             <DialogActions sx={{ px: 3, py: 2, borderTop: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.1)}` }}>
                 <Button
                     onClick={handleClose}
@@ -214,6 +257,16 @@ const VaccineTypeModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
                     {editMode ? 'Cập nhật' : 'Thêm mới'}
                 </Button>
             </DialogActions>
+
+            {/* Alert Modal for Validation Errors */}
+            <AlertModal
+                isOpen={alertModal.open}
+                onClose={() => setAlertModal({ ...alertModal, open: false })}
+                title={alertModal.title}
+                message={alertModal.message}
+                type={alertModal.type}
+                okText="Đã hiểu"
+            />
         </Dialog>
     );
 };

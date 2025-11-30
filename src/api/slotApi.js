@@ -236,20 +236,40 @@ const slotApi = {
 
         try {
             console.log('[createSlot] Request payload (final):', JSON.stringify(finalPayload, null, 2));
+            console.log('[createSlot] Time format check:', {
+                start_time: { value: finalPayload.start_time, length: finalPayload.start_time?.length, format: finalPayload.start_time?.match(/^\d{2}:\d{2}:\d{2}$/) ? 'HH:mm:ss' : 'INVALID' },
+                end_time: { value: finalPayload.end_time, length: finalPayload.end_time?.length, format: finalPayload.end_time?.match(/^\d{2}:\d{2}:\d{2}$/) ? 'HH:mm:ss' : 'INVALID' }
+            });
             console.log('[createSlot] UUID fields check:', {
                 area_id: { value: finalPayload.area_id, type: typeof finalPayload.area_id, isNull: finalPayload.area_id === null },
                 pet_group_id: { value: finalPayload.pet_group_id, type: typeof finalPayload.pet_group_id, isNull: finalPayload.pet_group_id === null },
                 team_id: { value: finalPayload.team_id, type: typeof finalPayload.team_id, isNull: finalPayload.team_id === null },
                 pet_id: { value: finalPayload.pet_id, type: typeof finalPayload.pet_id, isNull: finalPayload.pet_id === null }
             });
+            console.log('[createSlot] Recurring fields check:', {
+                is_recurring: { value: finalPayload.is_recurring, type: typeof finalPayload.is_recurring },
+                day_of_week: { value: finalPayload.day_of_week, type: typeof finalPayload.day_of_week, isNull: finalPayload.day_of_week === null },
+                specific_date: { value: finalPayload.specific_date, type: typeof finalPayload.specific_date, isNull: finalPayload.specific_date === null, isISO: finalPayload.specific_date?.includes('T') }
+            });
 
-            const response = await apiClient.post('/slots', finalPayload, { timeout: 10000 });
+            const response = await apiClient.post('/slots', finalPayload, { timeout: 15000 });
             console.log('[createSlot] Response:', response.data);
             return { success: true, data: response.data, message: 'Tạo slot thành công' };
         } catch (error) {
-            console.error('[createSlot] Error:', error);
-            console.error('[createSlot] Error response:', error.response?.data);
-            throw new Error(extractErrorMessage(error, 'Không thể tạo slot'));
+            console.error('[createSlot] ❌ ERROR:', error.message);
+            console.error('[createSlot] Error status:', error.response?.status);
+            console.error('[createSlot] Error data:', JSON.stringify(error.response?.data, null, 2));
+            console.error('[createSlot] Sent payload:', JSON.stringify(finalPayload, null, 2));
+
+            // Enhanced error message with details
+            let errorMsg = extractErrorMessage(error, 'Không thể tạo slot');
+            if (error.response?.status === 400) {
+                console.error('[createSlot] 400 Bad Request - Check the error data above for details');
+                if (error.response?.data) {
+                    errorMsg = `Dữ liệu không hợp lệ: ${errorMsg}`;
+                }
+            }
+            throw new Error(errorMsg);
         }
     },
 
@@ -301,10 +321,60 @@ const slotApi = {
 
     // Convenience helpers for current UI
     async publishSlot(slotId, { price }) {
-        return this.updateSlot(slotId, { service_status: SLOT_STATUS.AVAILABLE, price });
+        // Fetch current slot data first to preserve all fields
+        const currentSlot = await this.getSlotById(slotId);
+        if (!currentSlot.success) {
+            throw new Error('Không tìm thấy slot');
+        }
+
+        const slot = currentSlot.data;
+
+        // Build complete update payload with all required fields
+        return this.updateSlot(slotId, {
+            task_id: slot.task_id,
+            area_id: slot.area_id || null,
+            pet_group_id: slot.pet_group_id || null,
+            team_id: slot.team_id || null,
+            pet_id: slot.pet_id || null,
+            start_time: slot.start_time,
+            end_time: slot.end_time,
+            max_capacity: slot.max_capacity ?? 0,
+            special_notes: slot.special_notes || null,
+            is_recurring: slot.is_recurring !== undefined ? slot.is_recurring : (slot.day_of_week ? true : false),
+            specific_date: slot.specific_date || null,
+            day_of_week: slot.day_of_week || null,
+            price: price !== undefined ? price : (slot.price ?? 0),
+            service_status: 'AVAILABLE', // Set to AVAILABLE for publishing
+            is_update_related_data: true
+        });
     },
     async unpublishSlot(slotId) {
-        return this.updateSlot(slotId, { service_status: SLOT_STATUS.UNAVAILABLE });
+        // Fetch current slot data first to preserve all fields
+        const currentSlot = await this.getSlotById(slotId);
+        if (!currentSlot.success) {
+            throw new Error('Không tìm thấy slot');
+        }
+
+        const slot = currentSlot.data;
+
+        // Build complete update payload with all required fields
+        return this.updateSlot(slotId, {
+            task_id: slot.task_id,
+            area_id: slot.area_id || null,
+            pet_group_id: slot.pet_group_id || null,
+            team_id: slot.team_id || null,
+            pet_id: slot.pet_id || null,
+            start_time: slot.start_time,
+            end_time: slot.end_time,
+            max_capacity: slot.max_capacity ?? 0,
+            special_notes: slot.special_notes || null,
+            is_recurring: slot.is_recurring !== undefined ? slot.is_recurring : (slot.day_of_week ? true : false),
+            specific_date: slot.specific_date || null,
+            day_of_week: slot.day_of_week || null,
+            price: slot.price ?? 0,
+            service_status: 'UNAVAILABLE', // Set to UNAVAILABLE for unpublishing
+            is_update_related_data: true
+        });
     }
 };
 
