@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Box, Alert, InputAdornment, Typography, Paper, Divider, IconButton, Stack, alpha, CircularProgress } from '@mui/material';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Box, Alert, InputAdornment, Typography, Paper, Divider, IconButton, Stack, alpha, CircularProgress, Switch, FormControlLabel } from '@mui/material';
 import { CloudUpload as CloudUploadIcon, Delete as DeleteIcon, Image as ImageIcon } from '@mui/icons-material';
 import { formatPrice } from '../../utils/formatPrice';
 import { COLORS } from '../../constants/colors';
@@ -13,7 +13,8 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
         duration_minutes: 0,
         base_price: 0,
         image_url: '',
-        thumbnails: []
+        thumbnails: [],
+        is_active: false
     });
 
     const [errors, setErrors] = useState({});
@@ -33,7 +34,8 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
                     duration_minutes: initialData.duration_minutes || 0,
                     base_price: initialData.base_price || 0,
                     image_url: initialData.image_url || '',
-                    thumbnails: initialData.thumbnails || []
+                    thumbnails: initialData.thumbnails || [],
+                    is_active: initialData.is_active !== undefined ? initialData.is_active : false
                 });
                 // Set image previews from existing data
                 const previews = [];
@@ -49,7 +51,8 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
                     duration_minutes: taskData.estimated_hours ? taskData.estimated_hours * 60 : 0,
                     base_price: 0,
                     image_url: '',
-                    thumbnails: []
+                    thumbnails: [],
+                    is_active: false
                 });
                 setImagePreviews([]);
             } else {
@@ -67,7 +70,8 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
             duration_minutes: 0,
             base_price: 0,
             image_url: '',
-            thumbnails: []
+            thumbnails: [],
+            is_active: false
         });
         setImagePreviews([]);
         setErrors({});
@@ -238,7 +242,8 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
                 image_url: formData.image_url && formData.image_url.trim() ? formData.image_url.trim() : null,
                 thumbnails: formData.thumbnails && Array.isArray(formData.thumbnails) && formData.thumbnails.length > 0
                     ? formData.thumbnails.filter(url => url && url.trim()).map(url => url.trim())
-                    : []
+                    : [],
+                is_active: Boolean(formData.is_active)
             };
 
             await onSubmit(submitData);
@@ -620,16 +625,61 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
                         </Paper>
                     )}
 
+                    <Divider />
+
+                    {/* Trạng thái dịch vụ - Chỉ hiển thị khi edit */}
+                    {mode === 'edit' && (
+                        <Box>
+                            <FormControlLabel
+                                control={
+                                    <Switch
+                                        checked={formData.is_active === true}
+                                        onChange={(e) => handleChange('is_active', e.target.checked)}
+                                        color="success"
+                                    />
+                                }
+                                label={
+                                    <Box>
+                                        <Typography variant="body1" fontWeight={600}>
+                                            {formData.is_active ? '✅ Dịch vụ đang Hoạt động' : '⛔ Dịch vụ Không hoạt động'}
+                                        </Typography>
+                                        <Typography variant="caption" color="text.secondary">
+                                            {formData.is_active
+                                                ? 'Dịch vụ có sẵn cho khách hàng đặt lịch'
+                                                : 'Dịch vụ không hiển thị cho khách hàng'}
+                                        </Typography>
+                                    </Box>
+                                }
+                            />
+                        </Box>
+                    )}
+
                     {/* Status Info */}
-                    <Alert severity="info" variant="outlined">
+                    <Alert severity={mode === 'create' ? 'info' : formData.is_active ? 'success' : 'warning'} variant="outlined">
                         <Typography variant="body2">
                             💡 <strong>Lưu ý:</strong>
                             <br />
-                            • Dịch vụ sẽ được tạo với trạng thái <strong>Không hoạt động</strong> mặc định
-                            <br />
-                            • Bạn có thể kích hoạt dịch vụ sau khi tạo xong
-                            <br />
-                            {mode === 'create' && '• 1 Nhiệm vụ chỉ có thể tạo 1 Dịch vụ (quan hệ 1-1)'}
+                            {mode === 'create' ? (
+                                <>
+                                    • Dịch vụ sẽ được tạo với trạng thái <strong>Không hoạt động</strong> mặc định
+                                    <br />
+                                    • Bạn có thể kích hoạt dịch vụ sau khi tạo xong
+                                    <br />
+                                    • 1 Nhiệm vụ chỉ có thể tạo 1 Dịch vụ (quan hệ 1-1)
+                                </>
+                            ) : formData.is_active ? (
+                                <>
+                                    • Dịch vụ <strong>đang Hoạt động</strong> và sẵn sàng phục vụ khách hàng
+                                    <br />
+                                    • Khách hàng có thể xem và đặt lịch dịch vụ này
+                                </>
+                            ) : (
+                                <>
+                                    • Dịch vụ <strong>Không hoạt động</strong> - không hiển thị cho khách hàng
+                                    <br />
+                                    • Bật công tắc bên trên để kích hoạt dịch vụ
+                                </>
+                            )}
                         </Typography>
                     </Alert>
                 </Stack>

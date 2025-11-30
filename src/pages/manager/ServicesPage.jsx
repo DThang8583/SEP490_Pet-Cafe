@@ -993,27 +993,20 @@ const ServicesPage = () => {
 
                                                 {/* Trạng thái */}
                                                 <TableCell align="center">
-                                                    <Stack direction="row" alignItems="center" justifyContent="center" spacing={1}>
-                                                        <Switch
-                                                            checked={service.is_active === true}
-                                                            onChange={() => handleToggleStatus(service)}
-                                                            size="small"
-                                                            color="success"
-                                                        />
-                                                        <Chip
-                                                            label={service.is_active ? 'Hoạt động' : 'Không hoạt động'}
-                                                            size="small"
-                                                            icon={service.is_active ? <CheckIcon /> : <CloseIcon />}
-                                                            sx={{
-                                                                bgcolor: service.is_active
-                                                                    ? alpha(COLORS.SUCCESS[100], 0.8)
-                                                                    : alpha(COLORS.GRAY[200], 0.6),
-                                                                color: service.is_active
-                                                                    ? COLORS.SUCCESS[700]
-                                                                    : COLORS.TEXT.SECONDARY
-                                                            }}
-                                                        />
-                                                    </Stack>
+                                                    <Chip
+                                                        label={service.is_active ? 'Hoạt động' : 'Không hoạt động'}
+                                                        size="small"
+                                                        icon={service.is_active ? <CheckIcon /> : <CloseIcon />}
+                                                        sx={{
+                                                            bgcolor: service.is_active
+                                                                ? alpha(COLORS.SUCCESS[100], 0.8)
+                                                                : alpha(COLORS.GRAY[200], 0.6),
+                                                            color: service.is_active
+                                                                ? COLORS.SUCCESS[700]
+                                                                : COLORS.TEXT.SECONDARY,
+                                                            fontWeight: 600
+                                                        }}
+                                                    />
                                                 </TableCell>
 
                                                 {/* Thao tác */}

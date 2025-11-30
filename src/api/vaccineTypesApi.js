@@ -96,16 +96,17 @@ export const getVaccineTypeById = async (vaccineTypeId) => {
 
 /**
  * Create new vaccine type using official API
- * @param {Object} vaccineData - { name, description, species_id, interval_months, is_required }
+ * @param {Object} vaccineData - { name, description, species_id, interval_months, is_required, required_doses }
  * @returns {Promise<Object>} Created vaccine type
  */
 export const createVaccineType = async (vaccineData) => {
     try {
-        const { name, description, species_id, interval_months, is_required } = vaccineData;
+        const { name, description, species_id, interval_months, is_required, required_doses } = vaccineData;
         const trimmedName = name?.trim();
         const trimmedDescription = description?.trim() || '';
         const parsedInterval = parseInt(interval_months) || 0;
         const required = is_required !== undefined ? is_required : true;
+        const parsedRequiredDoses = parseInt(required_doses) || 0;
 
         if (!trimmedName) {
             throw new Error('Tên vaccine là bắt buộc');
@@ -116,13 +117,17 @@ export const createVaccineType = async (vaccineData) => {
         if (parsedInterval <= 0) {
             throw new Error('Chu kỳ tiêm lại phải lớn hơn 0');
         }
+        if (parsedRequiredDoses <= 0) {
+            throw new Error('Số mũi tiêm phải lớn hơn 0');
+        }
 
         const response = await apiClient.post('/vaccine-types', {
             name: trimmedName,
             description: trimmedDescription,
             species_id,
             interval_months: parsedInterval,
-            is_required: required
+            is_required: required,
+            required_doses: parsedRequiredDoses
         }, { timeout: 10000 });
 
         return {
@@ -139,7 +144,7 @@ export const createVaccineType = async (vaccineData) => {
 /**
  * Update vaccine type using official API
  * @param {string} vaccineTypeId
- * @param {Object} vaccineData - { name?, description?, species_id?, interval_months?, is_required? }
+ * @param {Object} vaccineData - { name?, description?, species_id?, interval_months?, is_required?, required_doses? }
  * @returns {Promise<Object>} Updated vaccine type
  */
 export const updateVaccineType = async (vaccineTypeId, vaccineData) => {
@@ -175,6 +180,14 @@ export const updateVaccineType = async (vaccineTypeId, vaccineData) => {
 
         if (vaccineData.is_required !== undefined) {
             requestData.is_required = vaccineData.is_required;
+        }
+
+        if (vaccineData.required_doses !== undefined) {
+            const required_doses = parseInt(vaccineData.required_doses) || 0;
+            if (required_doses <= 0) {
+                throw new Error('Số mũi tiêm phải lớn hơn 0');
+            }
+            requestData.required_doses = required_doses;
         }
 
         const response = await apiClient.put(`/vaccine-types/${vaccineTypeId}`, requestData, { timeout: 10000 });
