@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Button, TextField, Stack, IconButton, FormControl, InputLabel, Select, MenuItem, Typography, alpha, Box, Chip, Backdrop, Paper } from '@mui/material';
 import { CalendarToday, Close } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
+import * as teamApi from '../../api/teamApi';
 
 const VaccinationScheduleModal = ({
     isOpen,
@@ -27,6 +28,55 @@ const VaccinationScheduleModal = ({
     });
 
     const [errors, setErrors] = useState({});
+    const [teamsWithShifts, setTeamsWithShifts] = useState([]);
+
+    // Load team work shifts when modal opens
+    useEffect(() => {
+        const loadTeamWorkShifts = async () => {
+            if (!isOpen || !teams || teams.length === 0) {
+                setTeamsWithShifts([]);
+                return;
+            }
+
+            try {
+                // Filter out teams with status "INACTIVE" (Tạm ngưng)
+                const activeTeams = teams.filter(team => {
+                    const teamStatus = (team.status || '').toUpperCase();
+                    return teamStatus !== 'INACTIVE';
+                });
+
+                const enriched = await Promise.allSettled(
+                    activeTeams.map(async (team) => {
+                        try {
+                            const wsRes = await teamApi.getTeamWorkShifts(team.id, { page_index: 0, page_size: 100 });
+                            const teamWorkShifts = wsRes.data || [];
+                            return {
+                                ...team,
+                                team_work_shifts: teamWorkShifts
+                            };
+                        } catch {
+                            return { ...team, team_work_shifts: [] };
+                        }
+                    })
+                );
+
+                setTeamsWithShifts(enriched
+                    .filter(r => r.status === 'fulfilled')
+                    .map(r => r.value)
+                );
+            } catch (error) {
+                console.error('[VaccinationScheduleModal] Error loading team work shifts:', error);
+                // Filter out inactive teams even on error
+                const activeTeams = teams.filter(team => {
+                    const teamStatus = (team.status || '').toUpperCase();
+                    return teamStatus !== 'INACTIVE';
+                });
+                setTeamsWithShifts(activeTeams.map(t => ({ ...t, team_work_shifts: [] })));
+            }
+        };
+
+        loadTeamWorkShifts();
+    }, [isOpen, teams]);
 
     useEffect(() => {
         if (isOpen) {
@@ -239,6 +289,90 @@ const VaccinationScheduleModal = ({
 
         return filtered;
     }, [formData.species_id, pets]);
+
+    // Filter teams based on scheduled date and time
+    const filteredTeams = useMemo(() => {
+        if (!formData.scheduled_date || !formData.scheduled_time || teamsWithShifts.length === 0) {
+            return teamsWithShifts.map(team => ({
+                ...team,
+                __matchesSchedule: false
+            }));
+        }
+
+        // Get day of week from scheduled_date
+        const dateObj = new Date(`${formData.scheduled_date}T00:00:00`);
+        const dayOfWeekIndex = dateObj.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+        const dayOfWeekMap = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+        const dayOfWeek = dayOfWeekMap[dayOfWeekIndex];
+
+        // Normalize time to HH:mm:ss format
+        const normalizeTime = (timeStr) => {
+            if (!timeStr) return '';
+            // If already in HH:mm:ss format, return as is
+            if (timeStr.length === 8 && timeStr.includes(':')) {
+                return timeStr;
+            }
+            // If in HH:mm format, add :00
+            if (timeStr.length === 5 && timeStr.includes(':')) {
+                return `${timeStr}:00`;
+            }
+            return timeStr;
+        };
+
+        const scheduledTime = normalizeTime(formData.scheduled_time);
+
+        console.log('[VaccinationScheduleModal] Filtering teams:', {
+            scheduled_date: formData.scheduled_date,
+            scheduled_time: formData.scheduled_time,
+            dayOfWeek,
+            normalizedTime: scheduledTime
+        });
+
+        const withMatchFlag = teamsWithShifts.map(team => {
+            const matchesSchedule = team.team_work_shifts?.some(tws => {
+                const workShift = tws?.work_shift;
+                if (!workShift) return false;
+
+                const shiftStart = normalizeTime(workShift.start_time);
+                const shiftEnd = normalizeTime(workShift.end_time);
+                const applicableDays = Array.isArray(workShift.applicable_days) ? workShift.applicable_days : [];
+
+                // Check if scheduled time is within shift time range
+                const timeMatches = shiftStart && scheduledTime && shiftEnd &&
+                    shiftStart <= scheduledTime && shiftEnd >= scheduledTime;
+
+                // Check if day of week matches
+                const dayMatches = applicableDays.includes(dayOfWeek);
+
+                const matches = timeMatches && dayMatches;
+
+                if (matches) {
+                    console.log('[VaccinationScheduleModal] Team matches schedule:', {
+                        teamName: team.name,
+                        workShift: workShift.name,
+                        shiftTime: `${shiftStart} - ${shiftEnd}`,
+                        applicableDays,
+                        scheduledDay: dayOfWeek,
+                        scheduledTime,
+                        matches: true
+                    });
+                }
+
+                return matches;
+            }) ?? false;
+
+            return {
+                ...team,
+                __matchesSchedule: matchesSchedule
+            };
+        });
+
+        // Sort: matching teams first
+        return withMatchFlag.sort((a, b) => {
+            return Number(b.__matchesSchedule) - Number(a.__matchesSchedule);
+        });
+    }, [formData.scheduled_date, formData.scheduled_time, teamsWithShifts]);
+
 
     if (!isOpen) return null;
 
@@ -499,21 +633,46 @@ const VaccinationScheduleModal = ({
                                     value={formData.team_id}
                                     onChange={(e) => setFormData({ ...formData, team_id: e.target.value })}
                                     label="Nhóm"
+                                    disabled={!formData.scheduled_date || !formData.scheduled_time}
                                 >
                                     <MenuItem value="">
                                         <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
                                             -- Chọn nhóm --
                                         </Typography>
                                     </MenuItem>
-                                    {teams.map(team => (
-                                        <MenuItem key={team.id} value={team.id}>
-                                            <Typography>{team.name}</Typography>
-                                        </MenuItem>
-                                    ))}
+                                    {/* Chỉ hiển thị teams khớp ca làm việc */}
+                                    {filteredTeams
+                                        .filter(team => team.__matchesSchedule)
+                                        .map(team => (
+                                            <MenuItem key={team.id} value={team.id}>
+                                                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                                    {team.name}
+                                                </Typography>
+                                            </MenuItem>
+                                        ))}
                                 </Select>
                                 {errors.team_id && (
                                     <Typography variant="caption" sx={{ color: COLORS.ERROR[600], mt: 0.5, ml: 1.5 }}>
                                         {errors.team_id}
+                                    </Typography>
+                                )}
+                                {!errors.team_id && formData.scheduled_date && formData.scheduled_time && (
+                                    <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, mt: 0.5, ml: 1.5 }}>
+                                        {(() => {
+                                            const dateObj = new Date(`${formData.scheduled_date}T00:00:00`);
+                                            const dayOfWeekMap = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
+                                            const dayName = dayOfWeekMap[dateObj.getDay()];
+                                            const matchingCount = filteredTeams.filter(t => t.__matchesSchedule).length;
+
+                                            return matchingCount > 0
+                                                ? `✅ ${matchingCount} nhóm có ca làm việc vào ${dayName} lúc ${formData.scheduled_time}`
+                                                : `⚠️ Không có nhóm nào có ca làm việc vào ${dayName} lúc ${formData.scheduled_time}`;
+                                        })()}
+                                    </Typography>
+                                )}
+                                {!errors.team_id && (!formData.scheduled_date || !formData.scheduled_time) && (
+                                    <Typography variant="caption" sx={{ color: COLORS.WARNING[700], mt: 0.5, ml: 1.5 }}>
+                                        ⏰ Vui lòng chọn ngày và giờ tiêm trước để xem nhóm phù hợp
                                     </Typography>
                                 )}
                             </FormControl>
