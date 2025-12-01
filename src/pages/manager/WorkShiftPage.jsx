@@ -3,7 +3,6 @@ import { Box, Typography, Paper, Chip, Stack, IconButton, Button, Avatar, Grid, 
 import { alpha } from '@mui/material/styles';
 import { COLORS } from '../../constants/colors';
 import Loading from '../../components/loading/Loading';
-import Pagination from '../../components/common/Pagination';
 import AlertModal from '../../components/modals/AlertModal';
 import ConfirmModal from '../../components/modals/ConfirmModal';
 import ShiftFormModal from '../../components/modals/ShiftFormModal';
@@ -44,10 +43,11 @@ const WorkShiftPage = () => {
 
     // Pagination states for Teams (main pagination)
     const [page, setPage] = useState(1);
-    const [itemsPerPage, setItemsPerPage] = useState(10);
+    // Dùng limit rất lớn để hiển thị gần như toàn bộ team trên một trang
+    const [itemsPerPage, setItemsPerPage] = useState(999);
     const [pagination, setPagination] = useState({
         total_items_count: 0,
-        page_size: 10,
+        page_size: 999,
         total_pages_count: 0,
         page_index: 0,
         has_next: false,
@@ -98,14 +98,16 @@ const WorkShiftPage = () => {
     // View and filter states
     const [searchQuery, setSearchQuery] = useState('');
 
-    // Load data from API
+    // Load data from API (ưu tiên dữ liệu chính, phần còn lại load nền)
     useEffect(() => {
-        loadShifts();
-        loadTeams();
-        loadNewTeams();
-        loadSlots();
-        loadEmployees();
-        loadWorkTypes();
+        // 1. Tải song song ca làm + team (dữ liệu chính)
+        (async () => {
+            await Promise.all([loadShifts(), loadTeams()]);
+            // 2. Sau khi dữ liệu chính đã có, tải nền các phần phụ (không chặn UI)
+            loadSlots();
+            loadEmployees();
+            loadWorkTypes();
+        })();
     }, []);
 
     // Reload teams when pagination changes
@@ -252,88 +254,31 @@ const WorkShiftPage = () => {
         }
     };
 
-    const loadNewTeams = async () => {
-        try {
-            setLoadingNewTeams(true);
-            // Fetch all teams across multiple pages
-            const allTeams = [];
-            let pageIndex = 0;
-            let hasNext = true;
-            const pageSize = 100;
-
-            while (hasNext && pageIndex < 50) {
-                try {
-                    const response = await teamApi.getTeams({
-                        page: pageIndex,
-                        limit: pageSize
-                    });
-
-                    if (response.success && Array.isArray(response.data)) {
-                        allTeams.push(...response.data);
-                        const pagination = response.pagination || {};
-                        hasNext = pagination.has_next === true || pagination.has_next === 'true';
-                        pageIndex++;
-
-                        if (!hasNext || allTeams.length >= (pagination.total_items_count || 0)) {
-                            break;
-                        }
-                    } else {
-                        break;
-                    }
-                } catch (pageError) {
-                    break;
-                }
-            }
-
-            // Enrich teams with members and workshifts data
-            const teamsWithData = await Promise.all(
-                allTeams.map(async (team) => {
-                    try {
-                        const [membersResponse, workShiftsResponse] = await Promise.allSettled([
-                            teamApi.getTeamMembers(team.id),
-                            teamApi.getTeamWorkShifts(team.id, { page_index: 0, page_size: 100 })
-                        ]);
-
-                        const teamMembers = membersResponse.status === 'fulfilled' && membersResponse.value.success
-                            ? membersResponse.value.data || []
-                            : [];
-
-                        const teamWorkShifts = workShiftsResponse.status === 'fulfilled' && workShiftsResponse.value.success
-                            ? workShiftsResponse.value.data || []
-                            : [];
-
-                        return {
-                            ...team,
-                            team_members: teamMembers,
-                            team_work_shifts: teamWorkShifts
-                        };
-                    } catch (error) {
-                        return {
-                            ...team,
-                            team_members: [],
-                            team_work_shifts: []
-                        };
-                    }
-                })
-            );
-
-            // Filter teams that are missing members or workshifts (excluding leader)
-            const filteredNewTeams = teamsWithData.filter(team => {
-                const hasWorkShifts = (team.team_work_shifts?.length || 0) > 0;
-                const hasMembers = (team.team_members?.filter(m => {
-                    const memberId = m.employee?.id || m.employee_id;
-                    return memberId && memberId !== team.leader_id;
-                }).length || 0) > 0;
-                return !(hasWorkShifts && hasMembers);
-            });
-
-            setNewTeams(filteredNewTeams);
-        } catch (error) {
+    // Derive "newTeams" trực tiếp từ danh sách teams đã load (tránh gọi API lặp lại)
+    useEffect(() => {
+        // Không cần chạy nếu chưa có team nào
+        if (!Array.isArray(teams) || teams.length === 0) {
             setNewTeams([]);
-        } finally {
             setLoadingNewTeams(false);
+            return;
         }
-    };
+
+        setLoadingNewTeams(true);
+
+        // Tính toán nhẹ nhàng trên dữ liệu sẵn có
+        const filteredNewTeams = teams.filter(team => {
+            const hasWorkShifts = (team.team_work_shifts?.length || 0) > 0;
+            const hasMembers = (team.team_members?.filter(m => {
+                const memberId = m.employee?.id || m.employee_id;
+                return memberId && memberId !== team.leader_id;
+            }).length || 0) > 0;
+            // "Team mới" = thiếu ca làm việc hoặc thiếu member
+            return !(hasWorkShifts && hasMembers);
+        });
+
+        setNewTeams(filteredNewTeams);
+        setLoadingNewTeams(false);
+    }, [teams]);
 
     // Build schedule: Group shifts by day
     const scheduleByDay = useMemo(() => {
@@ -357,28 +302,40 @@ const WorkShiftPage = () => {
         return schedule;
     }, [shifts, searchQuery]);
 
-    // Helper: Get teams for a shift based on team_work_shifts
-    const getTeamsForShift = (shift, day) => {
-        if (!shift || !day || !teams || teams.length === 0) {
-            return [];
+    // Pre-compute mapping shiftId + day -> teams để tránh filter lặp lại khi render
+    const teamsByShiftAndDay = useMemo(() => {
+        const map = {};
+
+        if (!Array.isArray(teams) || teams.length === 0) {
+            return map;
         }
 
-        // Filter teams that have this shift assigned and work on this day
-        return teams.filter(team => {
-            // Check if team has this work shift assigned
-            const hasThisShift = team.team_work_shifts?.some(tws => {
+        teams.forEach((team) => {
+            if (!Array.isArray(team.team_work_shifts) || team.team_work_shifts.length === 0) return;
+
+            team.team_work_shifts.forEach((tws) => {
                 const workShift = tws?.work_shift;
-                if (!workShift || workShift.id !== shift.id) {
-                    return false;
-                }
+                if (!workShift || !workShift.id) return;
 
-                // Check if shift's applicable_days includes the current day
                 const applicableDays = Array.isArray(workShift.applicable_days) ? workShift.applicable_days : [];
-                return applicableDays.includes(day);
+                applicableDays.forEach((day) => {
+                    const key = `${workShift.id}_${day}`;
+                    if (!map[key]) {
+                        map[key] = [];
+                    }
+                    map[key].push(team);
+                });
             });
-
-            return hasThisShift;
         });
+
+        return map;
+    }, [teams]);
+
+    // Helper: Get teams cho một shift + day từ map đã memo
+    const getTeamsForShift = (shift, day) => {
+        if (!shift || !day) return [];
+        const key = `${shift.id}_${day}`;
+        return teamsByShiftAndDay[key] || [];
     };
 
     // Calculate statistics
@@ -814,7 +771,6 @@ const WorkShiftPage = () => {
             });
             handleCloseAssignWorkShiftModal();
             await loadTeams();
-            await loadNewTeams();
             await loadSlots();
         } catch (error) {
             setAlert({
@@ -863,7 +819,6 @@ const WorkShiftPage = () => {
                         });
                         setOpenTeamDialog(false);
                         await loadTeams();
-                        await loadNewTeams();
                         await loadSlots();
                         return;
                     } else {
@@ -971,7 +926,6 @@ const WorkShiftPage = () => {
 
                     setOpenTeamDialog(false);
                     await loadTeams();
-                    await loadNewTeams();
                     await loadSlots();
                 } catch (error) {
                     // Extract detailed error message
@@ -1138,7 +1092,6 @@ const WorkShiftPage = () => {
 
             setOpenTeamMembersModal(false);
             await loadTeams(); // Reload to get updated data
-            await loadNewTeams(); // Reload new teams list
             await loadSlots(); // Reload slots to reflect changes
         } catch (error) {
             setAlert({
@@ -1197,7 +1150,6 @@ const WorkShiftPage = () => {
                 });
             }
             await loadTeams();
-            await loadNewTeams();
         } catch (error) {
             setAlert({
                 open: true,
@@ -1286,7 +1238,7 @@ const WorkShiftPage = () => {
     };
 
     if (isLoading) {
-        return <Loading />;
+        return <Loading fullScreen variant="cafe" />;
     }
 
     return (
@@ -1688,313 +1640,356 @@ const WorkShiftPage = () => {
                                 }}
                             >
                                 <Stack spacing={3} sx={{ p: 3 }}>
-                                    {dayShifts.map((shift) => (
-                                        <Box key={shift.id}>
-                                            {/* Shift Info */}
+                                    {dayShifts.map((shift, shiftIndex) => {
+                                        // Tạo màu sắc khác nhau cho từng ca trong cùng một ngày
+                                        const shiftColors = [
+                                            COLORS.PRIMARY[500],
+                                            COLORS.SUCCESS[500],
+                                            COLORS.INFO[500],
+                                            COLORS.WARNING[500],
+                                            COLORS.ERROR[400]
+                                        ];
+                                        const color = shiftColors[shiftIndex % shiftColors.length];
+
+                                        return (
                                             <Box
+                                                key={shift.id}
                                                 sx={{
-                                                    display: 'flex',
-                                                    justifyContent: 'space-between',
-                                                    alignItems: 'flex-start',
-                                                    mb: 2
+                                                    borderRadius: 2,
+                                                    borderLeft: `4px solid ${color}`,
+                                                    bgcolor: alpha(color, 0.03),
+                                                    boxShadow: `0 2px 6px ${alpha(COLORS.SHADOW.LIGHT, 0.08)}`,
+                                                    p: 2.25
                                                 }}
                                             >
-                                                <Box sx={{ flex: 1 }}>
-                                                    <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 1 }}>
-                                                        <Typography variant="h6" fontWeight={700}>
-                                                            {shift.name}
-                                                        </Typography>
-                                                        <Stack direction="row" spacing={0.5} alignItems="center">
-                                                            <AccessTime sx={{ fontSize: 16, color: COLORS.GRAY[500] }} />
-                                                            <Typography variant="body2" color="text.secondary">
-                                                                {formatTime(shift.start_time)} - {formatTime(shift.end_time)}
-                                                            </Typography>
-                                                        </Stack>
-                                                        <IconButton
-                                                            size="small"
-                                                            onClick={(e) => handleShiftMenuOpen(e, shift, day)}
+                                                {/* Shift Info */}
+                                                <Box
+                                                    sx={{
+                                                        display: 'flex',
+                                                        justifyContent: 'space-between',
+                                                        alignItems: 'flex-start',
+                                                        mb: 2
+                                                    }}
+                                                >
+                                                    <Box sx={{ flex: 1 }}>
+                                                        <Stack
+                                                            direction="row"
+                                                            spacing={1.5}
+                                                            alignItems="center"
+                                                            sx={{ mb: 1 }}
                                                         >
-                                                            <MoreVert fontSize="small" />
-                                                        </IconButton>
-                                                    </Stack>
-                                                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                                                        {shift.description}
-                                                    </Typography>
-                                                </Box>
-                                            </Box>
-
-                                            {/* Teams Section */}
-                                            <Box>
-                                                {(() => {
-                                                    const shiftTeams = getTeamsForShift(shift, day);
-                                                    return (
-                                                        <>
-                                                            <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.5 }}>
-                                                                <Groups sx={{ fontSize: 20, color: COLORS.PRIMARY[500] }} />
-                                                                <Typography variant="body2" fontWeight={600} color="text.secondary">
-                                                                    Nhóm làm việc
+                                                            <Typography
+                                                                variant="h6"
+                                                                fontWeight={800}
+                                                                sx={{ color }}
+                                                            >
+                                                                {shift.name}
+                                                            </Typography>
+                                                            <Stack
+                                                                direction="row"
+                                                                spacing={0.5}
+                                                                alignItems="center"
+                                                                sx={{
+                                                                    px: 1,
+                                                                    py: 0.25,
+                                                                    borderRadius: 999,
+                                                                    bgcolor: alpha(color, 0.08)
+                                                                }}
+                                                            >
+                                                                <AccessTime sx={{ fontSize: 16, color }} />
+                                                                <Typography
+                                                                    variant="body2"
+                                                                    sx={{ color: COLORS.TEXT.PRIMARY, fontWeight: 600 }}
+                                                                >
+                                                                    {formatTime(shift.start_time)} - {formatTime(shift.end_time)}
                                                                 </Typography>
-                                                                <Chip
-                                                                    label={shiftTeams.length}
-                                                                    size="small"
-                                                                    sx={{
-                                                                        height: 20,
-                                                                        bgcolor: alpha(COLORS.PRIMARY[500], 0.1),
-                                                                        color: COLORS.PRIMARY[700],
-                                                                        fontWeight: 600,
-                                                                        fontSize: '0.7rem'
-                                                                    }}
-                                                                />
                                                             </Stack>
-                                                        </>
-                                                    );
-                                                })()}
+                                                            <IconButton
+                                                                size="small"
+                                                                onClick={(e) => handleShiftMenuOpen(e, shift, day)}
+                                                            >
+                                                                <MoreVert fontSize="small" />
+                                                            </IconButton>
+                                                        </Stack>
+                                                        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                                                            {shift.description}
+                                                        </Typography>
+                                                    </Box>
+                                                </Box>
 
-                                                {/* Teams Grid */}
-                                                {(() => {
-                                                    const shiftTeams = getTeamsForShift(shift, day);
-                                                    return shiftTeams.length === 0 ? (
-                                                        <Box
-                                                            sx={{
-                                                                textAlign: 'center',
-                                                                py: 3,
-                                                                bgcolor: alpha(COLORS.GRAY[100], 0.3),
-                                                                borderRadius: 2
-                                                            }}
-                                                        >
-                                                            <Typography variant="body2" color="text.secondary">
-                                                                Chưa có nhóm nào được phân công
-                                                            </Typography>
-                                                        </Box>
-                                                    ) : (
-                                                        <Grid container spacing={2} sx={{ alignItems: 'stretch' }}>
-                                                            {shiftTeams.map((team) => (
-                                                                <Grid item xs={12} sm={6} md={3} lg={3} key={team.id} sx={{ display: 'flex' }}>
-                                                                    <Card
+                                                {/* Teams Section */}
+                                                <Box>
+                                                    {(() => {
+                                                        const shiftTeams = getTeamsForShift(shift, day);
+                                                        return (
+                                                            <>
+                                                                <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.5 }}>
+                                                                    <Groups sx={{ fontSize: 20, color: COLORS.PRIMARY[500] }} />
+                                                                    <Typography variant="body2" fontWeight={600} color="text.secondary">
+                                                                        Nhóm làm việc
+                                                                    </Typography>
+                                                                    <Chip
+                                                                        label={shiftTeams.length}
+                                                                        size="small"
                                                                         sx={{
-                                                                            width: '100%',
-                                                                            height: '100%',
-                                                                            display: 'flex',
-                                                                            flexDirection: 'column',
-                                                                            border: `1px solid ${COLORS.GRAY[200]}`,
-                                                                            borderRadius: 2,
-                                                                            '&:hover': {
-                                                                                boxShadow: `0 4px 12px ${alpha(COLORS.SHADOW.LIGHT, 0.15)}`,
-                                                                                borderColor: COLORS.PRIMARY[300]
-                                                                            },
-                                                                            transition: 'all 0.2s'
+                                                                            height: 20,
+                                                                            bgcolor: alpha(COLORS.PRIMARY[500], 0.1),
+                                                                            color: COLORS.PRIMARY[700],
+                                                                            fontWeight: 600,
+                                                                            fontSize: '0.7rem'
                                                                         }}
-                                                                    >
-                                                                        <CardContent sx={{ p: 2, flexGrow: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-                                                                            <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 1.5 }}>
-                                                                                <Box sx={{ flex: 1 }}>
-                                                                                    <Typography variant="subtitle2" fontWeight={700} color={COLORS.PRIMARY[700]} sx={{ mb: 0.5 }}>
-                                                                                        {team.name}
+                                                                    />
+                                                                </Stack>
+                                                            </>
+                                                        );
+                                                    })()}
+
+                                                    {/* Teams Grid */}
+                                                    {(() => {
+                                                        const shiftTeams = getTeamsForShift(shift, day);
+                                                        return shiftTeams.length === 0 ? (
+                                                            <Box
+                                                                sx={{
+                                                                    textAlign: 'center',
+                                                                    py: 3,
+                                                                    bgcolor: alpha(COLORS.GRAY[100], 0.3),
+                                                                    borderRadius: 2
+                                                                }}
+                                                            >
+                                                                <Typography variant="body2" color="text.secondary">
+                                                                    Chưa có nhóm nào được phân công
+                                                                </Typography>
+                                                            </Box>
+                                                        ) : (
+                                                            <Grid container spacing={2} sx={{ alignItems: 'stretch' }}>
+                                                                {shiftTeams.map((team) => (
+                                                                    <Grid item xs={12} sm={6} md={3} lg={3} key={team.id} sx={{ display: 'flex' }}>
+                                                                        <Card
+                                                                            sx={{
+                                                                                width: '100%',
+                                                                                height: '100%',
+                                                                                display: 'flex',
+                                                                                flexDirection: 'column',
+                                                                                border: `1px solid ${COLORS.GRAY[200]}`,
+                                                                                borderRadius: 2,
+                                                                                '&:hover': {
+                                                                                    boxShadow: `0 4px 12px ${alpha(COLORS.SHADOW.LIGHT, 0.15)}`,
+                                                                                    borderColor: COLORS.PRIMARY[300]
+                                                                                },
+                                                                                transition: 'all 0.2s'
+                                                                            }}
+                                                                        >
+                                                                            <CardContent sx={{ p: 2, flexGrow: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                                                                                <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 1.5 }}>
+                                                                                    <Box sx={{ flex: 1 }}>
+                                                                                        <Typography variant="subtitle2" fontWeight={700} color={COLORS.PRIMARY[700]} sx={{ mb: 0.5 }}>
+                                                                                            {team.name}
+                                                                                        </Typography>
+                                                                                        <Stack direction="row" spacing={0.5} alignItems="center" flexWrap="wrap" sx={{ gap: 0.5 }}>
+                                                                                            {(() => {
+                                                                                                const statusMeta = getStatusLabel(team.status);
+                                                                                                return (
+                                                                                                    <Chip
+                                                                                                        label={statusMeta.text}
+                                                                                                        size="small"
+                                                                                                        sx={{
+                                                                                                            height: 18,
+                                                                                                            fontSize: '0.6rem',
+                                                                                                            bgcolor: statusMeta.bg,
+                                                                                                            color: statusMeta.color
+                                                                                                        }}
+                                                                                                    />
+                                                                                                );
+                                                                                            })()}
+                                                                                            {(() => {
+                                                                                                const activeMeta = getActiveLabel(team.is_active);
+                                                                                                return (
+                                                                                                    <Chip
+                                                                                                        label={activeMeta.text}
+                                                                                                        size="small"
+                                                                                                        sx={{
+                                                                                                            height: 18,
+                                                                                                            fontSize: '0.6rem',
+                                                                                                            bgcolor: activeMeta.bg,
+                                                                                                            color: activeMeta.color
+                                                                                                        }}
+                                                                                                    />
+                                                                                                );
+                                                                                            })()}
+                                                                                        </Stack>
+                                                                                    </Box>
+                                                                                    <Stack direction="row" spacing={0.5} alignItems="center">
+                                                                                        <Chip
+                                                                                            label={`${(team.team_members?.filter(m => {
+                                                                                                const memberId = m.employee?.id || m.employee_id;
+                                                                                                return memberId && memberId !== team.leader_id;
+                                                                                            }).length || 0) + 1} người`}
+                                                                                            size="small"
+                                                                                            sx={{
+                                                                                                height: 20,
+                                                                                                fontSize: '0.65rem',
+                                                                                                bgcolor: alpha(COLORS.INFO[500], 0.1),
+                                                                                                color: COLORS.INFO[700]
+                                                                                            }}
+                                                                                        />
+                                                                                        <IconButton
+                                                                                            size="small"
+                                                                                            onClick={(e) => handleTeamMenuOpen(e, team, shift)}
+                                                                                            sx={{
+                                                                                                p: 0.5,
+                                                                                                '&:hover': {
+                                                                                                    bgcolor: alpha(COLORS.PRIMARY[500], 0.1)
+                                                                                                }
+                                                                                            }}
+                                                                                        >
+                                                                                            <MoreVert sx={{ fontSize: 16 }} />
+                                                                                        </IconButton>
+                                                                                    </Stack>
+                                                                                </Stack>
+
+                                                                                {/* Description */}
+                                                                                {team.description && (
+                                                                                    <Box sx={{ mb: 1.5 }}>
+                                                                                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem', lineHeight: 1.4 }}>
+                                                                                            {team.description}
+                                                                                        </Typography>
+                                                                                    </Box>
+                                                                                )}
+
+                                                                                {/* Work Types */}
+                                                                                {team.team_work_types && team.team_work_types.length > 0 && (
+                                                                                    <Box sx={{ mb: 1.5 }}>
+                                                                                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5, fontWeight: 500 }}>
+                                                                                            Loại công việc:
+                                                                                        </Typography>
+                                                                                        <Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ gap: 0.5 }}>
+                                                                                            {team.team_work_types.map((twt) => (
+                                                                                                <Chip
+                                                                                                    key={twt.id || twt.work_type_id}
+                                                                                                    label={twt.work_type?.name || 'N/A'}
+                                                                                                    size="small"
+                                                                                                    sx={{
+                                                                                                        height: 20,
+                                                                                                        fontSize: '0.65rem',
+                                                                                                        bgcolor: alpha(COLORS.SUCCESS[500], 0.1),
+                                                                                                        color: COLORS.SUCCESS[700],
+                                                                                                        fontWeight: 500
+                                                                                                    }}
+                                                                                                />
+                                                                                            ))}
+                                                                                        </Stack>
+                                                                                    </Box>
+                                                                                )}
+
+                                                                                {/* Leader */}
+                                                                                <Box sx={{ mb: 1.5 }}>
+                                                                                    <Stack direction="row" spacing={0.5} alignItems="center">
+                                                                                        <Person sx={{ fontSize: 14, color: COLORS.GRAY[500] }} />
+                                                                                        <Typography variant="caption" color="text.secondary" fontWeight={500}>
+                                                                                            Leader: {team.leader?.full_name || 'N/A'}
+                                                                                        </Typography>
+                                                                                    </Stack>
+                                                                                </Box>
+
+                                                                                {/* Working Days - Show team's working days from team_work_shifts using applicable_days from API */}
+                                                                                <Box sx={{ mb: 1.5 }}>
+                                                                                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                                                                                        Ngày làm việc:
                                                                                     </Typography>
-                                                                                    <Stack direction="row" spacing={0.5} alignItems="center" flexWrap="wrap" sx={{ gap: 0.5 }}>
+                                                                                    <Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ gap: 0.5 }}>
                                                                                         {(() => {
-                                                                                            const statusMeta = getStatusLabel(team.status);
-                                                                                            return (
-                                                                                                <Chip
-                                                                                                    label={statusMeta.text}
-                                                                                                    size="small"
-                                                                                                    sx={{
-                                                                                                        height: 18,
-                                                                                                        fontSize: '0.6rem',
-                                                                                                        bgcolor: statusMeta.bg,
-                                                                                                        color: statusMeta.color
-                                                                                                    }}
-                                                                                                />
-                                                                                            );
-                                                                                        })()}
-                                                                                        {(() => {
-                                                                                            const activeMeta = getActiveLabel(team.is_active);
-                                                                                            return (
-                                                                                                <Chip
-                                                                                                    label={activeMeta.text}
-                                                                                                    size="small"
-                                                                                                    sx={{
-                                                                                                        height: 18,
-                                                                                                        fontSize: '0.6rem',
-                                                                                                        bgcolor: activeMeta.bg,
-                                                                                                        color: activeMeta.color
-                                                                                                    }}
-                                                                                                />
+                                                                                            // Collect all applicable_days from work_shifts assigned to this team
+                                                                                            // API chính thức chỉ có applicable_days, không có working_days
+                                                                                            const allWorkingDays = new Set();
+                                                                                            if (team.team_work_shifts && Array.isArray(team.team_work_shifts)) {
+                                                                                                team.team_work_shifts.forEach(tws => {
+                                                                                                    // Use applicable_days from work_shift (API chính thức)
+                                                                                                    if (tws.work_shift && Array.isArray(tws.work_shift.applicable_days)) {
+                                                                                                        tws.work_shift.applicable_days.forEach(day => allWorkingDays.add(day));
+                                                                                                    }
+                                                                                                });
+                                                                                            }
+                                                                                            const sortedDays = WEEKDAYS.filter(day => allWorkingDays.has(day));
+                                                                                            return sortedDays.length > 0 ? (
+                                                                                                sortedDays.map((d) => (
+                                                                                                    <Chip
+                                                                                                        key={d}
+                                                                                                        label={WEEKDAY_LABELS[d]}
+                                                                                                        size="small"
+                                                                                                        sx={{
+                                                                                                            height: 20,
+                                                                                                            fontSize: '0.65rem',
+                                                                                                            bgcolor: alpha(COLORS.PRIMARY[500], 0.1),
+                                                                                                            color: COLORS.PRIMARY[700]
+                                                                                                        }}
+                                                                                                    />
+                                                                                                ))
+                                                                                            ) : (
+                                                                                                <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                                                                                                    Chưa có lịch làm việc
+                                                                                                </Typography>
                                                                                             );
                                                                                         })()}
                                                                                     </Stack>
                                                                                 </Box>
-                                                                                <Stack direction="row" spacing={0.5} alignItems="center">
-                                                                                    <Chip
-                                                                                        label={`${(team.team_members?.filter(m => {
+
+                                                                                {/* Team Members */}
+                                                                                <Box sx={{ mt: 'auto' }}>
+                                                                                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                                                                                        Thành viên ({(team.team_members?.filter(m => {
                                                                                             const memberId = m.employee?.id || m.employee_id;
                                                                                             return memberId && memberId !== team.leader_id;
-                                                                                        }).length || 0) + 1} người`}
-                                                                                        size="small"
-                                                                                        sx={{
-                                                                                            height: 20,
-                                                                                            fontSize: '0.65rem',
-                                                                                            bgcolor: alpha(COLORS.INFO[500], 0.1),
-                                                                                            color: COLORS.INFO[700]
-                                                                                        }}
-                                                                                    />
-                                                                                    <IconButton
-                                                                                        size="small"
-                                                                                        onClick={(e) => handleTeamMenuOpen(e, team, shift)}
-                                                                                        sx={{
-                                                                                            p: 0.5,
-                                                                                            '&:hover': {
-                                                                                                bgcolor: alpha(COLORS.PRIMARY[500], 0.1)
-                                                                                            }
-                                                                                        }}
-                                                                                    >
-                                                                                        <MoreVert sx={{ fontSize: 16 }} />
-                                                                                    </IconButton>
-                                                                                </Stack>
-                                                                            </Stack>
-
-                                                                            {/* Description */}
-                                                                            {team.description && (
-                                                                                <Box sx={{ mb: 1.5 }}>
-                                                                                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem', lineHeight: 1.4 }}>
-                                                                                        {team.description}
-                                                                                    </Typography>
-                                                                                </Box>
-                                                                            )}
-
-                                                                            {/* Work Types */}
-                                                                            {team.team_work_types && team.team_work_types.length > 0 && (
-                                                                                <Box sx={{ mb: 1.5 }}>
-                                                                                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5, fontWeight: 500 }}>
-                                                                                        Loại công việc:
+                                                                                        }).length || 0) + (team.leader ? 1 : 0)}):
                                                                                     </Typography>
                                                                                     <Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ gap: 0.5 }}>
-                                                                                        {team.team_work_types.map((twt) => (
+                                                                                        {/* Leader */}
+                                                                                        {team.leader && (
                                                                                             <Chip
-                                                                                                key={twt.id || twt.work_type_id}
-                                                                                                label={twt.work_type?.name || 'N/A'}
+                                                                                                label={team.leader.full_name}
                                                                                                 size="small"
                                                                                                 sx={{
-                                                                                                    height: 20,
-                                                                                                    fontSize: '0.65rem',
-                                                                                                    bgcolor: alpha(COLORS.SUCCESS[500], 0.1),
-                                                                                                    color: COLORS.SUCCESS[700],
-                                                                                                    fontWeight: 500
+                                                                                                    height: 22,
+                                                                                                    fontSize: '0.7rem',
+                                                                                                    bgcolor: alpha(COLORS.PRIMARY[100], 0.8),
+                                                                                                    color: COLORS.PRIMARY[700],
+                                                                                                    fontWeight: 600
+                                                                                                }}
+                                                                                            />
+                                                                                        )}
+                                                                                        {/* Other Members - exclude leader */}
+                                                                                        {team.team_members?.filter(member => {
+                                                                                            const memberId = member.employee?.id || member.employee_id;
+                                                                                            return memberId !== team.leader_id;
+                                                                                        }).map((member, idx) => (
+                                                                                            <Chip
+                                                                                                key={member.employee?.id || member.employee_id || idx}
+                                                                                                label={member.employee?.full_name}
+                                                                                                size="small"
+                                                                                                sx={{
+                                                                                                    height: 22,
+                                                                                                    fontSize: '0.7rem',
+                                                                                                    bgcolor: alpha(COLORS.GRAY[100], 0.8)
                                                                                                 }}
                                                                                             />
                                                                                         ))}
                                                                                     </Stack>
                                                                                 </Box>
-                                                                            )}
+                                                                            </CardContent>
+                                                                        </Card>
+                                                                    </Grid>
+                                                                ))}
+                                                            </Grid>
+                                                        );
+                                                    })()}
+                                                </Box>
 
-                                                                            {/* Leader */}
-                                                                            <Box sx={{ mb: 1.5 }}>
-                                                                                <Stack direction="row" spacing={0.5} alignItems="center">
-                                                                                    <Person sx={{ fontSize: 14, color: COLORS.GRAY[500] }} />
-                                                                                    <Typography variant="caption" color="text.secondary" fontWeight={500}>
-                                                                                        Leader: {team.leader?.full_name || 'N/A'}
-                                                                                    </Typography>
-                                                                                </Stack>
-                                                                            </Box>
-
-                                                                            {/* Working Days - Show team's working days from team_work_shifts using applicable_days from API */}
-                                                                            <Box sx={{ mb: 1.5 }}>
-                                                                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                                                                                    Ngày làm việc:
-                                                                                </Typography>
-                                                                                <Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ gap: 0.5 }}>
-                                                                                    {(() => {
-                                                                                        // Collect all applicable_days from work_shifts assigned to this team
-                                                                                        // API chính thức chỉ có applicable_days, không có working_days
-                                                                                        const allWorkingDays = new Set();
-                                                                                        if (team.team_work_shifts && Array.isArray(team.team_work_shifts)) {
-                                                                                            team.team_work_shifts.forEach(tws => {
-                                                                                                // Use applicable_days from work_shift (API chính thức)
-                                                                                                if (tws.work_shift && Array.isArray(tws.work_shift.applicable_days)) {
-                                                                                                    tws.work_shift.applicable_days.forEach(day => allWorkingDays.add(day));
-                                                                                                }
-                                                                                            });
-                                                                                        }
-                                                                                        const sortedDays = WEEKDAYS.filter(day => allWorkingDays.has(day));
-                                                                                        return sortedDays.length > 0 ? (
-                                                                                            sortedDays.map((d) => (
-                                                                                                <Chip
-                                                                                                    key={d}
-                                                                                                    label={WEEKDAY_LABELS[d]}
-                                                                                                    size="small"
-                                                                                                    sx={{
-                                                                                                        height: 20,
-                                                                                                        fontSize: '0.65rem',
-                                                                                                        bgcolor: alpha(COLORS.PRIMARY[500], 0.1),
-                                                                                                        color: COLORS.PRIMARY[700]
-                                                                                                    }}
-                                                                                                />
-                                                                                            ))
-                                                                                        ) : (
-                                                                                            <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                                                                                                Chưa có lịch làm việc
-                                                                                            </Typography>
-                                                                                        );
-                                                                                    })()}
-                                                                                </Stack>
-                                                                            </Box>
-
-                                                                            {/* Team Members */}
-                                                                            <Box sx={{ mt: 'auto' }}>
-                                                                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                                                                                    Thành viên ({(team.team_members?.filter(m => {
-                                                                                        const memberId = m.employee?.id || m.employee_id;
-                                                                                        return memberId && memberId !== team.leader_id;
-                                                                                    }).length || 0) + (team.leader ? 1 : 0)}):
-                                                                                </Typography>
-                                                                                <Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ gap: 0.5 }}>
-                                                                                    {/* Leader */}
-                                                                                    {team.leader && (
-                                                                                        <Chip
-                                                                                            label={team.leader.full_name}
-                                                                                            size="small"
-                                                                                            sx={{
-                                                                                                height: 22,
-                                                                                                fontSize: '0.7rem',
-                                                                                                bgcolor: alpha(COLORS.PRIMARY[100], 0.8),
-                                                                                                color: COLORS.PRIMARY[700],
-                                                                                                fontWeight: 600
-                                                                                            }}
-                                                                                        />
-                                                                                    )}
-                                                                                    {/* Other Members - exclude leader */}
-                                                                                    {team.team_members?.filter(member => {
-                                                                                        const memberId = member.employee?.id || member.employee_id;
-                                                                                        return memberId !== team.leader_id;
-                                                                                    }).map((member, idx) => (
-                                                                                        <Chip
-                                                                                            key={member.employee?.id || member.employee_id || idx}
-                                                                                            label={member.employee?.full_name}
-                                                                                            size="small"
-                                                                                            sx={{
-                                                                                                height: 22,
-                                                                                                fontSize: '0.7rem',
-                                                                                                bgcolor: alpha(COLORS.GRAY[100], 0.8)
-                                                                                            }}
-                                                                                        />
-                                                                                    ))}
-                                                                                </Stack>
-                                                                            </Box>
-                                                                        </CardContent>
-                                                                    </Card>
-                                                                </Grid>
-                                                            ))}
-                                                        </Grid>
-                                                    );
-                                                })()}
+                                                {/* Divider between shifts */}
+                                                {dayShifts.indexOf(shift) < dayShifts.length - 1 && (
+                                                    <Divider sx={{ mt: 3 }} />
+                                                )}
                                             </Box>
-
-                                            {/* Divider between shifts */}
-                                            {dayShifts.indexOf(shift) < dayShifts.length - 1 && (
-                                                <Divider sx={{ mt: 3 }} />
-                                            )}
-                                        </Box>
-                                    ))}
+                                        );
+                                    })}
                                 </Stack>
                             </Paper>
                         </Box>
@@ -2113,23 +2108,6 @@ const WorkShiftPage = () => {
                 onToggleMemberStatus={handleToggleMemberStatus}
                 onSave={handleSaveTeamMembers}
             />
-
-            {/* Pagination */}
-            {pagination.total_items_count > 0 && (
-                <Box sx={{ mt: 3, display: 'flex', justifyContent: 'center' }}>
-                    <Pagination
-                        page={page}
-                        totalPages={pagination.total_pages_count}
-                        onPageChange={setPage}
-                        itemsPerPage={itemsPerPage}
-                        onItemsPerPageChange={(newValue) => {
-                            setItemsPerPage(newValue);
-                            setPage(1);
-                        }}
-                        totalItems={pagination.total_items_count}
-                    />
-                </Box>
-            )}
 
             {/* Confirm Delete Shift */}
             <ConfirmModal
