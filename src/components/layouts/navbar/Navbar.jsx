@@ -1,4 +1,4 @@
- import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { AppBar, Toolbar, Typography, Button, Box, IconButton, Avatar, Menu, MenuItem, useTheme, alpha, Container, Stack, Drawer, List, ListItemButton, ListItemIcon, ListItemText, Divider, Tooltip, ListSubheader, useMediaQuery } from '@mui/material';
 import { LocalCafe, Restaurant, ConfirmationNumber, LocationOn, AccountCircle, Menu as MenuIcon, Close, Pets, Schedule, Dashboard, People, Groups, Assignment, DesignServices, Inventory2, Logout, Vaccines, ShoppingCart, ReceiptLong, HealthAndSafety, Person, ChecklistRtl, AssignmentTurnedIn, Description } from '@mui/icons-material';
 import { COLORS } from '../../../constants/colors';
@@ -78,7 +78,7 @@ const Navbar = () => {
         { label: 'Tiêm phòng', icon: <Vaccines />, path: '/manager/vaccinations' },
         { label: 'Khu vực', icon: <LocationOn />, path: '/manager/areas' },
         { label: 'Nhân viên', icon: <People />, path: '/manager/staff' },
-        { label: 'Khách hàng', icon: <Person />, path: '/manager/customers' },
+        { label: 'Điểm danh', icon: <ChecklistRtl />, path: '/manager/attendance' },
         { label: 'Ca làm việc', icon: <Schedule />, path: '/manager/work-shifts' },
         { label: 'Nhiệm vụ', icon: <Assignment />, path: '/manager/tasks' },
         { label: 'Dịch vụ', icon: <DesignServices />, path: '/manager/services' },
@@ -90,7 +90,7 @@ const Navbar = () => {
         { label: 'Dashboard', icon: <Dashboard />, path: '/sales/dashboard' },
         { label: 'Bán hàng', icon: <ShoppingCart />, path: '/sales/sales' },
         { label: 'Bán dịch vụ', icon: <DesignServices />, path: '/sales/services' },
-        { label: 'Điểm danh', icon: <Schedule />, path: '/sales/attendance' },
+        { label: 'Điểm danh', icon: <ChecklistRtl />, path: '/sales/attendance' },
         { label: 'Hóa đơn', icon: <ReceiptLong />, path: '/sales/invoices' },
         { label: 'Tài khoản', icon: <AccountCircle />, path: '/profile' }
     ]), []);
@@ -179,7 +179,16 @@ const Navbar = () => {
                         }
                     }}
                 >
-                    <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'space-between' }}>
+                    <Box
+                        sx={{
+                            p: collapsed ? 1.5 : 2,
+                            display: 'flex',
+                            flexDirection: collapsed ? 'column' : 'row',
+                            alignItems: 'center',
+                            justifyContent: collapsed ? 'center' : 'space-between',
+                            gap: collapsed ? 1.5 : 2.5
+                        }}
+                    >
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, cursor: 'pointer' }} onClick={() => navigate('/')}>
                             <Box sx={{
                                 width: 44, height: 44, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -369,10 +378,9 @@ const Navbar = () => {
                             variant="h5"
                             component="div"
                             sx={{
-                                fontWeight: 'bold',
-                                color: COLORS.ERROR[500],
-                                fontFamily: '"Comic Sans MS", cursive',
-                                textShadow: `1px 1px 2px ${alpha(COLORS.ERROR[300], 0.3)}`
+                                fontWeight: 800,
+                                letterSpacing: 0.3,
+                                color: COLORS.ERROR[600]
                             }}
                         >
                             Pet Cafe
@@ -497,18 +505,19 @@ const Navbar = () => {
                             Cài đặt
                         </MenuItem>
                         <MenuItem
-                            onClick={() => {
-                                handleNavigation('/login');
+                            onClick={async () => {
                                 handleProfileMenuClose();
+                                await handleLogout();
                             }}
                             sx={{
-                                color: COLORS.ERROR[500],
-                                fontWeight: 500,
+                                color: COLORS.ERROR[600],
+                                fontWeight: 600,
                                 '&:hover': {
                                     backgroundColor: alpha(COLORS.ERROR[100], 0.2),
                                 }
                             }}
                         >
+                            <Logout sx={{ mr: 2 }} />
                             Đăng xuất
                         </MenuItem>
                     </Menu>

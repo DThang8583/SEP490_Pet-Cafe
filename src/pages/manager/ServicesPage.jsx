@@ -993,20 +993,20 @@ const ServicesPage = () => {
 
                                                 {/* Trạng thái */}
                                                 <TableCell align="center">
-                                                    <Chip
-                                                        label={service.is_active ? 'Hoạt động' : 'Không hoạt động'}
-                                                        size="small"
-                                                        icon={service.is_active ? <CheckIcon /> : <CloseIcon />}
-                                                        sx={{
-                                                            bgcolor: service.is_active
-                                                                ? alpha(COLORS.SUCCESS[100], 0.8)
-                                                                : alpha(COLORS.GRAY[200], 0.6),
-                                                            color: service.is_active
-                                                                ? COLORS.SUCCESS[700]
+                                                        <Chip
+                                                            label={service.is_active ? 'Hoạt động' : 'Không hoạt động'}
+                                                            size="small"
+                                                            icon={service.is_active ? <CheckIcon /> : <CloseIcon />}
+                                                            sx={{
+                                                                bgcolor: service.is_active
+                                                                    ? alpha(COLORS.SUCCESS[100], 0.8)
+                                                                    : alpha(COLORS.GRAY[200], 0.6),
+                                                                color: service.is_active
+                                                                    ? COLORS.SUCCESS[700]
                                                                 : COLORS.TEXT.SECONDARY,
                                                             fontWeight: 600
-                                                        }}
-                                                    />
+                                                            }}
+                                                        />
                                                 </TableCell>
 
                                                 {/* Thao tác */}
