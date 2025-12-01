@@ -170,46 +170,31 @@ export const createVaccinationSchedule = async (scheduleData) => {
 /**
  * Update vaccination schedule using official API
  * @param {string} scheduleId
- * @param {Object} scheduleData - { pet_id?, vaccine_type_id?, scheduled_date?, notes?, status?, team_id? }
+ * @param {Object} scheduleData - { pet_id, vaccine_type_id, scheduled_date, notes, team_id, status }
  * @returns {Promise<Object>} Updated vaccination schedule
  */
 export const updateVaccinationSchedule = async (scheduleId, scheduleData) => {
     try {
-        const requestData = {};
-
-        if (scheduleData.pet_id !== undefined) {
-            if (!scheduleData.pet_id) {
-                throw new Error('Thú cưng là bắt buộc');
-            }
-            requestData.pet_id = scheduleData.pet_id;
+        // Validate required fields
+        if (!scheduleData.pet_id) {
+            throw new Error('Thú cưng là bắt buộc');
+        }
+        if (!scheduleData.vaccine_type_id) {
+            throw new Error('Loại vaccine là bắt buộc');
+        }
+        if (!scheduleData.scheduled_date) {
+            throw new Error('Ngày tiêm dự kiến là bắt buộc');
         }
 
-        if (scheduleData.vaccine_type_id !== undefined) {
-            if (!scheduleData.vaccine_type_id) {
-                throw new Error('Loại vaccine là bắt buộc');
-            }
-            requestData.vaccine_type_id = scheduleData.vaccine_type_id;
-        }
-
-        if (scheduleData.scheduled_date !== undefined) {
-            if (!scheduleData.scheduled_date) {
-                throw new Error('Ngày tiêm dự kiến là bắt buộc');
-            }
-            requestData.scheduled_date = scheduleData.scheduled_date;
-        }
-
-        if (scheduleData.notes !== undefined) {
-            requestData.notes = scheduleData.notes.trim() || '';
-        }
-
-        if (scheduleData.status !== undefined) {
-            requestData.status = scheduleData.status;
-        }
-
-        if (scheduleData.team_id !== undefined) {
-            // team_id is required for creating daily task, but can be null for update
-            requestData.team_id = scheduleData.team_id || null;
-        }
+        // Build request body according to API spec: all fields are required
+        const requestData = {
+            pet_id: scheduleData.pet_id,
+            vaccine_type_id: scheduleData.vaccine_type_id,
+            scheduled_date: scheduleData.scheduled_date,
+            notes: scheduleData.notes?.trim() || '',
+            team_id: scheduleData.team_id || null,
+            status: scheduleData.status || 'PENDING'
+        };
 
         const response = await apiClient.put(`/vaccination-schedules/${scheduleId}`, requestData, { timeout: 10000 });
 

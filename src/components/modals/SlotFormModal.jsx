@@ -5,6 +5,7 @@ import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, F
 import { WEEKDAYS, WEEKDAY_LABELS } from '../../api/slotApi';
 import { formatPrice } from '../../utils/formatPrice';
 import { COLORS } from '../../constants/colors';
+import AlertModal from '../modals/AlertModal';
 
 const SLOT_STATUS = {
     AVAILABLE: 'AVAILABLE',
@@ -34,6 +35,12 @@ const SlotFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, 
     const [loading, setLoading] = useState(false);
     const [localTeams, setLocalTeams] = useState(teams || []);
     const [pets, setPets] = useState([]);
+    const [alertModal, setAlertModal] = useState({
+        open: false,
+        type: 'info',
+        title: '',
+        message: ''
+    });
 
     // Helper function to extract work_type_ids from team (handles both work_type_ids and team_work_types)
     const getTeamWorkTypeIds = (team) => {
@@ -45,6 +52,21 @@ const SlotFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, 
         if (team.team_work_types && Array.isArray(team.team_work_types)) {
             return team.team_work_types
                 .map(twt => twt.work_type?.id || twt.work_type_id || twt.id)
+                .filter(id => id !== null && id !== undefined);
+        }
+        return [];
+    };
+
+    // Helper function to extract work_type_ids from area (handles both work_type_ids and area_work_types)
+    const getAreaWorkTypeIds = (area) => {
+        // Try work_type_ids first (if API returns it directly)
+        if (area.work_type_ids && Array.isArray(area.work_type_ids)) {
+            return area.work_type_ids;
+        }
+        // Otherwise, extract from area_work_types array
+        if (area.area_work_types && Array.isArray(area.area_work_types)) {
+            return area.area_work_types
+                .map(awt => awt.work_type?.id || awt.work_type_id || awt.id)
                 .filter(id => id !== null && id !== undefined);
         }
         return [];
@@ -208,6 +230,23 @@ const SlotFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, 
         });
     }, [teams, localTeams, formData.start_time, formData.end_time, formData.day_of_week, taskData]);
 
+    // Filter areas based on work_type compatibility
+    const filteredAreas = useMemo(() => {
+        // Get task's work_type_id
+        const taskWorkTypeId = taskData?.work_type_id || taskData?.work_type?.id || null;
+
+        // If no work_type requirement, show all areas
+        if (!taskWorkTypeId) {
+            return areas;
+        }
+
+        // Filter areas by work_type compatibility
+        return areas.filter(area => {
+            const areaWorkTypeIds = getAreaWorkTypeIds(area);
+            return areaWorkTypeIds.includes(taskWorkTypeId);
+        });
+    }, [areas, taskData]);
+
     // Helper function to convert HH:mm:ss to HH:mm for time input
     const formatTimeForInput = (timeStr) => {
         if (!timeStr) return '';
@@ -306,14 +345,49 @@ const SlotFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, 
     const handleChange = (field, value) => {
         // Special handling for area_id change
         if (field === 'area_id') {
-            const selectedArea = areas.find(a => a.id === value);
+            const selectedArea = filteredAreas.find(a => a.id === value);
             setFormData(prev => ({
                 ...prev,
                 [field]: value,
                 // Auto-fill max_capacity from selected area
                 max_capacity: selectedArea ? selectedArea.max_capacity : 0
             }));
-        } else {
+        }
+        // Special handling for start_time change - auto calculate end_time
+        else if (field === 'start_time') {
+            const newStartTime = value;
+            let calculatedEndTime = formData.end_time; // Keep current end_time as default
+
+            // Auto-calculate end_time based on task's estimated_hours
+            if (newStartTime && taskData?.estimated_hours) {
+                try {
+                    const [hours, minutes] = newStartTime.split(':').map(Number);
+                    const startMinutes = hours * 60 + minutes;
+                    const durationMinutes = taskData.estimated_hours * 60;
+                    const endMinutes = startMinutes + durationMinutes;
+
+                    const endHours = Math.floor(endMinutes / 60) % 24; // Handle overflow past midnight
+                    const endMins = endMinutes % 60;
+
+                    calculatedEndTime = `${String(endHours).padStart(2, '0')}:${String(endMins).padStart(2, '0')}`;
+
+                    console.log('[SlotFormModal] Auto-calculated end_time:', {
+                        start_time: newStartTime,
+                        estimated_hours: taskData.estimated_hours,
+                        calculated_end_time: calculatedEndTime
+                    });
+                } catch (error) {
+                    console.warn('[SlotFormModal] Failed to calculate end_time:', error);
+                }
+            }
+
+            setFormData(prev => ({
+                ...prev,
+                start_time: newStartTime,
+                end_time: calculatedEndTime
+            }));
+        }
+        else {
             setFormData(prev => ({
                 ...prev,
                 [field]: value
@@ -331,40 +405,86 @@ const SlotFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, 
 
     const validateForm = () => {
         const newErrors = {};
+        const errorMessages = [];
 
         if (!formData.task_id) {
             newErrors.task_id = 'Task là bắt buộc';
+            errorMessages.push('• Task là bắt buộc');
         }
 
         if (!formData.day_of_week && !formData.specific_date) {
             newErrors.day_of_week = 'Phải chọn ngày trong tuần hoặc ngày cụ thể';
             newErrors.specific_date = 'Phải chọn ngày trong tuần hoặc ngày cụ thể';
+            errorMessages.push('• Phải chọn ngày trong tuần hoặc ngày cụ thể');
         }
 
         if (!formData.start_time) {
             newErrors.start_time = 'Giờ bắt đầu là bắt buộc';
+            errorMessages.push('• Giờ bắt đầu là bắt buộc');
         }
 
         if (!formData.end_time) {
             newErrors.end_time = 'Giờ kết thúc là bắt buộc';
+            errorMessages.push('• Giờ kết thúc là bắt buộc');
         }
 
         // Validate time range
         if (formData.start_time && formData.end_time) {
             if (formData.start_time >= formData.end_time) {
                 newErrors.end_time = 'Giờ kết thúc phải sau giờ bắt đầu';
+                errorMessages.push('• Giờ kết thúc phải sau giờ bắt đầu');
+            } else {
+                // Calculate actual duration
+                const [startH, startM] = formData.start_time.split(':').map(Number);
+                const [endH, endM] = formData.end_time.split(':').map(Number);
+                const durationMinutes = (endH * 60 + endM) - (startH * 60 + startM);
+                const durationHours = durationMinutes / 60;
+
+                // Validate minimum duration (at least 15 minutes)
+                if (durationMinutes < 15) {
+                    newErrors.end_time = 'Thời gian ca phải ít nhất 15 phút';
+                    errorMessages.push('• Thời gian ca phải ít nhất 15 phút');
+                }
+
+                // Validate maximum duration (not more than 12 hours)
+                if (durationHours > 12) {
+                    newErrors.end_time = 'Thời gian ca không được quá 12 giờ';
+                    errorMessages.push('• Thời gian ca không được quá 12 giờ');
+                }
+
+                // Warning if duration differs significantly from estimated_hours (but don't block)
+                if (taskData?.estimated_hours && Math.abs(durationHours - taskData.estimated_hours) > 2) {
+                    console.warn('[SlotFormModal] Duration differs from estimated_hours:', {
+                        estimated_hours: taskData.estimated_hours,
+                        actual_duration: durationHours,
+                        difference: Math.abs(durationHours - taskData.estimated_hours)
+                    });
+                }
             }
+        }
+
+        // Team và Area là bắt buộc
+        if (!formData.team_id) {
+            newErrors.team_id = 'Team là bắt buộc';
+            errorMessages.push('• Team là bắt buộc');
+        }
+
+        if (!formData.area_id) {
+            newErrors.area_id = 'Khu vực là bắt buộc';
+            errorMessages.push('• Khu vực là bắt buộc');
         }
 
         if (formData.max_capacity < 0) {
             newErrors.max_capacity = 'Sức chứa không được âm';
+            errorMessages.push('• Sức chứa không được âm');
         }
 
         // Validate max_capacity against area's max_capacity
         if (formData.area_id && formData.max_capacity > 0) {
-            const selectedArea = areas.find(a => a.id === formData.area_id);
+            const selectedArea = filteredAreas.find(a => a.id === formData.area_id);
             if (selectedArea && formData.max_capacity > selectedArea.max_capacity) {
                 newErrors.max_capacity = `Sức chứa không được vượt quá ${selectedArea.max_capacity} (sức chứa của khu vực ${selectedArea.name})`;
+                errorMessages.push(`• Sức chứa không được vượt quá ${selectedArea.max_capacity} của khu vực ${selectedArea.name}`);
             }
         }
 
@@ -377,6 +497,7 @@ const SlotFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, 
                     const teamWorkTypeIds = getTeamWorkTypeIds(selectedTeam);
                     if (!teamWorkTypeIds.includes(taskWorkTypeId)) {
                         newErrors.team_id = 'Nhóm không cùng chung công việc với nhiệm vụ này. Vui lòng chọn nhóm khác.';
+                        errorMessages.push('• Nhóm không cùng chung công việc với nhiệm vụ này');
                     }
                 }
             }
@@ -390,15 +511,28 @@ const SlotFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, 
             if (taskData && taskData.is_public) {
                 if (formData.price === undefined || formData.price === null || formData.price < 0) {
                     newErrors.price = 'Giá không được âm';
+                    errorMessages.push('• Giá không được âm');
                 }
             }
 
             if (!formData.service_status) {
                 newErrors.service_status = 'Trạng thái là bắt buộc';
+                errorMessages.push('• Trạng thái là bắt buộc');
             }
         }
 
         setErrors(newErrors);
+
+        // Show AlertModal if there are validation errors
+        if (errorMessages.length > 0) {
+            setAlertModal({
+                open: true,
+                type: 'error',
+                title: 'Lỗi xác thực',
+                message: 'Vui lòng kiểm tra lại các thông tin sau:\n\n' + errorMessages.join('\n')
+            });
+        }
+
         return Object.keys(newErrors).length === 0;
     };
 
@@ -496,8 +630,28 @@ const SlotFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, 
             }
 
             await onSubmit(submitData);
+
+            // Show success alert
+            setAlertModal({
+                open: true,
+                type: 'success',
+                title: 'Thành công',
+                message: mode === 'edit' ? 'Cập nhật ca làm việc thành công!' : 'Tạo ca làm việc thành công!'
+            });
+
             handleClose();
         } catch (error) {
+            console.error('[SlotFormModal] Submit error:', error);
+
+            // Show error alert với chi tiết từ backend
+            setAlertModal({
+                open: true,
+                type: 'error',
+                title: mode === 'edit' ? 'Lỗi cập nhật ca làm việc' : 'Lỗi tạo ca làm việc',
+                message: error.message || 'Có lỗi xảy ra khi lưu ca làm việc. Vui lòng thử lại.'
+            });
+
+            // Also set inline error for backward compatibility
             setErrors({
                 submit: error.message || 'Có lỗi xảy ra'
             });
@@ -629,57 +783,100 @@ const SlotFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, 
                         />
                     </Stack>
 
+                    {/* Time calculation info */}
+                    {formData.start_time && formData.end_time && taskData?.estimated_hours && (
+                        <Box
+                            sx={{
+                                p: 1.5,
+                                borderRadius: 2,
+                                background: alpha(COLORS.INFO[50], 0.3),
+                                border: `1px solid ${alpha(COLORS.INFO[200], 0.3)}`
+                            }}
+                        >
+                            <Typography variant="body2" sx={{ color: COLORS.INFO[800] }}>
+                                ⏱️ <strong>Thời gian ca:</strong> {formData.start_time} - {formData.end_time}
+                                {(() => {
+                                    const [startH, startM] = formData.start_time.split(':').map(Number);
+                                    const [endH, endM] = formData.end_time.split(':').map(Number);
+                                    const durationMinutes = (endH * 60 + endM) - (startH * 60 + startM);
+                                    const durationHours = (durationMinutes / 60).toFixed(1);
+
+                                    return ` (${durationHours} giờ)`;
+                                })()}
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY }}>
+                                💡 Nhiệm vụ ước tính: {taskData.estimated_hours} giờ
+                            </Typography>
+                        </Box>
+                    )}
+
                     {/* Team */}
-                    <FormControl fullWidth>
-                        <InputLabel>Team (Tùy chọn)</InputLabel>
+                    <FormControl fullWidth required error={!!errors.team_id}>
+                        <InputLabel>Team</InputLabel>
                         <Select
                             value={formData.team_id}
                             onChange={(e) => handleChange('team_id', e.target.value)}
-                            label="Team (Tùy chọn)"
+                            label="Team"
                             disabled={!formData.start_time || !formData.end_time}
                         >
                             <MenuItem value="">
-                                <em>Không chọn</em>
+                                <em>-- Chọn nhóm --</em>
                             </MenuItem>
-                            {filteredTeams.map(team => {
-                                const taskWorkTypeId = taskData?.work_type_id || taskData?.work_type?.id || null;
-                                const teamWorkTypeIds = getTeamWorkTypeIds(team);
-                                const matchesWorkType = taskWorkTypeId ? teamWorkTypeIds.includes(taskWorkTypeId) : true;
+                            {/* Chỉ hiển thị teams khớp ca và cùng work_type */}
+                            {filteredTeams
+                                .filter(team => {
+                                    const taskWorkTypeId = taskData?.work_type_id || taskData?.work_type?.id || null;
+                                    const teamWorkTypeIds = getTeamWorkTypeIds(team);
+                                    const matchesWorkType = taskWorkTypeId ? teamWorkTypeIds.includes(taskWorkTypeId) : true;
 
-                                return (
-                                    <MenuItem key={team.id} value={team.id} disabled={!matchesWorkType}>
-                                        <Stack direction="row" justifyContent="space-between" alignItems="center" width="100%">
-                                            <Typography variant="body2" sx={{ color: matchesWorkType ? 'inherit' : 'text.disabled' }}>
-                                                {team.name}
-                                            </Typography>
-                                            <Stack direction="row" spacing={1} alignItems="center">
-                                                {!matchesWorkType && (
-                                                    <Typography variant="caption" color="error">
-                                                        Không cùng công việc
-                                                    </Typography>
-                                                )}
-                                                {formData.start_time && formData.end_time && formData.day_of_week && team.__matchesSlot === false && matchesWorkType && (
-                                                    <Typography variant="caption" color="text.secondary">
-                                                        Không khớp ca
-                                                    </Typography>
-                                                )}
-                                            </Stack>
-                                        </Stack>
+                                    // Chỉ hiển thị nếu:
+                                    // 1. Cùng work_type (hoặc không có work_type requirement)
+                                    // 2. Khớp ca làm việc (nếu đã chọn day_of_week và time)
+                                    if (!matchesWorkType) return false;
+
+                                    if (formData.start_time && formData.end_time && formData.day_of_week) {
+                                        return team.__matchesSlot === true;
+                                    }
+
+                                    // Nếu chưa chọn đủ thông tin, hiển thị tất cả teams cùng work_type
+                                    return true;
+                                })
+                                .map(team => (
+                                    <MenuItem key={team.id} value={team.id}>
+                                        <Typography variant="body2">
+                                            {team.name}
+                                        </Typography>
                                     </MenuItem>
-                                );
-                            })}
+                                ))}
                         </Select>
                         {errors.team_id && (
                             <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 2 }}>
                                 {errors.team_id}
                             </Typography>
                         )}
-                        {!errors.team_id && formData.start_time && formData.end_time && filteredTeams.length === 0 && (
-                            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, ml: 2 }}>
-                                Không có team nào phù hợp với khung giờ này
-                            </Typography>
-                        )}
-                        {!errors.team_id && taskData && filteredTeams.length > 0 && (() => {
+                        {!errors.team_id && formData.start_time && formData.end_time && formData.day_of_week && (() => {
+                            const matchingTeams = filteredTeams.filter(team => {
+                                const taskWorkTypeId = taskData?.work_type_id || taskData?.work_type?.id || null;
+                                const teamWorkTypeIds = getTeamWorkTypeIds(team);
+                                const matchesWorkType = taskWorkTypeId ? teamWorkTypeIds.includes(taskWorkTypeId) : true;
+                                return matchesWorkType && team.__matchesSlot === true;
+                            });
+
+                            if (matchingTeams.length === 0) {
+                                return (
+                                    <Typography variant="caption" color="warning.main" sx={{ mt: 0.5, ml: 2 }}>
+                                        ⚠️ Không có nhóm nào có ca làm việc phù hợp với khung giờ này
+                                    </Typography>
+                                );
+                            }
+
+                            return (
+                                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, ml: 2 }}>
+                                    ✅ {matchingTeams.length} nhóm có ca làm việc phù hợp
+                                </Typography>
+                            );
+                        })()}
+                        {!errors.team_id && taskData && (!formData.start_time || !formData.end_time || !formData.day_of_week) && (() => {
                             const taskWorkTypeId = taskData.work_type_id || taskData.work_type?.id || null;
                             const compatibleTeams = filteredTeams.filter(t => {
                                 if (!taskWorkTypeId) return true;
@@ -697,22 +894,46 @@ const SlotFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, 
                     </FormControl>
 
                     {/* Area */}
-                    <FormControl fullWidth>
-                        <InputLabel>Khu vực (Tùy chọn)</InputLabel>
+                    <FormControl fullWidth required error={!!errors.area_id}>
+                        <InputLabel>Khu vực</InputLabel>
                         <Select
                             value={formData.area_id}
                             onChange={(e) => handleChange('area_id', e.target.value)}
-                            label="Khu vực (Tùy chọn)"
+                            label="Khu vực"
                         >
                             <MenuItem value="">
-                                <em>Không chọn</em>
+                                <em>-- Chọn khu vực --</em>
                             </MenuItem>
-                            {areas.map(area => (
+                            {/* Chỉ hiển thị areas có cùng work_type với task */}
+                            {filteredAreas.map(area => (
                                 <MenuItem key={area.id} value={area.id}>
                                     {area.name}
                                 </MenuItem>
                             ))}
                         </Select>
+                        {errors.area_id && (
+                            <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 2 }}>
+                                {errors.area_id}
+                            </Typography>
+                        )}
+                        {!errors.area_id && taskData && (() => {
+                            const taskWorkTypeId = taskData.work_type_id || taskData.work_type?.id || null;
+                            if (taskWorkTypeId && filteredAreas.length === 0) {
+                                return (
+                                    <Typography variant="caption" color="warning.main" sx={{ mt: 0.5, ml: 2 }}>
+                                        ⚠️ Không có khu vực nào có cùng loại công việc với nhiệm vụ này
+                                    </Typography>
+                                );
+                            }
+                            if (taskWorkTypeId && filteredAreas.length > 0) {
+                                return (
+                                    <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, ml: 2 }}>
+                                        ✅ {filteredAreas.length} khu vực có loại công việc phù hợp
+                                    </Typography>
+                                );
+                            }
+                            return null;
+                        })()}
                     </FormControl>
 
                     {/* Pet Group */}
@@ -762,7 +983,7 @@ const SlotFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, 
                         inputProps={{
                             min: 0,
                             max: formData.area_id
-                                ? areas.find(a => a.id === formData.area_id)?.max_capacity
+                                ? filteredAreas.find(a => a.id === formData.area_id)?.max_capacity
                                 : undefined
                         }}
                         value={formData.max_capacity ?? ''}
@@ -774,7 +995,7 @@ const SlotFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, 
                         helperText={
                             errors.max_capacity ||
                             (formData.area_id
-                                ? `Tối đa: ${areas.find(a => a.id === formData.area_id)?.max_capacity || 0} (giới hạn của khu vực)`
+                                ? `Tối đa: ${filteredAreas.find(a => a.id === formData.area_id)?.max_capacity || 0} (giới hạn của khu vực)`
                                 : 'Chọn khu vực trước để xem giới hạn sức chứa')
                         }
                     />
@@ -893,6 +1114,16 @@ const SlotFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, 
                     {loading ? 'Đang xử lý...' : (mode === 'edit' ? 'Cập nhật' : 'Tạo Ca')}
                 </Button>
             </DialogActions>
+
+            {/* Alert Modal for Success/Error Messages */}
+            <AlertModal
+                isOpen={alertModal.open}
+                onClose={() => setAlertModal({ ...alertModal, open: false })}
+                title={alertModal.title}
+                message={alertModal.message}
+                type={alertModal.type}
+                okText="Đã hiểu"
+            />
         </Dialog>
     );
 };

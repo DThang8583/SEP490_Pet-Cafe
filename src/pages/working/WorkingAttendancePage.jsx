@@ -606,16 +606,7 @@ const WorkingAttendancePage = () => {
             return;
         }
 
-        // Leader không thể tự điểm danh cho chính mình
         const member = memberData.member || memberData.employee || memberData.team_member?.employee || {};
-        if (member.isLeader) {
-            setSnackbar({
-                message: 'Leader không cần tự điểm danh.',
-                severity: 'info'
-            });
-            return;
-        }
-
         const schedule = memberData.schedule || memberData;
         const dailyScheduleId = schedule?.id;
         const teamMemberId = schedule?.team_member_id || schedule?.team_member?.id || memberData.teamMemberId;
@@ -685,6 +676,47 @@ const WorkingAttendancePage = () => {
         });
     };
 
+    // Mở dialog để nhập / chỉnh sửa ghi chú cho từng người (không gọi API, chỉ lưu tạm để bấm Lưu chung)
+    const handleOpenNotesDialog = (memberData, teamId, shiftId, date, dayKey, isTeamLeaderForThisTeam = false) => {
+        if (!isTeamLeaderForThisTeam || !teamId) {
+            setSnackbar({ message: 'Bạn không có quyền chỉnh sửa ghi chú', severity: 'error' });
+            return;
+        }
+
+        const member = memberData.member || memberData.employee || memberData.team_member?.employee || {};
+        const schedule = memberData.schedule || memberData;
+        const dailyScheduleId = schedule?.id;
+        const teamMemberId = schedule?.team_member_id || schedule?.team_member?.id || memberData.teamMemberId;
+        const recordId = dailyScheduleId || teamMemberId;
+
+        if (!recordId) {
+            setSnackbar({
+                message: 'Không tìm thấy thông tin điểm danh để ghi chú. Vui lòng thử lại.',
+                severity: 'error'
+            });
+            return;
+        }
+
+        const key = `${teamId}-${shiftId}-${dayKey}`;
+        const existingChanges = pendingChanges[key] || [];
+        const existingChange = existingChanges.find((item) => item.recordId === recordId);
+
+        const initialNotes = existingChange?.notes ?? schedule?.notes ?? '';
+        const effectiveStatus = existingChange?.status || schedule?.status || 'PENDING';
+
+        setAttendanceDialog({
+            open: true,
+            memberData,
+            teamId,
+            shiftId,
+            date,
+            dayKey,
+            recordId,
+            status: effectiveStatus,
+            notes: initialNotes
+        });
+    };
+
     const handleBulkSave = async (teamId, shiftId, dayKey) => {
         const key = `${teamId}-${shiftId}-${dayKey}`;
         const changes = pendingChanges[key];
@@ -695,6 +727,8 @@ const WorkingAttendancePage = () => {
         }
 
         try {
+            setLoading(true);
+
             const payload = changes.map(change => ({
                 id: change.recordId,
                 status: change.status,
@@ -719,9 +753,14 @@ const WorkingAttendancePage = () => {
             });
 
             setSnackbar({
-                message: `Đã lưu điểm danh thành công cho ${changes.length} thành viên!`,
+                message: `Đã lưu điểm danh thành công cho ${changes.length} thành viên! Đang tải lại dữ liệu...`,
                 severity: 'success'
             });
+
+            // Delay nhỏ để đảm bảo backend đã xử lý xong
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            // Reload data để hiển thị thông tin mới nhất
             const teamIds = teams.map(team => team.id).filter(Boolean);
             if (teamIds.length > 0) {
                 const updatedSchedules = await fetchSchedulesForTeams(teamIds, {
@@ -739,501 +778,125 @@ const WorkingAttendancePage = () => {
                 message: error.response?.data?.message || error.response?.data?.error || error.message || 'Không thể lưu điểm danh. Vui lòng thử lại.',
                 severity: 'error'
             });
+        } finally {
+            setLoading(false);
         }
     };
 
     const handleClearChanges = async (teamId, shiftId, dayKey) => {
         const key = `${teamId}-${shiftId}-${dayKey}`;
 
-        setPendingChanges(prev => {
-            const updated = { ...prev };
-            delete updated[key];
-            return updated;
-        });
+        try {
+            setLoading(true);
 
-        setHasUnsavedChanges(prev => {
-            const updated = { ...prev };
-            delete updated[key];
-            return updated;
-        });
-
-        setSnackbar({
-            message: 'Đã hủy các thay đổi chưa lưu.',
-            severity: 'info'
-        });
-
-        const teamIds = teams.map(team => team.id).filter(Boolean);
-        if (teamIds.length > 0) {
-            const updatedSchedules = await fetchSchedulesForTeams(teamIds, {
-                page_index: 0,
-                page_size: 1000,
-                FromDate: dateRange.fromDate,
-                ToDate: dateRange.toDate
+            setPendingChanges(prev => {
+                const updated = { ...prev };
+                delete updated[key];
+                return updated;
             });
-            setAttendance(updatedSchedules);
+
+            setHasUnsavedChanges(prev => {
+                const updated = { ...prev };
+                delete updated[key];
+                return updated;
+            });
+
+            setSnackbar({
+                message: 'Đã hủy các thay đổi chưa lưu. Đang tải lại dữ liệu...',
+                severity: 'info'
+            });
+
+            // Reload data để hiển thị lại trạng thái ban đầu
+            const teamIds = teams.map(team => team.id).filter(Boolean);
+            if (teamIds.length > 0) {
+                const updatedSchedules = await fetchSchedulesForTeams(teamIds, {
+                    page_index: 0,
+                    page_size: 1000,
+                    FromDate: dateRange.fromDate,
+                    ToDate: dateRange.toDate
+                });
+                setAttendance(updatedSchedules);
+            }
+        } catch (error) {
+            console.error('[Clear Changes] Error:', error);
+            setSnackbar({
+                message: 'Không thể tải lại dữ liệu. Vui lòng làm mới trang.',
+                severity: 'error'
+            });
+        } finally {
+            setLoading(false);
         }
     };
 
-    const handleStatusChange = async () => {
+    const handleStatusChange = () => {
         if (!attendanceDialog) return;
 
-        const { memberData, newStatus, teamId, shiftId, date, notes, teamMemberId: dialogTeamMemberId } = attendanceDialog;
-        const { member, schedule } = memberData;
+        const { memberData, teamId, shiftId, date, notes, recordId, dayKey, status } = attendanceDialog;
+        const member = memberData.member || memberData.employee || memberData.team_member?.employee || {};
+        const schedule = memberData.schedule || memberData;
+        const dailyScheduleId = schedule?.id;
+        const teamMemberId = schedule?.team_member_id || schedule?.team_member?.id || memberData.teamMemberId;
+        const effectiveRecordId = recordId || dailyScheduleId || teamMemberId;
 
-        try {
-            const team = teams.find(t => t.id === teamId);
-            if (!team) {
-                setSnackbar({ message: 'Không tìm thấy thông tin team', severity: 'error' });
-                setAttendanceDialog(null);
-                return;
-            }
-
-            const resolveTeamMemberId = () => {
-                if (dialogTeamMemberId) return dialogTeamMemberId;
-                if (memberData.teamMemberId) return memberData.teamMemberId;
-                if (schedule?.team_member_id) return schedule.team_member_id;
-                if (schedule?.team_member?.id) return schedule.team_member.id;
-                if (member.team_member_id) return member.team_member_id;
-
-                if (team.members && team.members.length > 0) {
-                    const memberId = member.id || member.employee_id;
-                    const memberAccountId = member.account_id;
-                    const leaderId = team.leader_id;
-                    const leaderAccountId = team.leader?.account_id;
-
-                    const foundMember = team.members.find(tm => {
-                        const tmEmployeeId = tm.employee_id || tm.employee?.id;
-                        const tmEmployeeAccountId = tm.employee?.account_id;
-
-                        if (memberId && (tmEmployeeId === memberId || tmEmployeeAccountId === memberId)) return true;
-                        if (memberAccountId && (tmEmployeeId === memberAccountId || tmEmployeeAccountId === memberAccountId)) return true;
-
-                        if (member.isLeader) {
-                            if (leaderId && (tmEmployeeId === leaderId || tmEmployeeAccountId === leaderId)) return true;
-                            if (leaderAccountId && (tmEmployeeId === leaderAccountId || tmEmployeeAccountId === leaderAccountId)) return true;
-                        }
-                        return false;
-                    });
-
-                    if (foundMember) {
-                        return foundMember.id;
-                    }
-
-                    if (member.isLeader) {
-                        const leaderAsMember = team.members.find(tm => {
-                            const tmEmployeeId = tm.employee_id || tm.employee?.id;
-                            const tmEmployeeAccountId = tm.employee?.account_id;
-
-                            return (
-                                (leaderId && (tmEmployeeId === leaderId || tmEmployeeAccountId === leaderId)) ||
-                                (leaderAccountId && (tmEmployeeId === leaderAccountId || tmEmployeeAccountId === leaderAccountId)) ||
-                                (memberId && (tmEmployeeId === memberId || tmEmployeeAccountId === memberId)) ||
-                                (memberAccountId && (tmEmployeeId === memberAccountId || tmEmployeeAccountId === memberAccountId))
-                            );
-                        });
-
-                        if (leaderAsMember) {
-                            return leaderAsMember.id;
-                        }
-                    }
-                }
-
-                return null;
-            };
-
-            let teamMemberId = resolveTeamMemberId();
-
-            if (!teamMemberId) {
-                setSnackbar({
-                    message: 'Không tìm thấy team_member_id. Vui lòng liên hệ quản lý.',
-                    severity: 'error'
-                });
-                setAttendanceDialog(null);
-                return;
-            }
-
-            const payload = [
-                {
-                    id: teamMemberId,
-                    status: newStatus,
-                    notes: notes || ''
-                }
-            ];
-
-            const response = await apiClient.put(`/teams/${teamId}/daily-schedules`, payload, {
-                timeout: 10000,
-                headers: { 'Content-Type': 'application/json' }
+        if (!teamId || !shiftId || !dayKey || !effectiveRecordId) {
+            setSnackbar({
+                message: 'Không đủ thông tin để lưu ghi chú. Vui lòng thử lại.',
+                severity: 'error'
             });
-
-            let updatedScheduleFromResponse = null;
-            if (response.data) {
-                if (Array.isArray(response.data) && response.data.length > 0) {
-                    updatedScheduleFromResponse = response.data[0];
-                } else if (response.data && !Array.isArray(response.data)) {
-                    updatedScheduleFromResponse = response.data;
-                }
-            }
-
-            const localRecordBase = {
-                team_member_id: teamMemberId,
-                status: newStatus,
-                notes: notes || schedule?.notes || null,
-                date: date || schedule?.date || updatedScheduleFromResponse?.date || new Date().toISOString(),
-                team_id: schedule?.team_member?.team_id || teamId,
-                work_shift_id: schedule?.work_shift_id || shiftId,
-                employee_id: schedule?.employee_id || member.id || member.employee_id,
-                team_member: schedule?.team_member || {
-                    id: teamMemberId,
-                    team_id: teamId,
-                    employee_id: member.id || member.employee_id,
-                    employee: schedule?.team_member?.employee || member
-                }
-            };
-
-            const mergedRecord = {
-                ...(updatedScheduleFromResponse || {}),
-                ...localRecordBase
-            };
-
-            upsertAttendanceRecord(mergedRecord);
-
-            await new Promise(resolve => setTimeout(resolve, 1000));
-
-            const teamIds = teams.map(team => team.id).filter(Boolean);
-
-            if (teamIds.length === 0) {
-                setSnackbar({ message: 'Cập nhật điểm danh thành công', severity: 'success' });
-                setAttendanceDialog(null);
-                return;
-            }
-
-            const baseParams = {
-                page_index: 0,
-                page_size: 1000,
-                FromDate: dateRange.fromDate,
-                ToDate: dateRange.toDate
-            };
-
-            let updatedSchedules = await fetchSchedulesForTeams(teamIds, baseParams);
-
-            if (updatedSchedules.length === 0 && schedule) {
-                const manuallyUpdatedSchedule = {
-                    ...schedule,
-                    status: newStatus,
-                    notes: notes || schedule.notes || null,
-                    team_member_id: teamMemberId,
-                    employee_id: schedule.employee_id || member.id || member.employee_id,
-                    work_shift_id: shiftId,
-                    date: date || schedule.date
-                };
-                updatedSchedules.push(manuallyUpdatedSchedule);
-
-                const currentAttendance = attendance.filter(a => {
-                    const aId = a.id || a.team_member_id || a.team_member?.id;
-                    const sId = schedule.id || schedule.team_member_id || schedule.team_member?.id;
-                    return aId !== sId;
-                });
-                updatedSchedules = [...currentAttendance, manuallyUpdatedSchedule];
-            } else {
-                if (updatedScheduleFromResponse) {
-                    const exists = updatedSchedules.some(s => {
-                        const sTeamMemberId = s.team_member_id || s.team_member?.id;
-                        const updatedTeamMemberId = updatedScheduleFromResponse.team_member_id || updatedScheduleFromResponse.team_member?.id;
-                        const sDate = s.date ? new Date(s.date).toISOString().split('T')[0] : null;
-                        const updatedDate = updatedScheduleFromResponse.date ? new Date(updatedScheduleFromResponse.date).toISOString().split('T')[0] : null;
-                        return sTeamMemberId === updatedTeamMemberId && sDate === updatedDate;
-                    });
-                    if (!exists) {
-                        updatedSchedules.push(updatedScheduleFromResponse);
-                    } else {
-                        updatedSchedules = updatedSchedules.map(s => {
-                            const sTeamMemberId = s.team_member_id || s.team_member?.id;
-                            const updatedTeamMemberId = updatedScheduleFromResponse.team_member_id || updatedScheduleFromResponse.team_member?.id;
-                            const sDate = s.date ? new Date(s.date).toISOString().split('T')[0] : null;
-                            const updatedDate = updatedScheduleFromResponse.date ? new Date(updatedScheduleFromResponse.date).toISOString().split('T')[0] : null;
-                            if (sTeamMemberId === updatedTeamMemberId && sDate === updatedDate) {
-                                return { ...s, ...updatedScheduleFromResponse, status: newStatus, notes: notes || '' };
-                            }
-                            return s;
-                        });
-                    }
-                } else if (schedule) {
-                    const existingIndex = updatedSchedules.findIndex(s => {
-                        const sId = s.id || s.team_member_id || s.team_member?.id;
-                        const scheduleId = schedule.id || schedule.team_member_id || schedule.team_member?.id;
-                        return sId === scheduleId;
-                    });
-
-                    if (existingIndex !== -1) {
-                        updatedSchedules[existingIndex] = {
-                            ...updatedSchedules[existingIndex],
-                            status: newStatus,
-                            notes: notes || updatedSchedules[existingIndex].notes || null
-                        };
-                    } else {
-                        updatedSchedules.push({
-                            ...schedule,
-                            status: newStatus,
-                            notes: notes || schedule.notes || null,
-                            team_member_id: teamMemberId,
-                            employee_id: schedule.employee_id || member.id || member.employee_id,
-                            work_shift_id: shiftId,
-                            date: date || schedule.date
-                        });
-                    }
-                }
-            }
-
-            const validTeamIds = new Set(teamIds);
-            updatedSchedules = updatedSchedules.filter(schedule => {
-                const scheduleTeamId = schedule.team_member?.team_id || schedule.team_id;
-                return scheduleTeamId && validTeamIds.has(scheduleTeamId);
-            });
-
-            if (!isLeader) {
-                const employeeId = profileData.id || profileData.employee_id || profileData.account_id;
-                const accountId = profileData.account_id;
-                updatedSchedules = updatedSchedules.filter((schedule) => {
-                    const scheduleEmployeeId = schedule.employee_id || schedule.employee?.id || schedule.team_member?.employee_id;
-                    const scheduleAccountId = schedule.employee?.account_id;
-                    return (
-                        scheduleEmployeeId === employeeId ||
-                        scheduleAccountId === accountId ||
-                        scheduleAccountId === employeeId
-                    );
-                });
-            }
-
-            if (updatedSchedules.length > 0) {
-                setAttendance(updatedSchedules);
-                setSnackbar({ message: 'Cập nhật điểm danh thành công', severity: 'success' });
-            } else {
-                await new Promise(resolve => setTimeout(resolve, 1500));
-
-                let retrySchedules = await fetchSchedulesForTeams(teamIds, baseParams);
-
-                const validTeamIds = new Set(teamIds);
-                retrySchedules = retrySchedules.filter(schedule => {
-                    const scheduleTeamId = schedule.team_member?.team_id || schedule.team_id;
-                    return scheduleTeamId && validTeamIds.has(scheduleTeamId);
-                });
-
-                if (!isLeader) {
-                    const employeeId = profileData.id || profileData.employee_id || profileData.account_id;
-                    const accountId = profileData.account_id;
-                    retrySchedules = retrySchedules.filter((schedule) => {
-                        const scheduleEmployeeId = schedule.employee_id || schedule.employee?.id || schedule.team_member?.employee_id;
-                        const scheduleAccountId = schedule.employee?.account_id;
-                        return (
-                            scheduleEmployeeId === employeeId ||
-                            scheduleAccountId === accountId ||
-                            scheduleAccountId === employeeId
-                        );
-                    });
-                }
-
-                if (retrySchedules.length > 0) {
-                    setAttendance(retrySchedules);
-                    setSnackbar({ message: 'Cập nhật điểm danh thành công', severity: 'success' });
-                } else {
-                    if (schedule) {
-                        const manuallyUpdated = {
-                            ...schedule,
-                            status: newStatus,
-                            notes: notes || schedule.notes || null,
-                            team_member_id: teamMemberId,
-                            employee_id: schedule.employee_id || member.id || member.employee_id,
-                            work_shift_id: shiftId,
-                            date: date || schedule.date
-                        };
-                        setAttendance(prev => {
-                            const existing = prev.find(item => {
-                                const itemId = item.id || item.team_member_id || item.team_member?.id;
-                                const scheduleId = schedule.id || schedule.team_member_id || schedule.team_member?.id;
-                                const itemDate = item.date ? new Date(item.date).toISOString().split('T')[0] : null;
-                                const scheduleDate = schedule.date ? new Date(schedule.date).toISOString().split('T')[0] : null;
-                                return itemId === scheduleId && itemDate === scheduleDate;
-                            });
-                            if (existing) {
-                                return prev.map(item => {
-                                    const itemId = item.id || item.team_member_id || item.team_member?.id;
-                                    const scheduleId = schedule.id || schedule.team_member_id || schedule.team_member?.id;
-                                    const itemDate = item.date ? new Date(item.date).toISOString().split('T')[0] : null;
-                                    const scheduleDate = schedule.date ? new Date(schedule.date).toISOString().split('T')[0] : null;
-                                    if (itemId === scheduleId && itemDate === scheduleDate) {
-                                        return { ...item, ...manuallyUpdated };
-                                    }
-                                    return item;
-                                });
-                            }
-                            return [...prev, manuallyUpdated];
-                        });
-                        setSnackbar({
-                            message: 'Đã gửi yêu cầu cập nhật điểm danh. Vui lòng làm mới trang để xem dữ liệu mới nhất.',
-                            severity: 'warning'
-                        });
-                    } else {
-                        setSnackbar({
-                            message: 'Không thể tải lại dữ liệu điểm danh. Vui lòng làm mới trang.',
-                            severity: 'warning'
-                        });
-                    }
-                }
-            }
-
             setAttendanceDialog(null);
-
-            if (isLeader && !member.isLeader) {
-                const allTeamMembers = getAllTeamMembers(team).filter(m => !m.isLeader);
-
-                if (allTeamMembers.length > 0) {
-                    const targetDateStr = date || schedule?.date;
-                    const teamSchedulesForDate = updatedSchedules.filter(s => {
-                        const scheduleTeamId = s.team_member?.team_id || s.team_id;
-                        const scheduleShiftId = s.work_shift_id || s.work_shift?.id;
-                        const scheduleDate = s.date ? new Date(s.date).toISOString().split('T')[0] : null;
-                        const targetDate = targetDateStr;
-
-                        return (
-                            scheduleTeamId === teamId &&
-                            scheduleShiftId === shiftId &&
-                            scheduleDate === targetDate
-                        );
-                    });
-
-                    const allMembersChecked = allTeamMembers.every(teamMember => {
-                        const memberEmployeeId = teamMember.id || teamMember.employee_id;
-                        const memberAccountId = teamMember.account_id;
-
-                        const memberSchedule = teamSchedulesForDate.find(s => {
-                            const scheduleEmployeeId = s.employee_id || s.employee?.id || s.team_member?.employee_id;
-                            const scheduleAccountId = s.employee?.account_id;
-                            const scheduleTeamMemberId = s.team_member_id || s.team_member?.id;
-
-                            return (
-                                scheduleEmployeeId === memberEmployeeId ||
-                                scheduleAccountId === memberAccountId ||
-                                scheduleEmployeeId === memberAccountId ||
-                                scheduleTeamMemberId === teamMember.team_member_id
-                            );
-                        });
-
-                        return memberSchedule && memberSchedule.status && memberSchedule.status !== 'PENDING';
-                    });
-
-                    if (allMembersChecked) {
-                        const leaderMember = getAllTeamMembers(team).find(m => m.isLeader);
-                        const leaderTeamMemberId = leaderMember?.team_member_id ||
-                            team.members?.find(tm => {
-                                const tmEmployeeId = tm.employee_id || tm.employee?.id;
-                                const tmEmployeeAccountId = tm.employee?.account_id;
-                                const leaderId = team.leader_id;
-                                const leaderAccountId = team.leader?.account_id;
-                                return (
-                                    (leaderId && (tmEmployeeId === leaderId || tmEmployeeAccountId === leaderId)) ||
-                                    (leaderAccountId && (tmEmployeeId === leaderAccountId || tmEmployeeAccountId === leaderAccountId))
-                                );
-                            })?.id;
-
-                        if (leaderTeamMemberId) {
-                            const leaderSchedule = teamSchedulesForDate.find(s => {
-                                const scheduleTeamMemberId = s.team_member_id || s.team_member?.id;
-                                return scheduleTeamMemberId === leaderTeamMemberId;
-                            });
-
-                            if (!leaderSchedule || leaderSchedule.status === 'PENDING') {
-                                const leaderPayload = [
-                                    {
-                                        id: leaderTeamMemberId,
-                                        status: 'PRESENT',
-                                        notes: 'Tự động điểm danh sau khi điểm danh tất cả thành viên'
-                                    }
-                                ];
-
-                                try {
-                                    await apiClient.put(`/teams/${teamId}/daily-schedules`, leaderPayload, {
-                                        timeout: 10000,
-                                        headers: { 'Content-Type': 'application/json' }
-                                    });
-
-                                    upsertAttendanceRecord({
-                                        team_member_id: leaderTeamMemberId,
-                                        status: 'PRESENT',
-                                        notes: 'Tự động điểm danh sau khi điểm danh tất cả thành viên',
-                                        date: targetDateStr || new Date().toISOString(),
-                                        team_id: teamId,
-                                        work_shift_id: shiftId,
-                                        team_member: {
-                                            id: leaderTeamMemberId,
-                                            team_id: teamId,
-                                            employee_id: team.leader?.id || team.leader?.employee_id,
-                                            employee: team.leader
-                                        },
-                                        employee_id: team.leader?.id || team.leader?.employee_id
-                                    });
-
-                                    const reloadTeamIds = teams.map(team => team.id).filter(Boolean);
-                                    if (reloadTeamIds.length > 0) {
-                                        const reloadBaseParams = {
-                                            page_index: 0,
-                                            page_size: 1000,
-                                            FromDate: dateRange.fromDate,
-                                            ToDate: dateRange.toDate
-                                        };
-
-                                        const reloadPromises = reloadTeamIds.map(teamId =>
-                                            getDailySchedules({
-                                                ...reloadBaseParams,
-                                                TeamId: teamId
-                                            }).catch(() => ({ success: true, data: [] }))
-                                        );
-
-                                        const reloadResponses = await Promise.all(reloadPromises);
-
-                                        let finalSchedules = [];
-                                        reloadResponses.forEach(response => {
-                                            if (response.success && Array.isArray(response.data)) {
-                                                finalSchedules.push(...response.data);
-                                            }
-                                        });
-
-                                        const validTeamIds = new Set(reloadTeamIds);
-                                        finalSchedules = finalSchedules.filter(schedule => {
-                                            const scheduleTeamId = schedule.team_member?.team_id || schedule.team_id;
-                                            return scheduleTeamId && validTeamIds.has(scheduleTeamId);
-                                        });
-
-                                        if (!isLeader) {
-                                            const employeeId = profileData.id || profileData.employee_id || profileData.account_id;
-                                            const accountId = profileData.account_id;
-                                            finalSchedules = finalSchedules.filter((schedule) => {
-                                                const scheduleEmployeeId = schedule.employee_id || schedule.employee?.id || schedule.team_member?.employee_id;
-                                                const scheduleAccountId = schedule.employee?.account_id;
-                                                return (
-                                                    scheduleEmployeeId === employeeId ||
-                                                    scheduleAccountId === accountId ||
-                                                    scheduleAccountId === employeeId
-                                                );
-                                            });
-                                        }
-                                        setAttendance(finalSchedules);
-                                    }
-                                } catch (leaderError) {
-                                    // Silent fail for background auto-check operation
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            setSnackbar({ message: 'Cập nhật điểm danh thành công', severity: 'success' });
-            setAttendanceDialog(null);
-        } catch (error) {
-            console.error('Failed to update attendance', error);
-            const errorMsg = error.response?.data?.message || error.message || 'Không thể cập nhật điểm danh';
-            setSnackbar({ message: errorMsg, severity: 'error' });
+            return;
         }
+
+        const key = `${teamId}-${shiftId}-${dayKey}`;
+
+        setPendingChanges((prev) => {
+            const existing = prev[key] || [];
+            const existingIndex = existing.findIndex((item) => item.recordId === effectiveRecordId);
+
+            const newChange = {
+                recordId: effectiveRecordId,
+                dailyScheduleId,
+                teamMemberId,
+                status: existingIndex >= 0 ? existing[existingIndex].status : (status || schedule?.status || 'PENDING'),
+                notes: notes || '',
+                memberName: member.full_name || member.name,
+                date: date || schedule.date
+            };
+
+            let updated;
+            if (existingIndex >= 0) {
+                updated = [...existing];
+                updated[existingIndex] = newChange;
+            } else {
+                updated = [...existing, newChange];
+            }
+
+            return {
+                ...prev,
+                [key]: updated
+            };
+        });
+
+        // Cập nhật notes hiển thị trong bảng cho record hiện tại
+        if (dailyScheduleId) {
+            setAttendance((prevAttendance) =>
+                prevAttendance.map((item) => {
+                    if (item.id === dailyScheduleId) {
+                        return {
+                            ...item,
+                            notes: notes || ''
+                        };
+                    }
+                    return item;
+                })
+            );
+        }
+
+        setSnackbar({
+            message: 'Đã cập nhật ghi chú. Nhấn "Lưu" để gửi lên hệ thống.',
+            severity: 'info'
+        });
+        setAttendanceDialog(null);
     };
 
     const handleMonthChange = (delta) => {
@@ -1907,38 +1570,48 @@ const WorkingAttendancePage = () => {
                                                                                                                 </Typography>
                                                                                                             </TableCell>
                                                                                                             <TableCell sx={{ py: 2 }}>
-                                                                                                                <Typography
-                                                                                                                    variant="body2"
-                                                                                                                    sx={{
-                                                                                                                        color: schedule?.notes ? COLORS.TEXT.PRIMARY : COLORS.TEXT.SECONDARY,
-                                                                                                                        fontStyle: schedule?.notes ? 'normal' : 'italic',
-                                                                                                                        maxWidth: 300,
-                                                                                                                        overflow: 'hidden',
-                                                                                                                        textOverflow: 'ellipsis',
-                                                                                                                        whiteSpace: 'nowrap',
-                                                                                                                        fontWeight: schedule?.notes ? 500 : 400
-                                                                                                                    }}
+                                                                                                                <Tooltip
+                                                                                                                    title={
+                                                                                                                        isTeamLeader
+                                                                                                                            ? (schedule?.notes ? 'Nhấn để sửa ghi chú' : 'Nhấn để thêm ghi chú')
+                                                                                                                            : ''
+                                                                                                                    }
+                                                                                                                    placement="top"
+                                                                                                                    arrow
                                                                                                                 >
-                                                                                                                    {schedule?.notes || '—'}
-                                                                                                                </Typography>
+                                                                                                                    <Typography
+                                                                                                                        variant="body2"
+                                                                                                                        onClick={
+                                                                                                                            isTeamLeader
+                                                                                                                                ? () =>
+                                                                                                                                    handleOpenNotesDialog(
+                                                                                                                                        memberData || { member, date: dateStr, schedule },
+                                                                                                                                        team.id,
+                                                                                                                                        shift.id,
+                                                                                                                                        dateStr,
+                                                                                                                                        dayKey,
+                                                                                                                                        isTeamLeader
+                                                                                                                                    )
+                                                                                                                                : undefined
+                                                                                                                        }
+                                                                                                                        sx={{
+                                                                                                                            color: schedule?.notes ? COLORS.TEXT.PRIMARY : COLORS.TEXT.SECONDARY,
+                                                                                                                            fontStyle: schedule?.notes ? 'normal' : 'italic',
+                                                                                                                            maxWidth: 300,
+                                                                                                                            overflow: 'hidden',
+                                                                                                                            textOverflow: 'ellipsis',
+                                                                                                                            whiteSpace: 'nowrap',
+                                                                                                                            fontWeight: schedule?.notes ? 500 : 400,
+                                                                                                                            cursor: isTeamLeader ? 'pointer' : 'default',
+                                                                                                                            textDecoration: isTeamLeader ? 'underline dotted' : 'none'
+                                                                                                                        }}
+                                                                                                                    >
+                                                                                                                        {schedule?.notes || (isTeamLeader ? 'Thêm ghi chú' : '—')}
+                                                                                                                    </Typography>
+                                                                                                                </Tooltip>
                                                                                                             </TableCell>
                                                                                                             <TableCell align="center" sx={{ py: 2.5 }}>
-                                                                                                                {isTeamLeader && member.isLeader ? (
-                                                                                                                    <Chip
-                                                                                                                        icon={STATUS_OPTIONS.find((opt) => opt.value === currentStatus)?.icon}
-                                                                                                                        label={STATUS_OPTIONS.find((opt) => opt.value === currentStatus)?.label || currentStatus}
-                                                                                                                        sx={{
-                                                                                                                            bgcolor: STATUS_COLORS[currentStatus]?.bg || COLORS.GRAY[100],
-                                                                                                                            color: STATUS_COLORS[currentStatus]?.color || COLORS.GRAY[700],
-                                                                                                                            fontWeight: 700,
-                                                                                                                            height: 36,
-                                                                                                                            fontSize: '0.875rem',
-                                                                                                                            border: `2px solid ${alpha(STATUS_COLORS[currentStatus]?.color || COLORS.GRAY[700], 0.3)}`,
-                                                                                                                            boxShadow: currentStatus !== 'PENDING' ? `0 2px 8px ${alpha(STATUS_COLORS[currentStatus]?.color || COLORS.GRAY[700], 0.15)}` : 'none'
-                                                                                                                        }}
-                                                                                                                        size="medium"
-                                                                                                                    />
-                                                                                                                ) : isTeamLeader ? (
+                                                                                                                {isTeamLeader ? (
                                                                                                                     currentStatus === 'PENDING' ? (
                                                                                                                         <Stack direction="row" spacing={1.5} alignItems="center" justifyContent="center" flexWrap="wrap" sx={{ gap: 1 }}>
                                                                                                                             <Chip
@@ -1963,7 +1636,15 @@ const WorkingAttendancePage = () => {
                                                                                                                                         color={option.color}
                                                                                                                                         size="small"
                                                                                                                                         startIcon={option.icon}
-                                                                                                                                        onClick={() => handleStatusClick(memberData || { member, date: dateStr, schedule }, option.value, team.id, shift.id, dateStr, dayKey, isTeamLeader)}
+                                                                                                                                        onClick={() => handleStatusClick(
+                                                                                                                                            memberData || { member, date: dateStr, schedule },
+                                                                                                                                            option.value,
+                                                                                                                                            team.id,
+                                                                                                                                            shift.id,
+                                                                                                                                            dateStr,
+                                                                                                                                            dayKey,
+                                                                                                                                            isTeamLeader
+                                                                                                                                        )}
                                                                                                                                         sx={{
                                                                                                                                             borderRadius: 2,
                                                                                                                                             minWidth: 110,
@@ -2141,7 +1822,14 @@ const WorkingAttendancePage = () => {
                 <DialogTitle>
                     <Stack direction="row" justifyContent="space-between" alignItems="center">
                         <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                            Điểm danh - {attendanceDialog && STATUS_OPTIONS.find(opt => opt.value === attendanceDialog.newStatus)?.label}
+                            Ghi chú điểm danh
+                            {attendanceDialog?.status && (
+                                <>
+                                    {' - '}
+                                    {STATUS_OPTIONS.find((opt) => opt.value === attendanceDialog.status)?.label ||
+                                        attendanceDialog.status}
+                                </>
+                            )}
                         </Typography>
                         <IconButton
                             size="small"

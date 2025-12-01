@@ -402,7 +402,7 @@ const AreasPage = () => {
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         size="small"
-                        sx={{ width: '1100px', flexShrink: 0 }}
+                        sx={{ width: '1000px', flexShrink: 0 }}
                     />
 
                     <FormControl size="small" sx={{ minWidth: 150 }}>
