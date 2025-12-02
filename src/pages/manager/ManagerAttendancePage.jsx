@@ -1,13 +1,14 @@
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
-import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Stack, Toolbar, TextField, Select, MenuItem, InputLabel, FormControl, Avatar, alpha, Button, Divider, IconButton, Menu } from '@mui/material';
+import React, { useEffect, useState, useMemo, useCallback, memo, useTransition, useDeferredValue } from 'react';
+import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Stack, Toolbar, TextField, Select, MenuItem, InputLabel, FormControl, Avatar, alpha, Button, IconButton, Menu } from '@mui/material';
 import { COLORS } from '../../constants/colors';
 import Loading from '../../components/loading/Loading';
 import Pagination from '../../components/common/Pagination';
+import AlertModal from '../../components/modals/AlertModal';
 import dailyScheduleApi from '../../api/dailyScheduleApi';
 import { getTeams, getTeamMembers, getTeamWorkShifts } from '../../api/teamApi';
 import { WEEKDAYS } from '../../api/workShiftApi';
 import apiClient from '../../config/config';
-import { MoreVert, FilterList, ChevronLeft, ChevronRight } from '@mui/icons-material';
+import { MoreVert, ChevronLeft, ChevronRight } from '@mui/icons-material';
 
 const STATUS_LABELS = {
     PENDING: 'Chờ điểm danh',
@@ -71,12 +72,28 @@ const getDayKeyFromDate = (dateString) => {
     if (!dateString) return null;
     const date = new Date(dateString);
     if (Number.isNaN(date.getTime())) return null;
-    const jsDay = date.getDay(); // 0 = Sunday
+    const jsDay = date.getDay();
     const index = jsDay === 0 ? 6 : jsDay - 1;
     return WEEKDAYS[index];
 };
 
-// Build full member list cho team: bao gồm cả Leader + members (tránh trùng)
+// Extract error message from API error response
+const extractErrorMessage = (error, fallback) => {
+    if (error?.response?.data) {
+        const { message, error: err, errors } = error.response.data;
+        if (Array.isArray(message)) return message.join('. ');
+        if (typeof message === 'string') return message;
+        if (Array.isArray(err)) return err.join('. ');
+        if (typeof err === 'string') return err;
+        if (errors && typeof errors === 'object') {
+            const combined = Object.values(errors).flat().join('. ');
+            if (combined) return combined;
+        }
+    }
+    return error?.message || fallback;
+};
+
+// Build full member list for team: includes Leader + members (avoid duplicates)
 const getAllTeamMembersForManager = (team) => {
     const members = [];
     const seenIds = new Set();
@@ -96,14 +113,14 @@ const getAllTeamMembersForManager = (team) => {
         });
     }
 
-    // Hợp nhất tất cả nguồn member có thể có (team.members từ getTeams, team_members từ getTeamMembers)
+    // Merge all possible member sources (team.members from getTeams, team_members from getTeamMembers)
     const rawMembers = [
         ...((team.members && Array.isArray(team.members)) ? team.members : []),
         ...((team.team_members && Array.isArray(team.team_members)) ? team.team_members : [])
     ];
 
     rawMembers.forEach((tm) => {
-        // tm có thể là team_member (có field employee) hoặc employee thẳng
+        // tm can be team_member (has employee field) or employee directly
         const emp = tm.employee || tm || {};
         const empId = emp.id || tm.employee_id;
         const key = empId || emp.account_id;
@@ -121,8 +138,8 @@ const getAllTeamMembersForManager = (team) => {
     return members;
 };
 
-// Manager cập nhật trạng thái điểm danh trực tiếp cho 1 bản ghi
-const updateAttendanceStatusForManager = async (schedule, newStatus, setError, setRefreshKey, setIsLoading) => {
+// Manager updates attendance status directly for a record
+const updateAttendanceStatusForManager = async (schedule, newStatus, setAlert, setRefreshKey) => {
     if (!schedule) return;
 
     const teamId = schedule.team_member?.team_id || schedule.team_id;
@@ -130,12 +147,16 @@ const updateAttendanceStatusForManager = async (schedule, newStatus, setError, s
     const recordId = schedule.id || teamMemberId;
 
     if (!teamId || !recordId) {
-        setError('Không tìm thấy thông tin điểm danh để cập nhật.');
+        setAlert({
+            open: true,
+            title: 'Lỗi',
+            message: 'Không tìm thấy thông tin điểm danh để cập nhật.',
+            type: 'error'
+        });
         return;
     }
 
     try {
-        setIsLoading(true);
         const payload = [
             {
                 id: recordId,
@@ -151,46 +172,102 @@ const updateAttendanceStatusForManager = async (schedule, newStatus, setError, s
 
         // Trigger reload
         setRefreshKey(prev => prev + 1);
+
+        setAlert({
+            open: true,
+            title: 'Thành công',
+            message: 'Cập nhật trạng thái điểm danh thành công!',
+            type: 'success'
+        });
     } catch (error) {
-        const msg =
-            error.response?.data?.message ||
-            error.response?.data?.error ||
-            error.message ||
-            'Không thể cập nhật điểm danh';
-        setError(msg);
-    } finally {
-        setIsLoading(false);
+        const errorMessage = extractErrorMessage(error, 'Không thể cập nhật điểm danh');
+        setAlert({
+            open: true,
+            title: 'Lỗi',
+            message: errorMessage,
+            type: 'error'
+        });
     }
 };
 
+// Format functions with caching for better performance
+const dateFormatCache = new Map();
 const formatDate = (dateString) => {
     if (!dateString) return '—';
+    if (dateFormatCache.has(dateString)) {
+        return dateFormatCache.get(dateString);
+    }
     const date = new Date(dateString);
     const weekdays = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
     const weekday = weekdays[date.getDay()];
     const day = String(date.getDate()).padStart(2, '0');
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const year = date.getFullYear();
-    return `${weekday}, ${day}/${month}/${year}`;
+    const formatted = `${weekday}, ${day}/${month}/${year}`;
+    dateFormatCache.set(dateString, formatted);
+    // Limit cache size to prevent memory issues
+    if (dateFormatCache.size > 1000) {
+        const firstKey = dateFormatCache.keys().next().value;
+        dateFormatCache.delete(firstKey);
+    }
+    return formatted;
 };
 
+const timeFormatCache = new Map();
 const formatTime = (timeString) => {
     if (!timeString) return '—';
-    // Handle both "HH:mm:ss" and "HH:mm" formats
+    if (timeFormatCache.has(timeString)) {
+        return timeFormatCache.get(timeString);
+    }
     const parts = timeString.split(':');
-    return `${parts[0]}:${parts[1]}`;
+    const formatted = `${parts[0]}:${parts[1]}`;
+    timeFormatCache.set(timeString, formatted);
+    if (timeFormatCache.size > 500) {
+        const firstKey = timeFormatCache.keys().next().value;
+        timeFormatCache.delete(firstKey);
+    }
+    return formatted;
 };
 
 // --- Statistics helpers ------------------------------------------------------
 
-const buildStatistics = (allSchedules) => ({
-    total: allSchedules.length,
-    pending: allSchedules.filter(s => s.status === 'PENDING').length,
-    present: allSchedules.filter(s => s.status === 'PRESENT').length,
-    absent: allSchedules.filter(s => s.status === 'ABSENT').length,
-    late: allSchedules.filter(s => s.status === 'LATE').length,
-    earlyLeave: allSchedules.filter(s => s.status === 'EARLY_LEAVE').length
-});
+const buildStatistics = (allSchedules) => {
+    let pending = 0;
+    let present = 0;
+    let absent = 0;
+    let late = 0;
+    let earlyLeave = 0;
+
+    for (let i = 0; i < allSchedules.length; i++) {
+        const status = allSchedules[i]?.status;
+        switch (status) {
+            case 'PENDING':
+                pending++;
+                break;
+            case 'PRESENT':
+                present++;
+                break;
+            case 'ABSENT':
+                absent++;
+                break;
+            case 'LATE':
+                late++;
+                break;
+            case 'EARLY_LEAVE':
+                earlyLeave++;
+                break;
+        }
+    }
+
+    return {
+        total: allSchedules.length,
+        pending,
+        present,
+        absent,
+        late,
+        earlyLeave
+    };
+};
 
 // --- Weeks helpers -----------------------------------------------------------
 
@@ -203,8 +280,8 @@ const buildWeeksForMonth = (year, month) => {
     const firstOfMonth = new Date(year, month, 1);
     const lastOfMonth = new Date(year, month + 1, 0);
 
-    // Tìm thứ Hai của tuần chứa ngày 1
-    const firstDayOfWeek = firstOfMonth.getDay(); // 0=CN,1=T2,...
+    // Find Monday of the week containing day 1
+    const firstDayOfWeek = firstOfMonth.getDay();
     const diffToMonday = (firstDayOfWeek === 0 ? -6 : 1 - firstDayOfWeek);
     const currentMonday = new Date(firstOfMonth);
     currentMonday.setDate(firstOfMonth.getDate() + diffToMonday);
@@ -215,7 +292,7 @@ const buildWeeksForMonth = (year, month) => {
         const weekEnd = new Date(currentMonday);
         weekEnd.setDate(weekEnd.getDate() + 6);
 
-        // Giới hạn trong phạm vi tháng
+        // Limit within month range
         const fromDate = weekStart < firstOfMonth ? firstOfMonth : weekStart;
         const toDate = weekEnd > lastOfMonth ? lastOfMonth : weekEnd;
 
@@ -236,7 +313,7 @@ const buildWeeksForMonth = (year, month) => {
 
 // --- Sub components ----------------------------------------------------------
 
-const StatisticsSection = ({ statistics }) => (
+const StatisticsSection = memo(({ statistics }) => (
     <Box
         sx={{
             display: 'flex',
@@ -278,7 +355,7 @@ const StatisticsSection = ({ statistics }) => (
                         <Typography variant="body2" color="text.secondary" gutterBottom>
                             {stat.label}
                         </Typography>
-                        <Typography variant="h4" fontWeight={700} color={stat.valueColor}>
+                        <Typography variant="h4" fontWeight={600} color={stat.valueColor}>
                             {stat.value}
                         </Typography>
                     </Paper>
@@ -286,9 +363,10 @@ const StatisticsSection = ({ statistics }) => (
             );
         })}
     </Box>
-);
+));
+StatisticsSection.displayName = 'StatisticsSection';
 
-const MonthWeekFilter = ({
+const MonthWeekFilter = memo(({
     selectedMonth,
     setSelectedMonth,
     selectedYear,
@@ -304,30 +382,29 @@ const MonthWeekFilter = ({
     setToDate,
     setPage
 }) => {
-    const handlePrevMonth = () => {
+    const handlePrevMonth = useCallback(() => {
         if (selectedMonth === 0) {
             setSelectedMonth(11);
             setSelectedYear(selectedYear - 1);
         } else {
             setSelectedMonth(selectedMonth - 1);
         }
-    };
+    }, [selectedMonth, selectedYear, setSelectedMonth, setSelectedYear]);
 
-    const handleNextMonth = () => {
+    const handleNextMonth = useCallback(() => {
         if (selectedMonth === 11) {
             setSelectedMonth(0);
             setSelectedYear(selectedYear + 1);
         } else {
             setSelectedMonth(selectedMonth + 1);
         }
-    };
+    }, [selectedMonth, selectedYear, setSelectedMonth, setSelectedYear]);
 
-    const handleThisWeek = () => {
+    const handleThisWeek = useCallback(() => {
         const now = new Date();
         const year = now.getFullYear();
         const month = now.getMonth();
 
-        // Nếu đang xem đúng tháng/năm hiện tại -> chỉ cần chọn lại tuần chứa hôm nay
         if (selectedYear === year && selectedMonth === month && weeksInMonth.length) {
             const today = new Date();
             const currentWeek =
@@ -339,7 +416,6 @@ const MonthWeekFilter = ({
                 setToDate(currentWeek.to);
             }
         } else {
-            // Nhảy về đúng tháng/năm hiện tại rồi chọn tuần chứa hôm nay
             setSelectedMonth(month);
             setSelectedYear(year);
 
@@ -355,12 +431,34 @@ const MonthWeekFilter = ({
             }
         }
         setPage(1);
-    };
+    }, [selectedYear, selectedMonth, weeksInMonth, setSelectedMonth, setSelectedYear, setSelectedWeekId, setFromDate, setToDate, setPage]);
 
     const currentWeekLabel = useMemo(() => {
         const w = weeksInMonth.find(x => x.id === selectedWeekId) || weeksInMonth[0];
         return w ? w.label.split('(')[0].trim() : '';
     }, [selectedWeekId, weeksInMonth]);
+
+    const handlePrevWeek = useCallback(() => {
+        const currentIndex = weeksInMonth.findIndex(w => w.id === selectedWeekId);
+        if (currentIndex > 0) {
+            const w = weeksInMonth[currentIndex - 1];
+            setSelectedWeekId(w.id);
+            setFromDate(w.from);
+            setToDate(w.to);
+        }
+        setPage(1);
+    }, [weeksInMonth, selectedWeekId, setSelectedWeekId, setFromDate, setToDate, setPage]);
+
+    const handleNextWeek = useCallback(() => {
+        const currentIndex = weeksInMonth.findIndex(w => w.id === selectedWeekId);
+        if (currentIndex < weeksInMonth.length - 1) {
+            const w = weeksInMonth[currentIndex + 1];
+            setSelectedWeekId(w.id);
+            setFromDate(w.from);
+            setToDate(w.to);
+        }
+        setPage(1);
+    }, [weeksInMonth, selectedWeekId, setSelectedWeekId, setFromDate, setToDate, setPage]);
 
     return (
         <Box>
@@ -468,16 +566,7 @@ const MonthWeekFilter = ({
                             {/* Tuần trước */}
                             <IconButton
                                 size="small"
-                                onClick={() => {
-                                    const currentIndex = weeksInMonth.findIndex(w => w.id === selectedWeekId);
-                                    if (currentIndex > 0) {
-                                        const w = weeksInMonth[currentIndex - 1];
-                                        setSelectedWeekId(w.id);
-                                        setFromDate(w.from);
-                                        setToDate(w.to);
-                                    }
-                                    setPage(1);
-                                }}
+                                onClick={handlePrevWeek}
                                 sx={{ mr: 1 }}
                             >
                                 <ChevronLeft fontSize="small" />
@@ -507,16 +596,7 @@ const MonthWeekFilter = ({
                             {/* Tuần sau */}
                             <IconButton
                                 size="small"
-                                onClick={() => {
-                                    const currentIndex = weeksInMonth.findIndex(w => w.id === selectedWeekId);
-                                    if (currentIndex < weeksInMonth.length - 1) {
-                                        const w = weeksInMonth[currentIndex + 1];
-                                        setSelectedWeekId(w.id);
-                                        setFromDate(w.from);
-                                        setToDate(w.to);
-                                    }
-                                    setPage(1);
-                                }}
+                                onClick={handleNextWeek}
                                 sx={{ ml: 1 }}
                             >
                                 <ChevronRight fontSize="small" />
@@ -527,31 +607,129 @@ const MonthWeekFilter = ({
             </Stack>
         </Box>
     );
-};
+});
+MonthWeekFilter.displayName = 'MonthWeekFilter';
+
+// Memoized Schedule Row Component for better performance
+const ScheduleRow = memo(({ schedule, onMenuOpen }) => {
+    const statusInfo = useMemo(() => STATUS_COLORS[schedule.status] || STATUS_COLORS.PENDING, [schedule.status]);
+    const statusLabel = useMemo(() => STATUS_LABELS[schedule.status] || schedule.status, [schedule.status]);
+    const formattedDate = useMemo(() => formatDate(schedule.date), [schedule.date]);
+    const timeRange = useMemo(() => {
+        if (!schedule.work_shift) return null;
+        return `${formatTime(schedule.work_shift.start_time)} - ${formatTime(schedule.work_shift.end_time)}`;
+    }, [schedule.work_shift]);
+
+    return (
+        <TableRow hover sx={{ '&:hover': { bgcolor: alpha(COLORS.PRIMARY[50], 0.3) } }}>
+            <TableCell>
+                <Stack direction="row" alignItems="center" spacing={1.5}>
+                    <Avatar
+                        src={schedule.employee?.avatar_url}
+                        alt={schedule.employee?.full_name}
+                        sx={{ width: 42, height: 42, border: `2px solid ${alpha(COLORS.PRIMARY[200], 0.5)}` }}
+                    >
+                        {!schedule.employee?.avatar_url && schedule.employee?.full_name?.charAt(0)}
+                    </Avatar>
+                    <Box>
+                        <Stack direction="row" spacing={0.75} alignItems="center">
+                            <Typography sx={{ fontWeight: 600, fontSize: '0.95rem' }}>
+                                {schedule.employee?.full_name || '—'}
+                            </Typography>
+                            {schedule.employee?.isLeader && (
+                                <Chip
+                                    label="Leader"
+                                    size="small"
+                                    color="error"
+                                    sx={{ height: 20, fontSize: '0.7rem', fontWeight: 700 }}
+                                />
+                            )}
+                        </Stack>
+                        {schedule.employee?.sub_role && !schedule.employee?.isLeader && (
+                            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                                {schedule.employee.sub_role === 'SALE_STAFF' ? 'Sale Staff' :
+                                    schedule.employee.sub_role === 'WORKING_STAFF' ? 'Working Staff' :
+                                        schedule.employee.sub_role}
+                            </Typography>
+                        )}
+                    </Box>
+                </Stack>
+            </TableCell>
+            <TableCell>
+                <Box>
+                    <Typography sx={{ fontWeight: 600, fontSize: '0.9rem', mb: 0.5 }}>
+                        {schedule.work_shift?.name || '—'}
+                    </Typography>
+                    {timeRange && (
+                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                            {timeRange}
+                        </Typography>
+                    )}
+                </Box>
+            </TableCell>
+            <TableCell>
+                <Typography sx={{ fontWeight: 500, fontSize: '0.9rem' }}>
+                    {formattedDate}
+                </Typography>
+            </TableCell>
+            <TableCell>
+                <Chip
+                    size="small"
+                    label={statusLabel}
+                    sx={{
+                        background: statusInfo.bg,
+                        color: statusInfo.color,
+                        fontWeight: 700,
+                        fontSize: '0.8rem',
+                        height: 26,
+                        minWidth: 100
+                    }}
+                />
+            </TableCell>
+            <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
+                <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem', maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {schedule.notes || '—'}
+                </Typography>
+            </TableCell>
+            <TableCell align="right">
+                <IconButton
+                    size="small"
+                    onClick={(event) => onMenuOpen(event, schedule)}
+                >
+                    <MoreVert fontSize="small" />
+                </IconButton>
+            </TableCell>
+        </TableRow>
+    );
+});
+ScheduleRow.displayName = 'ScheduleRow';
 
 const buildGroupedSchedules = (schedules, teams) => {
     if (!schedules || !schedules.length) return [];
 
-    const schedulesByTeam = {};
+    // Use Map for better performance
+    const schedulesByTeam = new Map();
+    const teamMap = new Map(teams.map(t => [t.id, t]));
+
     schedules.forEach((schedule) => {
         const teamId = schedule.team_member?.team_id || 'no-team';
-        if (!schedulesByTeam[teamId]) {
-            schedulesByTeam[teamId] = [];
+        if (!schedulesByTeam.has(teamId)) {
+            schedulesByTeam.set(teamId, []);
         }
-        schedulesByTeam[teamId].push(schedule);
+        schedulesByTeam.get(teamId).push(schedule);
     });
 
-    const sortedTeamIds = Object.keys(schedulesByTeam).sort((a, b) => {
+    const sortedTeamIds = Array.from(schedulesByTeam.keys()).sort((a, b) => {
         if (a === 'no-team') return 1;
         if (b === 'no-team') return -1;
-        const teamA = teams.find(t => t.id === a);
-        const teamB = teams.find(t => t.id === b);
+        const teamA = teamMap.get(a);
+        const teamB = teamMap.get(b);
         return (teamA?.name || '').localeCompare(teamB?.name || '');
     });
 
     return sortedTeamIds.map((teamId) => {
-        const teamSchedules = schedulesByTeam[teamId];
-        const team = teams.find(t => t.id === teamId);
+        const teamSchedules = schedulesByTeam.get(teamId);
+        const team = teamMap.get(teamId);
         const teamName = team?.name || 'Chưa phân nhóm';
         return { teamId, teamName, teamSchedules };
     });
@@ -559,10 +737,13 @@ const buildGroupedSchedules = (schedules, teams) => {
 
 // --- Main page ---------------------------------------------------------------
 
-// Trang Điểm danh cho Manager
+// Manager Attendance Page
 const ManagerAttendancePage = () => {
+    const [isPending, startTransition] = useTransition();
     const [isLoading, setIsLoading] = useState(true);
+    const [hasInitialLoad, setHasInitialLoad] = useState(false);
     const [error, setError] = useState('');
+    const [alert, setAlert] = useState({ open: false, title: 'Thông báo', message: '', type: 'info' });
     const [schedules, setSchedules] = useState([]);
     const [pagination, setPagination] = useState(null);
 
@@ -576,33 +757,55 @@ const ManagerAttendancePage = () => {
     const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
-    // Teams list (đã enrich: team_members + team_work_shifts)
+    // Teams list (enriched with team_members + team_work_shifts)
     const [teams, setTeams] = useState([]);
 
     // Pagination state
     const [page, setPage] = useState(1);
-    const [itemsPerPage, setItemsPerPage] = useState(999); // hiển thị gần như toàn bộ bản ghi trên 1 trang
-    const [selectedWeekId, setSelectedWeekId] = useState(null); // id tuần trong tháng (luôn chọn 1 tuần khi dùng card)
+    const [itemsPerPage, setItemsPerPage] = useState(999);
+    const [selectedWeekId, setSelectedWeekId] = useState(null);
     const [refreshKey, setRefreshKey] = useState(0);
 
-    // Action menu state (MoreVert per row)
+    // Action menu state
     const [actionMenu, setActionMenu] = useState({ anchorEl: null, schedule: null });
 
-    // Schedules thô từ BE dùng cho thống kê
+    // Raw schedules from BE for statistics
     const [rawSchedules, setRawSchedules] = useState([]);
 
-    // Set default month/year to current time, nhưng KHÔNG tự động set Từ ngày / Đến ngày
+    // Deferred values for non-urgent updates
+    const deferredSchedules = useDeferredValue(schedules);
+    const deferredPagination = useDeferredValue(pagination);
+
+    // Handlers
+    const handleActionMenuOpen = useCallback((event, schedule) => {
+        setActionMenu({ anchorEl: event.currentTarget, schedule });
+    }, []);
+
+    const handleActionMenuClose = useCallback(() => {
+        setActionMenu({ anchorEl: null, schedule: null });
+    }, []);
+
+    const handleUpdateStatus = useCallback(async (schedule, newStatus) => {
+        await updateAttendanceStatusForManager(
+            schedule,
+            newStatus,
+            setAlert,
+            setRefreshKey
+        );
+    }, []);
+
+    // Set default month/year to current time
     useEffect(() => {
         const now = new Date();
         setSelectedMonth(now.getMonth());
         setSelectedYear(now.getFullYear());
     }, []);
 
-    // Load full teams data: tất cả team + members + team_work_shifts (reuse logic tương tự WorkShiftPage)
+    // Load full teams data: all teams + members + team_work_shifts
     useEffect(() => {
         const loadTeams = async () => {
             try {
-                // Lấy tối đa 1000 team - giống WorkShiftPage nhưng không phân trang UI
+                setIsLoading(true);
                 const response = await getTeams({
                     page: 0,
                     limit: 1000
@@ -610,9 +813,17 @@ const ManagerAttendancePage = () => {
 
                 if (!response.success || !Array.isArray(response.data)) {
                     setTeams([]);
+                    setAlert({
+                        open: true,
+                        title: 'Cảnh báo',
+                        message: 'Không thể tải danh sách nhóm. Vui lòng thử lại sau.',
+                        type: 'warning'
+                    });
+                    setIsLoading(false);
                     return;
                 }
 
+                let enrichFailedCount = 0;
                 const teamsWithData = await Promise.all(
                     response.data.map(async (team) => {
                         try {
@@ -629,12 +840,18 @@ const ManagerAttendancePage = () => {
                                 ? workShiftsResp.value.data || []
                                 : [];
 
+                            // Track if enrichment failed
+                            if (membersResp.status === 'rejected' || workShiftsResp.status === 'rejected') {
+                                enrichFailedCount++;
+                            }
+
                             return {
                                 ...team,
                                 team_members: teamMembers,
                                 team_work_shifts: teamWorkShifts
                             };
                         } catch (error) {
+                            enrichFailedCount++;
                             console.error('[Manager Attendance] Failed to enrich team data:', error);
                             return {
                                 ...team,
@@ -645,77 +862,133 @@ const ManagerAttendancePage = () => {
                     })
                 );
 
+                // Show warning if many teams failed to enrich
+                if (enrichFailedCount > 0 && enrichFailedCount >= response.data.length / 2) {
+                    setAlert({
+                        open: true,
+                        title: 'Cảnh báo',
+                        message: `Không thể tải đầy đủ thông tin cho ${enrichFailedCount}/${response.data.length} nhóm. Một số dữ liệu có thể không hiển thị.`,
+                        type: 'warning'
+                    });
+                }
+
                 setTeams(teamsWithData);
             } catch (error) {
                 console.error('[Manager Attendance] Failed to load teams:', error);
                 setTeams([]);
+                const errorMessage = extractErrorMessage(error, 'Không thể tải danh sách nhóm');
+                setAlert({
+                    open: true,
+                    title: 'Lỗi',
+                    message: errorMessage,
+                    type: 'error'
+                });
+                setIsLoading(false);
             }
         };
         loadTeams();
     }, []);
 
-    // Helper: fetch schedules cho nhiều team giống WorkingAttendancePage
-    const fetchSchedulesForTeams = useCallback(async (teamIds, params) => {
+    // Fetch schedules for multiple teams
+    const fetchSchedulesForTeams = useCallback(async (teamIds, params, setAlert) => {
         if (!Array.isArray(teamIds) || teamIds.length === 0) {
             return [];
         }
 
+        let failedCount = 0;
         const schedulePromises = teamIds.map((teamId) =>
             dailyScheduleApi.getDailySchedules({
                 ...params,
                 TeamId: teamId
             }).catch((error) => {
+                failedCount++;
                 console.error(`[Manager Attendance] Failed to fetch schedules for team ${teamId}:`, error);
-                return { success: true, data: [] };
+                return { success: false, data: [], error };
             })
         );
 
         const responses = await Promise.all(schedulePromises);
 
-        let combined = [];
-        responses.forEach((response) => {
-            if (response && response.success !== false && Array.isArray(response.data) && response.data.length > 0) {
-                combined.push(...response.data);
-            }
-        });
+        // Show alert if all teams failed
+        if (failedCount === teamIds.length && setAlert) {
+            const errorMessage = extractErrorMessage(
+                responses.find(r => r.error)?.error || new Error('Không thể tải lịch điểm danh'),
+                'Không thể tải lịch điểm danh cho tất cả nhóm'
+            );
+            setAlert({
+                open: true,
+                title: 'Lỗi',
+                message: errorMessage,
+                type: 'error'
+            });
+        } else if (failedCount > 0 && failedCount < teamIds.length && setAlert) {
+            // Show warning if some teams failed
+            setAlert({
+                open: true,
+                title: 'Cảnh báo',
+                message: `Không thể tải lịch điểm danh cho ${failedCount}/${teamIds.length} nhóm. Dữ liệu có thể không đầy đủ.`,
+                type: 'warning'
+            });
+        }
 
-        return combined;
+        return responses
+            .filter(response => response && response.success !== false && Array.isArray(response.data) && response.data.length > 0)
+            .flatMap(response => response.data);
     }, []);
 
-    // Load daily schedules + expand theo workshift để có đủ tất cả team/ca/ngày/member
+    // Memoized values
+    const allTeamIds = useMemo(() => {
+        if (!teams || teams.length === 0) return [];
+        if (selectedTeam === 'all') {
+            return teams.map(t => t.id).filter(Boolean);
+        }
+        return teams.filter(t => t.id === selectedTeam).map(t => t.id).filter(Boolean);
+    }, [teams, selectedTeam]);
+
+    const dateRange = useMemo(() => {
+        const today = new Date().toISOString().split('T')[0];
+        return {
+            from: fromDate || today,
+            to: toDate || today
+        };
+    }, [fromDate, toDate]);
+
+    const filteredTeams = useMemo(() => {
+        if (selectedTeam === 'all') return teams;
+        return teams.filter(t => t.id === selectedTeam);
+    }, [teams, selectedTeam]);
+
+    // Load daily schedules and expand by workshift to get all team/shift/date/member records
     useEffect(() => {
         const loadSchedules = async () => {
+            if (teams.length === 0) {
+                return;
+            }
+
             try {
                 setIsLoading(true);
                 setError('');
 
-                const today = new Date().toISOString().split('T')[0];
-                const effectiveFromDate = fromDate || today;
-                const effectiveToDate = toDate || today;
-
-                if (!teams || teams.length === 0) {
-                    setSchedules([]);
-                    setPagination(null);
+                if (allTeamIds.length === 0) {
+                    startTransition(() => {
+                        setSchedules([]);
+                        setPagination(null);
+                    });
+                    setIsLoading(false);
                     return;
                 }
-
-                // 1) Lấy attendance thật từ daily-schedules cho các team đang xem
-                const allTeamIds = (selectedTeam === 'all'
-                    ? teams.map(t => t.id)
-                    : teams.filter(t => t.id === selectedTeam).map(t => t.id)
-                ).filter(Boolean);
 
                 const baseParams = {
                     page_index: 0,
                     page_size: 1000,
-                    FromDate: effectiveFromDate,
-                    ToDate: effectiveToDate
+                    FromDate: dateRange.from,
+                    ToDate: dateRange.to
                 };
 
-                const rawSchedules = await fetchSchedulesForTeams(allTeamIds, baseParams);
+                const rawSchedules = await fetchSchedulesForTeams(allTeamIds, baseParams, setAlert);
                 setRawSchedules(rawSchedules || []);
 
-                // Index nhanh để tra cứu theo team/shift/ngày/employee
+                // Fast index for lookup by team/shift/date/employee
                 const scheduleIndex = new Map();
                 rawSchedules.forEach((s) => {
                     const teamId = s.team_member?.team_id || s.team_id;
@@ -727,20 +1000,30 @@ const ManagerAttendancePage = () => {
                     scheduleIndex.set(key, s);
                 });
 
-                // 2) Expand theo workshift + members để sinh đủ record
-                const from = new Date(effectiveFromDate);
-                const to = new Date(effectiveToDate);
+                // Expand by workshift + members to generate all records
+                // Optimize date generation
+                const from = new Date(dateRange.from);
+                const to = new Date(dateRange.to);
                 const allDates = [];
-                for (let d = new Date(from); d <= to; d.setDate(d.getDate() + 1)) {
-                    allDates.push(new Date(d));
+                const fromTime = from.getTime();
+                const toTime = to.getTime();
+                const ONE_DAY_MS = 86400000;
+                // Pre-allocate array size for better performance
+                const dateCount = Math.ceil((toTime - fromTime) / ONE_DAY_MS) + 1;
+                allDates.length = dateCount;
+                let dateIndex = 0;
+                for (let time = fromTime; time <= toTime; time += ONE_DAY_MS) {
+                    allDates[dateIndex++] = new Date(time);
                 }
 
                 const expanded = [];
+                const teamMembersMap = new Map();
+                filteredTeams.forEach((team) => {
+                    teamMembersMap.set(team.id, getAllTeamMembersForManager(team));
+                });
 
-                teams.forEach((team) => {
-                    if (selectedTeam !== 'all' && team.id !== selectedTeam) return;
-
-                    const teamMembers = getAllTeamMembersForManager(team);
+                filteredTeams.forEach((team) => {
+                    const teamMembers = teamMembersMap.get(team.id);
                     const teamShifts = team.team_work_shifts || [];
 
                     teamShifts.forEach((tws) => {
@@ -754,10 +1037,12 @@ const ManagerAttendancePage = () => {
                         })();
                         if (workingDays.length === 0) return;
 
+                        const workingDaysSet = new Set(workingDays);
+
                         allDates.forEach((dateObj) => {
                             const dateStr = dateObj.toISOString().split('T')[0];
                             const dayKey = getDayKeyFromDate(dateStr);
-                            if (!dayKey || !workingDays.includes(dayKey)) return;
+                            if (!dayKey || !workingDaysSet.has(dayKey)) return;
 
                             teamMembers.forEach((tm) => {
                                 const employee = tm.employee || {};
@@ -791,16 +1076,18 @@ const ManagerAttendancePage = () => {
                     });
                 });
 
-                // Bổ sung các bản ghi attendance từ BE mà không nằm trong danh sách members (phòng trường hợp team thiếu member)
-                const existingKeys = new Set(
-                    expanded.map((rec) => {
-                        const tId = rec.team_member?.team_id || rec.team_id;
-                        const sId = rec.work_shift?.id || rec.work_shift_id;
-                        const dStr = rec.date ? new Date(rec.date).toISOString().split('T')[0] : null;
-                        const empId = rec.employee?.id || rec.employee_id || rec.team_member?.employee_id;
-                        return tId && sId && dStr && empId ? `${tId}|${sId}|${dStr}|${empId}` : null;
-                    }).filter(Boolean)
-                );
+                // Add attendance records from BE that are not in member list (in case team is missing members)
+                // Use Set for O(1) lookup performance
+                const existingKeys = new Set();
+                expanded.forEach((rec) => {
+                    const tId = rec.team_member?.team_id || rec.team_id;
+                    const sId = rec.work_shift?.id || rec.work_shift_id;
+                    const dStr = rec.date ? new Date(rec.date).toISOString().split('T')[0] : null;
+                    const empId = rec.employee?.id || rec.employee_id || rec.team_member?.employee_id;
+                    if (tId && sId && dStr && empId) {
+                        existingKeys.add(`${tId}|${sId}|${dStr}|${empId}`);
+                    }
+                });
 
                 rawSchedules.forEach((s) => {
                     const teamId = s.team_member?.team_id || s.team_id;
@@ -827,7 +1114,7 @@ const ManagerAttendancePage = () => {
                     });
                 });
 
-                // Sort theo ngày
+                // Sort by date
                 expanded.sort((a, b) => {
                     const dateA = new Date(a.date || 0).getTime();
                     const dateB = new Date(b.date || 0).getTime();
@@ -839,32 +1126,42 @@ const ManagerAttendancePage = () => {
                 const startIndex = (page - 1) * itemsPerPage;
                 const pagedData = expanded.slice(startIndex, startIndex + itemsPerPage);
 
-                setSchedules(pagedData);
-                setPagination({
-                    total_items_count: totalItems,
-                    page_size: itemsPerPage,
-                    page_index: page - 1,
-                    total_pages_count: Math.max(1, Math.ceil(totalItems / itemsPerPage)),
-                    has_next: startIndex + itemsPerPage < totalItems,
-                    has_previous: page > 1
+                // Use startTransition for non-urgent state updates
+                startTransition(() => {
+                    setSchedules(pagedData);
+                    setPagination({
+                        total_items_count: totalItems,
+                        page_size: itemsPerPage,
+                        page_index: page - 1,
+                        total_pages_count: Math.max(1, Math.ceil(totalItems / itemsPerPage)),
+                        has_next: startIndex + itemsPerPage < totalItems,
+                        has_previous: page > 1
+                    });
                 });
             } catch (e) {
                 console.error('[Manager Attendance] loadSchedules error:', e);
-                setError(e.message || 'Không thể tải danh sách điểm danh');
+                const errorMessage = extractErrorMessage(e, 'Không thể tải danh sách điểm danh');
+                setError(errorMessage);
+                setAlert({
+                    open: true,
+                    title: 'Lỗi',
+                    message: errorMessage,
+                    type: 'error'
+                });
                 setSchedules([]);
                 setPagination(null);
             } finally {
                 setIsLoading(false);
+                setHasInitialLoad(true);
             }
         };
 
         loadSchedules();
-    }, [page, itemsPerPage, selectedTeam, fromDate, toDate, statusFilter, teams, fetchSchedulesForTeams, refreshKey]);
+    }, [page, itemsPerPage, selectedTeam, dateRange.from, dateRange.to, statusFilter, filteredTeams, allTeamIds, fetchSchedulesForTeams, refreshKey]);
 
-    // Calculate statistics
+    // Memoized computed values
     const statistics = useMemo(() => buildStatistics(rawSchedules), [rawSchedules]);
 
-    // Generate year / month options (evaluate 1 lần ở client)
     const currentYear = new Date().getFullYear();
     const yearOptions = useMemo(() => {
         const options = [];
@@ -883,73 +1180,55 @@ const ManagerAttendancePage = () => {
     );
 
     const groupedSchedules = useMemo(
-        () => buildGroupedSchedules(schedules, teams),
-        [schedules, teams]
+        () => buildGroupedSchedules(deferredSchedules, teams),
+        [deferredSchedules, teams]
     );
 
-    // Tính các tuần trong tháng hiện tại (Thứ 2 - Chủ nhật, cắt theo tháng)
     const weeksInMonth = useMemo(
         () => buildWeeksForMonth(selectedYear, selectedMonth),
         [selectedMonth, selectedYear]
     );
 
-    // Xác định tuần chứa "hôm nay" trong tháng đang chọn (nếu có)
     const currentWeekInMonth = useMemo(() => {
         if (!weeksInMonth.length) return null;
         const today = new Date();
         return weeksInMonth.find((w) => today >= w.fromDate && today <= w.toDate) || null;
     }, [weeksInMonth]);
 
-    // Khi đổi tháng/năm, luôn auto chọn 1 tuần (ưu tiên tuần chứa hôm nay nếu cùng tháng/năm, không còn trạng thái "Tất cả tuần")
+    // Auto-select week when month/year changes (prioritize current week if in same month/year)
     useEffect(() => {
         if (!weeksInMonth.length) return;
 
         let targetWeek = null;
 
-        // Nếu tuần đang chọn vẫn tồn tại trong tháng mới -> giữ nguyên
         if (selectedWeekId) {
             targetWeek = weeksInMonth.find((w) => w.id === selectedWeekId) || null;
         }
 
-        // Nếu không, ưu tiên tuần chứa "hôm nay" trong tháng đó
         if (!targetWeek && currentWeekInMonth) {
             targetWeek = currentWeekInMonth;
         }
 
-        // Nếu vẫn chưa có thì chọn Tuần 1
         if (!targetWeek) {
             targetWeek = weeksInMonth[0];
         }
 
-        if (targetWeek) {
-            setSelectedWeekId(targetWeek.id);
-            setFromDate(targetWeek.from);
-            setToDate(targetWeek.to);
+        if (targetWeek && (selectedWeekId !== targetWeek.id || fromDate !== targetWeek.from || toDate !== targetWeek.to)) {
+            startTransition(() => {
+                setSelectedWeekId(targetWeek.id);
+                setFromDate(targetWeek.from);
+                setToDate(targetWeek.to);
+            });
         }
-    }, [weeksInMonth, currentWeekInMonth]);
+    }, [weeksInMonth, currentWeekInMonth, selectedWeekId, fromDate, toDate]);
 
-    // Loading toàn trang (đồng bộ style với StaffPage, WorkShiftPage, ...)
-    if (isLoading) {
-        return (
-            <Box
-                sx={{
-                    background: COLORS.BACKGROUND.NEUTRAL,
-                    minHeight: '100vh',
-                    width: '100%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                }}
-            >
-                <Loading
-                    fullScreen={false}
-                    variant="cafe"
-                    size="large"
-                    message="Đang tải trang Điểm danh..."
-                />
-            </Box>
-        );
+    // Show loading until initial load is complete
+    if (isLoading || !hasInitialLoad) {
+        return <Loading fullScreen variant="cafe" />;
     }
+
+    // Show pending indicator for non-urgent updates
+    const showPendingIndicator = isPending && hasInitialLoad;
 
     return (
         <Box sx={{ background: COLORS.BACKGROUND.NEUTRAL, minHeight: '100vh', width: '100%' }}>
@@ -969,17 +1248,24 @@ const ManagerAttendancePage = () => {
                 {/* Statistics Cards */}
                 <StatisticsSection statistics={statistics} />
 
-                {/* Filters */}
-                <Paper sx={{ p: 2.5, mb: 3, borderRadius: 2, boxShadow: `0 2px 8px ${alpha(COLORS.GRAY[200], 0.1)}` }}>
-                    <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 2 }}>
-                        <FilterList sx={{ color: COLORS.PRIMARY[600] }} />
-                        <Typography variant="h6" sx={{ fontWeight: 700, color: COLORS.TEXT.PRIMARY }}>
-                            Bộ lọc
-                        </Typography>
-                    </Stack>
-                    <Divider sx={{ mb: 2 }} />
+                {/* Pending indicator for non-urgent updates */}
+                {showPendingIndicator && (
+                    <Box sx={{ position: 'fixed', top: 16, right: 16, zIndex: 1300 }}>
+                        <Chip
+                            label="Đang tải..."
+                            size="small"
+                            sx={{
+                                bgcolor: COLORS.INFO[500],
+                                color: 'white',
+                                fontWeight: 600
+                            }}
+                        />
+                    </Box>
+                )}
 
-                    <Stack spacing={2}>
+                {/* Filters */}
+                <Paper sx={{ mb: 2 }}>
+                    <Stack spacing={2} sx={{ p: 2.5 }}>
                         {/* Month / Year / Week Picker */}
                         <MonthWeekFilter
                             selectedMonth={selectedMonth}
@@ -997,78 +1283,90 @@ const ManagerAttendancePage = () => {
                             setToDate={setToDate}
                             setPage={setPage}
                         />
+                    </Stack>
+                </Paper>
 
-                        {/* Advanced Filters */}
-                        <Toolbar disableGutters sx={{ gap: 2, flexWrap: 'wrap' }}>
-                            <FormControl size="small" sx={{ minWidth: 200 }}>
-                                <InputLabel>Nhóm</InputLabel>
-                                <Select
-                                    label="Nhóm"
-                                    value={selectedTeam}
-                                    onChange={(e) => {
+                {/* Advanced Filters */}
+                <Paper sx={{ mb: 2 }}>
+                    <Toolbar disableGutters sx={{ gap: 2, flexWrap: 'wrap', p: 2 }}>
+                        <FormControl size="small" sx={{ minWidth: 200 }}>
+                            <InputLabel>Nhóm</InputLabel>
+                            <Select
+                                label="Nhóm"
+                                value={selectedTeam}
+                                onChange={(e) => {
+                                    startTransition(() => {
                                         setSelectedTeam(e.target.value);
                                         setPage(1);
-                                    }}
-                                >
-                                    <MenuItem value="all">Tất cả nhóm</MenuItem>
-                                    {teams.map((team) => (
-                                        <MenuItem key={team.id} value={team.id}>
-                                            {team.name}
-                                        </MenuItem>
-                                    ))}
-                                </Select>
-                            </FormControl>
+                                    });
+                                }}
+                            >
+                                <MenuItem value="all">Tất cả nhóm</MenuItem>
+                                {teams.map((team) => (
+                                    <MenuItem key={team.id} value={team.id}>
+                                        {team.name}
+                                    </MenuItem>
+                                ))}
+                            </Select>
+                        </FormControl>
 
-                            <TextField
-                                size="small"
-                                label="Từ ngày"
-                                type="date"
-                                value={fromDate}
-                                onChange={(e) => {
+                        <TextField
+                            size="small"
+                            label="Từ ngày"
+                            type="date"
+                            value={fromDate}
+                            onChange={(e) => {
+                                startTransition(() => {
                                     setFromDate(e.target.value);
                                     setPage(1);
-                                }}
-                                InputLabelProps={{
-                                    shrink: true,
-                                }}
-                                sx={{ minWidth: 180 }}
-                            />
+                                });
+                            }}
+                            InputLabelProps={{
+                                shrink: true,
+                            }}
+                            sx={{ minWidth: 180 }}
+                        />
 
-                            <TextField
-                                size="small"
-                                label="Đến ngày"
-                                type="date"
-                                value={toDate}
-                                onChange={(e) => {
+                        <TextField
+                            size="small"
+                            label="Đến ngày"
+                            type="date"
+                            value={toDate}
+                            onChange={(e) => {
+                                startTransition(() => {
                                     setToDate(e.target.value);
                                     setPage(1);
-                                }}
-                                InputLabelProps={{
-                                    shrink: true,
-                                }}
-                                sx={{ minWidth: 180 }}
-                            />
+                                });
+                            }}
+                            InputLabelProps={{
+                                shrink: true,
+                            }}
+                            sx={{ minWidth: 180 }}
+                        />
 
-                            <FormControl size="small" sx={{ minWidth: 160 }}>
-                                <InputLabel>Trạng thái</InputLabel>
-                                <Select
-                                    label="Trạng thái"
-                                    value={statusFilter}
-                                    onChange={(e) => {
+                        <FormControl size="small" sx={{ minWidth: 160 }}>
+                            <InputLabel>Trạng thái</InputLabel>
+                            <Select
+                                label="Trạng thái"
+                                value={statusFilter}
+                                onChange={(e) => {
+                                    startTransition(() => {
                                         setStatusFilter(e.target.value);
                                         setPage(1);
-                                    }}
-                                >
-                                    <MenuItem value="all">Tất cả</MenuItem>
-                                    <MenuItem value="PENDING">Chờ điểm danh</MenuItem>
-                                    <MenuItem value="PRESENT">Có mặt</MenuItem>
-                                    <MenuItem value="ABSENT">Vắng mặt</MenuItem>
-                                    <MenuItem value="LATE">Đi muộn</MenuItem>
-                                    <MenuItem value="EARLY_LEAVE">Về sớm</MenuItem>
-                                </Select>
-                            </FormControl>
-                        </Toolbar>
-                    </Stack>
+                                    });
+                                }}
+                            >
+                                <MenuItem value="all">Tất cả</MenuItem>
+                                <MenuItem value="PENDING">Chờ điểm danh</MenuItem>
+                                <MenuItem value="PRESENT">Có mặt</MenuItem>
+                                <MenuItem value="ABSENT">Vắng mặt</MenuItem>
+                                <MenuItem value="LATE">Đi muộn</MenuItem>
+                                <MenuItem value="EARLY_LEAVE">Về sớm</MenuItem>
+                            </Select>
+                        </FormControl>
+
+                        <Box sx={{ flexGrow: 1 }} />
+                    </Toolbar>
                 </Paper>
 
                 {/* Error Message */}
@@ -1081,7 +1379,7 @@ const ManagerAttendancePage = () => {
                 )}
 
                 {/* Schedules Table */}
-                <TableContainer component={Paper} sx={{ borderRadius: 3, border: `2px solid ${alpha(COLORS.ERROR[200], 0.4)}`, boxShadow: `0 10px 24px ${alpha(COLORS.ERROR[200], 0.15)}` }}>
+                <TableContainer component={Paper} sx={{ borderRadius: 3, border: `2px solid ${alpha(COLORS.PRIMARY[200], 0.4)}`, boxShadow: `0 10px 24px ${alpha(COLORS.PRIMARY[200], 0.15)}`, overflowX: 'auto' }}>
                     <Table size="medium" stickyHeader>
                         <TableHead>
                             <TableRow>
@@ -1096,10 +1394,7 @@ const ManagerAttendancePage = () => {
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {isLoading ? (
-                                // Lần load đầu: chỉ hiển thị header, body rỗng
-                                null
-                            ) : schedules.length === 0 ? (
+                            {deferredSchedules.length === 0 ? (
                                 <TableRow>
                                     <TableCell colSpan={5} align="center" sx={{ py: 6 }}>
                                         <Stack alignItems="center" spacing={1}>
@@ -1138,92 +1433,13 @@ const ManagerAttendancePage = () => {
                                         </TableRow>
 
                                         {/* Team Schedules */}
-                                        {teamSchedules.map((schedule) => {
-                                            const statusInfo = STATUS_COLORS[schedule.status] || STATUS_COLORS.PENDING;
-                                            const statusLabel = STATUS_LABELS[schedule.status] || schedule.status;
-
-                                            return (
-                                                <TableRow key={schedule.id} hover sx={{ '&:hover': { bgcolor: alpha(COLORS.PRIMARY[50], 0.3) } }}>
-                                                    <TableCell>
-                                                        <Stack direction="row" alignItems="center" spacing={1.5}>
-                                                            <Avatar
-                                                                src={schedule.employee?.avatar_url}
-                                                                alt={schedule.employee?.full_name}
-                                                                sx={{ width: 42, height: 42, border: `2px solid ${alpha(COLORS.PRIMARY[200], 0.5)}` }}
-                                                            >
-                                                                {!schedule.employee?.avatar_url && schedule.employee?.full_name?.charAt(0)}
-                                                            </Avatar>
-                                                            <Box>
-                                                                <Stack direction="row" spacing={0.75} alignItems="center">
-                                                                    <Typography sx={{ fontWeight: 600, fontSize: '0.95rem' }}>
-                                                                        {schedule.employee?.full_name || '—'}
-                                                                    </Typography>
-                                                                    {schedule.employee?.isLeader && (
-                                                                        <Chip
-                                                                            label="Leader"
-                                                                            size="small"
-                                                                            color="error"
-                                                                            sx={{ height: 20, fontSize: '0.7rem', fontWeight: 700 }}
-                                                                        />
-                                                                    )}
-                                                                </Stack>
-                                                                {schedule.employee?.sub_role && !schedule.employee?.isLeader && (
-                                                                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                                                                        {schedule.employee.sub_role === 'SALE_STAFF' ? 'Sale Staff' :
-                                                                            schedule.employee.sub_role === 'WORKING_STAFF' ? 'Working Staff' :
-                                                                                schedule.employee.sub_role}
-                                                                    </Typography>
-                                                                )}
-                                                            </Box>
-                                                        </Stack>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <Box>
-                                                            <Typography sx={{ fontWeight: 600, fontSize: '0.9rem', mb: 0.5 }}>
-                                                                {schedule.work_shift?.name || '—'}
-                                                            </Typography>
-                                                            {schedule.work_shift && (
-                                                                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                                                                    {formatTime(schedule.work_shift.start_time)} - {formatTime(schedule.work_shift.end_time)}
-                                                                </Typography>
-                                                            )}
-                                                        </Box>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <Typography sx={{ fontWeight: 500, fontSize: '0.9rem' }}>
-                                                            {formatDate(schedule.date)}
-                                                        </Typography>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <Chip
-                                                            size="small"
-                                                            label={statusLabel}
-                                                            sx={{
-                                                                background: statusInfo.bg,
-                                                                color: statusInfo.color,
-                                                                fontWeight: 700,
-                                                                fontSize: '0.8rem',
-                                                                height: 26,
-                                                                minWidth: 100
-                                                            }}
-                                                        />
-                                                    </TableCell>
-                                                    <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
-                                                        <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem', maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                            {schedule.notes || '—'}
-                                                        </Typography>
-                                                    </TableCell>
-                                                    <TableCell align="right">
-                                                        <IconButton
-                                                            size="small"
-                                                            onClick={(event) => setActionMenu({ anchorEl: event.currentTarget, schedule })}
-                                                        >
-                                                            <MoreVert fontSize="small" />
-                                                        </IconButton>
-                                                    </TableCell>
-                                                </TableRow>
-                                            );
-                                        })}
+                                        {teamSchedules.map((schedule) => (
+                                            <ScheduleRow
+                                                key={schedule.id}
+                                                schedule={schedule}
+                                                onMenuOpen={handleActionMenuOpen}
+                                            />
+                                        ))}
                                     </React.Fragment>
                                 ))
                             )}
@@ -1231,58 +1447,71 @@ const ManagerAttendancePage = () => {
                     </Table>
                 </TableContainer>
 
-                {/* Action menu cho Manager điểm danh thay */}
+                {/* Action menu for Manager to update attendance */}
                 <Menu
                     anchorEl={actionMenu.anchorEl}
                     open={Boolean(actionMenu.anchorEl)}
-                    onClose={() => setActionMenu({ anchorEl: null, schedule: null })}
+                    onClose={handleActionMenuClose}
                 >
-                    {STATUS_ORDER.map((statusKey) => (
-                        <MenuItem
-                            key={statusKey}
-                            selected={statusKey === actionMenu.schedule?.status}
-                            onClick={async () => {
-                                const current = actionMenu.schedule;
-                                setActionMenu({ anchorEl: null, schedule: null });
-                                if (current) {
-                                    // Confirm khi chuyển sang các trạng thái "xấu"
-                                    if (
-                                        ['ABSENT', 'EARLY_LEAVE'].includes(statusKey) &&
-                                        !window.confirm(`Xác nhận đánh dấu "${STATUS_LABELS[statusKey]}" cho ${current.employee?.full_name || 'nhân viên'}?`)
-                                    ) {
-                                        return;
+                    {STATUS_ORDER.map((statusKey) => {
+                        const statusLabel = STATUS_LABELS[statusKey];
+                        if (!statusLabel) return null;
+
+                        return (
+                            <MenuItem
+                                key={statusKey}
+                                selected={statusKey === actionMenu.schedule?.status}
+                                onClick={async () => {
+                                    const current = actionMenu.schedule;
+                                    handleActionMenuClose();
+                                    if (current) {
+                                        if (
+                                            ['ABSENT', 'EARLY_LEAVE'].includes(statusKey) &&
+                                            !window.confirm(`Xác nhận đánh dấu "${statusLabel}" cho ${current.employee?.full_name || 'nhân viên'}?`)
+                                        ) {
+                                            return;
+                                        }
+                                        await handleUpdateStatus(current, statusKey);
                                     }
-                                    await updateAttendanceStatusForManager(
-                                        current,
-                                        statusKey,
-                                        setError,
-                                        setRefreshKey,
-                                        setIsLoading
-                                    );
-                                }
-                            }}
-                        >
-                            {STATUS_LABELS[statusKey]}
-                        </MenuItem>
-                    ))}
+                                }}
+                            >
+                                {statusLabel}
+                            </MenuItem>
+                        );
+                    }).filter(Boolean)}
                 </Menu>
 
                 {/* Pagination */}
-                {pagination && pagination.total_items_count > 0 && (
+                {deferredPagination && deferredPagination.total_items_count > 0 && (
                     <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end' }}>
                         <Pagination
                             page={page}
-                            totalPages={pagination.total_pages_count}
-                            onPageChange={setPage}
+                            totalPages={deferredPagination.total_pages_count}
+                            onPageChange={(newPage) => {
+                                startTransition(() => {
+                                    setPage(newPage);
+                                });
+                            }}
                             itemsPerPage={itemsPerPage}
                             onItemsPerPageChange={(newValue) => {
-                                setItemsPerPage(newValue);
-                                setPage(1);
+                                startTransition(() => {
+                                    setItemsPerPage(newValue);
+                                    setPage(1);
+                                });
                             }}
-                            totalItems={pagination.total_items_count}
+                            totalItems={deferredPagination.total_items_count}
                         />
                     </Box>
                 )}
+
+                {/* Alert Modal */}
+                <AlertModal
+                    isOpen={alert.open}
+                    onClose={() => setAlert({ ...alert, open: false })}
+                    title={alert.title}
+                    message={alert.message}
+                    type={alert.type}
+                />
             </Box>
         </Box>
     );

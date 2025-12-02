@@ -1,99 +1,220 @@
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Box, Typography, Stack, Chip, alpha, Avatar, Grid, Paper } from '@mui/material';
-import { Assignment, CalendarToday, Schedule, Group, Info, AttachMoney, LocationOn, Event, AccessTime } from '@mui/icons-material';
+import { Assignment, CalendarToday, Schedule, Group, Info, AttachMoney, LocationOn, AccessTime, Pets } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 import { DAILY_TASK_STATUS, TASK_PRIORITY } from '../../api/dailyTasksApi';
 import { WEEKDAY_LABELS } from '../../api/slotApi';
+import { getGroupById } from '../../api/petGroupsApi';
+import { getPetById } from '../../api/petsApi';
+
+// Static configs - moved outside component to avoid recreation
+const STATUS_CONFIG = {
+    [DAILY_TASK_STATUS.SCHEDULED]: {
+        label: 'Chưa bắt đầu',
+        color: COLORS.GRAY[500],
+        bgcolor: alpha(COLORS.GRAY[100], 0.5)
+    },
+    [DAILY_TASK_STATUS.IN_PROGRESS]: {
+        label: 'Đang làm',
+        color: COLORS.INFO[600],
+        bgcolor: alpha(COLORS.INFO[100], 0.5)
+    },
+    [DAILY_TASK_STATUS.COMPLETED]: {
+        label: 'Hoàn thành',
+        color: COLORS.SUCCESS[600],
+        bgcolor: alpha(COLORS.SUCCESS[100], 0.5)
+    },
+    [DAILY_TASK_STATUS.CANCELLED]: {
+        label: 'Đã hủy',
+        color: COLORS.ERROR[600],
+        bgcolor: alpha(COLORS.ERROR[100], 0.5)
+    },
+    [DAILY_TASK_STATUS.MISSED]: {
+        label: 'Bỏ lỡ',
+        color: COLORS.WARNING[700],
+        bgcolor: alpha(COLORS.WARNING[100], 0.5)
+    },
+    [DAILY_TASK_STATUS.SKIPPED]: {
+        label: 'Bỏ qua',
+        color: COLORS.GRAY[600],
+        bgcolor: alpha(COLORS.GRAY[100], 0.5)
+    }
+};
+
+const PRIORITY_CONFIG = {
+    [TASK_PRIORITY.URGENT]: {
+        label: 'Khẩn cấp',
+        color: COLORS.ERROR[600],
+        bgcolor: alpha(COLORS.ERROR[50], 0.5)
+    },
+    [TASK_PRIORITY.HIGH]: {
+        label: 'Cao',
+        color: COLORS.WARNING[700],
+        bgcolor: alpha(COLORS.WARNING[50], 0.5)
+    },
+    [TASK_PRIORITY.MEDIUM]: {
+        label: 'Trung bình',
+        color: COLORS.INFO[600],
+        bgcolor: alpha(COLORS.INFO[50], 0.5)
+    },
+    [TASK_PRIORITY.LOW]: {
+        label: 'Thấp',
+        color: COLORS.SUCCESS[600],
+        bgcolor: alpha(COLORS.SUCCESS[50], 0.5)
+    }
+};
+
+// Helper function to format date
+const formatDate = (dateString) => {
+    if (!dateString) return '--';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('vi-VN', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+    });
+};
+
+// Helper function to format time range
+const formatTimeRange = (startTime, endTime) => {
+    const start = startTime?.substring(0, 5);
+    const end = endTime?.substring(0, 5);
+    return start && end ? `${start} - ${end}` : '--';
+};
 
 const DailyTaskDetailsModal = ({ open, onClose, dailyTask }) => {
+    const [petGroupData, setPetGroupData] = useState(null);
+    const [petData, setPetData] = useState(null);
+
+    // Memoize slot and templateTask to avoid recalculation
+    const slot = useMemo(() => dailyTask?.slot, [dailyTask?.slot]);
+    const templateTask = useMemo(() => dailyTask?.task, [dailyTask?.task]);
+
+    // Memoize IDs to avoid recalculation
+    const petGroupId = useMemo(() => {
+        if (!dailyTask) return null;
+        return slot?.pet_group?.id || slot?.pet_group_id || dailyTask.pet_group?.id || dailyTask.pet_group_id;
+    }, [dailyTask, slot]);
+
+    const petId = useMemo(() => {
+        if (!dailyTask) return null;
+        return slot?.pet?.id || slot?.pet_id || dailyTask.pet?.id || dailyTask.pet_id;
+    }, [dailyTask, slot]);
+
+    // Check if we already have full objects
+    const hasPetGroupData = useMemo(() => {
+        return Boolean(slot?.pet_group?.name || dailyTask?.pet_group?.name);
+    }, [slot?.pet_group?.name, dailyTask?.pet_group?.name]);
+
+    const hasPetData = useMemo(() => {
+        return Boolean(slot?.pet?.name || dailyTask?.pet?.name);
+    }, [slot?.pet?.name, dailyTask?.pet?.name]);
+
+    // Fetch pet group and pet data when modal opens
+    useEffect(() => {
+        if (!open || !dailyTask) {
+            setPetGroupData(null);
+            setPetData(null);
+            return;
+        }
+
+        let mounted = true;
+
+        // Handle pet group
+        if (hasPetGroupData) {
+            // Use existing data
+            setPetGroupData(slot?.pet_group || dailyTask.pet_group);
+        } else if (petGroupId) {
+            // Fetch pet group by ID
+            getGroupById(petGroupId)
+                .then(data => {
+                    if (mounted) setPetGroupData(data);
+                })
+                .catch(err => {
+                    if (mounted) {
+                        console.error('Failed to fetch pet group:', err);
+                        setPetGroupData(null);
+                    }
+                });
+        } else {
+            setPetGroupData(null);
+        }
+
+        // Handle pet
+        if (hasPetData) {
+            // Use existing data
+            setPetData(slot?.pet || dailyTask.pet);
+        } else if (petId) {
+            // Fetch pet by ID
+            getPetById(petId)
+                .then(data => {
+                    if (mounted) setPetData(data);
+                })
+                .catch(err => {
+                    if (mounted) {
+                        console.error('Failed to fetch pet:', err);
+                        setPetData(null);
+                    }
+                });
+        } else {
+            setPetData(null);
+        }
+
+        return () => {
+            mounted = false;
+        };
+    }, [open, dailyTask, petGroupId, petId, hasPetGroupData, hasPetData, slot]);
+
+    // Memoize computed values
+    const statusInfo = useMemo(() => {
+        return STATUS_CONFIG[dailyTask?.status] || STATUS_CONFIG[DAILY_TASK_STATUS.SCHEDULED];
+    }, [dailyTask?.status]);
+
+    const taskPriority = useMemo(() => {
+        return templateTask?.priority || dailyTask?.priority;
+    }, [templateTask?.priority, dailyTask?.priority]);
+
+    const priorityInfo = useMemo(() => {
+        return PRIORITY_CONFIG[taskPriority] || PRIORITY_CONFIG[TASK_PRIORITY.MEDIUM];
+    }, [taskPriority]);
+
+    const taskTitle = useMemo(() => {
+        return templateTask?.title || templateTask?.name || dailyTask?.title;
+    }, [templateTask?.title, templateTask?.name, dailyTask?.title]);
+
+    const taskDescription = useMemo(() => {
+        return templateTask?.description || dailyTask?.description;
+    }, [templateTask?.description, dailyTask?.description]);
+
+    // Memoize formatted dates
+    const assignedDate = useMemo(() => formatDate(dailyTask?.assigned_date), [dailyTask?.assigned_date]);
+    const completionDate = useMemo(() => formatDate(dailyTask?.completion_date), [dailyTask?.completion_date]);
+
+    // Memoize time strings
+    const timeRange = useMemo(() => {
+        return formatTimeRange(slot?.start_time || dailyTask?.start_time, slot?.end_time || dailyTask?.end_time);
+    }, [slot?.start_time, slot?.end_time, dailyTask?.start_time, dailyTask?.end_time]);
+
+    const slotTimeRange = useMemo(() => {
+        return slot ? formatTimeRange(slot.start_time, slot.end_time) : null;
+    }, [slot?.start_time, slot?.end_time]);
+
+    // Memoize pet group and pet names
+    const petGroupName = useMemo(() => {
+        return petGroupData?.name ||
+            slot?.pet_group?.name ||
+            dailyTask?.pet_group?.name ||
+            '--';
+    }, [petGroupData?.name, slot?.pet_group?.name, dailyTask?.pet_group?.name]);
+
+    const petName = useMemo(() => {
+        return petData?.name ||
+            slot?.pet?.name ||
+            dailyTask?.pet?.name ||
+            '--';
+    }, [petData?.name, slot?.pet?.name, dailyTask?.pet?.name]);
+
     if (!dailyTask) return null;
-
-    // Format date
-    const formatDate = (dateString) => {
-        if (!dateString) return '--';
-        const date = new Date(dateString);
-        return date.toLocaleDateString('vi-VN', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric'
-        });
-    };
-
-    // Get status display
-    const getStatusDisplay = (status) => {
-        const statusConfig = {
-            [DAILY_TASK_STATUS.SCHEDULED]: {
-                label: 'Chưa bắt đầu',
-                color: COLORS.GRAY[500],
-                bgcolor: alpha(COLORS.GRAY[100], 0.5)
-            },
-            [DAILY_TASK_STATUS.IN_PROGRESS]: {
-                label: 'Đang làm',
-                color: COLORS.INFO[600],
-                bgcolor: alpha(COLORS.INFO[100], 0.5)
-            },
-            [DAILY_TASK_STATUS.COMPLETED]: {
-                label: 'Hoàn thành',
-                color: COLORS.SUCCESS[600],
-                bgcolor: alpha(COLORS.SUCCESS[100], 0.5)
-            },
-            [DAILY_TASK_STATUS.CANCELLED]: {
-                label: 'Đã hủy',
-                color: COLORS.ERROR[600],
-                bgcolor: alpha(COLORS.ERROR[100], 0.5)
-            },
-            [DAILY_TASK_STATUS.MISSED]: {
-                label: 'Bỏ lỡ',
-                color: COLORS.WARNING[700],
-                bgcolor: alpha(COLORS.WARNING[100], 0.5)
-            },
-            [DAILY_TASK_STATUS.SKIPPED]: {
-                label: 'Bỏ qua',
-                color: COLORS.GRAY[600],
-                bgcolor: alpha(COLORS.GRAY[100], 0.5)
-            }
-        };
-        return statusConfig[status] || statusConfig[DAILY_TASK_STATUS.SCHEDULED];
-    };
-
-    // Get priority display (không dùng emoji để chuyên nghiệp hơn)
-    const getPriorityDisplay = (priority) => {
-        const priorityConfig = {
-            [TASK_PRIORITY.URGENT]: {
-                label: 'Khẩn cấp',
-                color: COLORS.ERROR[600],
-                bgcolor: alpha(COLORS.ERROR[50], 0.5)
-            },
-            [TASK_PRIORITY.HIGH]: {
-                label: 'Cao',
-                color: COLORS.WARNING[700],
-                bgcolor: alpha(COLORS.WARNING[50], 0.5)
-            },
-            [TASK_PRIORITY.MEDIUM]: {
-                label: 'Trung bình',
-                color: COLORS.INFO[600],
-                bgcolor: alpha(COLORS.INFO[50], 0.5)
-            },
-            [TASK_PRIORITY.LOW]: {
-                label: 'Thấp',
-                color: COLORS.SUCCESS[600],
-                bgcolor: alpha(COLORS.SUCCESS[50], 0.5)
-            }
-        };
-        return priorityConfig[priority] || priorityConfig[TASK_PRIORITY.MEDIUM];
-    };
-
-    const statusInfo = getStatusDisplay(dailyTask.status);
-
-    // Destructure frequently used fields để JSX gọn hơn
-    const slot = dailyTask.slot;
-    const templateTask = dailyTask.task;
-
-    // Get data from task template, fallback to daily task
-    const taskPriority = templateTask?.priority || dailyTask.priority;
-    const priorityInfo = getPriorityDisplay(taskPriority);
-
-    const taskTitle = templateTask?.title || templateTask?.name || dailyTask.title;
-    const taskDescription = templateTask?.description || dailyTask.description;
 
     return (
         <Dialog
@@ -175,7 +296,7 @@ const DailyTaskDetailsModal = ({ open, onClose, dailyTask }) => {
                             }}
                         >
                             <Grid container spacing={2.5}>
-                                <Grid item xs={12} md={6}>
+                                <Grid item xs={12} md={slot ? 6 : 12}>
                                     <Paper
                                         elevation={0}
                                         sx={{
@@ -196,34 +317,47 @@ const DailyTaskDetailsModal = ({ open, onClose, dailyTask }) => {
                                         </Typography>
                                         <Stack spacing={1.5} sx={{ mt: 1 }}>
                                             <Stack direction="row" spacing={1}>
-                                                <Group sx={{ color: COLORS.GRAY[500], fontSize: 20 }} />
-                                                <Box sx={{ flex: 1 }}>
+                                                <Group sx={{ color: COLORS.GRAY[500], fontSize: 20, mt: 0.25 }} />
+                                                <Box sx={{ flex: 1, minWidth: 0 }}>
                                                     <Typography variant="caption" color="text.secondary">Team</Typography>
-                                                    <Typography variant="body1" fontWeight={600}>
+                                                    <Typography variant="body1" fontWeight={600} sx={{ wordBreak: 'break-word' }}>
                                                         {dailyTask.team?.name || '--'}
                                                     </Typography>
                                                     {dailyTask.team?.description && (
-                                                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                                                        <Typography
+                                                            variant="caption"
+                                                            color="text.secondary"
+                                                            sx={{
+                                                                display: 'block',
+                                                                mt: 0.5,
+                                                                wordBreak: 'break-word',
+                                                                overflow: 'hidden',
+                                                                textOverflow: 'ellipsis',
+                                                                display: '-webkit-box',
+                                                                WebkitLineClamp: 2,
+                                                                WebkitBoxOrient: 'vertical'
+                                                            }}
+                                                        >
                                                             {dailyTask.team.description}
                                                         </Typography>
                                                     )}
                                                 </Box>
                                             </Stack>
                                             <Stack direction="row" spacing={1}>
-                                                <CalendarToday sx={{ color: COLORS.GRAY[500], fontSize: 20 }} />
+                                                <CalendarToday sx={{ color: COLORS.GRAY[500], fontSize: 20, mt: 0.25 }} />
                                                 <Box sx={{ flex: 1 }}>
                                                     <Typography variant="caption" color="text.secondary">Ngày thực hiện</Typography>
                                                     <Typography variant="body1" fontWeight={500}>
-                                                        {formatDate(dailyTask.assigned_date)}
+                                                        {assignedDate}
                                                     </Typography>
                                                 </Box>
                                             </Stack>
                                             <Stack direction="row" spacing={1}>
-                                                <Schedule sx={{ color: COLORS.GRAY[500], fontSize: 20 }} />
+                                                <Schedule sx={{ color: COLORS.GRAY[500], fontSize: 20, mt: 0.25 }} />
                                                 <Box sx={{ flex: 1 }}>
                                                     <Typography variant="caption" color="text.secondary">Thời gian</Typography>
                                                     <Typography variant="body1" fontWeight={600}>
-                                                        {(slot?.start_time || dailyTask.start_time)?.substring(0, 5)} - {(slot?.end_time || dailyTask.end_time)?.substring(0, 5)}
+                                                        {timeRange}
                                                     </Typography>
                                                 </Box>
                                             </Stack>
@@ -231,8 +365,8 @@ const DailyTaskDetailsModal = ({ open, onClose, dailyTask }) => {
                                     </Paper>
                                 </Grid>
 
-                                <Grid item xs={12} md={6}>
-                                    {slot && (
+                                {slot && (
+                                    <Grid item xs={12} md={6}>
                                         <Paper
                                             elevation={0}
                                             sx={{
@@ -254,17 +388,17 @@ const DailyTaskDetailsModal = ({ open, onClose, dailyTask }) => {
                                             <Stack spacing={1.5} sx={{ mt: 1 }}>
                                                 <Stack direction="row" spacing={1} alignItems="center">
                                                     <Schedule sx={{ color: COLORS.GRAY[500], fontSize: 18 }} />
-                                                    <Box sx={{ flex: 1 }}>
+                                                    <Box sx={{ flex: 1, minWidth: 0 }}>
                                                         <Typography variant="caption" color="text.secondary">Thời gian</Typography>
                                                         <Typography variant="body1" fontWeight={600}>
-                                                            {slot.start_time?.substring(0, 5)} - {slot.end_time?.substring(0, 5)}
+                                                            {slotTimeRange || '--'}
                                                         </Typography>
                                                     </Box>
                                                 </Stack>
                                                 {slot.day_of_week && (
                                                     <Stack direction="row" spacing={1} alignItems="center">
                                                         <CalendarToday sx={{ color: COLORS.GRAY[500], fontSize: 18 }} />
-                                                        <Box sx={{ flex: 1 }}>
+                                                        <Box sx={{ flex: 1, minWidth: 0 }}>
                                                             <Typography variant="caption" color="text.secondary">Ngày trong tuần</Typography>
                                                             <Typography variant="body1" fontWeight={500}>
                                                                 {WEEKDAY_LABELS[slot.day_of_week] || slot.day_of_week}
@@ -275,7 +409,7 @@ const DailyTaskDetailsModal = ({ open, onClose, dailyTask }) => {
                                                 {slot.max_capacity !== undefined && slot.max_capacity !== null && (
                                                     <Stack direction="row" spacing={1} alignItems="center">
                                                         <Group sx={{ color: COLORS.GRAY[500], fontSize: 18 }} />
-                                                        <Box sx={{ flex: 1 }}>
+                                                        <Box sx={{ flex: 1, minWidth: 0 }}>
                                                             <Typography variant="caption" color="text.secondary">Sức chứa tối đa</Typography>
                                                             <Typography variant="body1" fontWeight={500}>
                                                                 {slot.max_capacity} người
@@ -286,7 +420,7 @@ const DailyTaskDetailsModal = ({ open, onClose, dailyTask }) => {
                                                 {slot.price !== undefined && slot.price !== null && (
                                                     <Stack direction="row" spacing={1} alignItems="center">
                                                         <AttachMoney sx={{ color: COLORS.GRAY[500], fontSize: 18 }} />
-                                                        <Box sx={{ flex: 1 }}>
+                                                        <Box sx={{ flex: 1, minWidth: 0 }}>
                                                             <Typography variant="caption" color="text.secondary">Giá</Typography>
                                                             <Typography variant="body1" fontWeight={600}>
                                                                 {slot.price.toLocaleString('vi-VN')} VNĐ
@@ -297,18 +431,40 @@ const DailyTaskDetailsModal = ({ open, onClose, dailyTask }) => {
                                                 {slot.area && (
                                                     <Stack direction="row" spacing={1} alignItems="center">
                                                         <LocationOn sx={{ color: COLORS.GRAY[500], fontSize: 18 }} />
-                                                        <Box sx={{ flex: 1 }}>
+                                                        <Box sx={{ flex: 1, minWidth: 0 }}>
                                                             <Typography variant="caption" color="text.secondary">Khu vực</Typography>
-                                                            <Typography variant="body1" fontWeight={500}>
+                                                            <Typography variant="body1" fontWeight={500} sx={{ wordBreak: 'break-word' }}>
                                                                 {slot.area.name || slot.area_id || '--'}
+                                                            </Typography>
+                                                        </Box>
+                                                    </Stack>
+                                                )}
+                                                {(petGroupId || hasPetGroupData) && (
+                                                    <Stack direction="row" spacing={1} alignItems="center">
+                                                        <Pets sx={{ color: COLORS.GRAY[500], fontSize: 18 }} />
+                                                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                                                            <Typography variant="caption" color="text.secondary">Nhóm Pet</Typography>
+                                                            <Typography variant="body1" fontWeight={500} sx={{ wordBreak: 'break-word' }}>
+                                                                {petGroupName}
+                                                            </Typography>
+                                                        </Box>
+                                                    </Stack>
+                                                )}
+                                                {(petId || hasPetData) && (
+                                                    <Stack direction="row" spacing={1} alignItems="center">
+                                                        <Pets sx={{ color: COLORS.GRAY[500], fontSize: 18 }} />
+                                                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                                                            <Typography variant="caption" color="text.secondary">Pet</Typography>
+                                                            <Typography variant="body1" fontWeight={500} sx={{ wordBreak: 'break-word' }}>
+                                                                {petName}
                                                             </Typography>
                                                         </Box>
                                                     </Stack>
                                                 )}
                                             </Stack>
                                         </Paper>
-                                    )}
-                                </Grid>
+                                    </Grid>
+                                )}
                             </Grid>
                         </Paper>
 
@@ -382,7 +538,7 @@ const DailyTaskDetailsModal = ({ open, onClose, dailyTask }) => {
                                                             <Chip
                                                                 label={templateTask.status === 'ACTIVE' ? 'Hoạt động' : templateTask.status === 'INACTIVE' ? 'Không hoạt động' : templateTask.status}
                                                                 size="small"
-                                                                color={dailyTask.task.status === 'ACTIVE' ? 'success' : 'default'}
+                                                                color={templateTask.status === 'ACTIVE' ? 'success' : 'default'}
                                                             />
                                                         </Stack>
                                                     )}
@@ -430,7 +586,7 @@ const DailyTaskDetailsModal = ({ open, onClose, dailyTask }) => {
                                             Thông tin hoàn thành
                                         </Typography>
                                         <Typography variant="body1" color="text.secondary">
-                                            Ngày hoàn thành: {formatDate(dailyTask.completion_date)}
+                                            Ngày hoàn thành: {completionDate}
                                         </Typography>
                                     </Paper>
                                 </Grid>
