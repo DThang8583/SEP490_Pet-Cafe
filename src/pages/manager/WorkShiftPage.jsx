@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Box, Typography, Paper, Chip, Stack, IconButton, Button, Avatar, Grid, Card, CardContent, TextField, Menu, MenuItem, ListItemIcon, ListItemText, Divider } from '@mui/material';
+import React, { useEffect, useMemo, useState, useCallback, useTransition, useDeferredValue } from 'react';
+import { Box, Typography, Paper, Chip, Stack, IconButton, Button, Grid, Card, CardContent, TextField, Menu, MenuItem, ListItemIcon, ListItemText, Divider } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import { COLORS } from '../../constants/colors';
 import Loading from '../../components/loading/Loading';
@@ -14,8 +14,10 @@ import teamApi from '../../api/teamApi';
 import employeeApi from '../../api/employeeApi';
 import workTypeApi from '../../api/workTypeApi';
 import TeamAssignWorkShiftModal from '../../components/modals/TeamAssignWorkShiftModal';
+import TeamWorkShiftsManagementModal from '../../components/modals/TeamWorkShiftsManagementModal';
 
 const WorkShiftPage = () => {
+    const [isPending, startTransition] = useTransition();
     const [isLoading, setIsLoading] = useState(true);
 
     // Alert modal
@@ -41,9 +43,7 @@ const WorkShiftPage = () => {
         applicable_days: []
     });
 
-    // Pagination states for Teams (main pagination)
     const [page, setPage] = useState(1);
-    // Dùng limit rất lớn để hiển thị gần như toàn bộ team trên một trang
     const [itemsPerPage, setItemsPerPage] = useState(999);
     const [pagination, setPagination] = useState({
         total_items_count: 0,
@@ -56,8 +56,6 @@ const WorkShiftPage = () => {
 
     // Teams states
     const [teams, setTeams] = useState([]);
-    const [newTeams, setNewTeams] = useState([]); // Teams without workshifts and members
-    const [loadingNewTeams, setLoadingNewTeams] = useState(false);
     const [slots, setSlots] = useState([]);
     const [openTeamDialog, setOpenTeamDialog] = useState(false);
     const [editingTeam, setEditingTeam] = useState(null);
@@ -87,6 +85,10 @@ const WorkShiftPage = () => {
     const [memberRoleFilter, setMemberRoleFilter] = useState('all');
     const [memberSkillFilter, setMemberSkillFilter] = useState('all');
 
+    // Team Work Shifts Management Modal states
+    const [openTeamWorkShiftsManagementModal, setOpenTeamWorkShiftsManagementModal] = useState(false);
+    const [selectedTeamForWorkShiftsManagement, setSelectedTeamForWorkShiftsManagement] = useState(null);
+
     // Menu states
     const [shiftMenuAnchor, setShiftMenuAnchor] = useState(null);
     const [menuShift, setMenuShift] = useState(null);
@@ -97,25 +99,10 @@ const WorkShiftPage = () => {
 
     // View and filter states
     const [searchQuery, setSearchQuery] = useState('');
+    const deferredSearchQuery = useDeferredValue(searchQuery);
 
-    // Load data from API (ưu tiên dữ liệu chính, phần còn lại load nền)
-    useEffect(() => {
-        // 1. Tải song song ca làm + team (dữ liệu chính)
-        (async () => {
-            await Promise.all([loadShifts(), loadTeams()]);
-            // 2. Sau khi dữ liệu chính đã có, tải nền các phần phụ (không chặn UI)
-            loadSlots();
-            loadEmployees();
-            loadWorkTypes();
-        })();
-    }, []);
-
-    // Reload teams when pagination changes
-    useEffect(() => {
-        loadTeams();
-    }, [page, itemsPerPage]);
-
-    const loadShifts = async () => {
+    // Load data functions
+    const loadShifts = useCallback(async () => {
         try {
             // Load all shifts without pagination (for schedule display)
             const response = await workShiftApi.getWorkShifts({
@@ -142,18 +129,14 @@ const WorkShiftPage = () => {
                 message: error.message || 'Không thể tải danh sách ca làm việc'
             });
         }
-    };
+    }, []);
 
-    const loadTeams = async () => {
+    const loadTeams = useCallback(async () => {
         try {
             setIsLoading(true);
-            // Fetch teams with pagination
-            // API uses 'page' and 'limit' parameters (not page_index and page_size)
             const response = await teamApi.getTeams({
-                page: page - 1, // API uses 0-based index, UI uses 1-based
+                page: page - 1,
                 limit: itemsPerPage
-                // Explicitly NOT passing: is_active, working_day, start_working_time, end_working_time, work_type_id
-                // This ensures we get all teams regardless of their status
             });
 
             if (!response.success || !Array.isArray(response.data)) {
@@ -207,7 +190,9 @@ const WorkShiftPage = () => {
                     })
                 );
 
-                setTeams(teamsWithData);
+                startTransition(() => {
+                    setTeams(teamsWithData);
+                });
             } else {
                 setTeams([]);
             }
@@ -222,87 +207,101 @@ const WorkShiftPage = () => {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [page, itemsPerPage, startTransition]);
 
-    const loadSlots = async () => {
+    const loadSlots = useCallback(async () => {
         try {
             const response = await teamApi.getAllTeamSlots();
             if (response.success) {
                 setSlots(response.data);
             }
         } catch (error) {
+            // Silent fail for background loading
         }
-    };
+    }, []);
 
-    const loadEmployees = async () => {
+    const loadEmployees = useCallback(async () => {
         try {
             const response = await employeeApi.getEmployees();
             if (response.success) {
                 setAllEmployees(response.data);
             }
         } catch (error) {
+            // Silent fail for background loading
         }
-    };
+    }, []);
 
-    const loadWorkTypes = async () => {
+    const loadWorkTypes = useCallback(async () => {
         try {
             const response = await workTypeApi.getWorkTypes();
             if (response.success) {
                 setAllWorkTypes(response.data);
             }
         } catch (error) {
+            // Silent fail for background loading
         }
-    };
+    }, []);
 
-    // Derive "newTeams" trực tiếp từ danh sách teams đã load (tránh gọi API lặp lại)
     useEffect(() => {
-        // Không cần chạy nếu chưa có team nào
+        (async () => {
+            await Promise.all([loadShifts(), loadTeams()]);
+            loadSlots();
+            loadEmployees();
+            loadWorkTypes();
+        })();
+    }, [loadShifts, loadTeams, loadSlots, loadEmployees, loadWorkTypes]);
+
+    // Reload teams when pagination changes
+    useEffect(() => {
+        loadTeams();
+    }, [loadTeams]);
+
+
+    const newTeams = useMemo(() => {
         if (!Array.isArray(teams) || teams.length === 0) {
-            setNewTeams([]);
-            setLoadingNewTeams(false);
-            return;
+            return [];
         }
 
-        setLoadingNewTeams(true);
-
-        // Tính toán nhẹ nhàng trên dữ liệu sẵn có
-        const filteredNewTeams = teams.filter(team => {
+        return teams.filter(team => {
             const hasWorkShifts = (team.team_work_shifts?.length || 0) > 0;
             const hasMembers = (team.team_members?.filter(m => {
                 const memberId = m.employee?.id || m.employee_id;
                 return memberId && memberId !== team.leader_id;
             }).length || 0) > 0;
-            // "Team mới" = thiếu ca làm việc hoặc thiếu member
             return !(hasWorkShifts && hasMembers);
         });
-
-        setNewTeams(filteredNewTeams);
-        setLoadingNewTeams(false);
     }, [teams]);
 
-    // Build schedule: Group shifts by day
     const scheduleByDay = useMemo(() => {
         const schedule = {};
+        const searchLower = deferredSearchQuery.toLowerCase();
+        const hasSearch = searchLower.length > 0;
+
+        const validShifts = shifts.filter(shift => !shift.is_deleted);
+
+        const searchMatches = hasSearch ? new Set(
+            validShifts
+                .filter(shift => {
+                    const nameMatch = shift.name?.toLowerCase().includes(searchLower);
+                    const descMatch = shift.description?.toLowerCase().includes(searchLower);
+                    return nameMatch || descMatch;
+                })
+                .map(s => s.id)
+        ) : null;
 
         WEEKDAYS.forEach(day => {
-            schedule[day] = shifts
-                .filter(shift => shift.applicable_days && shift.applicable_days.includes(day))
+            schedule[day] = validShifts
                 .filter(shift => {
-                    // Filter out deleted shifts
-                    if (shift.is_deleted) return false;
-
-                    const matchesSearch = shift.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                        shift.description.toLowerCase().includes(searchQuery.toLowerCase());
-
-                    return matchesSearch;
+                    if (!shift.applicable_days || !shift.applicable_days.includes(day)) return false;
+                    if (hasSearch && searchMatches && !searchMatches.has(shift.id)) return false;
+                    return true;
                 })
                 .sort((a, b) => a.start_time.localeCompare(b.start_time));
         });
 
         return schedule;
-    }, [shifts, searchQuery]);
+    }, [shifts, deferredSearchQuery]);
 
-    // Pre-compute mapping shiftId + day -> teams để tránh filter lặp lại khi render
     const teamsByShiftAndDay = useMemo(() => {
         const map = {};
 
@@ -331,23 +330,16 @@ const WorkShiftPage = () => {
         return map;
     }, [teams]);
 
-    // Helper: Get teams cho một shift + day từ map đã memo
-    const getTeamsForShift = (shift, day) => {
+    const getTeamsForShift = useCallback((shift, day) => {
         if (!shift || !day) return [];
         const key = `${shift.id}_${day}`;
         return teamsByShiftAndDay[key] || [];
-    };
+    }, [teamsByShiftAndDay]);
 
-    // Calculate statistics
     const stats = useMemo(() => {
         const totalShifts = shifts.length;
-        // API doesn't have is_active field, so all shifts are considered active if not deleted
         const activeShifts = shifts.filter(s => !s.is_deleted).length;
-        // Use pagination.total_items_count for total teams (from API), not teams.length (current page)
         const totalTeams = pagination.total_items_count || 0;
-
-        // Count total staff assignments based on current team data (only current page)
-        // Note: This is an approximation since we only have current page data
         const totalAssignments = teams.reduce((sum, team) => {
             const membersCount = (team.team_members?.length || 0);
             const leaderCount = team.leader ? 1 : 0;
@@ -362,8 +354,7 @@ const WorkShiftPage = () => {
         };
     }, [shifts, teams, pagination]);
 
-    // Shift CRUD handlers
-    const handleOpenShiftDialog = () => {
+    const handleOpenShiftDialog = useCallback(() => {
         setEditingShift(null);
         setShiftFormData({
             name: '',
@@ -373,9 +364,9 @@ const WorkShiftPage = () => {
             applicable_days: []
         });
         setOpenShiftDialog(true);
-    };
+    }, []);
 
-    const handleEditShift = (shift) => {
+    const handleEditShift = useCallback((shift) => {
         setEditingShift(shift);
         setShiftFormData({
             name: shift.name || '',
@@ -387,26 +378,21 @@ const WorkShiftPage = () => {
         setOpenShiftDialog(true);
         setShiftMenuAnchor(null);
         setMenuShiftDay(null); // Reset day context for edit
-    };
+    }, []);
 
-    const handleSaveShift = async () => {
+    const handleSaveShift = useCallback(async () => {
         try {
-            // Helper to format time for API (ensure HH:mm:ss format)
             const formatTimeForAPI = (time) => {
                 if (!time) return '';
-                // If already in HH:mm:ss format, return as is
                 if (time.includes(':') && time.split(':').length === 3) {
                     return time;
                 }
-                // If in HH:mm format, add :00 for seconds
                 if (time.includes(':') && time.split(':').length === 2) {
                     return time + ':00';
                 }
                 return time;
             };
 
-            // Prepare data according to API spec
-            // API PUT work shift: { name, start_time, end_time, description, applicable_days }
             const submitData = {
                 name: shiftFormData.name?.trim() || '',
                 start_time: formatTimeForAPI(shiftFormData.start_time),
@@ -416,13 +402,10 @@ const WorkShiftPage = () => {
             };
 
             if (editingShift) {
-                // Get original days and new days being added
                 const originalDays = editingShift.applicable_days || [];
                 const newDays = submitData.applicable_days.filter(day => !originalDays.includes(day));
 
-                // Only check for conflicts with NEW days being added (not existing days)
                 if (newDays.length > 0) {
-                    // Check if there are other shifts with same name and time (excluding current shift)
                     const otherShiftsWithSameNameAndTime = shifts.filter(s =>
                         s.id !== editingShift.id &&
                         !s.is_deleted &&
@@ -432,11 +415,9 @@ const WorkShiftPage = () => {
                     );
 
                     if (otherShiftsWithSameNameAndTime.length > 0) {
-                        // Only check conflicts with NEW days
                         const conflictingDays = [];
                         otherShiftsWithSameNameAndTime.forEach(otherShift => {
                             otherShift.applicable_days?.forEach(day => {
-                                // Only check if this day is in newDays (being added)
                                 if (newDays.includes(day) && !conflictingDays.includes(day)) {
                                     conflictingDays.push(day);
                                 }
@@ -483,39 +464,26 @@ const WorkShiftPage = () => {
                 }
             }
         } catch (error) {
-            // Display error message from API
             let errorMessage = error.message || 'Không thể lưu ca làm việc';
 
-            // If editing and error is about time conflict, check if it's a false positive
-            // (API checking the shift against itself for existing days)
             if (editingShift && errorMessage.includes('trùng thời gian')) {
                 const originalDays = editingShift.applicable_days || [];
                 const newDays = shiftFormData.applicable_days.filter(day => !originalDays.includes(day));
 
-                // Extract conflicting days from error message (format: "vào các ngày: MONDAY, TUESDAY")
                 const conflictingDaysMatch = errorMessage.match(/vào các ngày: ([A-Z, ]+)/);
                 if (conflictingDaysMatch) {
                     const conflictingDaysStr = conflictingDaysMatch[1];
                     const conflictingDays = conflictingDaysStr.split(',').map(d => d.trim());
 
-                    // Check if ALL conflicting days are in originalDays (already existed in the shift)
                     const allConflictingDaysAreOriginal = conflictingDays.every(day => originalDays.includes(day));
-
-                    // Check if there are NEW days being added
                     const hasNewDays = newDays.length > 0;
-
-                    // Check if any of the conflicting days are in newDays (newly added days)
                     const newDaysConflicts = conflictingDays.filter(day => newDays.includes(day));
 
-                    // If all conflicting days are original days and no new days are conflicting,
-                    // this is a false positive - API is checking the shift against itself
                     if (allConflictingDaysAreOriginal && hasNewDays && newDaysConflicts.length === 0) {
-                        // Reload data to get the updated shift (API may have updated it despite the error)
                         try {
                             await loadShifts();
                             await loadSlots();
 
-                            // Show success message
                             setAlert({
                                 open: true,
                                 type: 'success',
@@ -525,7 +493,7 @@ const WorkShiftPage = () => {
                             setOpenShiftDialog(false);
                             return;
                         } catch (reloadError) {
-                            // Fall through to show error
+                            // Continue to show error
                         }
                     }
                 }
@@ -538,9 +506,9 @@ const WorkShiftPage = () => {
                 message: errorMessage
             });
         }
-    };
+    }, [editingShift, shiftFormData, shifts, loadShifts, loadSlots]);
 
-    const handleDeleteShift = (shift) => {
+    const handleDeleteShift = useCallback((shift) => {
         if (!menuShiftDay) {
             setAlert({
                 open: true,
@@ -553,9 +521,9 @@ const WorkShiftPage = () => {
         setDeleteShiftTarget(shift);
         setConfirmDeleteShiftOpen(true);
         setShiftMenuAnchor(null);
-    };
+    }, [menuShiftDay]);
 
-    const handleConfirmDeleteShift = async () => {
+    const handleConfirmDeleteShift = useCallback(async () => {
         try {
             const shift = deleteShiftTarget;
             const currentDay = menuShiftDay;
@@ -565,7 +533,6 @@ const WorkShiftPage = () => {
             }
 
             if (!currentDay) {
-                // If no day context, delete entire shift
                 const response = await workShiftApi.deleteWorkShift(shift.id);
                 if (response.success) {
                     setAlert({
@@ -580,9 +547,7 @@ const WorkShiftPage = () => {
                 return;
             }
 
-            // Check if shift has only one day - if so, delete the entire shift
             if (shift.applicable_days && shift.applicable_days.length === 1) {
-                // Delete entire shift if it only has one day
                 const response = await workShiftApi.deleteWorkShift(shift.id);
                 if (response.success) {
                     setAlert({
@@ -593,11 +558,9 @@ const WorkShiftPage = () => {
                     });
                 }
             } else if (shift.applicable_days && Array.isArray(shift.applicable_days)) {
-                // Remove the day from applicable_days
                 const updatedDays = shift.applicable_days.filter(day => day !== currentDay);
 
                 if (updatedDays.length === 0) {
-                    // If no days left, delete the entire shift
                     const response = await workShiftApi.deleteWorkShift(shift.id);
                     if (response.success) {
                         setAlert({
@@ -608,15 +571,11 @@ const WorkShiftPage = () => {
                         });
                     }
                 } else {
-                    // Update shift to remove the day
-                    // Ensure time format is correct (HH:mm:ss)
                     const formatTimeForAPI = (time) => {
                         if (!time) return '';
-                        // If already in HH:mm:ss format, return as is
                         if (time.includes(':') && time.split(':').length === 3) {
                             return time;
                         }
-                        // If in HH:mm format, add :00 for seconds
                         if (time.includes(':') && time.split(':').length === 2) {
                             return time + ':00';
                         }
@@ -641,7 +600,6 @@ const WorkShiftPage = () => {
                             });
                         }
                     } catch (updateError) {
-                        // If update fails due to time conflict, delete the entire shift
                         if (updateError.message && updateError.message.includes('trùng thời gian')) {
                             const deleteResponse = await workShiftApi.deleteWorkShift(shift.id);
                             if (deleteResponse.success) {
@@ -653,13 +611,11 @@ const WorkShiftPage = () => {
                                 });
                             }
                         } else {
-                            // Re-throw other errors
                             throw updateError;
                         }
                     }
                 }
             } else {
-                // Fallback: delete entire shift if applicable_days is invalid
                 const response = await workShiftApi.deleteWorkShift(shift.id);
                 if (response.success) {
                     setAlert({
@@ -674,11 +630,9 @@ const WorkShiftPage = () => {
             await loadShifts();
             await loadSlots();
         } catch (error) {
-            // Parse error message for time conflict
             let errorMessage = error.message || 'Không thể xóa ca làm việc';
 
             if (error.message && error.message.includes('trùng thời gian')) {
-                // Time conflict error - provide more helpful message
                 errorMessage = `Không thể xóa ca khỏi ngày này vì có ca khác trùng thời gian vào các ngày còn lại. Vui lòng xóa toàn bộ ca nếu muốn xóa.`;
             } else if (error.response?.data?.message) {
                 errorMessage = Array.isArray(error.response.data.message)
@@ -700,10 +654,9 @@ const WorkShiftPage = () => {
             setDeleteShiftTarget(null);
             setMenuShiftDay(null);
         }
-    };
+    }, [deleteShiftTarget, menuShiftDay, loadShifts, loadSlots]);
 
-    // Team CRUD handlers
-    const getStatusLabel = (status) => {
+    const getStatusLabel = useCallback((status) => {
         switch ((status || '').toUpperCase()) {
             case 'ACTIVE':
                 return { text: 'Đang vận hành', color: COLORS.SUCCESS[700], bg: alpha(COLORS.SUCCESS[500], 0.1) };
@@ -712,15 +665,15 @@ const WorkShiftPage = () => {
             default:
                 return { text: status || 'Không xác định', color: COLORS.TEXT.SECONDARY, bg: alpha(COLORS.GRAY[400], 0.15) };
         }
-    };
+    }, []);
 
-    const getActiveLabel = (isActive) => {
+    const getActiveLabel = useCallback((isActive) => {
         return isActive
             ? { text: 'Kích hoạt', color: COLORS.INFO[700], bg: alpha(COLORS.INFO[500], 0.1) }
             : { text: 'Ngừng kích hoạt', color: COLORS.GRAY[700], bg: alpha(COLORS.GRAY[400], 0.2) };
-    };
+    }, []);
 
-    const handleOpenTeamDialog = () => {
+    const handleOpenTeamDialog = useCallback(() => {
         setEditingTeam(null);
         setTeamFormData({
             name: '',
@@ -731,9 +684,9 @@ const WorkShiftPage = () => {
             status: 'ACTIVE'
         });
         setOpenTeamDialog(true);
-    };
+    }, []);
 
-    const handleOpenAssignWorkShiftModal = (team) => {
+    const handleOpenAssignWorkShiftModal = useCallback((team) => {
         if (!team) return;
         const existingShifts = (team.team_work_shifts || []).map(tws => {
             return tws.work_shift_id || tws.work_shift?.id || tws.id;
@@ -741,15 +694,15 @@ const WorkShiftPage = () => {
         setSelectedTeamForWorkShift(team);
         setSelectedWorkShiftIds(existingShifts);
         setOpenAssignWorkShiftModal(true);
-    };
+    }, []);
 
-    const handleCloseAssignWorkShiftModal = () => {
+    const handleCloseAssignWorkShiftModal = useCallback(() => {
         setOpenAssignWorkShiftModal(false);
         setSelectedTeamForWorkShift(null);
         setSelectedWorkShiftIds([]);
-    };
+    }, []);
 
-    const handleAssignWorkShifts = async (workShiftIds) => {
+    const handleAssignWorkShifts = useCallback(async (workShiftIds) => {
         if (!selectedTeamForWorkShift) return;
         if (!Array.isArray(workShiftIds) || workShiftIds.length === 0) {
             setAlert({
@@ -782,9 +735,9 @@ const WorkShiftPage = () => {
         } finally {
             setAssigningWorkShifts(false);
         }
-    };
+    }, [selectedTeamForWorkShift, loadTeams, loadSlots]);
 
-    const handleEditTeam = (team) => {
+    const handleEditTeam = useCallback((team) => {
         setEditingTeam(team);
         setTeamFormData({
             name: team.name,
@@ -796,9 +749,9 @@ const WorkShiftPage = () => {
         });
         setOpenTeamDialog(true);
         setTeamMenuAnchor(null);
-    };
+    }, []);
 
-    const handleSaveTeam = async () => {
+    const handleSaveTeam = useCallback(async () => {
         try {
             if (editingTeam) {
                 try {
@@ -835,9 +788,7 @@ const WorkShiftPage = () => {
                     return;
                 }
             } else {
-                // Create team first
                 try {
-                    // Prepare data for createTeam API - only send required fields
                     const createTeamData = {
                         name: teamFormData.name?.trim(),
                         description: teamFormData.description?.trim(),
@@ -846,7 +797,6 @@ const WorkShiftPage = () => {
                         status: teamFormData.status || 'ACTIVE'
                     };
 
-                    // Validate data before sending
                     if (!createTeamData.name || !createTeamData.name.trim()) {
                         setAlert({
                             open: true,
@@ -884,7 +834,6 @@ const WorkShiftPage = () => {
                         return;
                     }
 
-                    // Validate UUID format for leader_id and work_type_ids
                     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
                     if (!uuidRegex.test(createTeamData.leader_id)) {
                         setAlert({
@@ -928,7 +877,6 @@ const WorkShiftPage = () => {
                     await loadTeams();
                     await loadSlots();
                 } catch (error) {
-                    // Extract detailed error message
                     let errorMessage = 'Không thể tạo nhóm';
 
                     if (error.message) {
@@ -950,14 +898,12 @@ const WorkShiftPage = () => {
                         }
                     }
 
-                    // Log full error in development
                     setAlert({
                         open: true,
                         type: 'error',
                         title: 'Lỗi',
                         message: errorMessage
                     });
-                    // Don't close dialog or reload on error - let user fix and retry
                     return;
                 }
             }
@@ -969,25 +915,20 @@ const WorkShiftPage = () => {
                 message: error.message || 'Không thể lưu nhóm'
             });
         }
-    };
+    }, [editingTeam, teamFormData, loadTeams, loadSlots]);
 
-    // Team Members Management handlers
-    const handleOpenTeamMembersModal = async (team) => {
+    const handleOpenTeamMembersModal = useCallback(async (team) => {
         setSelectedTeamForMembers(team);
 
-        // Load team members
         try {
             const response = await teamApi.getTeamMembers(team.id);
             if (response.success) {
-                // Ensure is_active is set to true by default if not provided or if it's null/undefined
-                // API might return is_active: false or null, so we need to check for both undefined and null
                 const membersWithDefaultActive = response.data.map(member => ({
                     ...member,
-                    // If is_active is explicitly false, keep it. Otherwise default to true
                     is_active: member.is_active === false ? false : (member.is_active ?? true)
                 }));
                 setTeamMembers(membersWithDefaultActive);
-                setOriginalTeamMembers(JSON.parse(JSON.stringify(membersWithDefaultActive))); // Deep copy
+                setOriginalTeamMembers(JSON.parse(JSON.stringify(membersWithDefaultActive)));
             }
         } catch (error) {
             setTeamMembers([]);
@@ -999,64 +940,59 @@ const WorkShiftPage = () => {
         setMemberSkillFilter('all');
         setOpenTeamMembersModal(true);
         setTeamMenuAnchor(null);
-    };
+    }, []);
 
-    const handleAddMember = (employee) => {
-        // Check if already in team
-        const alreadyExists = teamMembers.some(m =>
-            (m.employee?.id || m.employee_id) === employee.id
-        );
+    const handleAddMember = useCallback((employee) => {
+        setTeamMembers(prev => {
+            const alreadyExists = prev.some(m =>
+                (m.employee?.id || m.employee_id) === employee.id
+            );
+            if (alreadyExists) return prev;
 
-        if (alreadyExists) return;
+            const newMember = {
+                employee_id: employee.id,
+                employee: employee,
+                is_active: true,
+                team: null,
+                daily_schedules: []
+            };
+            return [...prev, newMember];
+        });
+    }, []);
 
-        const newMember = {
-            employee_id: employee.id,
-            employee: employee,
-            is_active: true, // New members are always active by default
-            team: null,
-            daily_schedules: []
-        };
-
-        setTeamMembers([...teamMembers, newMember]);
-    };
-
-    const handleRemoveMember = (employeeId) => {
-        setTeamMembers(teamMembers.filter(m =>
+    const handleRemoveMember = useCallback((employeeId) => {
+        setTeamMembers(prev => prev.filter(m =>
             (m.employee?.id || m.employee_id) !== employeeId
         ));
-    };
+    }, []);
 
-    const handleToggleMemberStatus = (employeeId) => {
-        setTeamMembers(teamMembers.map(m => {
+    const handleToggleMemberStatus = useCallback((employeeId) => {
+        setTeamMembers(prev => prev.map(m => {
             const memberId = m.employee?.id || m.employee_id;
             if (memberId === employeeId) {
-                // Toggle is_active, default to true if undefined
                 const currentActive = m.is_active !== undefined ? m.is_active : true;
                 return { ...m, is_active: !currentActive };
             }
             return m;
         }));
-    };
+    }, []);
 
-    const handleSaveTeamMembers = async () => {
+    const handleSaveTeamMembers = useCallback(async () => {
         try {
             const teamId = selectedTeamForMembers.id;
 
-            // Find added members
             const addedMembers = teamMembers.filter(m =>
                 !originalTeamMembers.some(om =>
                     (om.employee?.id || om.employee_id) === (m.employee?.id || m.employee_id)
                 )
             ).map(m => ({ employee_id: m.employee?.id || m.employee_id }));
 
-            // Find removed members
             const removedMembers = originalTeamMembers.filter(om =>
                 !teamMembers.some(m =>
                     (m.employee?.id || m.employee_id) === (om.employee?.id || om.employee_id)
                 )
             );
 
-            // Find members with changed status
             const updatedMembers = teamMembers.filter(m => {
                 const original = originalTeamMembers.find(om =>
                     (om.employee?.id || om.employee_id) === (m.employee?.id || m.employee_id)
@@ -1067,7 +1003,6 @@ const WorkShiftPage = () => {
                 is_active: m.is_active
             }));
 
-            // Call APIs
             if (addedMembers.length > 0) {
                 await teamApi.addTeamMembers(teamId, addedMembers);
             }
@@ -1091,8 +1026,8 @@ const WorkShiftPage = () => {
             });
 
             setOpenTeamMembersModal(false);
-            await loadTeams(); // Reload to get updated data
-            await loadSlots(); // Reload slots to reflect changes
+            await loadTeams();
+            await loadSlots();
         } catch (error) {
             setAlert({
                 open: true,
@@ -1101,38 +1036,52 @@ const WorkShiftPage = () => {
                 message: error.message || 'Không thể lưu thành viên nhóm'
             });
         }
-    };
+    }, [selectedTeamForMembers, teamMembers, originalTeamMembers, loadTeams, loadSlots]);
 
-    // Menu handlers
-    const handleShiftMenuOpen = (event, shift, day) => {
+    const handleShiftMenuOpen = useCallback((event, shift, day) => {
         setShiftMenuAnchor(event.currentTarget);
         setMenuShift(shift);
         setMenuShiftDay(day); // Store the day context
-    };
+    }, []);
 
-    const handleShiftMenuClose = () => {
+    const handleShiftMenuClose = useCallback(() => {
         setShiftMenuAnchor(null);
-    };
+    }, []);
 
-    const handleTeamMenuOpen = (event, team, shiftContext = null) => {
+    const handleTeamMenuOpen = useCallback((event, team, shiftContext = null) => {
         setTeamMenuAnchor(event.currentTarget);
         setMenuTeam(team);
         setMenuTeamShiftContext(shiftContext);
-    };
+    }, []);
 
-    const handleTeamMenuClose = () => {
+    const handleTeamMenuClose = useCallback(() => {
         setTeamMenuAnchor(null);
         setMenuTeam(null);
         setMenuTeamShiftContext(null);
-    };
+    }, []);
 
-    const handleDeleteTeam = (team) => {
+    const handleOpenTeamWorkShiftsManagement = useCallback((team) => {
+        setSelectedTeamForWorkShiftsManagement(team);
+        setOpenTeamWorkShiftsManagementModal(true);
+        setTeamMenuAnchor(null);
+    }, []);
+
+    const handleCloseTeamWorkShiftsManagement = useCallback(() => {
+        setOpenTeamWorkShiftsManagementModal(false);
+        setSelectedTeamForWorkShiftsManagement(null);
+    }, []);
+
+    const handleTeamWorkShiftsUpdate = useCallback(async () => {
+        await loadTeams();
+    }, [loadTeams]);
+
+    const handleDeleteTeam = useCallback((team) => {
         setDeleteTeamTarget(team);
         setConfirmDeleteTeamOpen(true);
         setTeamMenuAnchor(null);
-    };
+    }, []);
 
-    const handleConfirmDeleteTeam = async () => {
+    const handleConfirmDeleteTeam = useCallback(async () => {
         try {
             const team = deleteTeamTarget;
 
@@ -1161,9 +1110,9 @@ const WorkShiftPage = () => {
             setConfirmDeleteTeamOpen(false);
             setDeleteTeamTarget(null);
         }
-    };
+    }, [deleteTeamTarget, loadTeams]);
 
-    const handleDeleteTeamWorkShift = (team, shift) => {
+    const handleDeleteTeamWorkShift = useCallback((team, shift) => {
         if (!team || !shift) {
             setAlert({
                 open: true,
@@ -1174,7 +1123,6 @@ const WorkShiftPage = () => {
             return;
         }
 
-        // Find the team_work_shift ID
         const teamWorkShift = team.team_work_shifts?.find(tws => {
             const workShiftId = tws.work_shift_id || tws.work_shift?.id;
             return workShiftId === shift.id;
@@ -1197,9 +1145,9 @@ const WorkShiftPage = () => {
         });
         setConfirmDeleteTeamWorkShiftOpen(true);
         setTeamMenuAnchor(null);
-    };
+    }, []);
 
-    const handleConfirmDeleteTeamWorkShift = async () => {
+    const handleConfirmDeleteTeamWorkShift = useCallback(async () => {
         try {
             const target = deleteTeamWorkShiftTarget;
 
@@ -1217,7 +1165,6 @@ const WorkShiftPage = () => {
                 });
             }
             await loadTeams();
-            await loadNewTeams();
         } catch (error) {
             setAlert({
                 open: true,
@@ -1229,13 +1176,12 @@ const WorkShiftPage = () => {
             setConfirmDeleteTeamWorkShiftOpen(false);
             setDeleteTeamWorkShiftTarget(null);
         }
-    };
+    }, [deleteTeamWorkShiftTarget, loadTeams]);
 
-    // Format time
-    const formatTime = (time) => {
+    const formatTime = useCallback((time) => {
         if (!time) return '';
         return time.substring(0, 5);
-    };
+    }, []);
 
     if (isLoading) {
         return <Loading fullScreen variant="cafe" />;
@@ -1309,12 +1255,29 @@ const WorkShiftPage = () => {
                     size="small"
                     placeholder="Tìm ca làm việc, nhân viên..."
                     value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onChange={(e) => {
+                        startTransition(() => {
+                            setSearchQuery(e.target.value);
+                        });
+                    }}
                     InputProps={{
                         startAdornment: <Search sx={{ color: COLORS.GRAY[400], mr: 0.5, fontSize: 20 }} />
                     }}
                     sx={{ minWidth: { xs: '100%', sm: 1350 }, flexGrow: { xs: 1, sm: 0 } }}
                 />
+                {isPending && (
+                    <Box sx={{ position: 'fixed', top: 16, right: 16, zIndex: 1300 }}>
+                        <Chip
+                            label="Đang tìm kiếm..."
+                            size="small"
+                            sx={{
+                                bgcolor: COLORS.INFO[500],
+                                color: 'white',
+                                fontWeight: 600
+                            }}
+                        />
+                    </Box>
+                )}
                 <Box sx={{ flexGrow: { xs: 0, sm: 1 } }} />
                 <Button
                     variant="contained"
@@ -1641,7 +1604,6 @@ const WorkShiftPage = () => {
                             >
                                 <Stack spacing={3} sx={{ p: 3 }}>
                                     {dayShifts.map((shift, shiftIndex) => {
-                                        // Tạo màu sắc khác nhau cho từng ca trong cùng một ngày
                                         const shiftColors = [
                                             COLORS.PRIMARY[500],
                                             COLORS.SUCCESS[500],
@@ -1891,19 +1853,15 @@ const WorkShiftPage = () => {
                                                                                     </Stack>
                                                                                 </Box>
 
-                                                                                {/* Working Days - Show team's working days from team_work_shifts using applicable_days from API */}
                                                                                 <Box sx={{ mb: 1.5 }}>
                                                                                     <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
                                                                                         Ngày làm việc:
                                                                                     </Typography>
                                                                                     <Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ gap: 0.5 }}>
                                                                                         {(() => {
-                                                                                            // Collect all applicable_days from work_shifts assigned to this team
-                                                                                            // API chính thức chỉ có applicable_days, không có working_days
                                                                                             const allWorkingDays = new Set();
                                                                                             if (team.team_work_shifts && Array.isArray(team.team_work_shifts)) {
                                                                                                 team.team_work_shifts.forEach(tws => {
-                                                                                                    // Use applicable_days from work_shift (API chính thức)
                                                                                                     if (tws.work_shift && Array.isArray(tws.work_shift.applicable_days)) {
                                                                                                         tws.work_shift.applicable_days.forEach(day => allWorkingDays.add(day));
                                                                                                     }
@@ -2035,17 +1993,13 @@ const WorkShiftPage = () => {
                     </ListItemIcon>
                     <ListItemText>Quản lý thành viên</ListItemText>
                 </MenuItem>
-                {menuTeamShiftContext && (
-                    <>
-                        <Divider />
-                        <MenuItem onClick={() => handleDeleteTeamWorkShift(menuTeam, menuTeamShiftContext)}>
-                            <ListItemIcon>
-                                <Delete fontSize="small" sx={{ color: COLORS.WARNING[600] }} />
-                            </ListItemIcon>
-                            <ListItemText>Xóa ca làm việc này</ListItemText>
-                        </MenuItem>
-                    </>
-                )}
+                <Divider />
+                <MenuItem onClick={() => handleOpenTeamWorkShiftsManagement(menuTeam)}>
+                    <ListItemIcon>
+                        <Schedule fontSize="small" sx={{ color: COLORS.PRIMARY[600] }} />
+                    </ListItemIcon>
+                    <ListItemText>Chỉnh sửa ca làm việc</ListItemText>
+                </MenuItem>
                 <Divider />
                 <MenuItem onClick={() => handleDeleteTeam(menuTeam)}>
                     <ListItemIcon>
@@ -2107,6 +2061,15 @@ const WorkShiftPage = () => {
                 onRemoveMember={handleRemoveMember}
                 onToggleMemberStatus={handleToggleMemberStatus}
                 onSave={handleSaveTeamMembers}
+            />
+
+            {/* Team Work Shifts Management Modal */}
+            <TeamWorkShiftsManagementModal
+                open={openTeamWorkShiftsManagementModal}
+                onClose={handleCloseTeamWorkShiftsManagement}
+                team={selectedTeamForWorkShiftsManagement}
+                allWorkShifts={shifts}
+                onUpdate={handleTeamWorkShiftsUpdate}
             />
 
             {/* Confirm Delete Shift */}
