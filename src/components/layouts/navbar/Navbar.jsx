@@ -67,7 +67,6 @@ const Navbar = () => {
     const navItems = [
         { label: 'Đồ ăn & Đồ uống', path: '/menu', icon: <Restaurant /> },
         { label: 'Đặt lịch dịch vụ', path: '/booking', icon: <Schedule /> },
-        { label: 'Khu vực', path: '/areas', icon: <LocationOn /> }
     ];
 
     const isActive = (path) => location.pathname === path;

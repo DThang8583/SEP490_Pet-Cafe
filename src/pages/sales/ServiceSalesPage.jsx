@@ -564,9 +564,7 @@ const ServiceSalesPage = () => {
                                                                         day: 'numeric'
                                                                     })}
                                                                 </Typography>
-                                                                {item.slot.is_recurring && (
-                                                                    <Chip label="Lặp lại" size="small" sx={{ ml: 1, height: 20, fontSize: '0.7rem' }} />
-                                                                )}
+                                                                
                                                             </Box>
 
                                                             {/* Time Range */}

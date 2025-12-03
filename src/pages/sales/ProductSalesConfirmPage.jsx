@@ -36,7 +36,7 @@ const ProductSalesConfirmPage = () => {
                 const token = localStorage.getItem('authToken');
                 
                 // Bước 1: Lấy danh sách orders
-                const res = await fetch('https://petcafe-htc6dadbayh6h4dz.southeastasia-01.azurewebsites.net/api/orders', {
+                const res = await fetch('https://petcafe-htc6dadbayh6h4dz.southeastasia-01.azurewebsites.net/api/orders?limit=99', {
                     headers: {
                         'Authorization': token ? `Bearer ${token}` : '',
                         'Accept': 'application/json'
@@ -434,4 +434,5 @@ const ProductSalesConfirmPage = () => {
 };
 
 export default ProductSalesConfirmPage;
+
 
