@@ -182,9 +182,11 @@ const AlertModal = ({
             <DialogContent sx={{ px: 4, pb: 3 }}>
                 <Typography
                     variant="body1"
+                    component="div"
                     sx={{
                         color: COLORS.TEXT.SECONDARY,
-                        lineHeight: 1.6
+                        lineHeight: 1.6,
+                        whiteSpace: 'pre-line'
                     }}
                 >
                     {message}

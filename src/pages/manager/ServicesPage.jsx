@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback, useTransition, useDeferredValue } from 'react';
 import { Box, Typography, Button, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, IconButton, TextField, Stack, Toolbar, FormControl, InputLabel, Select, MenuItem, Switch, Tooltip, Tabs, Tab, Menu, ListItemIcon, ListItemText, Avatar, OutlinedInput } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, Refresh as RefreshIcon, Schedule as ScheduleIcon, Check as CheckIcon, Close as CloseIcon, MiscellaneousServices as ServicesIcon, MoreVert as MoreVertIcon, Visibility as VisibilityIcon } from '@mui/icons-material';
@@ -22,15 +22,14 @@ import petGroupsApi from '../../api/petGroupsApi';
 import { formatPrice } from '../../utils/formatPrice';
 
 const ServicesPage = () => {
-    // Tab state
+    const [isPending, startTransition] = useTransition();
     const [currentTab, setCurrentTab] = useState(0);
-
-    // Loading states
     const [loading, setLoading] = useState(true);
 
     // Data
     const [taskTemplates, setTaskTemplates] = useState([]);
     const [services, setServices] = useState([]);
+    const [allServices, setAllServices] = useState([]); // State mới: lưu TẤT CẢ services để tính availableTasks
     const [slots, setSlots] = useState([]);
     const [workTypes, setWorkTypes] = useState([]);
     const [areas, setAreas] = useState([]);
@@ -39,9 +38,9 @@ const ServicesPage = () => {
     const [petSpecies, setPetSpecies] = useState([]);
     const [teams, setTeams] = useState([]);
 
-    // Search and filters
     const [searchQuery, setSearchQuery] = useState('');
-    const [filterServiceStatus, setFilterServiceStatus] = useState('all');
+    const deferredSearchQuery = useDeferredValue(searchQuery);
+    const [filterServiceStatus, setFilterServiceStatus] = useState('active'); // Mặc định là Hoạt động
     const [filterTaskId, setFilterTaskId] = useState('all');
     const [filterStartTime, setFilterStartTime] = useState('');
     const [filterEndTime, setFilterEndTime] = useState('');
@@ -83,69 +82,76 @@ const ServicesPage = () => {
     const [editingService, setEditingService] = useState(null);
     const [deleteTarget, setDeleteTarget] = useState(null);
 
-    // Load data on mount
-    useEffect(() => {
-        loadData();
-    }, []);
-
-    // Statistics
     const stats = useMemo(() => {
-        const servicedTaskIds = services.map(s => s.task_id).filter(Boolean);
+        if (!taskTemplates.length && !allServices.length) {
+            return {
+                totalTasks: 0,
+                availableTasks: 0,
+                totalServices: 0,
+                activeServices: 0,
+                inactiveServices: 0
+            };
+        }
+
+        const servicedTaskIdsSet = new Set(allServices.map(s => s.task_id).filter(Boolean));
         const publicTasks = taskTemplates.filter(t => t.is_public === true);
-        const availablePublicTasks = publicTasks.filter(t => !servicedTaskIds.includes(t.id));
+        const availablePublicTasks = publicTasks.filter(t => !servicedTaskIdsSet.has(t.id));
+
+        let activeCount = 0;
+        let inactiveCount = 0;
+        for (const service of allServices) {
+            if (service.is_active === true) {
+                activeCount++;
+            } else {
+                inactiveCount++;
+            }
+        }
 
         return {
             totalTasks: publicTasks.length,
             availableTasks: availablePublicTasks.length,
-            totalServices: services.length,
-            activeServices: services.filter(s => s.is_active === true).length,
-            inactiveServices: services.filter(s => s.is_active === false).length
+            totalServices: allServices.length,
+            activeServices: activeCount,
+            inactiveServices: inactiveCount
         };
-    }, [taskTemplates, services]);
+    }, [taskTemplates, allServices]);
 
-    // Calculate available tasks (tasks with is_public = true and no service yet)
     const availableTasks = useMemo(() => {
-        const servicedTaskIds = services.map(s => s.task_id).filter(Boolean);
-        return taskTemplates.filter(t => {
-            // Check if task already has service
-            if (servicedTaskIds.includes(t.id)) return false;
+        if (!taskTemplates.length || !allServices.length) {
+            return taskTemplates.filter(t => t.is_public === true);
+        }
 
-            // Check if task is public (Công khai)
-            return t.is_public === true;
-        });
-    }, [taskTemplates, services]);
+        const servicedTaskIdsSet = new Set(allServices.map(s => s.task_id).filter(Boolean));
+        const publicTasks = taskTemplates.filter(t => t.is_public === true);
 
-    // Filter available tasks
+        return publicTasks.filter(t => !servicedTaskIdsSet.has(t.id));
+    }, [taskTemplates, allServices]);
+
     const filteredAvailableTasks = useMemo(() => {
+        if (!deferredSearchQuery || deferredSearchQuery.trim().length === 0) {
+            return availableTasks;
+        }
+
+        const searchLower = deferredSearchQuery.toLowerCase();
         return availableTasks.filter(task => {
-            // Search filter
-            if (searchQuery) {
-                const searchLower = searchQuery.toLowerCase();
-                const matchSearch = (task.title || task.name).toLowerCase().includes(searchLower) ||
-                    task.description.toLowerCase().includes(searchLower);
-                if (!matchSearch) return false;
-            }
-
-            return true;
+            const title = (task.title || task.name || '').toLowerCase();
+            const description = (task.description || '').toLowerCase();
+            return title.includes(searchLower) || description.includes(searchLower);
         });
-    }, [availableTasks, searchQuery]);
+    }, [availableTasks, deferredSearchQuery]);
 
-    // Filter services - only apply client-side filtering for search query
-    // Other filters are already applied server-side via API
     const filteredServices = useMemo(() => {
-        if (!searchQuery || searchQuery.trim().length === 0) {
-            // No search query, return services as-is (already filtered by API)
+        if (!deferredSearchQuery || deferredSearchQuery.trim().length === 0) {
             return services;
         }
 
-        // Only filter by search query (client-side)
-        const searchLower = searchQuery.toLowerCase();
+        const searchLower = deferredSearchQuery.toLowerCase();
         return services.filter(service => {
-            const matchSearch = service.name.toLowerCase().includes(searchLower) ||
-                service.description.toLowerCase().includes(searchLower);
-            return matchSearch;
+            const name = (service.name || '').toLowerCase();
+            const description = (service.description || '').toLowerCase();
+            return name.includes(searchLower) || description.includes(searchLower);
         });
-    }, [services, searchQuery]);
+    }, [services, deferredSearchQuery]);
 
     // Pagination - for Services tab, use filteredServices with client-side pagination for search; for Available Tasks tab, use client-side pagination
     const currentPageItems = useMemo(() => {
@@ -173,47 +179,35 @@ const ServicesPage = () => {
         }
     }, [currentTab, filteredAvailableTasks, filteredServices, itemsPerPage]);
 
-    // Load all data
-    const loadData = async () => {
-        try {
-            setLoading(true);
-            await Promise.all([
-                loadTaskTemplates(),
-                loadServices(),
-                loadSlots(),
-                loadWorkTypes(),
-                loadAreas(),
-                loadPetSpeciesAndBreeds(),
-                loadPetGroups(),
-                loadTeams()
-            ]);
-        } catch (error) {
-            console.error('Error loading data:', error);
-            setAlert({
-                open: true,
-                title: 'Lỗi',
-                message: error.message || 'Không thể tải dữ liệu',
-                type: 'error'
-            });
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const loadTaskTemplates = async () => {
+    const loadTaskTemplates = useCallback(async () => {
         try {
             const response = await taskTemplateApi.getAllTaskTemplates();
             setTaskTemplates(response.data || []);
         } catch (error) {
-            console.error('Error loading task templates:', error);
             setTaskTemplates([]);
         }
-    };
+    }, []);
 
-    const loadServices = async () => {
+    const loadAllServices = useCallback(async () => {
         try {
-            // If there's a search query, load all data (no pagination) for client-side filtering
-            // Otherwise, use server-side pagination
+            const [activeResponse, inactiveResponse] = await Promise.all([
+                serviceApi.getAllServices({ is_active: true, page: 0, limit: 9999 }),
+                serviceApi.getAllServices({ is_active: false, page: 0, limit: 9999 })
+            ]);
+
+            const allServicesData = [
+                ...(activeResponse.data || []),
+                ...(inactiveResponse.data || [])
+            ];
+
+            setAllServices(allServicesData);
+        } catch (error) {
+            setAllServices([]);
+        }
+    }, []);
+
+    const loadServices = useCallback(async () => {
+        try {
             const shouldLoadAll = searchQuery && searchQuery.trim().length > 0;
 
             const response = await serviceApi.getAllServices({
@@ -225,29 +219,29 @@ const ServicesPage = () => {
                 area_ids: filterAreaIds.length > 0 ? filterAreaIds : undefined,
                 min_price: filterMinPrice === '' ? undefined : Number(filterMinPrice),
                 max_price: filterMaxPrice === '' ? undefined : Number(filterMaxPrice),
-                is_active: filterServiceStatus === 'active' ? true : filterServiceStatus === 'inactive' ? false : undefined,
-                page: shouldLoadAll ? 0 : page - 1, // Convert to 0-based
-                limit: shouldLoadAll ? 9999 : itemsPerPage // Load all if searching
+                is_active: filterServiceStatus === 'active' ? true : false,
+                page: shouldLoadAll ? 0 : page - 1,
+                limit: shouldLoadAll ? 9999 : itemsPerPage
             });
-            setServices(response.data || []);
-            // Update pagination from API response
+
+            startTransition(() => {
+                setServices(response.data || []);
+            });
+
             if (response.pagination && !shouldLoadAll) {
                 setTotalPages(response.pagination.total_pages_count || 1);
                 setTotalItems(response.pagination.total_items_count || 0);
             } else {
-                // When loading all for search, pagination will be calculated from filteredServices
                 setTotalPages(1);
                 setTotalItems(response.data?.length || 0);
             }
         } catch (error) {
-            console.error('Error loading services:', error);
             setServices([]);
             setTotalPages(1);
             setTotalItems(0);
         }
-    };
+    }, [searchQuery, filterTaskId, filterStartTime, filterEndTime, filterSpeciesIds, filterBreedIds, filterAreaIds, filterMinPrice, filterMaxPrice, filterServiceStatus, page, itemsPerPage, startTransition]);
 
-    // Auto-refresh services when filters or pagination change (debounced)
     useEffect(() => {
         if (currentTab === 0) {
             const id = setTimeout(() => {
@@ -255,7 +249,6 @@ const ServicesPage = () => {
             }, 250);
             return () => clearTimeout(id);
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [
         currentTab,
         page,
@@ -269,14 +262,19 @@ const ServicesPage = () => {
         filterBreedIds,
         filterAreaIds,
         filterMinPrice,
-        filterMaxPrice
+        filterMaxPrice,
+        loadServices
     ]);
 
-    // Format helpers for price inputs
-    const formatNumberVi = (value) => new Intl.NumberFormat('vi-VN').format(value);
+    useEffect(() => {
+        if (currentTab === 1) {
+            loadAllServices();
+        }
+    }, [currentTab, loadAllServices]);
 
-    // Min price handlers
-    const handleMinPriceInputChange = (e) => {
+    const formatNumberVi = useCallback((value) => new Intl.NumberFormat('vi-VN').format(value), []);
+
+    const handleMinPriceInputChange = useCallback((e) => {
         const raw = e.target.value || '';
         const digits = raw.replace(/\D/g, '');
         if (digits.length === 0) {
@@ -285,27 +283,28 @@ const ServicesPage = () => {
         } else {
             const num = parseInt(digits, 10);
             setFilterMinPrice(num);
-            setFilterMinPriceText(digits); // keep unformatted while typing
+            setFilterMinPriceText(digits);
         }
         loadServices();
-    };
-    const handleMinPriceBlur = () => {
+    }, [loadServices]);
+
+    const handleMinPriceBlur = useCallback(() => {
         if (filterMinPrice === '') {
             setFilterMinPriceText('');
         } else {
             setFilterMinPriceText(formatNumberVi(filterMinPrice));
         }
-    };
-    const handleMinPriceFocus = () => {
+    }, [filterMinPrice, formatNumberVi]);
+
+    const handleMinPriceFocus = useCallback(() => {
         if (filterMinPrice === '') {
             setFilterMinPriceText('');
         } else {
             setFilterMinPriceText(String(filterMinPrice));
         }
-    };
+    }, [filterMinPrice]);
 
-    // Max price handlers
-    const handleMaxPriceInputChange = (e) => {
+    const handleMaxPriceInputChange = useCallback((e) => {
         const raw = e.target.value || '';
         const digits = raw.replace(/\D/g, '');
         if (digits.length === 0) {
@@ -314,55 +313,55 @@ const ServicesPage = () => {
         } else {
             const num = parseInt(digits, 10);
             setFilterMaxPrice(num);
-            setFilterMaxPriceText(digits); // keep unformatted while typing
+            setFilterMaxPriceText(digits);
         }
         loadServices();
-    };
-    const handleMaxPriceBlur = () => {
+    }, [loadServices]);
+
+    const handleMaxPriceBlur = useCallback(() => {
         if (filterMaxPrice === '') {
             setFilterMaxPriceText('');
         } else {
             setFilterMaxPriceText(formatNumberVi(filterMaxPrice));
         }
-    };
-    const handleMaxPriceFocus = () => {
+    }, [filterMaxPrice, formatNumberVi]);
+
+    const handleMaxPriceFocus = useCallback(() => {
         if (filterMaxPrice === '') {
             setFilterMaxPriceText('');
         } else {
             setFilterMaxPriceText(String(filterMaxPrice));
         }
-    };
+    }, [filterMaxPrice]);
 
-    const loadSlots = async () => {
+    const loadSlots = useCallback(async () => {
         try {
             const response = await slotApi.getAllSlots();
             setSlots(response.data || []);
         } catch (error) {
-            console.warn('Slots not available (permission or data):', error?.message || error);
             setSlots([]);
         }
-    };
+    }, []);
 
-    const loadWorkTypes = async () => {
+    const loadWorkTypes = useCallback(async () => {
         try {
             const response = await taskTemplateApi.getWorkTypes();
             setWorkTypes(response.data || []);
         } catch (error) {
-            console.error('Error loading work types:', error);
             setWorkTypes([]);
         }
-    };
+    }, []);
 
-    const loadAreas = async () => {
+    const loadAreas = useCallback(async () => {
         try {
             const response = await areasApi.getAllAreas();
             setAreas(response.data || []);
         } catch (error) {
-            console.error('Error loading areas:', error);
+            // Silent fail
         }
-    };
+    }, []);
 
-    const loadPetSpeciesAndBreeds = async () => {
+    const loadPetSpeciesAndBreeds = useCallback(async () => {
         try {
             const [speciesRes, breedsRes] = await Promise.all([
                 petSpeciesApi.getAllSpecies({ page_size: 1000 }),
@@ -371,42 +370,74 @@ const ServicesPage = () => {
             setPetSpecies(speciesRes?.data || []);
             setPetBreeds(breedsRes?.data || []);
         } catch (error) {
-            console.error('Error loading species/breeds:', error);
+            // Silent fail
         }
-    };
+    }, []);
 
-    const loadPetGroups = async () => {
+    const loadPetGroups = useCallback(async () => {
         try {
             const response = await petGroupsApi.getAllGroups({ page_size: 1000 });
             setPetGroups(response?.data || []);
         } catch (error) {
-            console.error('Error loading pet groups:', error);
+            // Silent fail
         }
-    };
+    }, []);
 
-    const loadTeams = async () => {
+    const loadTeams = useCallback(async () => {
         try {
-            // Replace mock fallback with empty list; loadTeams elsewhere should fetch real data
             setTeams([]);
         } catch (error) {
-            console.error('Error loading teams:', error);
+            // Silent fail
         }
-    };
+    }, []);
 
-    // Service handlers
-    const handleCreateService = (task) => {
+    const loadData = useCallback(async () => {
+        try {
+            setLoading(true);
+            await Promise.all([
+                loadTaskTemplates(),
+                loadAllServices(),
+                loadServices(),
+                loadSlots(),
+                loadWorkTypes(),
+                loadAreas(),
+                loadPetSpeciesAndBreeds(),
+                loadPetGroups(),
+                loadTeams()
+            ]);
+        } catch (error) {
+            setAlert({
+                open: true,
+                title: 'Lỗi',
+                message: error.message || 'Không thể tải dữ liệu',
+                type: 'error'
+            });
+        } finally {
+            setLoading(false);
+        }
+    }, [loadTaskTemplates, loadAllServices, loadServices, loadSlots, loadWorkTypes, loadAreas, loadPetSpeciesAndBreeds, loadPetGroups, loadTeams]);
+
+    useEffect(() => {
+        loadData();
+    }, [loadData]);
+
+    useEffect(() => {
+        loadData();
+    }, [loadData]);
+
+    const handleCreateService = useCallback((task) => {
         setSelectedTask(task);
         setEditingService(null);
         setServiceFormOpen(true);
-    };
+    }, []);
 
-    const handleEditService = (service) => {
+    const handleEditService = useCallback((service) => {
         setEditingService(service);
         setSelectedTask(null);
         setServiceFormOpen(true);
-    };
+    }, []);
 
-    const handleServiceFormSubmit = async (formData) => {
+    const handleServiceFormSubmit = useCallback(async (formData) => {
         try {
             if (editingService) {
                 await serviceApi.updateService(editingService.id, formData);
@@ -425,14 +456,14 @@ const ServicesPage = () => {
                     type: 'success'
                 });
             }
-            await loadServices();
+            await Promise.all([loadAllServices(), loadServices()]);
             setServiceFormOpen(false);
         } catch (error) {
             throw error;
         }
-    };
+    }, [loadAllServices, loadServices]);
 
-    const handleToggleStatus = async (service) => {
+    const handleToggleStatus = useCallback(async (service) => {
         // Nếu service đang active, hiển thị confirm modal trước khi inactive
         if (service.is_active) {
             setDisableTarget(service);
@@ -440,12 +471,11 @@ const ServicesPage = () => {
             return;
         }
 
-        // Nếu service đang inactive, hiển thị confirm modal trước khi active
         setEnableTarget(service);
         setConfirmEnableOpen(true);
-    };
+    }, []);
 
-    const confirmDisableService = async () => {
+    const confirmDisableService = useCallback(async () => {
         if (!disableTarget) return;
 
         try {
@@ -456,9 +486,8 @@ const ServicesPage = () => {
                 message: 'Service đã được vô hiệu hóa!',
                 type: 'success'
             });
-            await loadServices();
+            await Promise.all([loadAllServices(), loadServices()]);
         } catch (error) {
-            console.error('Error disabling service:', error);
             setAlert({
                 open: true,
                 title: 'Lỗi',
@@ -469,9 +498,9 @@ const ServicesPage = () => {
             setConfirmDisableOpen(false);
             setDisableTarget(null);
         }
-    };
+    }, [loadAllServices, loadServices]);
 
-    const confirmEnableService = async () => {
+    const confirmEnableService = useCallback(async () => {
         if (!enableTarget) return;
 
         try {
@@ -482,9 +511,8 @@ const ServicesPage = () => {
                 message: 'Service đã được kích hoạt!',
                 type: 'success'
             });
-            await loadServices();
+            await Promise.all([loadAllServices(), loadServices()]);
         } catch (error) {
-            console.error('Error enabling service:', error);
             setAlert({
                 open: true,
                 title: 'Lỗi',
@@ -495,19 +523,19 @@ const ServicesPage = () => {
             setConfirmEnableOpen(false);
             setEnableTarget(null);
         }
-    };
+    }, [loadAllServices, loadServices]);
 
-    const handleDeleteService = (service) => {
+    const handleDeleteService = useCallback((service) => {
         setDeleteTarget(service);
         setConfirmDeleteOpen(true);
-    };
+    }, []);
 
-    const handleConfirmDelete = async () => {
+    const handleConfirmDelete = useCallback(async () => {
         if (!deleteTarget) return;
 
         try {
             await serviceApi.deleteService(deleteTarget.id);
-            await loadServices();
+            await Promise.all([loadAllServices(), loadServices()]);
             setAlert({
                 open: true,
                 title: 'Thành công',
@@ -517,7 +545,6 @@ const ServicesPage = () => {
             setConfirmDeleteOpen(false);
             setDeleteTarget(null);
         } catch (error) {
-            console.error('Error deleting service:', error);
             setAlert({
                 open: true,
                 title: 'Lỗi',
@@ -525,10 +552,9 @@ const ServicesPage = () => {
                 type: 'error'
             });
         }
-    };
+    }, [loadAllServices, loadServices]);
 
-    // Slot handlers
-    const handleViewSlots = (service) => {
+    const handleViewSlots = useCallback((service) => {
         // Find task for this service
         const task = taskTemplates.find(t => t.id === service.task_id);
         if (!task) {
@@ -544,22 +570,22 @@ const ServicesPage = () => {
         setSelectedTask(task);
         setSelectedService(service);
         setSlotDetailsOpen(true);
-    };
+    }, [taskTemplates]);
 
-    const handleCreateSlot = (task) => {
+    const handleCreateSlot = useCallback((task) => {
         setSelectedTask(task);
         setSlotFormMode('create');
         setEditingSlot(null);
         setSlotFormOpen(true);
-    };
+    }, []);
 
-    const handleEditSlot = (slot) => {
+    const handleEditSlot = useCallback((slot) => {
         setSlotFormMode('edit');
         setEditingSlot(slot);
         setSlotFormOpen(true);
-    };
+    }, []);
 
-    const handleSlotFormSubmit = async (formData) => {
+    const handleSlotFormSubmit = useCallback(async (formData) => {
         try {
             if (slotFormMode === 'edit' && editingSlot) {
                 // Edit mode
@@ -588,9 +614,9 @@ const ServicesPage = () => {
         } catch (error) {
             throw error;
         }
-    };
+    }, [slotFormMode, editingSlot, loadSlots]);
 
-    const handleDeleteSlot = async (slotId) => {
+    const handleDeleteSlot = useCallback(async (slotId) => {
         try {
             await slotApi.deleteSlot(slotId);
             await loadSlots();
@@ -601,7 +627,6 @@ const ServicesPage = () => {
                 type: 'success'
             });
         } catch (error) {
-            console.error('Error deleting slot:', error);
             setAlert({
                 open: true,
                 title: 'Lỗi',
@@ -609,32 +634,29 @@ const ServicesPage = () => {
                 type: 'error'
             });
         }
-    };
+    }, [loadSlots]);
 
-    // Get work type color
-    const getWorkTypeColor = (workTypeName) => {
+    const getWorkTypeColor = useCallback((workTypeName) => {
         if (!workTypeName) return COLORS.GRAY[500];
 
         const name = workTypeName.toLowerCase();
         if (name.includes('dog') || name.includes('chó')) return COLORS.INFO[600];
         if (name.includes('cat') || name.includes('mèo')) return COLORS.WARNING[600];
         return COLORS.PRIMARY[600];
-    };
+    }, []);
 
-    // Get task for service
-    const getTaskForService = (taskId) => {
+    const getTaskForService = useCallback((taskId) => {
         return taskTemplates.find(t => t.id === taskId);
-    };
+    }, [taskTemplates]);
 
-    // Get slots count for service (by task_id)
-    const getSlotsCountForService = (taskId) => {
+    const getSlotsCountForService = useCallback((taskId) => {
         const serviceSlots = slots.filter(s => s.task_id === taskId);
         return {
             total: serviceSlots.length,
             available: serviceSlots.filter(s => s.service_status === 'AVAILABLE').length,
             unavailable: serviceSlots.filter(s => s.service_status === 'UNAVAILABLE').length
         };
-    };
+    }, [slots]);
 
     if (loading) {
         return <Loading fullScreen />;
@@ -736,16 +758,30 @@ const ServicesPage = () => {
                                     placeholder="Tìm dịch vụ..."
                                     value={searchQuery}
                                     onChange={(e) => {
-                                        setSearchQuery(e.target.value);
-                                        setPage(1);
+                                        startTransition(() => {
+                                            setSearchQuery(e.target.value);
+                                            setPage(1);
+                                        });
                                     }}
                                     size="small"
                                     sx={{ flex: 1, minWidth: 300 }}
                                 />
+                                {isPending && (
+                                    <Box sx={{ position: 'fixed', top: 16, right: 16, zIndex: 1300 }}>
+                                        <Chip
+                                            label="Đang tìm kiếm..."
+                                            size="small"
+                                            sx={{
+                                                bgcolor: COLORS.INFO[500],
+                                                color: 'white',
+                                                fontWeight: 600
+                                            }}
+                                        />
+                                    </Box>
+                                )}
                                 <FormControl size="small" sx={{ width: 200 }}>
                                     <InputLabel>Trạng thái</InputLabel>
                                     <Select value={filterServiceStatus} onChange={(e) => { setFilterServiceStatus(e.target.value); setPage(1); loadServices(); }} label="Trạng thái">
-                                        <MenuItem value="all">Tất cả</MenuItem>
                                         <MenuItem value="active">Hoạt động</MenuItem>
                                         <MenuItem value="inactive">Không hoạt động</MenuItem>
                                     </Select>
@@ -944,27 +980,20 @@ const ServicesPage = () => {
 
                                                 {/* Trạng thái */}
                                                 <TableCell align="center">
-                                                    <Stack direction="row" alignItems="center" justifyContent="center" spacing={1}>
-                                                        <Switch
-                                                            checked={service.is_active === true}
-                                                            onChange={() => handleToggleStatus(service)}
-                                                            size="small"
-                                                            color="success"
-                                                        />
-                                                        <Chip
-                                                            label={service.is_active ? 'Hoạt động' : 'Không hoạt động'}
-                                                            size="small"
-                                                            icon={service.is_active ? <CheckIcon /> : <CloseIcon />}
-                                                            sx={{
-                                                                bgcolor: service.is_active
-                                                                    ? alpha(COLORS.SUCCESS[100], 0.8)
-                                                                    : alpha(COLORS.GRAY[200], 0.6),
-                                                                color: service.is_active
-                                                                    ? COLORS.SUCCESS[700]
-                                                                    : COLORS.TEXT.SECONDARY
-                                                            }}
-                                                        />
-                                                    </Stack>
+                                                    <Chip
+                                                        label={service.is_active ? 'Hoạt động' : 'Không hoạt động'}
+                                                        size="small"
+                                                        icon={service.is_active ? <CheckIcon /> : <CloseIcon />}
+                                                        sx={{
+                                                            bgcolor: service.is_active
+                                                                ? alpha(COLORS.SUCCESS[100], 0.8)
+                                                                : alpha(COLORS.GRAY[200], 0.6),
+                                                            color: service.is_active
+                                                                ? COLORS.SUCCESS[700]
+                                                                : COLORS.TEXT.SECONDARY,
+                                                            fontWeight: 600
+                                                        }}
+                                                    />
                                                 </TableCell>
 
                                                 {/* Thao tác */}
@@ -1026,8 +1055,10 @@ const ServicesPage = () => {
                                 placeholder="Tìm nhiệm vụ..."
                                 value={searchQuery}
                                 onChange={(e) => {
-                                    setSearchQuery(e.target.value);
-                                    setPage(1);
+                                    startTransition(() => {
+                                        setSearchQuery(e.target.value);
+                                        setPage(1);
+                                    });
                                 }}
                                 size="small"
                                 sx={{ minWidth: 250 }}

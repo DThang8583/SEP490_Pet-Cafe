@@ -101,9 +101,9 @@ const Navbar = () => {
         { label: 'Lịch & nhóm', icon: <Groups />, path: '/staff/teams' },
         { label: 'Nhiệm vụ hằng ngày', icon: <Assignment />, path: '/staff/daily-tasks' },
         { label: 'Điểm danh', icon: <ChecklistRtl />, path: '/staff/attendance' },
-        { label: 'Tiêm phòng', icon: <Vaccines />, path: '/staff/vaccination-records' },
+        // { label: 'Tiêm phòng', icon: <Vaccines />, path: '/staff/vaccination-records' },
         { label: 'Xem Booking', icon: <ReceiptLong />, path: '/staff/bookings' },
-        { label: 'Đơn xin nghỉ phép', icon: <Description />, path: '/staff/leave-request' }
+        // { label: 'Đơn xin nghỉ phép', icon: <Description />, path: '/staff/leave-request' }
     ]), []);
 
     const leaderItems = useMemo(() => ([

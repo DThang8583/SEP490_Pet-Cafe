@@ -156,18 +156,47 @@ const serviceApi = {
                 throw new Error('Thời lượng phải lớn hơn 0');
             }
 
-            if (serviceData.base_price === undefined || serviceData.base_price < 0) {
-                throw new Error('Giá cơ bản không được âm');
+            if (serviceData.base_price === undefined || serviceData.base_price === null || serviceData.base_price <= 0) {
+                throw new Error('Giá cơ bản phải lớn hơn 0');
+            }
+
+            // Ensure base_price is a number
+            const basePrice = typeof serviceData.base_price === 'number'
+                ? serviceData.base_price
+                : parseFloat(serviceData.base_price);
+
+            // Ensure duration_minutes is a number
+            const durationMinutes = typeof serviceData.duration_minutes === 'number'
+                ? serviceData.duration_minutes
+                : parseInt(serviceData.duration_minutes);
+
+            // Process image_url - must be string or null
+            let imageUrl = null;
+            if (serviceData.image_url && typeof serviceData.image_url === 'string' && serviceData.image_url.trim()) {
+                imageUrl = serviceData.image_url.trim();
+            }
+
+            // Process thumbnails - must be array of strings
+            let thumbnailsArray = [];
+            if (serviceData.thumbnails && Array.isArray(serviceData.thumbnails)) {
+                thumbnailsArray = serviceData.thumbnails
+                    .filter(url => url && typeof url === 'string' && url.trim())
+                    .map(url => url.trim());
+            }
+
+            // Process task_id - must be valid UUID string
+            if (!serviceData.task_id || typeof serviceData.task_id !== 'string') {
+                throw new Error('Task ID là bắt buộc và phải là UUID hợp lệ');
             }
 
             const payload = {
                 name: serviceData.name.trim(),
                 description: serviceData.description.trim(),
-                duration_minutes: serviceData.duration_minutes,
-                base_price: serviceData.base_price,
-                image_url: serviceData.image_url || null,
-                thumbnails: serviceData.thumbnails || [],
-                task_id: serviceData.task_id || null
+                duration_minutes: durationMinutes,
+                base_price: basePrice,
+                image_url: imageUrl,
+                thumbnails: thumbnailsArray,
+                task_id: serviceData.task_id
             };
 
             console.log('[createService] Request payload:', payload);
@@ -257,6 +286,28 @@ const serviceApi = {
         } catch (error) {
             console.error('[deleteService] Error:', error);
             throw new Error(error.response?.data?.error || error.message || 'Không thể xóa dịch vụ');
+        }
+    },
+
+    /**
+     * Toggle service status (active/inactive)
+     * @param {string} serviceId
+     * @returns {Promise<Object>}
+     */
+    async toggleServiceStatus(serviceId) {
+        try {
+            console.log('[toggleServiceStatus] Request serviceId:', serviceId);
+
+            const response = await apiClient.put(`/services/${serviceId}/toggle-status`, {}, {
+                timeout: 30000
+            });
+
+            console.log('[toggleServiceStatus] Response:', response.data);
+
+            return response.data;
+        } catch (error) {
+            console.error('[toggleServiceStatus] Error:', error);
+            throw new Error(error.response?.data?.error || error.message || 'Không thể thay đổi trạng thái dịch vụ');
         }
     },
 

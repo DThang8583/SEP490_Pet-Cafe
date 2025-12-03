@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Box, Grid, Paper, Typography, Stack, Chip, Divider, Avatar, Skeleton } from '@mui/material';
+import { Box, Grid, Paper, Typography, Stack, Chip, Divider, Avatar } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import { Groups, Event, AccessTime, Person, PeopleAlt, LocalFireDepartment } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
+import Loading from '../../components/loading/Loading';
 import workingStaffApi from '../../api/workingStaffApi';
 import { WEEKDAY_LABELS, WEEKDAYS } from '../../api/workShiftApi';
 
@@ -278,6 +279,10 @@ const WorkingTeamsPage = () => {
     }, [teams]);
 
 
+    if (loading) {
+        return <Loading fullScreen variant="cafe" />;
+    }
+
     return (
         <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: COLORS.BACKGROUND.NEUTRAL, minHeight: '100%' }}>
             <Stack spacing={3}>
@@ -290,85 +295,75 @@ const WorkingTeamsPage = () => {
                     </Typography>
                 </Box>
 
-                {!loading && (
-                    <Paper sx={{ p: 3, borderRadius: 4 }}>
-                        <Stack spacing={2}>
-                            <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                                Nhóm bạn tham gia
-                            </Typography>
-                            {teams.length === 0 ? (
-                                <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
-                                    Bạn chưa được phân vào nhóm nào. Liên hệ quản lý để được phân công.
-                                </Typography>
-                            ) : (
-                                <Grid container spacing={2}>
-                                    {teams.map((team) => (
-                                        <Grid item xs={12} md={6} key={team.id}>
-                                            <TeamInfoCard team={team} />
-                                        </Grid>
-                                    ))}
-                                </Grid>
-                            )}
-                        </Stack>
-                    </Paper>
-                )}
-
-                {loading ? (
+                <Paper sx={{ p: 3, borderRadius: 4 }}>
                     <Stack spacing={2}>
-                        {Array.from({ length: 4 }).map((_, idx) => (
-                            <Skeleton key={idx} variant="rounded" height={180} />
-                        ))}
+                        <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                            Nhóm bạn tham gia
+                        </Typography>
+                        {teams.length === 0 ? (
+                            <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
+                                Bạn chưa được phân vào nhóm nào. Liên hệ quản lý để được phân công.
+                            </Typography>
+                        ) : (
+                            <Grid container spacing={2}>
+                                {teams.map((team) => (
+                                    <Grid item xs={12} md={6} key={team.id}>
+                                        <TeamInfoCard team={team} />
+                                    </Grid>
+                                ))}
+                            </Grid>
+                        )}
                     </Stack>
-                ) : (
-                    WEEKDAYS.map((dayKey) => {
-                        const entries = scheduleByDay[dayKey] || [];
-                        const shiftGroups = groupEntriesByShift(entries);
-                        return (
-                            <Paper key={dayKey} sx={{ p: 3, borderRadius: 4 }}>
-                                <Stack direction="row" justifyContent="space-between" alignItems="center">
-                                    <Stack direction="row" spacing={1.5} alignItems="center">
-                                        <Avatar sx={{ bgcolor: COLORS.ERROR[100], color: COLORS.ERROR[600] }}>
-                                            <Event />
-                                        </Avatar>
-                                        <Box>
-                                            <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                                                {WEEKDAY_LABELS[dayKey]}
-                                            </Typography>
-                                            <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
-                                                {shiftGroups.length > 0
-                                                    ? `${shiftGroups.length} ca làm việc`
-                                                    : 'Chưa có ca nào'}
-                                            </Typography>
-                                        </Box>
-                                    </Stack>
-                                    <Chip
-                                        label={WEEKDAY_LABELS[dayKey]}
-                                        color={shiftGroups.length > 0 ? 'error' : 'default'}
-                                        variant={shiftGroups.length > 0 ? 'filled' : 'outlined'}
-                                    />
-                                </Stack>
-                                <Divider sx={{ my: 2 }} />
-                                <Stack spacing={2}>
-                                    {shiftGroups.length === 0 ? (
-                                        <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
-                                            Bạn chưa có lịch làm việc nào trong ngày này.
-                                        </Typography>
-                                    ) : (
-                                        shiftGroups.map((group) => (
-                                            <ShiftBlock
-                                                key={`${dayKey}-${group.key}`}
-                                                shift={group.shift}
-                                                entries={group.entries}
-                                            />
-                                        ))
-                                    )}
-                                </Stack>
-                            </Paper>
-                        );
-                    })
-                )}
+                </Paper>
 
-                {!loading && teams.length === 0 && (
+                {WEEKDAYS.map((dayKey) => {
+                    const entries = scheduleByDay[dayKey] || [];
+                    const shiftGroups = groupEntriesByShift(entries);
+                    return (
+                        <Paper key={dayKey} sx={{ p: 3, borderRadius: 4 }}>
+                            <Stack direction="row" justifyContent="space-between" alignItems="center">
+                                <Stack direction="row" spacing={1.5} alignItems="center">
+                                    <Avatar sx={{ bgcolor: COLORS.ERROR[100], color: COLORS.ERROR[600] }}>
+                                        <Event />
+                                    </Avatar>
+                                    <Box>
+                                        <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                                            {WEEKDAY_LABELS[dayKey]}
+                                        </Typography>
+                                        <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
+                                            {shiftGroups.length > 0
+                                                ? `${shiftGroups.length} ca làm việc`
+                                                : 'Chưa có ca nào'}
+                                        </Typography>
+                                    </Box>
+                                </Stack>
+                                <Chip
+                                    label={WEEKDAY_LABELS[dayKey]}
+                                    color={shiftGroups.length > 0 ? 'error' : 'default'}
+                                    variant={shiftGroups.length > 0 ? 'filled' : 'outlined'}
+                                />
+                            </Stack>
+                            <Divider sx={{ my: 2 }} />
+                            <Stack spacing={2}>
+                                {shiftGroups.length === 0 ? (
+                                    <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
+                                        Bạn chưa có lịch làm việc nào trong ngày này.
+                                    </Typography>
+                                ) : (
+                                    shiftGroups.map((group) => (
+                                        <ShiftBlock
+                                            key={`${dayKey}-${group.key}`}
+                                            shift={group.shift}
+                                            entries={group.entries}
+                                        />
+                                    ))
+                                )}
+                            </Stack>
+                        </Paper>
+                    );
+                })}
+
+                {teams.length === 0 && (
                     <Paper variant="outlined" sx={{ p: 4, textAlign: 'center', borderRadius: 4 }}>
                         <Typography variant="body1" sx={{ color: COLORS.TEXT.SECONDARY }}>
                             Bạn chưa được phân vào nhóm nào. Liên hệ quản lý để được phân công.

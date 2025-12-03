@@ -529,23 +529,113 @@ export const createTeam = async (teamData) => {
             message: 'Tạo nhóm thành công'
         };
     } catch (error) {
-        if (error.response?.status === 404) {
-            throw new Error('Không tìm thấy nhóm');
-        }
-
         // Extract error message from response
         if (error.response?.data) {
             const errorData = error.response.data;
+
+            // Try to extract detailed error information from various possible fields
+            let errorMessage = null;
+            const errorMessages = [];
+
+            // Check multiple possible error message fields
             if (errorData.message) {
-                throw new Error(Array.isArray(errorData.message) ? errorData.message.join('. ') : errorData.message);
+                const msg = Array.isArray(errorData.message) ? errorData.message.join('. ') : errorData.message;
+                errorMessages.push(msg);
             }
             if (errorData.error) {
-                const errorMsg = Array.isArray(errorData.error) ? errorData.error.join('. ') : errorData.error;
-                throw new Error(errorMsg);
+                const msg = Array.isArray(errorData.error) ? errorData.error.join('. ') : errorData.error;
+                errorMessages.push(msg);
+            }
+            if (errorData.title) {
+                errorMessages.push(errorData.title);
+            }
+            if (errorData.detail) {
+                errorMessages.push(errorData.detail);
+            }
+            if (errorData.errors && typeof errorData.errors === 'object') {
+                // Extract validation errors
+                const validationErrors = [];
+                Object.keys(errorData.errors).forEach(key => {
+                    const fieldErrors = errorData.errors[key];
+                    if (Array.isArray(fieldErrors)) {
+                        validationErrors.push(`${key}: ${fieldErrors.join(', ')}`);
+                    } else {
+                        validationErrors.push(`${key}: ${fieldErrors}`);
+                    }
+                });
+                if (validationErrors.length > 0) {
+                    errorMessages.push(`Lỗi validation: ${validationErrors.join('; ')}`);
+                }
+            }
+            if (typeof errorData === 'string') {
+                errorMessages.push(errorData);
+            }
+
+            // Combine all error messages
+            if (errorMessages.length > 0) {
+                errorMessage = errorMessages.join('. ');
+            }
+
+            // If we have a generic Entity Framework error, try to get more details
+            if (errorMessage && (errorMessage.includes('entity changes') || errorMessage.includes('inner exception'))) {
+                // Check for inner exception or additional details
+                if (errorData.innerException) {
+                    errorMessage = errorData.innerException;
+                } else if (errorData.stackTrace) {
+                    // Sometimes error details are in stackTrace
+                    errorMessage = errorMessage + '. Chi tiết: ' + errorData.stackTrace.substring(0, 200);
+                } else {
+                    // If still generic, check status code for hints
+                    if (error.response?.status === 400) {
+                        errorMessage = 'Dữ liệu không hợp lệ. Vui lòng kiểm tra lại: tên nhóm có thể đã tồn tại, trưởng nhóm không hợp lệ, hoặc loại công việc không hợp lệ.';
+                    } else if (error.response?.status === 409) {
+                        errorMessage = 'Tên nhóm đã tồn tại. Vui lòng chọn tên khác.';
+                    } else if (error.response?.status === 500) {
+                        // 500 error - server-side issue, provide helpful guidance
+                        errorMessage = 'Lỗi server khi tạo nhóm. Vui lòng kiểm tra:\n' +
+                            '• Tên nhóm có thể đã tồn tại\n' +
+                            '• Trưởng nhóm (leader_id) có hợp lệ và đang hoạt động không\n' +
+                            '• Các loại công việc (work_type_ids) có hợp lệ không\n' +
+                            '• Dữ liệu có đầy đủ và đúng định dạng không\n\n' +
+                            'Nếu vấn đề vẫn tiếp tục, vui lòng liên hệ quản trị viên.';
+                    } else {
+                        errorMessage = 'Không thể tạo nhóm. Vui lòng kiểm tra lại: tên nhóm có thể đã tồn tại, trưởng nhóm không hợp lệ, hoặc có lỗi dữ liệu khác.';
+                    }
+                }
+            }
+
+            if (errorMessage) {
+                throw new Error(errorMessage);
             }
         }
 
-        throw error;
+        // If no specific error message, use status code or generic message
+        if (error.response?.status) {
+            if (error.response.status === 400) {
+                throw new Error('Dữ liệu không hợp lệ. Vui lòng kiểm tra lại thông tin nhập vào.');
+            } else if (error.response.status === 409) {
+                throw new Error('Tên nhóm đã tồn tại hoặc có xung đột dữ liệu.');
+            } else if (error.response.status === 404) {
+                throw new Error('Không tìm thấy tài nguyên. Vui lòng kiểm tra lại.');
+            } else if (error.response.status === 500) {
+                // 500 error - provide detailed guidance
+                const errorData = error.response?.data;
+                let detailedMessage = 'Lỗi server khi tạo nhóm.\n\nVui lòng kiểm tra:\n';
+                detailedMessage += '• Tên nhóm có thể đã tồn tại (thử tên khác)\n';
+                detailedMessage += '• Trưởng nhóm có hợp lệ và đang hoạt động không\n';
+                detailedMessage += '• Các loại công việc có hợp lệ không\n';
+                detailedMessage += '• Dữ liệu có đầy đủ và đúng định dạng không\n\n';
+                detailedMessage += 'Nếu vấn đề vẫn tiếp tục, vui lòng liên hệ quản trị viên.';
+                throw new Error(detailedMessage);
+            }
+        }
+
+        // If it's a network error or other error
+        if (error.message) {
+            throw new Error(error.message);
+        }
+
+        throw new Error('Không thể tạo nhóm. Vui lòng thử lại sau.');
     }
 };
 
@@ -787,13 +877,15 @@ export const updateTeamMembers = async (teamId, members) => {
 
 /**
  * Remove member from team
+ * Official API: DELETE /api/team-members/{id}
+ * Request param: id is team_member_id (not employee_id)
  */
-export const removeTeamMember = async (teamId, employeeId) => {
+export const removeTeamMember = async (teamMemberId) => {
     try {
-        if (!teamId || !employeeId) {
-            throw new Error('ID nhóm và ID nhân viên là bắt buộc');
+        if (!teamMemberId) {
+            throw new Error('ID thành viên nhóm là bắt buộc');
         }
-        await apiClient.delete(`/teams/${teamId}/members/${employeeId}`, { timeout: 10000 });
+        await apiClient.delete(`/team-members/${teamMemberId}`, { timeout: 10000 });
         return {
             success: true,
             message: 'Xóa thành viên khỏi nhóm thành công'
@@ -821,6 +913,33 @@ export const removeTeamMember = async (teamId, employeeId) => {
  * Official API: POST /api/teams/{id}/work-shifts
  * Request: { work_shift_ids: ["uuid", ...] }
  */
+export const deleteTeamWorkShift = async (teamWorkShiftId) => {
+    try {
+        if (!teamWorkShiftId) {
+            throw new Error('ID ca làm việc là bắt buộc');
+        }
+
+        const response = await apiClient.delete(`/team-work-shifts/${teamWorkShiftId}`, { timeout: 10000 });
+
+        return {
+            success: true,
+            data: response.data,
+            message: 'Đã xóa ca làm việc khỏi nhóm'
+        };
+    } catch (error) {
+        if (error.response?.status === 404) {
+            throw new Error('Không tìm thấy ca làm việc');
+        }
+
+        if (error.response?.data) {
+            const errorData = error.response.data;
+            throw new Error(errorData.message || errorData.error || 'Không thể xóa ca làm việc');
+        }
+
+        throw new Error(error.message || 'Không thể xóa ca làm việc');
+    }
+};
+
 export const assignTeamWorkShifts = async (teamId, data) => {
     try {
         if (!teamId) {
@@ -864,6 +983,145 @@ export const assignTeamWorkShifts = async (teamId, data) => {
     }
 };
 
+/**
+ * Get daily schedules by team
+ * Official API: GET /api/teams/{id}/daily-schedules
+ * Query params: FromDate, ToDate, Status, page, limit
+ * @param {string} teamId - Team ID
+ * @param {Object} params - Query parameters { FromDate, ToDate, Status, page, limit }
+ * @returns {Promise<Object>} { data, pagination }
+ */
+export const getDailySchedulesByTeam = async (teamId, params = {}) => {
+    try {
+        if (!teamId) {
+            throw new Error('ID nhóm là bắt buộc');
+        }
+
+        const {
+            FromDate,
+            ToDate,
+            Status,
+            page = 0,
+            limit = 10
+        } = params;
+
+        const queryParams = {
+            page,
+            limit
+        };
+
+        if (FromDate) queryParams.FromDate = FromDate;
+        if (ToDate) queryParams.ToDate = ToDate;
+        if (Status) queryParams.Status = Status;
+
+        console.log('[getDailySchedulesByTeam] Request:', { teamId, queryParams });
+
+        const response = await apiClient.get(`/teams/${teamId}/daily-schedules`, {
+            params: queryParams,
+            timeout: 10000
+        });
+
+        console.log('[getDailySchedulesByTeam] Response:', response.data);
+
+        return {
+            success: true,
+            data: response.data?.data || [],
+            pagination: response.data?.pagination || {
+                total_items_count: 0,
+                page_size: limit,
+                total_pages_count: 0,
+                page_index: page,
+                has_next: false,
+                has_previous: false
+            }
+        };
+    } catch (error) {
+        console.error('[getDailySchedulesByTeam] Error:', error);
+
+        if (error.response?.status === 404) {
+            throw new Error('Không tìm thấy nhóm');
+        }
+
+        if (error.response?.data) {
+            const errorData = error.response.data;
+            if (errorData.message) {
+                throw new Error(Array.isArray(errorData.message) ? errorData.message.join('. ') : errorData.message);
+            }
+            if (errorData.error) {
+                const errorMsg = Array.isArray(errorData.error) ? errorData.error.join('. ') : errorData.error;
+                throw new Error(errorMsg);
+            }
+        }
+
+        throw new Error(error.message || 'Không thể tải danh sách điểm danh');
+    }
+};
+
+/**
+ * Update daily schedules (bulk attendance update)
+ * Official API: PUT /api/teams/{id}/daily-schedules
+ * Request body: [{ id: "daily_schedule_id", status: "PRESENT|ABSENT|LATE", notes: "string" }]
+ * @param {string} teamId - Team ID
+ * @param {Array} schedules - Array of { id, status, notes }
+ * @returns {Promise<Object>}
+ */
+export const updateDailySchedules = async (teamId, schedules) => {
+    try {
+        if (!teamId) {
+            throw new Error('ID nhóm là bắt buộc');
+        }
+
+        if (!Array.isArray(schedules) || schedules.length === 0) {
+            throw new Error('Danh sách điểm danh không được trống');
+        }
+
+        // Validate schedule items
+        for (const schedule of schedules) {
+            if (!schedule.id) {
+                throw new Error('ID lịch điểm danh là bắt buộc');
+            }
+            if (!schedule.status) {
+                throw new Error('Trạng thái điểm danh là bắt buộc');
+            }
+        }
+
+        console.log('[updateDailySchedules] Request:', { teamId, schedules });
+
+        const response = await apiClient.put(
+            `/teams/${teamId}/daily-schedules`,
+            schedules,
+            { timeout: 10000 }
+        );
+
+        console.log('[updateDailySchedules] Response:', response.data);
+
+        return {
+            success: true,
+            data: response.data,
+            message: `Đã cập nhật điểm danh cho ${schedules.length} thành viên`
+        };
+    } catch (error) {
+        console.error('[updateDailySchedules] Error:', error);
+
+        if (error.response?.status === 404) {
+            throw new Error('Không tìm thấy nhóm hoặc lịch điểm danh');
+        }
+
+        if (error.response?.data) {
+            const errorData = error.response.data;
+            if (errorData.message) {
+                throw new Error(Array.isArray(errorData.message) ? errorData.message.join('. ') : errorData.message);
+            }
+            if (errorData.error) {
+                const errorMsg = Array.isArray(errorData.error) ? errorData.error.join('. ') : errorData.error;
+                throw new Error(errorMsg);
+            }
+        }
+
+        throw new Error(error.message || 'Không thể cập nhật điểm danh');
+    }
+};
+
 export default {
     getTeams,
     getTeamById,
@@ -878,7 +1136,10 @@ export default {
     addTeamMembers,
     updateTeamMembers,
     removeTeamMember,
-    assignTeamWorkShifts
+    assignTeamWorkShifts,
+    deleteTeamWorkShift,
+    getDailySchedulesByTeam,
+    updateDailySchedules
 };
 
 // No mock exports. Use official APIs only.

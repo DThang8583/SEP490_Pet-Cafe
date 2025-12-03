@@ -1,21 +1,23 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Box, Typography, Paper, Chip, Stack, IconButton, Button, Avatar, Grid, Card, CardContent, TextField, Menu, MenuItem, ListItemIcon, ListItemText, Divider } from '@mui/material';
+import React, { useEffect, useMemo, useState, useCallback, useTransition, useDeferredValue } from 'react';
+import { Box, Typography, Paper, Chip, Stack, IconButton, Button, Grid, Card, CardContent, TextField, Menu, MenuItem, ListItemIcon, ListItemText, Divider } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import { COLORS } from '../../constants/colors';
 import Loading from '../../components/loading/Loading';
-import Pagination from '../../components/common/Pagination';
 import AlertModal from '../../components/modals/AlertModal';
 import ConfirmModal from '../../components/modals/ConfirmModal';
 import ShiftFormModal from '../../components/modals/ShiftFormModal';
 import TeamFormModal from '../../components/modals/TeamFormModal';
 import TeamMembersModal from '../../components/modals/TeamMembersModal';
-import { Edit, Delete, Schedule, AccessTime, GroupAdd, Groups, Search, MoreVert, Person, PersonAdd, Book, Assignment, Event, CalendarToday, Email, Phone, Work } from '@mui/icons-material';
+import { Edit, Delete, Schedule, AccessTime, GroupAdd, Groups, Search, MoreVert, Person, PersonAdd } from '@mui/icons-material';
 import workShiftApi, { WEEKDAY_LABELS, WEEKDAYS } from '../../api/workShiftApi';
 import teamApi from '../../api/teamApi';
 import employeeApi from '../../api/employeeApi';
 import workTypeApi from '../../api/workTypeApi';
+import TeamAssignWorkShiftModal from '../../components/modals/TeamAssignWorkShiftModal';
+import TeamWorkShiftsManagementModal from '../../components/modals/TeamWorkShiftsManagementModal';
 
 const WorkShiftPage = () => {
+    const [isPending, startTransition] = useTransition();
     const [isLoading, setIsLoading] = useState(true);
 
     // Alert modal
@@ -24,6 +26,10 @@ const WorkShiftPage = () => {
     // Confirm modals
     const [confirmDeleteShiftOpen, setConfirmDeleteShiftOpen] = useState(false);
     const [deleteShiftTarget, setDeleteShiftTarget] = useState(null);
+    const [confirmDeleteTeamOpen, setConfirmDeleteTeamOpen] = useState(false);
+    const [deleteTeamTarget, setDeleteTeamTarget] = useState(null);
+    const [confirmDeleteTeamWorkShiftOpen, setConfirmDeleteTeamWorkShiftOpen] = useState(false);
+    const [deleteTeamWorkShiftTarget, setDeleteTeamWorkShiftTarget] = useState(null);
 
     // Work Shifts states
     const [shifts, setShifts] = useState([]);
@@ -37,12 +43,11 @@ const WorkShiftPage = () => {
         applicable_days: []
     });
 
-    // Pagination states
     const [page, setPage] = useState(1);
-    const [itemsPerPage, setItemsPerPage] = useState(10);
+    const [itemsPerPage, setItemsPerPage] = useState(999);
     const [pagination, setPagination] = useState({
         total_items_count: 0,
-        page_size: 10,
+        page_size: 999,
         total_pages_count: 0,
         page_index: 0,
         has_next: false,
@@ -54,14 +59,17 @@ const WorkShiftPage = () => {
     const [slots, setSlots] = useState([]);
     const [openTeamDialog, setOpenTeamDialog] = useState(false);
     const [editingTeam, setEditingTeam] = useState(null);
+    const [openAssignWorkShiftModal, setOpenAssignWorkShiftModal] = useState(false);
+    const [selectedTeamForWorkShift, setSelectedTeamForWorkShift] = useState(null);
+    const [selectedWorkShiftIds, setSelectedWorkShiftIds] = useState([]);
+    const [assigningWorkShifts, setAssigningWorkShifts] = useState(false);
     const [teamFormData, setTeamFormData] = useState({
         name: '',
         description: '',
         leader_id: '',
         work_type_ids: [],
-        work_shift_ids: [],
-        scheduleMatrix: {},
-        is_active: true
+        is_active: true,
+        status: 'ACTIVE'
     });
 
     // Data for team modal
@@ -77,44 +85,34 @@ const WorkShiftPage = () => {
     const [memberRoleFilter, setMemberRoleFilter] = useState('all');
     const [memberSkillFilter, setMemberSkillFilter] = useState('all');
 
+    // Team Work Shifts Management Modal states
+    const [openTeamWorkShiftsManagementModal, setOpenTeamWorkShiftsManagementModal] = useState(false);
+    const [selectedTeamForWorkShiftsManagement, setSelectedTeamForWorkShiftsManagement] = useState(null);
+
     // Menu states
     const [shiftMenuAnchor, setShiftMenuAnchor] = useState(null);
     const [menuShift, setMenuShift] = useState(null);
     const [menuShiftDay, setMenuShiftDay] = useState(null); // Store the day context when opening menu
     const [teamMenuAnchor, setTeamMenuAnchor] = useState(null);
     const [menuTeam, setMenuTeam] = useState(null);
+    const [menuTeamShiftContext, setMenuTeamShiftContext] = useState(null); // Store shift context when opening team menu
 
     // View and filter states
     const [searchQuery, setSearchQuery] = useState('');
+    const deferredSearchQuery = useDeferredValue(searchQuery);
 
-    // Load data from API
-    useEffect(() => {
-        loadShifts();
-        loadTeams();
-        loadSlots();
-        loadEmployees();
-        loadWorkTypes();
-    }, []);
-
-    // Reload shifts when pagination changes
-    useEffect(() => {
-        loadShifts();
-    }, [page, itemsPerPage]);
-
-    const loadShifts = async () => {
+    // Load data functions
+    const loadShifts = useCallback(async () => {
         try {
-            setIsLoading(true);
+            // Load all shifts without pagination (for schedule display)
             const response = await workShiftApi.getWorkShifts({
-                page_index: page - 1,
-                page_size: itemsPerPage
+                page_index: 0,
+                page_size: 1000
             });
             if (response.success) {
                 // Filter out deleted shifts by default (API might return them)
                 const activeShifts = (response.data || []).filter(s => !s.is_deleted);
                 setShifts(activeShifts);
-                if (response.pagination) {
-                    setPagination(response.pagination);
-                }
             } else {
                 setAlert({
                     open: true,
@@ -124,23 +122,43 @@ const WorkShiftPage = () => {
                 });
             }
         } catch (error) {
-            console.error('Error loading shifts:', error);
             setAlert({
                 open: true,
                 type: 'error',
                 title: 'Lỗi',
                 message: error.message || 'Không thể tải danh sách ca làm việc'
             });
-        } finally {
-            setIsLoading(false);
         }
-    };
+    }, []);
 
-    const loadTeams = async () => {
+    const loadTeams = useCallback(async () => {
         try {
-            const response = await teamApi.getTeams();
-            if (response.success) {
-                // Load team members and work shifts for each team
+            setIsLoading(true);
+            const response = await teamApi.getTeams({
+                page: page - 1,
+                limit: itemsPerPage
+            });
+
+            if (!response.success || !Array.isArray(response.data)) {
+                setTeams([]);
+                setPagination({
+                    total_items_count: 0,
+                    page_size: itemsPerPage,
+                    total_pages_count: 0,
+                    page_index: page - 1,
+                    has_next: false,
+                    has_previous: false
+                });
+                return;
+            }
+
+            // Update pagination state
+            if (response.pagination) {
+                setPagination(response.pagination);
+            }
+
+            if (response.data.length > 0) {
+                // Load team members and work shifts for each team in current page
                 const teamsWithData = await Promise.all(
                     response.data.map(async (team) => {
                         try {
@@ -163,7 +181,6 @@ const WorkShiftPage = () => {
                                 team_work_shifts: teamWorkShifts
                             };
                         } catch (error) {
-                            console.warn(`Failed to load data for team ${team.id}:`, error);
                             return {
                                 ...team,
                                 team_members: [],
@@ -172,100 +189,157 @@ const WorkShiftPage = () => {
                         }
                     })
                 );
-                setTeams(teamsWithData);
+
+                startTransition(() => {
+                    setTeams(teamsWithData);
+                });
+            } else {
+                setTeams([]);
             }
         } catch (error) {
-            console.error('Error loading teams:', error);
+            setTeams([]);
+            setAlert({
+                open: true,
+                type: 'error',
+                title: 'Lỗi',
+                message: error.message || 'Không thể tải danh sách nhóm'
+            });
+        } finally {
+            setIsLoading(false);
         }
-    };
+    }, [page, itemsPerPage, startTransition]);
 
-    const loadSlots = async () => {
+    const loadSlots = useCallback(async () => {
         try {
             const response = await teamApi.getAllTeamSlots();
             if (response.success) {
                 setSlots(response.data);
             }
         } catch (error) {
-            console.error('Error loading slots:', error);
+            // Silent fail for background loading
         }
-    };
+    }, []);
 
-    const loadEmployees = async () => {
+    const loadEmployees = useCallback(async () => {
         try {
             const response = await employeeApi.getEmployees();
             if (response.success) {
                 setAllEmployees(response.data);
             }
         } catch (error) {
-            console.error('Error loading employees:', error);
+            // Silent fail for background loading
         }
-    };
+    }, []);
 
-    const loadWorkTypes = async () => {
+    const loadWorkTypes = useCallback(async () => {
         try {
             const response = await workTypeApi.getWorkTypes();
             if (response.success) {
                 setAllWorkTypes(response.data);
             }
         } catch (error) {
-            console.error('Error loading work types:', error);
+            // Silent fail for background loading
         }
-    };
+    }, []);
 
-    // Build schedule: Group shifts by day
+    useEffect(() => {
+        (async () => {
+            await Promise.all([loadShifts(), loadTeams()]);
+            loadSlots();
+            loadEmployees();
+            loadWorkTypes();
+        })();
+    }, [loadShifts, loadTeams, loadSlots, loadEmployees, loadWorkTypes]);
+
+    // Reload teams when pagination changes
+    useEffect(() => {
+        loadTeams();
+    }, [loadTeams]);
+
+
+    const newTeams = useMemo(() => {
+        if (!Array.isArray(teams) || teams.length === 0) {
+            return [];
+        }
+
+        return teams.filter(team => {
+            const hasWorkShifts = (team.team_work_shifts?.length || 0) > 0;
+            const hasMembers = (team.team_members?.filter(m => {
+                const memberId = m.employee?.id || m.employee_id;
+                return memberId && memberId !== team.leader_id;
+            }).length || 0) > 0;
+            return !(hasWorkShifts && hasMembers);
+        });
+    }, [teams]);
+
     const scheduleByDay = useMemo(() => {
         const schedule = {};
+        const searchLower = deferredSearchQuery.toLowerCase();
+        const hasSearch = searchLower.length > 0;
+
+        const validShifts = shifts.filter(shift => !shift.is_deleted);
+
+        const searchMatches = hasSearch ? new Set(
+            validShifts
+                .filter(shift => {
+                    const nameMatch = shift.name?.toLowerCase().includes(searchLower);
+                    const descMatch = shift.description?.toLowerCase().includes(searchLower);
+                    return nameMatch || descMatch;
+                })
+                .map(s => s.id)
+        ) : null;
 
         WEEKDAYS.forEach(day => {
-            schedule[day] = shifts
-                .filter(shift => shift.applicable_days && shift.applicable_days.includes(day))
+            schedule[day] = validShifts
                 .filter(shift => {
-                    // Filter out deleted shifts
-                    if (shift.is_deleted) return false;
-
-                    const matchesSearch = shift.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                        shift.description.toLowerCase().includes(searchQuery.toLowerCase());
-
-                    return matchesSearch;
+                    if (!shift.applicable_days || !shift.applicable_days.includes(day)) return false;
+                    if (hasSearch && searchMatches && !searchMatches.has(shift.id)) return false;
+                    return true;
                 })
                 .sort((a, b) => a.start_time.localeCompare(b.start_time));
         });
 
         return schedule;
-    }, [shifts, searchQuery]);
+    }, [shifts, deferredSearchQuery]);
 
-    // Helper: Get teams for a shift based on team_work_shifts
-    const getTeamsForShift = (shift, day) => {
-        if (!shift || !day || !teams || teams.length === 0) {
-            return [];
+    const teamsByShiftAndDay = useMemo(() => {
+        const map = {};
+
+        if (!Array.isArray(teams) || teams.length === 0) {
+            return map;
         }
 
-        // Filter teams that have this shift assigned and work on this day
-        return teams.filter(team => {
-            // Check if team has this work shift assigned
-            const hasThisShift = team.team_work_shifts?.some(tws => {
+        teams.forEach((team) => {
+            if (!Array.isArray(team.team_work_shifts) || team.team_work_shifts.length === 0) return;
+
+            team.team_work_shifts.forEach((tws) => {
                 const workShift = tws?.work_shift;
-                if (!workShift || workShift.id !== shift.id) {
-                    return false;
-                }
+                if (!workShift || !workShift.id) return;
 
-                // Check if shift's applicable_days includes the current day
                 const applicableDays = Array.isArray(workShift.applicable_days) ? workShift.applicable_days : [];
-                return applicableDays.includes(day);
+                applicableDays.forEach((day) => {
+                    const key = `${workShift.id}_${day}`;
+                    if (!map[key]) {
+                        map[key] = [];
+                    }
+                    map[key].push(team);
+                });
             });
-
-            return hasThisShift;
         });
-    };
 
-    // Calculate statistics
+        return map;
+    }, [teams]);
+
+    const getTeamsForShift = useCallback((shift, day) => {
+        if (!shift || !day) return [];
+        const key = `${shift.id}_${day}`;
+        return teamsByShiftAndDay[key] || [];
+    }, [teamsByShiftAndDay]);
+
     const stats = useMemo(() => {
         const totalShifts = shifts.length;
-        // API doesn't have is_active field, so all shifts are considered active if not deleted
         const activeShifts = shifts.filter(s => !s.is_deleted).length;
-        const totalTeams = teams.length;
-
-        // Count total staff assignments based on current team data
+        const totalTeams = pagination.total_items_count || 0;
         const totalAssignments = teams.reduce((sum, team) => {
             const membersCount = (team.team_members?.length || 0);
             const leaderCount = team.leader ? 1 : 0;
@@ -278,10 +352,9 @@ const WorkShiftPage = () => {
             totalTeams,
             totalAssignments
         };
-    }, [shifts, teams]);
+    }, [shifts, teams, pagination]);
 
-    // Shift CRUD handlers
-    const handleOpenShiftDialog = () => {
+    const handleOpenShiftDialog = useCallback(() => {
         setEditingShift(null);
         setShiftFormData({
             name: '',
@@ -291,9 +364,9 @@ const WorkShiftPage = () => {
             applicable_days: []
         });
         setOpenShiftDialog(true);
-    };
+    }, []);
 
-    const handleEditShift = (shift) => {
+    const handleEditShift = useCallback((shift) => {
         setEditingShift(shift);
         setShiftFormData({
             name: shift.name || '',
@@ -305,26 +378,21 @@ const WorkShiftPage = () => {
         setOpenShiftDialog(true);
         setShiftMenuAnchor(null);
         setMenuShiftDay(null); // Reset day context for edit
-    };
+    }, []);
 
-    const handleSaveShift = async () => {
+    const handleSaveShift = useCallback(async () => {
         try {
-            // Helper to format time for API (ensure HH:mm:ss format)
             const formatTimeForAPI = (time) => {
                 if (!time) return '';
-                // If already in HH:mm:ss format, return as is
                 if (time.includes(':') && time.split(':').length === 3) {
                     return time;
                 }
-                // If in HH:mm format, add :00 for seconds
                 if (time.includes(':') && time.split(':').length === 2) {
                     return time + ':00';
                 }
                 return time;
             };
 
-            // Prepare data according to API spec
-            // API PUT work shift: { name, start_time, end_time, description, applicable_days }
             const submitData = {
                 name: shiftFormData.name?.trim() || '',
                 start_time: formatTimeForAPI(shiftFormData.start_time),
@@ -334,13 +402,10 @@ const WorkShiftPage = () => {
             };
 
             if (editingShift) {
-                // Get original days and new days being added
                 const originalDays = editingShift.applicable_days || [];
                 const newDays = submitData.applicable_days.filter(day => !originalDays.includes(day));
 
-                // Only check for conflicts with NEW days being added (not existing days)
                 if (newDays.length > 0) {
-                    // Check if there are other shifts with same name and time (excluding current shift)
                     const otherShiftsWithSameNameAndTime = shifts.filter(s =>
                         s.id !== editingShift.id &&
                         !s.is_deleted &&
@@ -350,11 +415,9 @@ const WorkShiftPage = () => {
                     );
 
                     if (otherShiftsWithSameNameAndTime.length > 0) {
-                        // Only check conflicts with NEW days
                         const conflictingDays = [];
                         otherShiftsWithSameNameAndTime.forEach(otherShift => {
                             otherShift.applicable_days?.forEach(day => {
-                                // Only check if this day is in newDays (being added)
                                 if (newDays.includes(day) && !conflictingDays.includes(day)) {
                                     conflictingDays.push(day);
                                 }
@@ -401,46 +464,26 @@ const WorkShiftPage = () => {
                 }
             }
         } catch (error) {
-            console.error('Error saving shift:', error);
-            console.error('Error details:', {
-                message: error.message,
-                response: error.response?.data,
-                editingShift: editingShift?.id
-            });
-
-            // Display error message from API
             let errorMessage = error.message || 'Không thể lưu ca làm việc';
 
-            // If editing and error is about time conflict, check if it's a false positive
-            // (API checking the shift against itself for existing days)
             if (editingShift && errorMessage.includes('trùng thời gian')) {
                 const originalDays = editingShift.applicable_days || [];
                 const newDays = shiftFormData.applicable_days.filter(day => !originalDays.includes(day));
 
-                // Extract conflicting days from error message (format: "vào các ngày: MONDAY, TUESDAY")
                 const conflictingDaysMatch = errorMessage.match(/vào các ngày: ([A-Z, ]+)/);
                 if (conflictingDaysMatch) {
                     const conflictingDaysStr = conflictingDaysMatch[1];
                     const conflictingDays = conflictingDaysStr.split(',').map(d => d.trim());
 
-                    // Check if ALL conflicting days are in originalDays (already existed in the shift)
                     const allConflictingDaysAreOriginal = conflictingDays.every(day => originalDays.includes(day));
-
-                    // Check if there are NEW days being added
                     const hasNewDays = newDays.length > 0;
-
-                    // Check if any of the conflicting days are in newDays (newly added days)
                     const newDaysConflicts = conflictingDays.filter(day => newDays.includes(day));
 
-                    // If all conflicting days are original days and no new days are conflicting,
-                    // this is a false positive - API is checking the shift against itself
                     if (allConflictingDaysAreOriginal && hasNewDays && newDaysConflicts.length === 0) {
-                        // Reload data to get the updated shift (API may have updated it despite the error)
                         try {
                             await loadShifts();
                             await loadSlots();
 
-                            // Show success message
                             setAlert({
                                 open: true,
                                 type: 'success',
@@ -450,7 +493,7 @@ const WorkShiftPage = () => {
                             setOpenShiftDialog(false);
                             return;
                         } catch (reloadError) {
-                            // Fall through to show error
+                            // Continue to show error
                         }
                     }
                 }
@@ -463,9 +506,9 @@ const WorkShiftPage = () => {
                 message: errorMessage
             });
         }
-    };
+    }, [editingShift, shiftFormData, shifts, loadShifts, loadSlots]);
 
-    const handleDeleteShift = (shift) => {
+    const handleDeleteShift = useCallback((shift) => {
         if (!menuShiftDay) {
             setAlert({
                 open: true,
@@ -478,9 +521,9 @@ const WorkShiftPage = () => {
         setDeleteShiftTarget(shift);
         setConfirmDeleteShiftOpen(true);
         setShiftMenuAnchor(null);
-    };
+    }, [menuShiftDay]);
 
-    const handleConfirmDeleteShift = async () => {
+    const handleConfirmDeleteShift = useCallback(async () => {
         try {
             const shift = deleteShiftTarget;
             const currentDay = menuShiftDay;
@@ -490,7 +533,6 @@ const WorkShiftPage = () => {
             }
 
             if (!currentDay) {
-                // If no day context, delete entire shift
                 const response = await workShiftApi.deleteWorkShift(shift.id);
                 if (response.success) {
                     setAlert({
@@ -505,9 +547,7 @@ const WorkShiftPage = () => {
                 return;
             }
 
-            // Check if shift has only one day - if so, delete the entire shift
             if (shift.applicable_days && shift.applicable_days.length === 1) {
-                // Delete entire shift if it only has one day
                 const response = await workShiftApi.deleteWorkShift(shift.id);
                 if (response.success) {
                     setAlert({
@@ -518,11 +558,9 @@ const WorkShiftPage = () => {
                     });
                 }
             } else if (shift.applicable_days && Array.isArray(shift.applicable_days)) {
-                // Remove the day from applicable_days
                 const updatedDays = shift.applicable_days.filter(day => day !== currentDay);
 
                 if (updatedDays.length === 0) {
-                    // If no days left, delete the entire shift
                     const response = await workShiftApi.deleteWorkShift(shift.id);
                     if (response.success) {
                         setAlert({
@@ -533,15 +571,11 @@ const WorkShiftPage = () => {
                         });
                     }
                 } else {
-                    // Update shift to remove the day
-                    // Ensure time format is correct (HH:mm:ss)
                     const formatTimeForAPI = (time) => {
                         if (!time) return '';
-                        // If already in HH:mm:ss format, return as is
                         if (time.includes(':') && time.split(':').length === 3) {
                             return time;
                         }
-                        // If in HH:mm format, add :00 for seconds
                         if (time.includes(':') && time.split(':').length === 2) {
                             return time + ':00';
                         }
@@ -566,7 +600,6 @@ const WorkShiftPage = () => {
                             });
                         }
                     } catch (updateError) {
-                        // If update fails due to time conflict, delete the entire shift
                         if (updateError.message && updateError.message.includes('trùng thời gian')) {
                             const deleteResponse = await workShiftApi.deleteWorkShift(shift.id);
                             if (deleteResponse.success) {
@@ -578,13 +611,11 @@ const WorkShiftPage = () => {
                                 });
                             }
                         } else {
-                            // Re-throw other errors
                             throw updateError;
                         }
                     }
                 }
             } else {
-                // Fallback: delete entire shift if applicable_days is invalid
                 const response = await workShiftApi.deleteWorkShift(shift.id);
                 if (response.success) {
                     setAlert({
@@ -599,13 +630,9 @@ const WorkShiftPage = () => {
             await loadShifts();
             await loadSlots();
         } catch (error) {
-            console.error('Error deleting shift:', error);
-
-            // Parse error message for time conflict
             let errorMessage = error.message || 'Không thể xóa ca làm việc';
 
             if (error.message && error.message.includes('trùng thời gian')) {
-                // Time conflict error - provide more helpful message
                 errorMessage = `Không thể xóa ca khỏi ngày này vì có ca khác trùng thời gian vào các ngày còn lại. Vui lòng xóa toàn bộ ca nếu muốn xóa.`;
             } else if (error.response?.data?.message) {
                 errorMessage = Array.isArray(error.response.data.message)
@@ -627,94 +654,260 @@ const WorkShiftPage = () => {
             setDeleteShiftTarget(null);
             setMenuShiftDay(null);
         }
-    };
+    }, [deleteShiftTarget, menuShiftDay, loadShifts, loadSlots]);
 
-    // Team CRUD handlers
-    const handleOpenTeamDialog = () => {
+    const getStatusLabel = useCallback((status) => {
+        switch ((status || '').toUpperCase()) {
+            case 'ACTIVE':
+                return { text: 'Đang vận hành', color: COLORS.SUCCESS[700], bg: alpha(COLORS.SUCCESS[500], 0.1) };
+            case 'INACTIVE':
+                return { text: 'Tạm ngưng', color: COLORS.ERROR[700], bg: alpha(COLORS.ERROR[500], 0.1) };
+            default:
+                return { text: status || 'Không xác định', color: COLORS.TEXT.SECONDARY, bg: alpha(COLORS.GRAY[400], 0.15) };
+        }
+    }, []);
+
+    const getActiveLabel = useCallback((isActive) => {
+        return isActive
+            ? { text: 'Kích hoạt', color: COLORS.INFO[700], bg: alpha(COLORS.INFO[500], 0.1) }
+            : { text: 'Ngừng kích hoạt', color: COLORS.GRAY[700], bg: alpha(COLORS.GRAY[400], 0.2) };
+    }, []);
+
+    const handleOpenTeamDialog = useCallback(() => {
         setEditingTeam(null);
         setTeamFormData({
             name: '',
             description: '',
             leader_id: '',
             work_type_ids: [],
-            work_shift_ids: [],
-            scheduleMatrix: {},
-            is_active: true
+            is_active: true,
+            status: 'ACTIVE'
         });
         setOpenTeamDialog(true);
-    };
+    }, []);
 
-    const handleEditTeam = (team) => {
+    const handleOpenAssignWorkShiftModal = useCallback((team) => {
+        if (!team) return;
+        const existingShifts = (team.team_work_shifts || []).map(tws => {
+            return tws.work_shift_id || tws.work_shift?.id || tws.id;
+        }).filter(Boolean);
+        setSelectedTeamForWorkShift(team);
+        setSelectedWorkShiftIds(existingShifts);
+        setOpenAssignWorkShiftModal(true);
+    }, []);
+
+    const handleCloseAssignWorkShiftModal = useCallback(() => {
+        setOpenAssignWorkShiftModal(false);
+        setSelectedTeamForWorkShift(null);
+        setSelectedWorkShiftIds([]);
+    }, []);
+
+    const handleAssignWorkShifts = useCallback(async (workShiftIds) => {
+        if (!selectedTeamForWorkShift) return;
+        if (!Array.isArray(workShiftIds) || workShiftIds.length === 0) {
+            setAlert({
+                open: true,
+                type: 'error',
+                title: 'Lỗi',
+                message: 'Vui lòng chọn ít nhất một ca làm việc'
+            });
+            return;
+        }
+        setAssigningWorkShifts(true);
+        try {
+            await teamApi.assignTeamWorkShifts(selectedTeamForWorkShift.id, { work_shift_ids: workShiftIds });
+            setAlert({
+                open: true,
+                type: 'success',
+                title: 'Thành công',
+                message: 'Phân ca cho nhóm thành công!'
+            });
+            handleCloseAssignWorkShiftModal();
+            await loadTeams();
+            await loadSlots();
+        } catch (error) {
+            setAlert({
+                open: true,
+                type: 'error',
+                title: 'Lỗi',
+                message: error.message || 'Không thể phân ca cho nhóm'
+            });
+        } finally {
+            setAssigningWorkShifts(false);
+        }
+    }, [selectedTeamForWorkShift, loadTeams, loadSlots]);
+
+    const handleEditTeam = useCallback((team) => {
         setEditingTeam(team);
         setTeamFormData({
             name: team.name,
             description: team.description,
             leader_id: team.leader_id,
             work_type_ids: team.team_work_types?.map(wt => wt.work_type?.id || wt.work_type_id) || [],
-            is_active: team.is_active ?? true
+            is_active: team.is_active ?? true,
+            status: team.status || 'ACTIVE'
         });
         setOpenTeamDialog(true);
         setTeamMenuAnchor(null);
-    };
+    }, []);
 
-    const handleSaveTeam = async () => {
+    const handleSaveTeam = useCallback(async () => {
         try {
             if (editingTeam) {
-                const response = await teamApi.updateTeam(editingTeam.id, teamFormData);
-                if (response.success) {
+                try {
+                    const response = await teamApi.updateTeam(editingTeam.id, {
+                        name: teamFormData.name?.trim(),
+                        description: teamFormData.description?.trim(),
+                        leader_id: teamFormData.leader_id,
+                        work_type_ids: teamFormData.work_type_ids || [],
+                        is_active: teamFormData.is_active ?? true,
+                        status: teamFormData.status || 'ACTIVE'
+                    });
+                    if (response.success) {
+                        setAlert({
+                            open: true,
+                            type: 'success',
+                            title: 'Thành công',
+                            message: 'Cập nhật nhóm thành công!'
+                        });
+                        setOpenTeamDialog(false);
+                        await loadTeams();
+                        await loadSlots();
+                        return;
+                    } else {
+                        throw new Error(response.message || 'Không thể cập nhật nhóm');
+                    }
+                } catch (error) {
+                    const errorMessage = error.response?.data?.message || error.message || 'Không thể cập nhật nhóm';
                     setAlert({
                         open: true,
-                        type: 'success',
-                        title: 'Thành công',
-                        message: 'Cập nhật nhóm thành công!'
+                        type: 'error',
+                        title: 'Lỗi',
+                        message: `Không thể cập nhật nhóm: ${errorMessage}`
                     });
-                    setOpenTeamDialog(false);
-                    await loadTeams();
-                    await loadSlots();
                     return;
                 }
             } else {
-                // Create team first
-                const response = await teamApi.createTeam(teamFormData);
+                try {
+                    const createTeamData = {
+                        name: teamFormData.name?.trim(),
+                        description: teamFormData.description?.trim(),
+                        leader_id: teamFormData.leader_id,
+                        work_type_ids: teamFormData.work_type_ids || [],
+                        status: teamFormData.status || 'ACTIVE'
+                    };
 
-                if (response.success) {
-                    const newTeamId = response.data.id;
+                    if (!createTeamData.name || !createTeamData.name.trim()) {
+                        setAlert({
+                            open: true,
+                            type: 'error',
+                            title: 'Lỗi',
+                            message: 'Tên nhóm là bắt buộc và không được để trống.'
+                        });
+                        return;
+                    }
+                    if (!createTeamData.description || !createTeamData.description.trim()) {
+                        setAlert({
+                            open: true,
+                            type: 'error',
+                            title: 'Lỗi',
+                            message: 'Mô tả là bắt buộc và không được để trống.'
+                        });
+                        return;
+                    }
+                    if (!createTeamData.leader_id) {
+                        setAlert({
+                            open: true,
+                            type: 'error',
+                            title: 'Lỗi',
+                            message: 'Trưởng nhóm là bắt buộc. Vui lòng chọn trưởng nhóm.'
+                        });
+                        return;
+                    }
+                    if (!Array.isArray(createTeamData.work_type_ids) || createTeamData.work_type_ids.length === 0) {
+                        setAlert({
+                            open: true,
+                            type: 'error',
+                            title: 'Lỗi',
+                            message: 'Phải chọn ít nhất một loại công việc.'
+                        });
+                        return;
+                    }
 
-                    // Then assign work shifts to the team
-                    if (teamFormData.work_shift_ids && teamFormData.work_shift_ids.length > 0) {
-                        try {
-                            await teamApi.assignTeamWorkShifts(newTeamId, {
-                                work_shift_ids: teamFormData.work_shift_ids
-                            });
-                        } catch (shiftError) {
-                            console.error('Error assigning work shifts:', shiftError);
-                            // Show warning but don't fail the whole operation
+                    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+                    if (!uuidRegex.test(createTeamData.leader_id)) {
+                        setAlert({
+                            open: true,
+                            type: 'error',
+                            title: 'Lỗi',
+                            message: 'Trưởng nhóm không hợp lệ. Vui lòng chọn lại trưởng nhóm.'
+                        });
+                        return;
+                    }
+                    for (const workTypeId of createTeamData.work_type_ids) {
+                        if (!uuidRegex.test(workTypeId)) {
                             setAlert({
                                 open: true,
-                                type: 'warning',
-                                title: 'Cảnh báo',
-                                message: 'Tạo nhóm thành công nhưng không thể phân công ca làm việc. Vui lòng thử lại sau.'
+                                type: 'error',
+                                title: 'Lỗi',
+                                message: 'Một hoặc nhiều loại công việc không hợp lệ. Vui lòng chọn lại.'
                             });
-                            setOpenTeamDialog(false);
-                            await loadTeams();
-                            await loadSlots();
                             return;
                         }
+                    }
+
+                    const response = await teamApi.createTeam(createTeamData);
+
+                    if (!response.success) {
+                        throw new Error(response.message || 'Không thể tạo nhóm');
+                    }
+
+                    if (!response.data || !response.data.id) {
+                        throw new Error('API không trả về ID nhóm mới tạo');
                     }
 
                     setAlert({
                         open: true,
                         type: 'success',
                         title: 'Thành công',
-                        message: 'Tạo nhóm và phân công ca làm việc thành công!'
+                        message: 'Tạo nhóm thành công!'
                     });
+
+                    setOpenTeamDialog(false);
+                    await loadTeams();
+                    await loadSlots();
+                } catch (error) {
+                    let errorMessage = 'Không thể tạo nhóm';
+
+                    if (error.message) {
+                        errorMessage = error.message;
+                    } else if (error.response?.data) {
+                        const errorData = error.response.data;
+                        if (errorData.message) {
+                            errorMessage = Array.isArray(errorData.message)
+                                ? errorData.message.join('. ')
+                                : errorData.message;
+                        } else if (errorData.error) {
+                            errorMessage = Array.isArray(errorData.error)
+                                ? errorData.error.join('. ')
+                                : errorData.error;
+                        } else if (errorData.detail) {
+                            errorMessage = errorData.detail;
+                        } else if (typeof errorData === 'string') {
+                            errorMessage = errorData;
+                        }
+                    }
+
+                    setAlert({
+                        open: true,
+                        type: 'error',
+                        title: 'Lỗi',
+                        message: errorMessage
+                    });
+                    return;
                 }
             }
-            setOpenTeamDialog(false);
-            await loadTeams();
-            await loadSlots();
         } catch (error) {
-            console.error('Error saving team:', error);
             setAlert({
                 open: true,
                 type: 'error',
@@ -722,28 +915,22 @@ const WorkShiftPage = () => {
                 message: error.message || 'Không thể lưu nhóm'
             });
         }
-    };
+    }, [editingTeam, teamFormData, loadTeams, loadSlots]);
 
-    // Team Members Management handlers
-    const handleOpenTeamMembersModal = async (team) => {
+    const handleOpenTeamMembersModal = useCallback(async (team) => {
         setSelectedTeamForMembers(team);
 
-        // Load team members
         try {
             const response = await teamApi.getTeamMembers(team.id);
             if (response.success) {
-                // Ensure is_active is set to true by default if not provided or if it's null/undefined
-                // API might return is_active: false or null, so we need to check for both undefined and null
                 const membersWithDefaultActive = response.data.map(member => ({
                     ...member,
-                    // If is_active is explicitly false, keep it. Otherwise default to true
                     is_active: member.is_active === false ? false : (member.is_active ?? true)
                 }));
                 setTeamMembers(membersWithDefaultActive);
-                setOriginalTeamMembers(JSON.parse(JSON.stringify(membersWithDefaultActive))); // Deep copy
+                setOriginalTeamMembers(JSON.parse(JSON.stringify(membersWithDefaultActive)));
             }
         } catch (error) {
-            console.error('Error loading team members:', error);
             setTeamMembers([]);
             setOriginalTeamMembers([]);
         }
@@ -753,64 +940,59 @@ const WorkShiftPage = () => {
         setMemberSkillFilter('all');
         setOpenTeamMembersModal(true);
         setTeamMenuAnchor(null);
-    };
+    }, []);
 
-    const handleAddMember = (employee) => {
-        // Check if already in team
-        const alreadyExists = teamMembers.some(m =>
-            (m.employee?.id || m.employee_id) === employee.id
-        );
+    const handleAddMember = useCallback((employee) => {
+        setTeamMembers(prev => {
+            const alreadyExists = prev.some(m =>
+                (m.employee?.id || m.employee_id) === employee.id
+            );
+            if (alreadyExists) return prev;
 
-        if (alreadyExists) return;
+            const newMember = {
+                employee_id: employee.id,
+                employee: employee,
+                is_active: true,
+                team: null,
+                daily_schedules: []
+            };
+            return [...prev, newMember];
+        });
+    }, []);
 
-        const newMember = {
-            employee_id: employee.id,
-            employee: employee,
-            is_active: true, // New members are always active by default
-            team: null,
-            daily_schedules: []
-        };
-
-        setTeamMembers([...teamMembers, newMember]);
-    };
-
-    const handleRemoveMember = (employeeId) => {
-        setTeamMembers(teamMembers.filter(m =>
+    const handleRemoveMember = useCallback((employeeId) => {
+        setTeamMembers(prev => prev.filter(m =>
             (m.employee?.id || m.employee_id) !== employeeId
         ));
-    };
+    }, []);
 
-    const handleToggleMemberStatus = (employeeId) => {
-        setTeamMembers(teamMembers.map(m => {
+    const handleToggleMemberStatus = useCallback((employeeId) => {
+        setTeamMembers(prev => prev.map(m => {
             const memberId = m.employee?.id || m.employee_id;
             if (memberId === employeeId) {
-                // Toggle is_active, default to true if undefined
                 const currentActive = m.is_active !== undefined ? m.is_active : true;
                 return { ...m, is_active: !currentActive };
             }
             return m;
         }));
-    };
+    }, []);
 
-    const handleSaveTeamMembers = async () => {
+    const handleSaveTeamMembers = useCallback(async () => {
         try {
             const teamId = selectedTeamForMembers.id;
 
-            // Find added members
             const addedMembers = teamMembers.filter(m =>
                 !originalTeamMembers.some(om =>
                     (om.employee?.id || om.employee_id) === (m.employee?.id || m.employee_id)
                 )
             ).map(m => ({ employee_id: m.employee?.id || m.employee_id }));
 
-            // Find removed members
             const removedMembers = originalTeamMembers.filter(om =>
                 !teamMembers.some(m =>
                     (m.employee?.id || m.employee_id) === (om.employee?.id || om.employee_id)
                 )
             );
 
-            // Find members with changed status
             const updatedMembers = teamMembers.filter(m => {
                 const original = originalTeamMembers.find(om =>
                     (om.employee?.id || om.employee_id) === (m.employee?.id || m.employee_id)
@@ -821,7 +1003,6 @@ const WorkShiftPage = () => {
                 is_active: m.is_active
             }));
 
-            // Call APIs
             if (addedMembers.length > 0) {
                 await teamApi.addTeamMembers(teamId, addedMembers);
             }
@@ -831,8 +1012,10 @@ const WorkShiftPage = () => {
             }
 
             for (const member of removedMembers) {
-                const employeeId = member.employee?.id || member.employee_id;
-                await teamApi.removeTeamMember(teamId, employeeId);
+                const teamMemberId = member.id || member.team_member_id;
+                if (teamMemberId) {
+                    await teamApi.removeTeamMember(teamMemberId);
+                }
             }
 
             setAlert({
@@ -843,10 +1026,9 @@ const WorkShiftPage = () => {
             });
 
             setOpenTeamMembersModal(false);
-            await loadTeams(); // Reload to get updated data
-            await loadSlots(); // Reload slots to reflect changes
+            await loadTeams();
+            await loadSlots();
         } catch (error) {
-            console.error('Error saving team members:', error);
             setAlert({
                 open: true,
                 type: 'error',
@@ -854,37 +1036,155 @@ const WorkShiftPage = () => {
                 message: error.message || 'Không thể lưu thành viên nhóm'
             });
         }
-    };
+    }, [selectedTeamForMembers, teamMembers, originalTeamMembers, loadTeams, loadSlots]);
 
-    // Menu handlers
-    const handleShiftMenuOpen = (event, shift, day) => {
+    const handleShiftMenuOpen = useCallback((event, shift, day) => {
         setShiftMenuAnchor(event.currentTarget);
         setMenuShift(shift);
         setMenuShiftDay(day); // Store the day context
-    };
+    }, []);
 
-    const handleShiftMenuClose = () => {
+    const handleShiftMenuClose = useCallback(() => {
         setShiftMenuAnchor(null);
-    };
+    }, []);
 
-    const handleTeamMenuOpen = (event, team) => {
+    const handleTeamMenuOpen = useCallback((event, team, shiftContext = null) => {
         setTeamMenuAnchor(event.currentTarget);
         setMenuTeam(team);
-    };
+        setMenuTeamShiftContext(shiftContext);
+    }, []);
 
-    const handleTeamMenuClose = () => {
+    const handleTeamMenuClose = useCallback(() => {
         setTeamMenuAnchor(null);
         setMenuTeam(null);
-    };
+        setMenuTeamShiftContext(null);
+    }, []);
 
-    // Format time
-    const formatTime = (time) => {
+    const handleOpenTeamWorkShiftsManagement = useCallback((team) => {
+        setSelectedTeamForWorkShiftsManagement(team);
+        setOpenTeamWorkShiftsManagementModal(true);
+        setTeamMenuAnchor(null);
+    }, []);
+
+    const handleCloseTeamWorkShiftsManagement = useCallback(() => {
+        setOpenTeamWorkShiftsManagementModal(false);
+        setSelectedTeamForWorkShiftsManagement(null);
+    }, []);
+
+    const handleTeamWorkShiftsUpdate = useCallback(async () => {
+        await loadTeams();
+    }, [loadTeams]);
+
+    const handleDeleteTeam = useCallback((team) => {
+        setDeleteTeamTarget(team);
+        setConfirmDeleteTeamOpen(true);
+        setTeamMenuAnchor(null);
+    }, []);
+
+    const handleConfirmDeleteTeam = useCallback(async () => {
+        try {
+            const team = deleteTeamTarget;
+
+            if (!team) {
+                throw new Error('Không tìm thấy team');
+            }
+
+            const response = await teamApi.deleteTeam(team.id);
+            if (response.success) {
+                setAlert({
+                    open: true,
+                    type: 'success',
+                    title: 'Thành công',
+                    message: 'Xóa team thành công!'
+                });
+            }
+            await loadTeams();
+        } catch (error) {
+            setAlert({
+                open: true,
+                type: 'error',
+                title: 'Lỗi',
+                message: error?.response?.data?.message || error.message || 'Có lỗi xảy ra khi xóa team'
+            });
+        } finally {
+            setConfirmDeleteTeamOpen(false);
+            setDeleteTeamTarget(null);
+        }
+    }, [deleteTeamTarget, loadTeams]);
+
+    const handleDeleteTeamWorkShift = useCallback((team, shift) => {
+        if (!team || !shift) {
+            setAlert({
+                open: true,
+                type: 'error',
+                title: 'Lỗi',
+                message: 'Không thể xác định team hoặc ca làm việc'
+            });
+            return;
+        }
+
+        const teamWorkShift = team.team_work_shifts?.find(tws => {
+            const workShiftId = tws.work_shift_id || tws.work_shift?.id;
+            return workShiftId === shift.id;
+        });
+
+        if (!teamWorkShift || !teamWorkShift.id) {
+            setAlert({
+                open: true,
+                type: 'error',
+                title: 'Lỗi',
+                message: 'Không tìm thấy thông tin ca làm việc của team này'
+            });
+            return;
+        }
+
+        setDeleteTeamWorkShiftTarget({
+            teamWorkShiftId: teamWorkShift.id,
+            teamName: team.name,
+            shiftName: shift.name
+        });
+        setConfirmDeleteTeamWorkShiftOpen(true);
+        setTeamMenuAnchor(null);
+    }, []);
+
+    const handleConfirmDeleteTeamWorkShift = useCallback(async () => {
+        try {
+            const target = deleteTeamWorkShiftTarget;
+
+            if (!target || !target.teamWorkShiftId) {
+                throw new Error('Không tìm thấy thông tin ca làm việc');
+            }
+
+            const response = await teamApi.deleteTeamWorkShift(target.teamWorkShiftId);
+            if (response.success) {
+                setAlert({
+                    open: true,
+                    type: 'success',
+                    title: 'Thành công',
+                    message: `Đã xóa ca "${target.shiftName}" khỏi team "${target.teamName}"!`
+                });
+            }
+            await loadTeams();
+        } catch (error) {
+            setAlert({
+                open: true,
+                type: 'error',
+                title: 'Lỗi',
+                message: error?.response?.data?.message || error.message || 'Có lỗi xảy ra khi xóa ca làm việc khỏi team'
+            });
+        } finally {
+            setConfirmDeleteTeamWorkShiftOpen(false);
+            setDeleteTeamWorkShiftTarget(null);
+        }
+    }, [deleteTeamWorkShiftTarget, loadTeams]);
+
+    const formatTime = useCallback((time) => {
         if (!time) return '';
         return time.substring(0, 5);
-    };
+    }, []);
 
     if (isLoading) {
-        return <Loading />;
+        return <Loading fullScreen variant="cafe" />;
     }
 
     return (
@@ -955,12 +1255,29 @@ const WorkShiftPage = () => {
                     size="small"
                     placeholder="Tìm ca làm việc, nhân viên..."
                     value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onChange={(e) => {
+                        startTransition(() => {
+                            setSearchQuery(e.target.value);
+                        });
+                    }}
                     InputProps={{
                         startAdornment: <Search sx={{ color: COLORS.GRAY[400], mr: 0.5, fontSize: 20 }} />
                     }}
                     sx={{ minWidth: { xs: '100%', sm: 1350 }, flexGrow: { xs: 1, sm: 0 } }}
                 />
+                {isPending && (
+                    <Box sx={{ position: 'fixed', top: 16, right: 16, zIndex: 1300 }}>
+                        <Chip
+                            label="Đang tìm kiếm..."
+                            size="small"
+                            sx={{
+                                bgcolor: COLORS.INFO[500],
+                                color: 'white',
+                                fontWeight: 600
+                            }}
+                        />
+                    </Box>
+                )}
                 <Box sx={{ flexGrow: { xs: 0, sm: 1 } }} />
                 <Button
                     variant="contained"
@@ -993,6 +1310,256 @@ const WorkShiftPage = () => {
                     Tạo nhóm
                 </Button>
             </Stack>
+
+            {/* New Teams Section */}
+            {newTeams.length > 0 && (
+                <Box sx={{ mb: 4 }}>
+                    <Box
+                        sx={{
+                            bgcolor: COLORS.WARNING[500],
+                            color: 'white',
+                            p: 2,
+                            borderRadius: '8px 8px 0 0',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            mb: 0
+                        }}
+                    >
+                        <Typography variant="h6" fontWeight={700}>
+                            Các team mới
+                        </Typography>
+                        <Chip
+                            label={`${newTeams.length} team chưa được phân công`}
+                            sx={{
+                                bgcolor: 'white',
+                                color: COLORS.WARNING[700],
+                                fontWeight: 600
+                            }}
+                        />
+                    </Box>
+                    <Paper
+                        sx={{
+                            borderRadius: '0 0 8px 8px',
+                            boxShadow: `0 2px 12px ${alpha(COLORS.SHADOW.LIGHT, 0.08)}`,
+                            p: 3
+                        }}
+                    >
+                        <Grid container spacing={2}>
+                            {newTeams.map((team) => (
+                                <Grid item xs={12} sm={6} md={4} lg={3} key={team.id}>
+                                    <Card
+                                        sx={{
+                                            width: '100%',
+                                            height: '100%',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            border: `2px solid ${COLORS.WARNING[300]}`,
+                                            borderRadius: 2,
+                                            bgcolor: alpha(COLORS.WARNING[50], 0.3),
+                                            '&:hover': {
+                                                boxShadow: `0 4px 12px ${alpha(COLORS.WARNING[300], 0.3)}`,
+                                                borderColor: COLORS.WARNING[500]
+                                            },
+                                            transition: 'all 0.2s'
+                                        }}
+                                    >
+                                        <CardContent sx={{ p: 2, flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+                                            <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 1.5 }}>
+                                                <Box sx={{ flex: 1 }}>
+                                                    <Typography variant="subtitle2" fontWeight={700} color={COLORS.WARNING[700]} sx={{ mb: 0.5 }}>
+                                                        {team.name}
+                                                    </Typography>
+                                                    <Stack direction="row" spacing={0.5} alignItems="center" flexWrap="wrap" sx={{ gap: 0.5 }}>
+                                                        {(() => {
+                                                            const statusMeta = getStatusLabel(team.status);
+                                                            return (
+                                                                <Chip
+                                                                    label={statusMeta.text}
+                                                                    size="small"
+                                                                    sx={{
+                                                                        height: 18,
+                                                                        fontSize: '0.6rem',
+                                                                        bgcolor: statusMeta.bg,
+                                                                        color: statusMeta.color
+                                                                    }}
+                                                                />
+                                                            );
+                                                        })()}
+                                                        {(() => {
+                                                            const activeMeta = getActiveLabel(team.is_active);
+                                                            return (
+                                                                <Chip
+                                                                    label={activeMeta.text}
+                                                                    size="small"
+                                                                    sx={{
+                                                                        height: 18,
+                                                                        fontSize: '0.6rem',
+                                                                        bgcolor: activeMeta.bg,
+                                                                        color: activeMeta.color
+                                                                    }}
+                                                                />
+                                                            );
+                                                        })()}
+                                                    </Stack>
+                                                </Box>
+                                                <IconButton
+                                                    size="small"
+                                                    onClick={(e) => handleTeamMenuOpen(e, team)}
+                                                    sx={{
+                                                        p: 0.5,
+                                                        '&:hover': {
+                                                            bgcolor: alpha(COLORS.WARNING[500], 0.1)
+                                                        }
+                                                    }}
+                                                >
+                                                    <MoreVert sx={{ fontSize: 16 }} />
+                                                </IconButton>
+                                            </Stack>
+
+                                            {/* Description */}
+                                            {team.description && (
+                                                <Box sx={{ mb: 1.5 }}>
+                                                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem', lineHeight: 1.4 }}>
+                                                        {team.description}
+                                                    </Typography>
+                                                </Box>
+                                            )}
+
+                                            {/* Leader */}
+                                            {team.leader && (
+                                                <Box sx={{ mb: team.team_members && team.team_members.length > 0 ? 1 : 0 }}>
+                                                    <Stack direction="row" spacing={0.5} alignItems="center">
+                                                        <Person sx={{ fontSize: 14, color: COLORS.GRAY[500] }} />
+                                                        <Typography variant="caption" color="text.secondary" fontWeight={500}>
+                                                            Leader: {team.leader.full_name || 'N/A'}
+                                                        </Typography>
+                                                    </Stack>
+                                                    {(() => {
+                                                        const members = team.team_members
+                                                            ?.filter(m => {
+                                                                const memberId = m.employee?.id || m.employee_id;
+                                                                return memberId && memberId !== team.leader_id;
+                                                            })
+                                                            .map(m => ({
+                                                                id: m.employee?.id || m.employee_id,
+                                                                name: m.employee?.full_name || m.full_name
+                                                            }))
+                                                            .filter(m => m.id && m.name);
+                                                        if (!members || members.length === 0) {
+                                                            return null;
+                                                        }
+                                                        return (
+                                                            <Box sx={{ mt: 1 }}>
+                                                                <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, fontWeight: 600 }}>
+                                                                    Thành viên ({members.length}):
+                                                                </Typography>
+                                                                <Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ mt: 0.5, gap: 0.5 }}>
+                                                                    {members.map((member, idx) => (
+                                                                        <Chip
+                                                                            key={member.id || idx}
+                                                                            label={member.name}
+                                                                            size="small"
+                                                                            sx={{
+                                                                                height: 22,
+                                                                                fontSize: '0.65rem',
+                                                                                bgcolor: alpha(COLORS.PRIMARY[100], idx % 2 === 0 ? 0.7 : 0.4),
+                                                                                color: COLORS.PRIMARY[800],
+                                                                                fontWeight: 600
+                                                                            }}
+                                                                        />
+                                                                    ))}
+                                                                </Stack>
+                                                            </Box>
+                                                        );
+                                                    })()}
+                                                </Box>
+                                            )}
+
+                                            {/* Warning message */}
+                                            <Box sx={{ mt: 'auto', pt: 1.5, borderTop: `1px dashed ${COLORS.WARNING[300]}` }}>
+                                                <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mb: 1 }}>
+                                                    {(() => {
+                                                        const hasWorkShifts = (team.team_work_shifts?.length || 0) > 0;
+                                                        const hasMembers = (team.team_members?.filter(m => {
+                                                            const memberId = m.employee?.id || m.employee_id;
+                                                            return memberId && memberId !== team.leader_id;
+                                                        }).length || 0) > 0;
+                                                        let message = '⚠️ Chưa có ca làm việc và thành viên';
+                                                        if (hasWorkShifts && !hasMembers) {
+                                                            message = '⚠️ Chưa có thành viên';
+                                                        } else if (!hasWorkShifts && hasMembers) {
+                                                            message = '⚠️ Chưa có ca làm việc';
+                                                        }
+                                                        return (
+                                                            <Typography variant="caption" color={COLORS.WARNING[700]} fontWeight={600} sx={{ fontSize: '0.7rem' }}>
+                                                                {message}
+                                                            </Typography>
+                                                        );
+                                                    })()}
+                                                </Stack>
+                                                <Stack direction="row" spacing={1}>
+                                                    <Button
+                                                        size="small"
+                                                        variant="outlined"
+                                                        startIcon={<Schedule />}
+                                                        onClick={() => handleOpenAssignWorkShiftModal(team)}
+                                                        disabled={(() => {
+                                                            const membersCount = (team.team_members?.filter(m => {
+                                                                const memberId = m.employee?.id || m.employee_id;
+                                                                return memberId && memberId !== team.leader_id;
+                                                            }).length || 0);
+                                                            return membersCount === 0;
+                                                        })()}
+                                                        sx={{
+                                                            flex: 1,
+                                                            textTransform: 'none',
+                                                            fontSize: '0.7rem',
+                                                            py: 0.5,
+                                                            borderColor: COLORS.PRIMARY[500],
+                                                            color: COLORS.PRIMARY[700],
+                                                            '&:hover': {
+                                                                borderColor: COLORS.PRIMARY[600],
+                                                                bgcolor: alpha(COLORS.PRIMARY[500], 0.1)
+                                                            },
+                                                            '&.Mui-disabled': {
+                                                                borderColor: COLORS.GRAY[300],
+                                                                color: COLORS.GRAY[400]
+                                                            }
+                                                        }}
+                                                    >
+                                                        Phân ca
+                                                    </Button>
+                                                    <Button
+                                                        size="small"
+                                                        variant="outlined"
+                                                        startIcon={<PersonAdd />}
+                                                        onClick={() => handleOpenTeamMembersModal(team)}
+                                                        sx={{
+                                                            flex: 1,
+                                                            textTransform: 'none',
+                                                            fontSize: '0.7rem',
+                                                            py: 0.5,
+                                                            borderColor: COLORS.SUCCESS[500],
+                                                            color: COLORS.SUCCESS[700],
+                                                            '&:hover': {
+                                                                borderColor: COLORS.SUCCESS[600],
+                                                                bgcolor: alpha(COLORS.SUCCESS[500], 0.1)
+                                                            }
+                                                        }}
+                                                    >
+                                                        Quản lý thành viên
+                                                    </Button>
+                                                </Stack>
+                                            </Box>
+                                        </CardContent>
+                                    </Card>
+                                </Grid>
+                            ))}
+                        </Grid>
+                    </Paper>
+                </Box>
+            )}
 
             {/* Schedule by Day */}
             <Stack spacing={3}>
@@ -1036,311 +1603,351 @@ const WorkShiftPage = () => {
                                 }}
                             >
                                 <Stack spacing={3} sx={{ p: 3 }}>
-                                    {dayShifts.map((shift) => (
-                                        <Box key={shift.id}>
-                                            {/* Shift Info */}
+                                    {dayShifts.map((shift, shiftIndex) => {
+                                        const shiftColors = [
+                                            COLORS.PRIMARY[500],
+                                            COLORS.SUCCESS[500],
+                                            COLORS.INFO[500],
+                                            COLORS.WARNING[500],
+                                            COLORS.ERROR[400]
+                                        ];
+                                        const color = shiftColors[shiftIndex % shiftColors.length];
+
+                                        return (
                                             <Box
+                                                key={shift.id}
                                                 sx={{
-                                                    display: 'flex',
-                                                    justifyContent: 'space-between',
-                                                    alignItems: 'flex-start',
-                                                    mb: 2
+                                                    borderRadius: 2,
+                                                    borderLeft: `4px solid ${color}`,
+                                                    bgcolor: alpha(color, 0.03),
+                                                    boxShadow: `0 2px 6px ${alpha(COLORS.SHADOW.LIGHT, 0.08)}`,
+                                                    p: 2.25
                                                 }}
                                             >
-                                                <Box sx={{ flex: 1 }}>
-                                                    <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 1 }}>
-                                                        <Typography variant="h6" fontWeight={700}>
-                                                            {shift.name}
-                                                        </Typography>
-                                                        <Stack direction="row" spacing={0.5} alignItems="center">
-                                                            <AccessTime sx={{ fontSize: 16, color: COLORS.GRAY[500] }} />
-                                                            <Typography variant="body2" color="text.secondary">
-                                                                {formatTime(shift.start_time)} - {formatTime(shift.end_time)}
-                                                            </Typography>
-                                                        </Stack>
-                                                        <IconButton
-                                                            size="small"
-                                                            onClick={(e) => handleShiftMenuOpen(e, shift, day)}
+                                                {/* Shift Info */}
+                                                <Box
+                                                    sx={{
+                                                        display: 'flex',
+                                                        justifyContent: 'space-between',
+                                                        alignItems: 'flex-start',
+                                                        mb: 2
+                                                    }}
+                                                >
+                                                    <Box sx={{ flex: 1 }}>
+                                                        <Stack
+                                                            direction="row"
+                                                            spacing={1.5}
+                                                            alignItems="center"
+                                                            sx={{ mb: 1 }}
                                                         >
-                                                            <MoreVert fontSize="small" />
-                                                        </IconButton>
-                                                    </Stack>
-                                                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                                                        {shift.description}
-                                                    </Typography>
-                                                </Box>
-                                            </Box>
-
-                                            {/* Teams Section */}
-                                            <Box>
-                                                {(() => {
-                                                    const shiftTeams = getTeamsForShift(shift, day);
-                                                    return (
-                                                        <>
-                                                            <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.5 }}>
-                                                                <Groups sx={{ fontSize: 20, color: COLORS.PRIMARY[500] }} />
-                                                                <Typography variant="body2" fontWeight={600} color="text.secondary">
-                                                                    Nhóm làm việc
+                                                            <Typography
+                                                                variant="h6"
+                                                                fontWeight={800}
+                                                                sx={{ color }}
+                                                            >
+                                                                {shift.name}
+                                                            </Typography>
+                                                            <Stack
+                                                                direction="row"
+                                                                spacing={0.5}
+                                                                alignItems="center"
+                                                                sx={{
+                                                                    px: 1,
+                                                                    py: 0.25,
+                                                                    borderRadius: 999,
+                                                                    bgcolor: alpha(color, 0.08)
+                                                                }}
+                                                            >
+                                                                <AccessTime sx={{ fontSize: 16, color }} />
+                                                                <Typography
+                                                                    variant="body2"
+                                                                    sx={{ color: COLORS.TEXT.PRIMARY, fontWeight: 600 }}
+                                                                >
+                                                                    {formatTime(shift.start_time)} - {formatTime(shift.end_time)}
                                                                 </Typography>
-                                                                <Chip
-                                                                    label={shiftTeams.length}
-                                                                    size="small"
-                                                                    sx={{
-                                                                        height: 20,
-                                                                        bgcolor: alpha(COLORS.PRIMARY[500], 0.1),
-                                                                        color: COLORS.PRIMARY[700],
-                                                                        fontWeight: 600,
-                                                                        fontSize: '0.7rem'
-                                                                    }}
-                                                                />
                                                             </Stack>
-                                                        </>
-                                                    );
-                                                })()}
+                                                            <IconButton
+                                                                size="small"
+                                                                onClick={(e) => handleShiftMenuOpen(e, shift, day)}
+                                                            >
+                                                                <MoreVert fontSize="small" />
+                                                            </IconButton>
+                                                        </Stack>
+                                                        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                                                            {shift.description}
+                                                        </Typography>
+                                                    </Box>
+                                                </Box>
 
-                                                {/* Teams Grid */}
-                                                {(() => {
-                                                    const shiftTeams = getTeamsForShift(shift, day);
-                                                    return shiftTeams.length === 0 ? (
-                                                        <Box
-                                                            sx={{
-                                                                textAlign: 'center',
-                                                                py: 3,
-                                                                bgcolor: alpha(COLORS.GRAY[100], 0.3),
-                                                                borderRadius: 2
-                                                            }}
-                                                        >
-                                                            <Typography variant="body2" color="text.secondary">
-                                                                Chưa có nhóm nào được phân công
-                                                            </Typography>
-                                                        </Box>
-                                                    ) : (
-                                                        <Grid container spacing={2} sx={{ alignItems: 'stretch' }}>
-                                                            {shiftTeams.map((team) => (
-                                                                <Grid item xs={12} sm={6} md={3} lg={3} key={team.id} sx={{ display: 'flex' }}>
-                                                                    <Card
+                                                {/* Teams Section */}
+                                                <Box>
+                                                    {(() => {
+                                                        const shiftTeams = getTeamsForShift(shift, day);
+                                                        return (
+                                                            <>
+                                                                <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.5 }}>
+                                                                    <Groups sx={{ fontSize: 20, color: COLORS.PRIMARY[500] }} />
+                                                                    <Typography variant="body2" fontWeight={600} color="text.secondary">
+                                                                        Nhóm làm việc
+                                                                    </Typography>
+                                                                    <Chip
+                                                                        label={shiftTeams.length}
+                                                                        size="small"
                                                                         sx={{
-                                                                            width: '100%',
-                                                                            height: '100%',
-                                                                            display: 'flex',
-                                                                            flexDirection: 'column',
-                                                                            border: `1px solid ${COLORS.GRAY[200]}`,
-                                                                            borderRadius: 2,
-                                                                            '&:hover': {
-                                                                                boxShadow: `0 4px 12px ${alpha(COLORS.SHADOW.LIGHT, 0.15)}`,
-                                                                                borderColor: COLORS.PRIMARY[300]
-                                                                            },
-                                                                            transition: 'all 0.2s'
+                                                                            height: 20,
+                                                                            bgcolor: alpha(COLORS.PRIMARY[500], 0.1),
+                                                                            color: COLORS.PRIMARY[700],
+                                                                            fontWeight: 600,
+                                                                            fontSize: '0.7rem'
                                                                         }}
-                                                                    >
-                                                                        <CardContent sx={{ p: 2, flexGrow: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-                                                                            <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 1.5 }}>
-                                                                                <Box sx={{ flex: 1 }}>
-                                                                                    <Typography variant="subtitle2" fontWeight={700} color={COLORS.PRIMARY[700]} sx={{ mb: 0.5 }}>
-                                                                                        {team.name}
-                                                                                    </Typography>
-                                                                                    <Stack direction="row" spacing={0.5} alignItems="center" flexWrap="wrap" sx={{ gap: 0.5 }}>
+                                                                    />
+                                                                </Stack>
+                                                            </>
+                                                        );
+                                                    })()}
+
+                                                    {/* Teams Grid */}
+                                                    {(() => {
+                                                        const shiftTeams = getTeamsForShift(shift, day);
+                                                        return shiftTeams.length === 0 ? (
+                                                            <Box
+                                                                sx={{
+                                                                    textAlign: 'center',
+                                                                    py: 3,
+                                                                    bgcolor: alpha(COLORS.GRAY[100], 0.3),
+                                                                    borderRadius: 2
+                                                                }}
+                                                            >
+                                                                <Typography variant="body2" color="text.secondary">
+                                                                    Chưa có nhóm nào được phân công
+                                                                </Typography>
+                                                            </Box>
+                                                        ) : (
+                                                            <Grid container spacing={2} sx={{ alignItems: 'stretch' }}>
+                                                                {shiftTeams.map((team) => (
+                                                                    <Grid item xs={12} sm={6} md={3} lg={3} key={team.id} sx={{ display: 'flex' }}>
+                                                                        <Card
+                                                                            sx={{
+                                                                                width: '100%',
+                                                                                height: '100%',
+                                                                                display: 'flex',
+                                                                                flexDirection: 'column',
+                                                                                border: `1px solid ${COLORS.GRAY[200]}`,
+                                                                                borderRadius: 2,
+                                                                                '&:hover': {
+                                                                                    boxShadow: `0 4px 12px ${alpha(COLORS.SHADOW.LIGHT, 0.15)}`,
+                                                                                    borderColor: COLORS.PRIMARY[300]
+                                                                                },
+                                                                                transition: 'all 0.2s'
+                                                                            }}
+                                                                        >
+                                                                            <CardContent sx={{ p: 2, flexGrow: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                                                                                <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 1.5 }}>
+                                                                                    <Box sx={{ flex: 1 }}>
+                                                                                        <Typography variant="subtitle2" fontWeight={700} color={COLORS.PRIMARY[700]} sx={{ mb: 0.5 }}>
+                                                                                            {team.name}
+                                                                                        </Typography>
+                                                                                        <Stack direction="row" spacing={0.5} alignItems="center" flexWrap="wrap" sx={{ gap: 0.5 }}>
+                                                                                            {(() => {
+                                                                                                const statusMeta = getStatusLabel(team.status);
+                                                                                                return (
+                                                                                                    <Chip
+                                                                                                        label={statusMeta.text}
+                                                                                                        size="small"
+                                                                                                        sx={{
+                                                                                                            height: 18,
+                                                                                                            fontSize: '0.6rem',
+                                                                                                            bgcolor: statusMeta.bg,
+                                                                                                            color: statusMeta.color
+                                                                                                        }}
+                                                                                                    />
+                                                                                                );
+                                                                                            })()}
+                                                                                            {(() => {
+                                                                                                const activeMeta = getActiveLabel(team.is_active);
+                                                                                                return (
+                                                                                                    <Chip
+                                                                                                        label={activeMeta.text}
+                                                                                                        size="small"
+                                                                                                        sx={{
+                                                                                                            height: 18,
+                                                                                                            fontSize: '0.6rem',
+                                                                                                            bgcolor: activeMeta.bg,
+                                                                                                            color: activeMeta.color
+                                                                                                        }}
+                                                                                                    />
+                                                                                                );
+                                                                                            })()}
+                                                                                        </Stack>
+                                                                                    </Box>
+                                                                                    <Stack direction="row" spacing={0.5} alignItems="center">
                                                                                         <Chip
-                                                                                            label={team.status === 'ACTIVE' ? 'Hoạt động' : 'Không hoạt động'}
+                                                                                            label={`${(team.team_members?.filter(m => {
+                                                                                                const memberId = m.employee?.id || m.employee_id;
+                                                                                                return memberId && memberId !== team.leader_id;
+                                                                                            }).length || 0) + 1} người`}
                                                                                             size="small"
                                                                                             sx={{
-                                                                                                height: 18,
-                                                                                                fontSize: '0.6rem',
-                                                                                                bgcolor: team.status === 'ACTIVE'
-                                                                                                    ? alpha(COLORS.SUCCESS[500], 0.1)
-                                                                                                    : alpha(COLORS.ERROR[500], 0.1),
-                                                                                                color: team.status === 'ACTIVE'
-                                                                                                    ? COLORS.SUCCESS[700]
-                                                                                                    : COLORS.ERROR[700]
+                                                                                                height: 20,
+                                                                                                fontSize: '0.65rem',
+                                                                                                bgcolor: alpha(COLORS.INFO[500], 0.1),
+                                                                                                color: COLORS.INFO[700]
                                                                                             }}
                                                                                         />
-                                                                                        <Chip
-                                                                                            label={team.is_active ? 'Kích hoạt' : 'Vô hiệu'}
+                                                                                        <IconButton
                                                                                             size="small"
+                                                                                            onClick={(e) => handleTeamMenuOpen(e, team, shift)}
                                                                                             sx={{
-                                                                                                height: 18,
-                                                                                                fontSize: '0.6rem',
-                                                                                                bgcolor: team.is_active
-                                                                                                    ? alpha(COLORS.INFO[500], 0.1)
-                                                                                                    : alpha(COLORS.GRAY[500], 0.1),
-                                                                                                color: team.is_active
-                                                                                                    ? COLORS.INFO[700]
-                                                                                                    : COLORS.GRAY[700]
+                                                                                                p: 0.5,
+                                                                                                '&:hover': {
+                                                                                                    bgcolor: alpha(COLORS.PRIMARY[500], 0.1)
+                                                                                                }
                                                                                             }}
-                                                                                        />
+                                                                                        >
+                                                                                            <MoreVert sx={{ fontSize: 16 }} />
+                                                                                        </IconButton>
+                                                                                    </Stack>
+                                                                                </Stack>
+
+                                                                                {/* Description */}
+                                                                                {team.description && (
+                                                                                    <Box sx={{ mb: 1.5 }}>
+                                                                                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem', lineHeight: 1.4 }}>
+                                                                                            {team.description}
+                                                                                        </Typography>
+                                                                                    </Box>
+                                                                                )}
+
+                                                                                {/* Work Types */}
+                                                                                {team.team_work_types && team.team_work_types.length > 0 && (
+                                                                                    <Box sx={{ mb: 1.5 }}>
+                                                                                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5, fontWeight: 500 }}>
+                                                                                            Loại công việc:
+                                                                                        </Typography>
+                                                                                        <Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ gap: 0.5 }}>
+                                                                                            {team.team_work_types.map((twt) => (
+                                                                                                <Chip
+                                                                                                    key={twt.id || twt.work_type_id}
+                                                                                                    label={twt.work_type?.name || 'N/A'}
+                                                                                                    size="small"
+                                                                                                    sx={{
+                                                                                                        height: 20,
+                                                                                                        fontSize: '0.65rem',
+                                                                                                        bgcolor: alpha(COLORS.SUCCESS[500], 0.1),
+                                                                                                        color: COLORS.SUCCESS[700],
+                                                                                                        fontWeight: 500
+                                                                                                    }}
+                                                                                                />
+                                                                                            ))}
+                                                                                        </Stack>
+                                                                                    </Box>
+                                                                                )}
+
+                                                                                {/* Leader */}
+                                                                                <Box sx={{ mb: 1.5 }}>
+                                                                                    <Stack direction="row" spacing={0.5} alignItems="center">
+                                                                                        <Person sx={{ fontSize: 14, color: COLORS.GRAY[500] }} />
+                                                                                        <Typography variant="caption" color="text.secondary" fontWeight={500}>
+                                                                                            Leader: {team.leader?.full_name || 'N/A'}
+                                                                                        </Typography>
                                                                                     </Stack>
                                                                                 </Box>
-                                                                                <Stack direction="row" spacing={0.5} alignItems="center">
-                                                                                    <Chip
-                                                                                        label={`${(team.team_members?.filter(m => {
-                                                                                            const memberId = m.employee?.id || m.employee_id;
-                                                                                            return memberId && memberId !== team.leader_id;
-                                                                                        }).length || 0) + 1} người`}
-                                                                                        size="small"
-                                                                                        sx={{
-                                                                                            height: 20,
-                                                                                            fontSize: '0.65rem',
-                                                                                            bgcolor: alpha(COLORS.INFO[500], 0.1),
-                                                                                            color: COLORS.INFO[700]
-                                                                                        }}
-                                                                                    />
-                                                                                    <IconButton
-                                                                                        size="small"
-                                                                                        onClick={(e) => handleTeamMenuOpen(e, team)}
-                                                                                        sx={{
-                                                                                            p: 0.5,
-                                                                                            '&:hover': {
-                                                                                                bgcolor: alpha(COLORS.PRIMARY[500], 0.1)
-                                                                                            }
-                                                                                        }}
-                                                                                    >
-                                                                                        <MoreVert sx={{ fontSize: 16 }} />
-                                                                                    </IconButton>
-                                                                                </Stack>
-                                                                            </Stack>
 
-                                                                            {/* Description */}
-                                                                            {team.description && (
                                                                                 <Box sx={{ mb: 1.5 }}>
-                                                                                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem', lineHeight: 1.4 }}>
-                                                                                        {team.description}
-                                                                                    </Typography>
-                                                                                </Box>
-                                                                            )}
-
-                                                                            {/* Work Types */}
-                                                                            {team.team_work_types && team.team_work_types.length > 0 && (
-                                                                                <Box sx={{ mb: 1.5 }}>
-                                                                                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5, fontWeight: 500 }}>
-                                                                                        Loại công việc:
+                                                                                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                                                                                        Ngày làm việc:
                                                                                     </Typography>
                                                                                     <Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ gap: 0.5 }}>
-                                                                                        {team.team_work_types.map((twt) => (
+                                                                                        {(() => {
+                                                                                            const allWorkingDays = new Set();
+                                                                                            if (team.team_work_shifts && Array.isArray(team.team_work_shifts)) {
+                                                                                                team.team_work_shifts.forEach(tws => {
+                                                                                                    if (tws.work_shift && Array.isArray(tws.work_shift.applicable_days)) {
+                                                                                                        tws.work_shift.applicable_days.forEach(day => allWorkingDays.add(day));
+                                                                                                    }
+                                                                                                });
+                                                                                            }
+                                                                                            const sortedDays = WEEKDAYS.filter(day => allWorkingDays.has(day));
+                                                                                            return sortedDays.length > 0 ? (
+                                                                                                sortedDays.map((d) => (
+                                                                                                    <Chip
+                                                                                                        key={d}
+                                                                                                        label={WEEKDAY_LABELS[d]}
+                                                                                                        size="small"
+                                                                                                        sx={{
+                                                                                                            height: 20,
+                                                                                                            fontSize: '0.65rem',
+                                                                                                            bgcolor: alpha(COLORS.PRIMARY[500], 0.1),
+                                                                                                            color: COLORS.PRIMARY[700]
+                                                                                                        }}
+                                                                                                    />
+                                                                                                ))
+                                                                                            ) : (
+                                                                                                <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                                                                                                    Chưa có lịch làm việc
+                                                                                                </Typography>
+                                                                                            );
+                                                                                        })()}
+                                                                                    </Stack>
+                                                                                </Box>
+
+                                                                                {/* Team Members */}
+                                                                                <Box sx={{ mt: 'auto' }}>
+                                                                                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                                                                                        Thành viên ({(team.team_members?.filter(m => {
+                                                                                            const memberId = m.employee?.id || m.employee_id;
+                                                                                            return memberId && memberId !== team.leader_id;
+                                                                                        }).length || 0) + (team.leader ? 1 : 0)}):
+                                                                                    </Typography>
+                                                                                    <Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ gap: 0.5 }}>
+                                                                                        {/* Leader */}
+                                                                                        {team.leader && (
                                                                                             <Chip
-                                                                                                key={twt.id || twt.work_type_id}
-                                                                                                label={twt.work_type?.name || 'N/A'}
+                                                                                                label={team.leader.full_name}
                                                                                                 size="small"
                                                                                                 sx={{
-                                                                                                    height: 20,
-                                                                                                    fontSize: '0.65rem',
-                                                                                                    bgcolor: alpha(COLORS.SUCCESS[500], 0.1),
-                                                                                                    color: COLORS.SUCCESS[700],
-                                                                                                    fontWeight: 500
+                                                                                                    height: 22,
+                                                                                                    fontSize: '0.7rem',
+                                                                                                    bgcolor: alpha(COLORS.PRIMARY[100], 0.8),
+                                                                                                    color: COLORS.PRIMARY[700],
+                                                                                                    fontWeight: 600
+                                                                                                }}
+                                                                                            />
+                                                                                        )}
+                                                                                        {/* Other Members - exclude leader */}
+                                                                                        {team.team_members?.filter(member => {
+                                                                                            const memberId = member.employee?.id || member.employee_id;
+                                                                                            return memberId !== team.leader_id;
+                                                                                        }).map((member, idx) => (
+                                                                                            <Chip
+                                                                                                key={member.employee?.id || member.employee_id || idx}
+                                                                                                label={member.employee?.full_name}
+                                                                                                size="small"
+                                                                                                sx={{
+                                                                                                    height: 22,
+                                                                                                    fontSize: '0.7rem',
+                                                                                                    bgcolor: alpha(COLORS.GRAY[100], 0.8)
                                                                                                 }}
                                                                                             />
                                                                                         ))}
                                                                                     </Stack>
                                                                                 </Box>
-                                                                            )}
+                                                                            </CardContent>
+                                                                        </Card>
+                                                                    </Grid>
+                                                                ))}
+                                                            </Grid>
+                                                        );
+                                                    })()}
+                                                </Box>
 
-                                                                            {/* Leader */}
-                                                                            <Box sx={{ mb: 1.5 }}>
-                                                                                <Stack direction="row" spacing={0.5} alignItems="center">
-                                                                                    <Person sx={{ fontSize: 14, color: COLORS.GRAY[500] }} />
-                                                                                    <Typography variant="caption" color="text.secondary" fontWeight={500}>
-                                                                                        Leader: {team.leader?.full_name || 'N/A'}
-                                                                                    </Typography>
-                                                                                </Stack>
-                                                                            </Box>
-
-                                                                            {/* Working Days - Show team's working days from team_work_shifts using applicable_days from API */}
-                                                                            <Box sx={{ mb: 1.5 }}>
-                                                                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                                                                                    Ngày làm việc:
-                                                                                </Typography>
-                                                                                <Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ gap: 0.5 }}>
-                                                                                    {(() => {
-                                                                                        // Collect all applicable_days from work_shifts assigned to this team
-                                                                                        // API chính thức chỉ có applicable_days, không có working_days
-                                                                                        const allWorkingDays = new Set();
-                                                                                        if (team.team_work_shifts && Array.isArray(team.team_work_shifts)) {
-                                                                                            team.team_work_shifts.forEach(tws => {
-                                                                                                // Use applicable_days from work_shift (API chính thức)
-                                                                                                if (tws.work_shift && Array.isArray(tws.work_shift.applicable_days)) {
-                                                                                                    tws.work_shift.applicable_days.forEach(day => allWorkingDays.add(day));
-                                                                                                }
-                                                                                            });
-                                                                                        }
-                                                                                        const sortedDays = WEEKDAYS.filter(day => allWorkingDays.has(day));
-                                                                                        return sortedDays.length > 0 ? (
-                                                                                            sortedDays.map((d) => (
-                                                                                                <Chip
-                                                                                                    key={d}
-                                                                                                    label={WEEKDAY_LABELS[d]}
-                                                                                                    size="small"
-                                                                                                    sx={{
-                                                                                                        height: 20,
-                                                                                                        fontSize: '0.65rem',
-                                                                                                        bgcolor: alpha(COLORS.PRIMARY[500], 0.1),
-                                                                                                        color: COLORS.PRIMARY[700]
-                                                                                                    }}
-                                                                                                />
-                                                                                            ))
-                                                                                        ) : (
-                                                                                            <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
-                                                                                                Chưa có lịch làm việc
-                                                                                            </Typography>
-                                                                                        );
-                                                                                    })()}
-                                                                                </Stack>
-                                                                            </Box>
-
-                                                                            {/* Team Members */}
-                                                                            <Box sx={{ mt: 'auto' }}>
-                                                                                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                                                                                    Thành viên ({(team.team_members?.filter(m => {
-                                                                                        const memberId = m.employee?.id || m.employee_id;
-                                                                                        return memberId && memberId !== team.leader_id;
-                                                                                    }).length || 0) + (team.leader ? 1 : 0)}):
-                                                                                </Typography>
-                                                                                <Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ gap: 0.5 }}>
-                                                                                    {/* Leader */}
-                                                                                    {team.leader && (
-                                                                                        <Chip
-                                                                                            label={team.leader.full_name}
-                                                                                            size="small"
-                                                                                            sx={{
-                                                                                                height: 22,
-                                                                                                fontSize: '0.7rem',
-                                                                                                bgcolor: alpha(COLORS.PRIMARY[100], 0.8),
-                                                                                                color: COLORS.PRIMARY[700],
-                                                                                                fontWeight: 600
-                                                                                            }}
-                                                                                        />
-                                                                                    )}
-                                                                                    {/* Other Members - exclude leader */}
-                                                                                    {team.team_members?.filter(member => {
-                                                                                        const memberId = member.employee?.id || member.employee_id;
-                                                                                        return memberId !== team.leader_id;
-                                                                                    }).map((member, idx) => (
-                                                                                        <Chip
-                                                                                            key={member.employee?.id || member.employee_id || idx}
-                                                                                            label={member.employee?.full_name}
-                                                                                            size="small"
-                                                                                            sx={{
-                                                                                                height: 22,
-                                                                                                fontSize: '0.7rem',
-                                                                                                bgcolor: alpha(COLORS.GRAY[100], 0.8)
-                                                                                            }}
-                                                                                        />
-                                                                                    ))}
-                                                                                </Stack>
-                                                                            </Box>
-                                                                        </CardContent>
-                                                                    </Card>
-                                                                </Grid>
-                                                            ))}
-                                                        </Grid>
-                                                    );
-                                                })()}
+                                                {/* Divider between shifts */}
+                                                {dayShifts.indexOf(shift) < dayShifts.length - 1 && (
+                                                    <Divider sx={{ mt: 3 }} />
+                                                )}
                                             </Box>
-
-                                            {/* Divider between shifts */}
-                                            {dayShifts.indexOf(shift) < dayShifts.length - 1 && (
-                                                <Divider sx={{ mt: 3 }} />
-                                            )}
-                                        </Box>
-                                    ))}
+                                        );
+                                    })}
                                 </Stack>
                             </Paper>
                         </Box>
@@ -1386,6 +1993,20 @@ const WorkShiftPage = () => {
                     </ListItemIcon>
                     <ListItemText>Quản lý thành viên</ListItemText>
                 </MenuItem>
+                <Divider />
+                <MenuItem onClick={() => handleOpenTeamWorkShiftsManagement(menuTeam)}>
+                    <ListItemIcon>
+                        <Schedule fontSize="small" sx={{ color: COLORS.PRIMARY[600] }} />
+                    </ListItemIcon>
+                    <ListItemText>Chỉnh sửa ca làm việc</ListItemText>
+                </MenuItem>
+                <Divider />
+                <MenuItem onClick={() => handleDeleteTeam(menuTeam)}>
+                    <ListItemIcon>
+                        <Delete fontSize="small" sx={{ color: COLORS.ERROR[600] }} />
+                    </ListItemIcon>
+                    <ListItemText>Xóa team</ListItemText>
+                </MenuItem>
             </Menu>
 
             {/* Shift Form Modal */}
@@ -1409,9 +2030,17 @@ const WorkShiftPage = () => {
                 onSave={handleSaveTeam}
                 allEmployees={allEmployees}
                 allWorkTypes={allWorkTypes}
-                allWorkShifts={shifts}
             />
 
+            <TeamAssignWorkShiftModal
+                open={openAssignWorkShiftModal}
+                onClose={handleCloseAssignWorkShiftModal}
+                team={selectedTeamForWorkShift}
+                workShifts={shifts}
+                initialSelected={selectedWorkShiftIds}
+                loading={assigningWorkShifts}
+                onSubmit={handleAssignWorkShifts}
+            />
             {/* Team Members Modal */}
             <TeamMembersModal
                 open={openTeamMembersModal}
@@ -1434,22 +2063,14 @@ const WorkShiftPage = () => {
                 onSave={handleSaveTeamMembers}
             />
 
-            {/* Pagination */}
-            {pagination.total_items_count > 0 && (
-                <Box sx={{ mt: 3, display: 'flex', justifyContent: 'center' }}>
-                    <Pagination
-                        page={page}
-                        totalPages={pagination.total_pages_count}
-                        onPageChange={setPage}
-                        itemsPerPage={itemsPerPage}
-                        onItemsPerPageChange={(newValue) => {
-                            setItemsPerPage(newValue);
-                            setPage(1);
-                        }}
-                        totalItems={pagination.total_items_count}
-                    />
-                </Box>
-            )}
+            {/* Team Work Shifts Management Modal */}
+            <TeamWorkShiftsManagementModal
+                open={openTeamWorkShiftsManagementModal}
+                onClose={handleCloseTeamWorkShiftsManagement}
+                team={selectedTeamForWorkShiftsManagement}
+                allWorkShifts={shifts}
+                onUpdate={handleTeamWorkShiftsUpdate}
+            />
 
             {/* Confirm Delete Shift */}
             <ConfirmModal
@@ -1473,9 +2094,39 @@ const WorkShiftPage = () => {
                 type="error"
             />
 
+            {/* Confirm Delete Team Modal */}
+            <ConfirmModal
+                isOpen={confirmDeleteTeamOpen}
+                onClose={() => {
+                    setConfirmDeleteTeamOpen(false);
+                    setDeleteTeamTarget(null);
+                }}
+                onConfirm={handleConfirmDeleteTeam}
+                title="Xác nhận xóa team"
+                message={`Bạn có chắc chắn muốn xóa team "${deleteTeamTarget?.name}"? Hành động này không thể hoàn tác.`}
+                confirmText="Xóa"
+                cancelText="Hủy"
+                type="error"
+            />
+
+            {/* Confirm Delete Team Work Shift Modal */}
+            <ConfirmModal
+                isOpen={confirmDeleteTeamWorkShiftOpen}
+                onClose={() => {
+                    setConfirmDeleteTeamWorkShiftOpen(false);
+                    setDeleteTeamWorkShiftTarget(null);
+                }}
+                onConfirm={handleConfirmDeleteTeamWorkShift}
+                title="Xác nhận xóa ca làm việc"
+                message={deleteTeamWorkShiftTarget ? `Bạn có chắc chắn muốn xóa ca "${deleteTeamWorkShiftTarget.shiftName}" khỏi team "${deleteTeamWorkShiftTarget.teamName}"?` : ''}
+                confirmText="Xóa"
+                cancelText="Hủy"
+                type="warning"
+            />
+
             {/* Alert Modal */}
             <AlertModal
-                open={alert.open}
+                isOpen={alert.open}
                 onClose={() => setAlert({ ...alert, open: false })}
                 title={alert.title}
                 message={alert.message}

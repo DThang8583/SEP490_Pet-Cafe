@@ -33,6 +33,17 @@ apiClient.interceptors.request.use(
             config.headers['Content-Type'] = 'application/json';
         }
 
+        // Log request details for /teams endpoint in development
+        if (process.env.NODE_ENV === 'development' && config.url?.includes('/teams') && config.method === 'post') {
+            console.log('=== API Request Interceptor ===');
+            console.log('URL:', config.baseURL + config.url);
+            console.log('Method:', config.method);
+            console.log('Headers:', JSON.stringify(config.headers, null, 2));
+            console.log('Data (raw):', config.data);
+            console.log('Data (stringified):', JSON.stringify(config.data, null, 2));
+            console.log('=============================');
+        }
+
         return config;
     },
     (error) => Promise.reject(error)

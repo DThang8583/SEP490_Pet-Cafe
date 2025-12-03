@@ -9,7 +9,7 @@ import VaccineTypeModal from '../../components/modals/VaccineTypeModal';
 import Pagination from '../../components/common/Pagination';
 import vaccineTypesApi from '../../api/vaccineTypesApi';
 
-const VaccineTypesTab = ({ species: speciesProp = [] }) => {
+const VaccineTypesTab = ({ species: speciesProp = [], onVaccineTypeChange }) => {
     const [isLoading, setIsLoading] = useState(true);
     const [vaccineTypes, setVaccineTypes] = useState([]);
     const [searchQuery, setSearchQuery] = useState('');
@@ -122,7 +122,7 @@ const VaccineTypesTab = ({ species: speciesProp = [] }) => {
         setCurrentVaccineType(null);
     };
 
-    // Handle save - Match official API (no required_doses)
+    // Handle save - Include required_doses
     const handleSave = async (formData) => {
         try {
             setIsLoading(true);
@@ -132,7 +132,8 @@ const VaccineTypesTab = ({ species: speciesProp = [] }) => {
                 description: formData.description.trim(),
                 species_id: formData.species_id,
                 interval_months: parseInt(formData.interval_months),
-                is_required: formData.is_required
+                is_required: formData.is_required,
+                required_doses: parseInt(formData.required_doses)
             };
 
             let response;
@@ -144,6 +145,10 @@ const VaccineTypesTab = ({ species: speciesProp = [] }) => {
 
             if (response.success) {
                 await loadVaccineTypes();
+                // Notify parent component to reload vaccine types
+                if (onVaccineTypeChange) {
+                    await onVaccineTypeChange();
+                }
                 handleCloseDialog();
                 setAlert({
                     open: true,
@@ -183,6 +188,10 @@ const VaccineTypesTab = ({ species: speciesProp = [] }) => {
 
             if (response.success) {
                 await loadVaccineTypes();
+                // Notify parent component to reload vaccine types
+                if (onVaccineTypeChange) {
+                    await onVaccineTypeChange();
+                }
                 handleCloseDeleteDialog();
                 setAlert({
                     open: true,
@@ -314,6 +323,7 @@ const VaccineTypesTab = ({ species: speciesProp = [] }) => {
                                         <TableCell sx={{ fontWeight: 800 }}>Tên vaccine</TableCell>
                                         <TableCell sx={{ fontWeight: 800 }}>Loài</TableCell>
                                         <TableCell sx={{ fontWeight: 800, display: { xs: 'none', md: 'table-cell' } }}>Chu kỳ tiêm lại</TableCell>
+                                        <TableCell sx={{ fontWeight: 800, display: { xs: 'none', md: 'table-cell' } }}>Số mũi</TableCell>
                                         <TableCell sx={{ fontWeight: 800 }}>Bắt buộc</TableCell>
                                         <TableCell sx={{ fontWeight: 800 }}>Thao tác</TableCell>
                                     </TableRow>
@@ -366,6 +376,17 @@ const VaccineTypesTab = ({ species: speciesProp = [] }) => {
                                                 <Typography variant="body2" sx={{ fontWeight: 600 }}>
                                                     {vt.interval_months} tháng
                                                 </Typography>
+                                            </TableCell>
+                                            <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
+                                                <Chip
+                                                    label={`${vt.required_doses || 0} mũi`}
+                                                    size="small"
+                                                    sx={{
+                                                        background: alpha(COLORS.PRIMARY[100], 0.6),
+                                                        color: COLORS.PRIMARY[800],
+                                                        fontWeight: 700
+                                                    }}
+                                                />
                                             </TableCell>
                                             <TableCell>
                                                 {vt.is_required ? (

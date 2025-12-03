@@ -33,7 +33,11 @@ export const getAllVaccinationSchedules = async (params = {}) => {
     } = params;
 
     try {
-        const queryParams = {};
+        const queryParams = {
+            page: page_index,
+            limit: page_size
+        };
+
         if (PetId) {
             queryParams.PetId = PetId;
         }
@@ -100,6 +104,16 @@ export const getVaccinationScheduleById = async (scheduleId) => {
             throw new Error('Không tìm thấy lịch tiêm');
         }
 
+        // Debug: Log API response structure
+        console.log('📡 API Response for schedule:', {
+            scheduleId,
+            responseData: response.data,
+            has_team_id: !!response.data.team_id,
+            has_team_object: !!response.data.team,
+            team_id_value: response.data.team_id,
+            team_object: response.data.team
+        });
+
         return response.data;
     } catch (error) {
         console.error('Failed to fetch vaccination schedule from API:', error);
@@ -128,18 +142,17 @@ export const createVaccinationSchedule = async (scheduleData) => {
         if (!scheduled_date) {
             throw new Error('Ngày tiêm dự kiến là bắt buộc');
         }
+        if (!team_id) {
+            throw new Error('Nhóm là bắt buộc');
+        }
 
         const requestData = {
             pet_id,
             vaccine_type_id,
             scheduled_date,
-            notes: notes?.trim() || ''
+            notes: notes?.trim() || '',
+            team_id
         };
-
-        // Add team_id if provided
-        if (team_id) {
-            requestData.team_id = team_id;
-        }
 
         const response = await apiClient.post('/vaccination-schedules', requestData, { timeout: 10000 });
 
@@ -157,45 +170,31 @@ export const createVaccinationSchedule = async (scheduleData) => {
 /**
  * Update vaccination schedule using official API
  * @param {string} scheduleId
- * @param {Object} scheduleData - { pet_id?, vaccine_type_id?, scheduled_date?, notes?, status?, team_id? }
+ * @param {Object} scheduleData - { pet_id, vaccine_type_id, scheduled_date, notes, team_id, status }
  * @returns {Promise<Object>} Updated vaccination schedule
  */
 export const updateVaccinationSchedule = async (scheduleId, scheduleData) => {
     try {
-        const requestData = {};
-
-        if (scheduleData.pet_id !== undefined) {
-            if (!scheduleData.pet_id) {
-                throw new Error('Thú cưng là bắt buộc');
-            }
-            requestData.pet_id = scheduleData.pet_id;
+        // Validate required fields
+        if (!scheduleData.pet_id) {
+            throw new Error('Thú cưng là bắt buộc');
+        }
+        if (!scheduleData.vaccine_type_id) {
+            throw new Error('Loại vaccine là bắt buộc');
+        }
+        if (!scheduleData.scheduled_date) {
+            throw new Error('Ngày tiêm dự kiến là bắt buộc');
         }
 
-        if (scheduleData.vaccine_type_id !== undefined) {
-            if (!scheduleData.vaccine_type_id) {
-                throw new Error('Loại vaccine là bắt buộc');
-            }
-            requestData.vaccine_type_id = scheduleData.vaccine_type_id;
-        }
-
-        if (scheduleData.scheduled_date !== undefined) {
-            if (!scheduleData.scheduled_date) {
-                throw new Error('Ngày tiêm dự kiến là bắt buộc');
-            }
-            requestData.scheduled_date = scheduleData.scheduled_date;
-        }
-
-        if (scheduleData.notes !== undefined) {
-            requestData.notes = scheduleData.notes.trim() || '';
-        }
-
-        if (scheduleData.status !== undefined) {
-            requestData.status = scheduleData.status;
-        }
-
-        if (scheduleData.team_id !== undefined) {
-            requestData.team_id = scheduleData.team_id || null;
-        }
+        // Build request body according to API spec: all fields are required
+        const requestData = {
+            pet_id: scheduleData.pet_id,
+            vaccine_type_id: scheduleData.vaccine_type_id,
+            scheduled_date: scheduleData.scheduled_date,
+            notes: scheduleData.notes?.trim() || '',
+            team_id: scheduleData.team_id || null,
+            status: scheduleData.status || 'PENDING'
+        };
 
         const response = await apiClient.put(`/vaccination-schedules/${scheduleId}`, requestData, { timeout: 10000 });
 

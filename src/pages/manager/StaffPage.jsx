@@ -1,14 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Stack, Toolbar, TextField, Select, MenuItem, InputLabel, FormControl, IconButton, Button, Avatar, Menu, ListItemIcon, ListItemText, Tooltip, Tabs, Tab } from '@mui/material';
+import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Stack, Toolbar, TextField, Select, MenuItem, InputLabel, FormControl, IconButton, Button, Avatar, Menu, ListItemIcon, ListItemText, Tooltip } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import { COLORS } from '../../constants/colors';
 import Loading from '../../components/loading/Loading';
 import Pagination from '../../components/common/Pagination';
 import AddStaffModal from '../../components/modals/AddStaffModal';
 import AlertModal from '../../components/modals/AlertModal';
-import { Edit, MoreVert, Visibility, VisibilityOff, People, Assignment } from '@mui/icons-material';
+import { Edit, MoreVert, Visibility, VisibilityOff, People } from '@mui/icons-material';
 import employeeApi from '../../api/employeeApi';
-import AttendanceTab from './AttendanceTab';
 
 const formatSalary = (salary) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(salary);
@@ -55,8 +54,6 @@ const statusColor = (isActive) => {
 };
 
 const StaffPage = () => {
-    const [currentTab, setCurrentTab] = useState(0); // 0: Danh sách nhân viên, 1: Điểm danh
-
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
     const [allStaff, setAllStaff] = useState([]); // Store all staff (excluding managers)
@@ -149,7 +146,7 @@ const StaffPage = () => {
         }
     };
 
-    // Load all staff for statistics (in background, without blocking UI)
+    // Load all staff cho thống kê (chạy nền, không block UI)
     const loadAllStaffForStats = async () => {
         try {
             const aggregatedEmployees = [];
@@ -230,15 +227,17 @@ const StaffPage = () => {
         }
     };
 
-    // Load on mount and when page/itemsPerPage changes
+    // Load danh sách nhân viên theo trang
     useEffect(() => {
         loadStaff({ showSpinner: true });
     }, [page, itemsPerPage]);
 
-    // Load all staff for statistics in background
+    // Load thống kê allStaffForStats khi cần (chỉ khi chưa có dữ liệu)
     useEffect(() => {
-        loadAllStaffForStats();
-    }, []);
+        if (allStaffForStats.length === 0) {
+            loadAllStaffForStats();
+        }
+    }, [allStaffForStats.length]);
 
     const filtered = useMemo(() => {
         return allStaff.filter(s => {
@@ -534,7 +533,16 @@ const StaffPage = () => {
 
     if (isLoading) {
         return (
-            <Box sx={{ background: COLORS.BACKGROUND.NEUTRAL, minHeight: '100vh', width: '100%' }}>
+            <Box
+                sx={{
+                    background: COLORS.BACKGROUND.NEUTRAL,
+                    minHeight: '100vh',
+                    width: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                }}
+            >
                 <Loading fullScreen={false} variant="cafe" size="large" message="Đang tải danh sách nhân viên..." />
             </Box>
         );
@@ -547,375 +555,332 @@ const StaffPage = () => {
                     Quản lý nhân viên
                 </Typography>
 
-                {/* Tabs Navigation */}
-                <Paper sx={{ mb: 3 }}>
-                    <Tabs
-                        value={currentTab}
-                        onChange={(e, newValue) => {
-                            setCurrentTab(newValue);
-                            setPage(1);
-                        }}
+                {/* Danh sách nhân viên */}
+                <>
+                    {/* Status Badges */}
+                    <Box
                         sx={{
-                            '& .MuiTab-root': {
-                                fontWeight: 700,
-                                textTransform: 'none',
-                                fontSize: '1rem',
-                                minHeight: 60
-                            },
-                            '& .Mui-selected': {
-                                color: COLORS.ERROR[600]
-                            },
-                            '& .MuiTabs-indicator': {
-                                backgroundColor: COLORS.ERROR[600]
+                            display: 'flex',
+                            flexWrap: 'nowrap',
+                            gap: 2,
+                            mb: 4,
+                            width: '100%',
+                            overflow: 'visible'
+                        }}
+                    >
+                        {[
+                            { label: 'Tổng nhân viên', value: stats.total, color: COLORS.PRIMARY[500], valueColor: COLORS.PRIMARY[700] },
+                            { label: 'Sale Staff', value: stats.saleStaff, color: COLORS.INFO[500], valueColor: COLORS.INFO[700] },
+                            { label: 'Working Staff', value: stats.workingStaff, color: COLORS.WARNING[500], valueColor: COLORS.WARNING[700] },
+                            { label: 'Hoạt động', value: stats.active, color: COLORS.SUCCESS[500], valueColor: COLORS.SUCCESS[700] },
+                            { label: 'Không hoạt động', value: stats.inactive, color: COLORS.ERROR[500], valueColor: COLORS.ERROR[700] }
+                        ].map((stat, index) => {
+                            const cardWidth = `calc((100% - ${4 * 16}px) / 5)`;
+                            return (
+                                <Box
+                                    key={index}
+                                    sx={{
+                                        flex: `0 0 ${cardWidth}`,
+                                        width: cardWidth,
+                                        maxWidth: cardWidth,
+                                        minWidth: 0
+                                    }}
+                                >
+                                    <Paper sx={{
+                                        p: 2.5,
+                                        borderTop: `4px solid ${stat.color}`,
+                                        borderRadius: 2,
+                                        height: '100%',
+                                        boxShadow: `4px 6px 12px ${alpha(COLORS.SHADOW.LIGHT, 0.25)}, 0 4px 8px ${alpha(COLORS.SHADOW.LIGHT, 0.1)}, 2px 2px 4px ${alpha(COLORS.SHADOW.LIGHT, 0.15)}`
+                                    }}>
+                                        <Typography variant="body2" color="text.secondary" gutterBottom>
+                                            {stat.label}
+                                        </Typography>
+                                        <Typography variant="h4" fontWeight={600} color={stat.valueColor}>
+                                            {stat.value}
+                                        </Typography>
+                                    </Paper>
+                                </Box>
+                            );
+                        })}
+                    </Box>
+
+                    <Toolbar
+                        disableGutters
+                        sx={{
+                            gap: 2,
+                            flexWrap: 'wrap',
+                            mb: 2,
+                            alignItems: 'center',
+                            position: 'relative',
+                            minHeight: '64px !important',
+                            '& > *': {
+                                flexShrink: 0
                             }
                         }}
                     >
-                        <Tab
-                            icon={<People />}
-                            iconPosition="start"
-                            label="Danh sách nhân viên"
+                        <TextField
+                            size="small"
+                            placeholder="Tìm theo tên, email, số điện thoại..."
+                            value={q}
+                            onChange={(e) => setQ(e.target.value)}
+                            sx={{ minWidth: { xs: '100%', sm: 1100 }, flexGrow: { xs: 1, sm: 0 }, flexShrink: 0 }}
                         />
-                        <Tab
-                            icon={<Assignment />}
-                            iconPosition="start"
-                            label="Điểm danh"
-                        />
-                    </Tabs>
-                </Paper>
-
-                {/* Tab Content: Danh sách nhân viên */}
-                {currentTab === 0 && (
-                    <>
-                        {/* Status Badges */}
-                        <Box
+                        <FormControl size="small" sx={{ minWidth: 180, flexShrink: 0 }}>
+                            <InputLabel>Vai trò</InputLabel>
+                            <Select label="Vai trò" value={filterRole} onChange={(e) => setFilterRole(e.target.value)}>
+                                <MenuItem value="all">Tất cả</MenuItem>
+                                <MenuItem value="SALE_STAFF">Sale Staff</MenuItem>
+                                <MenuItem value="WORKING_STAFF">Working Staff</MenuItem>
+                            </Select>
+                        </FormControl>
+                        <FormControl size="small" sx={{ minWidth: 160, flexShrink: 0 }}>
+                            <InputLabel>Trạng thái</InputLabel>
+                            <Select label="Trạng thái" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
+                                <MenuItem value="all">Tất cả</MenuItem>
+                                <MenuItem value="active">Hoạt động</MenuItem>
+                                <MenuItem value="inactive">Không hoạt động</MenuItem>
+                            </Select>
+                        </FormControl>
+                        <Box sx={{ flexGrow: 1, flexShrink: 0, minWidth: 0 }} />
+                        <Button
+                            variant="contained"
+                            onClick={() => {
+                                setEditMode(false);
+                                setSelectedStaff(null);
+                                setApiErrors(null);
+                                setAddStaffModalOpen(true);
+                            }}
                             sx={{
-                                display: 'flex',
-                                flexWrap: 'nowrap',
-                                gap: 2,
-                                mb: 4,
-                                width: '100%',
-                                overflow: 'visible'
+                                backgroundColor: COLORS.ERROR[500],
+                                '&:hover': { backgroundColor: COLORS.ERROR[600] },
+                                flexShrink: 0,
+                                whiteSpace: 'nowrap'
                             }}
                         >
-                            {[
-                                { label: 'Tổng nhân viên', value: stats.total, color: COLORS.PRIMARY[500], valueColor: COLORS.PRIMARY[700] },
-                                { label: 'Sale Staff', value: stats.saleStaff, color: COLORS.INFO[500], valueColor: COLORS.INFO[700] },
-                                { label: 'Working Staff', value: stats.workingStaff, color: COLORS.WARNING[500], valueColor: COLORS.WARNING[700] },
-                                { label: 'Hoạt động', value: stats.active, color: COLORS.SUCCESS[500], valueColor: COLORS.SUCCESS[700] },
-                                { label: 'Không hoạt động', value: stats.inactive, color: COLORS.ERROR[500], valueColor: COLORS.ERROR[700] }
-                            ].map((stat, index) => {
-                                const cardWidth = `calc((100% - ${4 * 16}px) / 5)`;
-                                return (
-                                    <Box
-                                        key={index}
-                                        sx={{
-                                            flex: `0 0 ${cardWidth}`,
-                                            width: cardWidth,
-                                            maxWidth: cardWidth,
-                                            minWidth: 0
-                                        }}
-                                    >
-                                        <Paper sx={{
-                                            p: 2.5,
-                                            borderTop: `4px solid ${stat.color}`,
-                                            borderRadius: 2,
-                                            height: '100%',
-                                            boxShadow: `4px 6px 12px ${alpha(COLORS.SHADOW.LIGHT, 0.25)}, 0 4px 8px ${alpha(COLORS.SHADOW.LIGHT, 0.1)}, 2px 2px 4px ${alpha(COLORS.SHADOW.LIGHT, 0.15)}`
-                                        }}>
-                                            <Typography variant="body2" color="text.secondary" gutterBottom>
-                                                {stat.label}
-                                            </Typography>
-                                            <Typography variant="h4" fontWeight={600} color={stat.valueColor}>
-                                                {stat.value}
-                                            </Typography>
-                                        </Paper>
-                                    </Box>
-                                );
-                            })}
-                        </Box>
+                            Thêm nhân viên
+                        </Button>
+                    </Toolbar>
 
-                        <Toolbar
-                            disableGutters
-                            sx={{
-                                gap: 2,
-                                flexWrap: 'wrap',
-                                mb: 2,
-                                alignItems: 'center',
-                                position: 'relative',
-                                minHeight: '64px !important',
-                                '& > *': {
-                                    flexShrink: 0
-                                }
+                    {/* Staff List Table */}
+                    <TableContainer component={Paper} sx={{ borderRadius: 3, border: `2px solid ${alpha(COLORS.ERROR[200], 0.4)}`, boxShadow: `0 10px 24px ${alpha(COLORS.ERROR[200], 0.15)}`, overflowX: 'auto' }}>
+                        <Table size="medium" stickyHeader>
+                            <TableHead>
+                                <TableRow>
+                                    <TableCell sx={{ fontWeight: 800 }}>Nhân viên</TableCell>
+                                    <TableCell sx={{ fontWeight: 800, display: { xs: 'none', md: 'table-cell' } }}>Email</TableCell>
+                                    <TableCell sx={{ fontWeight: 800, display: { xs: 'none', sm: 'table-cell' } }}>SĐT</TableCell>
+                                    <TableCell sx={{ fontWeight: 800, display: { xs: 'none', lg: 'table-cell' } }}>Địa chỉ</TableCell>
+                                    <TableCell sx={{ fontWeight: 800, display: { xs: 'none', xl: 'table-cell' } }}>Kỹ năng</TableCell>
+                                    <TableCell sx={{ fontWeight: 800, display: { xs: 'none', lg: 'table-cell' } }}>
+                                        <Stack direction="row" alignItems="center" spacing={1}>
+                                            <Typography sx={{ fontWeight: 800 }}>Lương</Typography>
+                                            <Tooltip title={showSalaries ? "Ẩn lương" : "Hiện lương"} arrow>
+                                                <IconButton
+                                                    size="small"
+                                                    onClick={() => setShowSalaries(!showSalaries)}
+                                                    sx={{
+                                                        color: showSalaries ? COLORS.PRIMARY[600] : COLORS.GRAY[500],
+                                                        '&:hover': {
+                                                            bgcolor: alpha(COLORS.PRIMARY[100], 0.5)
+                                                        }
+                                                    }}
+                                                >
+                                                    {showSalaries ? <Visibility fontSize="small" /> : <VisibilityOff fontSize="small" />}
+                                                </IconButton>
+                                            </Tooltip>
+                                        </Stack>
+                                    </TableCell>
+                                    <TableCell sx={{ fontWeight: 800 }}>Vai trò</TableCell>
+                                    <TableCell sx={{ fontWeight: 800 }}>Trạng thái</TableCell>
+                                    <TableCell sx={{ fontWeight: 800, textAlign: 'right' }}>Thao tác</TableCell>
+                                </TableRow>
+                            </TableHead>
+                            <TableBody>
+                                {currentPageStaff.map((s) => {
+                                    const displayRole = getDisplayRole(s);
+                                    const rColor = roleColor(displayRole);
+                                    // Use is_active from root level (as per API), fallback to account.is_active if not available
+                                    const isActive = s.is_active !== undefined ? s.is_active : s.account?.is_active;
+                                    const st = statusColor(isActive);
+                                    return (
+                                        <TableRow key={s.id} hover>
+                                            <TableCell>
+                                                <Stack direction="row" alignItems="center" spacing={1.5}>
+                                                    <Avatar src={s.avatar_url} alt={s.full_name} sx={{ width: 40, height: 40 }} />
+                                                    <Typography sx={{ fontWeight: 600 }}>{s.full_name}</Typography>
+                                                </Stack>
+                                            </TableCell>
+                                            <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>{s.email}</TableCell>
+                                            <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>{s.phone}</TableCell>
+                                            <TableCell sx={{ display: { xs: 'none', lg: 'table-cell' } }}>{s.address || '—'}</TableCell>
+                                            <TableCell sx={{ display: { xs: 'none', xl: 'table-cell' } }}>
+                                                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, maxWidth: 400 }}>
+                                                    {s.skills && s.skills.length > 0 ? (
+                                                        s.skills.map((skill, idx) => (
+                                                            <Chip
+                                                                key={idx}
+                                                                label={skill}
+                                                                size="small"
+                                                                sx={{
+                                                                    fontSize: '0.7rem',
+                                                                    height: 22,
+                                                                    bgcolor: alpha(COLORS.INFO[100], 0.7),
+                                                                    color: COLORS.INFO[800],
+                                                                    fontWeight: 500
+                                                                }}
+                                                            />
+                                                        ))
+                                                    ) : (
+                                                        <Typography variant="body2" color="text.secondary">—</Typography>
+                                                    )}
+                                                </Box>
+                                            </TableCell>
+                                            <TableCell sx={{ display: { xs: 'none', lg: 'table-cell' } }}>
+                                                {showSalaries ? (
+                                                    <Typography variant="body2" fontWeight={600} color={COLORS.SUCCESS[700]}>
+                                                        {formatSalary(s.salary)}
+                                                    </Typography>
+                                                ) : (
+                                                    <Typography
+                                                        variant="body2"
+                                                        fontWeight={600}
+                                                        sx={{
+                                                            color: COLORS.GRAY[500],
+                                                            letterSpacing: 2,
+                                                            userSelect: 'none'
+                                                        }}
+                                                    >
+                                                        ••••••••
+                                                    </Typography>
+                                                )}
+                                            </TableCell>
+                                            <TableCell>
+                                                <Chip size="small" label={roleLabel(displayRole)} sx={{ background: rColor.bg, color: rColor.color, fontWeight: 700 }} />
+                                            </TableCell>
+                                            <TableCell>
+                                                <Chip
+                                                    size="small"
+                                                    label={st.label}
+                                                    sx={{
+                                                        background: st.bg,
+                                                        color: st.color,
+                                                        fontWeight: 700
+                                                    }}
+                                                />
+                                            </TableCell>
+                                            <TableCell align="right">
+                                                <IconButton
+                                                    size="small"
+                                                    onClick={(e) => {
+                                                        setMenuAnchor(e.currentTarget);
+                                                        setMenuStaff(s);
+                                                    }}
+                                                >
+                                                    <MoreVert fontSize="small" />
+                                                </IconButton>
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                })}
+                            </TableBody>
+                        </Table>
+                    </TableContainer>
+
+                    {/* Pagination */}
+                    {(currentPageStaff.length > 0 || page === 1) && (
+                        <Pagination
+                            page={page}
+                            totalPages={totalPages}
+                            onPageChange={setPage}
+                            itemsPerPage={itemsPerPage}
+                            onItemsPerPageChange={(newValue) => {
+                                setItemsPerPage(newValue);
+                                setPage(1);
                             }}
-                        >
-                            <TextField
-                                size="small"
-                                placeholder="Tìm theo tên, email, số điện thoại..."
-                                value={q}
-                                onChange={(e) => setQ(e.target.value)}
-                                sx={{ minWidth: { xs: '100%', sm: 1100 }, flexGrow: { xs: 1, sm: 0 }, flexShrink: 0 }}
-                            />
-                            <FormControl size="small" sx={{ minWidth: 180, flexShrink: 0 }}>
-                                <InputLabel>Vai trò</InputLabel>
-                                <Select label="Vai trò" value={filterRole} onChange={(e) => setFilterRole(e.target.value)}>
-                                    <MenuItem value="all">Tất cả</MenuItem>
-                                    <MenuItem value="SALE_STAFF">Sale Staff</MenuItem>
-                                    <MenuItem value="WORKING_STAFF">Working Staff</MenuItem>
-                                </Select>
-                            </FormControl>
-                            <FormControl size="small" sx={{ minWidth: 160, flexShrink: 0 }}>
-                                <InputLabel>Trạng thái</InputLabel>
-                                <Select label="Trạng thái" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}>
-                                    <MenuItem value="all">Tất cả</MenuItem>
-                                    <MenuItem value="active">Hoạt động</MenuItem>
-                                    <MenuItem value="inactive">Không hoạt động</MenuItem>
-                                </Select>
-                            </FormControl>
-                            <Box sx={{ flexGrow: 1, flexShrink: 0, minWidth: 0 }} />
-                            <Button
-                                variant="contained"
-                                onClick={() => {
-                                    setEditMode(false);
-                                    setSelectedStaff(null);
+                            totalItems={
+                                allStaffForStats.length > 0
+                                    ? allStaffForStats.length
+                                    : Math.max(0, pagination.total_items_count - 1) // Estimate: subtract 1 for MANAGER
+                            }
+                        />
+                    )}
+
+                    {/* Add/Edit Staff Modal */}
+                    <AddStaffModal
+                        isOpen={addStaffModalOpen}
+                        onClose={() => {
+                            setAddStaffModalOpen(false);
+                            setSelectedStaff(null);
+                            setEditMode(false);
+                            setApiErrors(null);
+                        }}
+                        onSubmit={handleSubmitStaff}
+                        editMode={editMode}
+                        initialData={selectedStaff}
+                        isLoading={isSubmitting}
+                        apiErrors={apiErrors}
+                    />
+
+
+                    {/* Alert Modal */}
+                    <AlertModal
+                        isOpen={alert.open}
+                        onClose={() => setAlert({ ...alert, open: false })}
+                        title={alert.title}
+                        message={alert.message}
+                        type={alert.type}
+                    />
+
+                    {/* Staff Actions Menu */}
+                    <Menu
+                        anchorEl={menuAnchor}
+                        open={Boolean(menuAnchor)}
+                        onClose={() => {
+                            setMenuAnchor(null);
+                            setMenuStaff(null);
+                        }}
+                        anchorOrigin={{
+                            vertical: 'bottom',
+                            horizontal: 'right',
+                        }}
+                        transformOrigin={{
+                            vertical: 'top',
+                            horizontal: 'right',
+                        }}
+                        disablePortal={false}
+                        container={() => document.body}
+                        MenuListProps={{
+                            sx: {
+                                py: 0.5,
+                            }
+                        }}
+                        PaperProps={{
+                            sx: {
+                                mt: 0.5,
+                                position: 'absolute',
+                            }
+                        }}
+                    >
+                        <MenuItem
+                            onClick={() => {
+                                if (menuStaff) {
+                                    setEditMode(true);
+                                    setSelectedStaff(menuStaff);
                                     setApiErrors(null);
                                     setAddStaffModalOpen(true);
-                                }}
-                                sx={{
-                                    backgroundColor: COLORS.ERROR[500],
-                                    '&:hover': { backgroundColor: COLORS.ERROR[600] },
-                                    flexShrink: 0,
-                                    whiteSpace: 'nowrap'
-                                }}
-                            >
-                                Thêm nhân viên
-                            </Button>
-                        </Toolbar>
-
-                        {/* Staff List Table */}
-                        <TableContainer component={Paper} sx={{ borderRadius: 3, border: `2px solid ${alpha(COLORS.ERROR[200], 0.4)}`, boxShadow: `0 10px 24px ${alpha(COLORS.ERROR[200], 0.15)}`, overflowX: 'auto' }}>
-                            <Table size="medium" stickyHeader>
-                                <TableHead>
-                                    <TableRow>
-                                        <TableCell sx={{ fontWeight: 800 }}>Nhân viên</TableCell>
-                                        <TableCell sx={{ fontWeight: 800, display: { xs: 'none', md: 'table-cell' } }}>Email</TableCell>
-                                        <TableCell sx={{ fontWeight: 800, display: { xs: 'none', sm: 'table-cell' } }}>SĐT</TableCell>
-                                        <TableCell sx={{ fontWeight: 800, display: { xs: 'none', lg: 'table-cell' } }}>Địa chỉ</TableCell>
-                                        <TableCell sx={{ fontWeight: 800, display: { xs: 'none', xl: 'table-cell' } }}>Kỹ năng</TableCell>
-                                        <TableCell sx={{ fontWeight: 800, display: { xs: 'none', lg: 'table-cell' } }}>
-                                            <Stack direction="row" alignItems="center" spacing={1}>
-                                                <Typography sx={{ fontWeight: 800 }}>Lương</Typography>
-                                                <Tooltip title={showSalaries ? "Ẩn lương" : "Hiện lương"} arrow>
-                                                    <IconButton
-                                                        size="small"
-                                                        onClick={() => setShowSalaries(!showSalaries)}
-                                                        sx={{
-                                                            color: showSalaries ? COLORS.PRIMARY[600] : COLORS.GRAY[500],
-                                                            '&:hover': {
-                                                                bgcolor: alpha(COLORS.PRIMARY[100], 0.5)
-                                                            }
-                                                        }}
-                                                    >
-                                                        {showSalaries ? <Visibility fontSize="small" /> : <VisibilityOff fontSize="small" />}
-                                                    </IconButton>
-                                                </Tooltip>
-                                            </Stack>
-                                        </TableCell>
-                                        <TableCell sx={{ fontWeight: 800 }}>Vai trò</TableCell>
-                                        <TableCell sx={{ fontWeight: 800 }}>Trạng thái</TableCell>
-                                        <TableCell sx={{ fontWeight: 800, textAlign: 'right' }}>Thao tác</TableCell>
-                                    </TableRow>
-                                </TableHead>
-                                <TableBody>
-                                    {currentPageStaff.map((s) => {
-                                        const displayRole = getDisplayRole(s);
-                                        const rColor = roleColor(displayRole);
-                                        // Use is_active from root level (as per API), fallback to account.is_active if not available
-                                        const isActive = s.is_active !== undefined ? s.is_active : s.account?.is_active;
-                                        const st = statusColor(isActive);
-                                        return (
-                                            <TableRow key={s.id} hover>
-                                                <TableCell>
-                                                    <Stack direction="row" alignItems="center" spacing={1.5}>
-                                                        <Avatar src={s.avatar_url} alt={s.full_name} sx={{ width: 40, height: 40 }} />
-                                                        <Typography sx={{ fontWeight: 600 }}>{s.full_name}</Typography>
-                                                    </Stack>
-                                                </TableCell>
-                                                <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>{s.email}</TableCell>
-                                                <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>{s.phone}</TableCell>
-                                                <TableCell sx={{ display: { xs: 'none', lg: 'table-cell' } }}>{s.address || '—'}</TableCell>
-                                                <TableCell sx={{ display: { xs: 'none', xl: 'table-cell' } }}>
-                                                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, maxWidth: 400 }}>
-                                                        {s.skills && s.skills.length > 0 ? (
-                                                            s.skills.map((skill, idx) => (
-                                                                <Chip
-                                                                    key={idx}
-                                                                    label={skill}
-                                                                    size="small"
-                                                                    sx={{
-                                                                        fontSize: '0.7rem',
-                                                                        height: 22,
-                                                                        bgcolor: alpha(COLORS.INFO[100], 0.7),
-                                                                        color: COLORS.INFO[800],
-                                                                        fontWeight: 500
-                                                                    }}
-                                                                />
-                                                            ))
-                                                        ) : (
-                                                            <Typography variant="body2" color="text.secondary">—</Typography>
-                                                        )}
-                                                    </Box>
-                                                </TableCell>
-                                                <TableCell sx={{ display: { xs: 'none', lg: 'table-cell' } }}>
-                                                    {showSalaries ? (
-                                                        <Typography variant="body2" fontWeight={600} color={COLORS.SUCCESS[700]}>
-                                                            {formatSalary(s.salary)}
-                                                        </Typography>
-                                                    ) : (
-                                                        <Typography
-                                                            variant="body2"
-                                                            fontWeight={600}
-                                                            sx={{
-                                                                color: COLORS.GRAY[500],
-                                                                letterSpacing: 2,
-                                                                userSelect: 'none'
-                                                            }}
-                                                        >
-                                                            ••••••••
-                                                        </Typography>
-                                                    )}
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Chip size="small" label={roleLabel(displayRole)} sx={{ background: rColor.bg, color: rColor.color, fontWeight: 700 }} />
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Chip
-                                                        size="small"
-                                                        label={st.label}
-                                                        sx={{
-                                                            background: st.bg,
-                                                            color: st.color,
-                                                            fontWeight: 700
-                                                        }}
-                                                    />
-                                                </TableCell>
-                                                <TableCell align="right">
-                                                    <IconButton
-                                                        size="small"
-                                                        onClick={(e) => {
-                                                            setMenuAnchor(e.currentTarget);
-                                                            setMenuStaff(s);
-                                                        }}
-                                                    >
-                                                        <MoreVert fontSize="small" />
-                                                    </IconButton>
-                                                </TableCell>
-                                            </TableRow>
-                                        );
-                                    })}
-                                </TableBody>
-                            </Table>
-                        </TableContainer>
-
-                        {/* Pagination */}
-                        {(currentPageStaff.length > 0 || page === 1) && (
-                            <Pagination
-                                page={page}
-                                totalPages={totalPages}
-                                onPageChange={setPage}
-                                itemsPerPage={itemsPerPage}
-                                onItemsPerPageChange={(newValue) => {
-                                    setItemsPerPage(newValue);
-                                    setPage(1);
-                                }}
-                                totalItems={
-                                    allStaffForStats.length > 0
-                                        ? allStaffForStats.length
-                                        : Math.max(0, pagination.total_items_count - 1) // Estimate: subtract 1 for MANAGER
                                 }
-                            />
-                        )}
-
-                        {/* Add/Edit Staff Modal */}
-                        <AddStaffModal
-                            isOpen={addStaffModalOpen}
-                            onClose={() => {
-                                setAddStaffModalOpen(false);
-                                setSelectedStaff(null);
-                                setEditMode(false);
-                                setApiErrors(null);
-                            }}
-                            onSubmit={handleSubmitStaff}
-                            editMode={editMode}
-                            initialData={selectedStaff}
-                            isLoading={isSubmitting}
-                            apiErrors={apiErrors}
-                        />
-
-
-                        {/* Alert Modal */}
-                        <AlertModal
-                            isOpen={alert.open}
-                            onClose={() => setAlert({ ...alert, open: false })}
-                            title={alert.title}
-                            message={alert.message}
-                            type={alert.type}
-                        />
-
-                        {/* Staff Actions Menu */}
-                        <Menu
-                            anchorEl={menuAnchor}
-                            open={Boolean(menuAnchor)}
-                            onClose={() => {
                                 setMenuAnchor(null);
                                 setMenuStaff(null);
                             }}
-                            anchorOrigin={{
-                                vertical: 'bottom',
-                                horizontal: 'right',
-                            }}
-                            transformOrigin={{
-                                vertical: 'top',
-                                horizontal: 'right',
-                            }}
-                            disablePortal={false}
-                            container={() => document.body}
-                            MenuListProps={{
-                                sx: {
-                                    py: 0.5,
-                                }
-                            }}
-                            PaperProps={{
-                                sx: {
-                                    mt: 0.5,
-                                    position: 'absolute',
-                                }
-                            }}
                         >
-                            <MenuItem
-                                onClick={() => {
-                                    if (menuStaff) {
-                                        setEditMode(true);
-                                        setSelectedStaff(menuStaff);
-                                        setApiErrors(null);
-                                        setAddStaffModalOpen(true);
-                                    }
-                                    setMenuAnchor(null);
-                                    setMenuStaff(null);
-                                }}
-                            >
-                                <ListItemIcon>
-                                    <Edit fontSize="small" sx={{ color: COLORS.INFO[600] }} />
-                                </ListItemIcon>
-                                <ListItemText>Chỉnh sửa</ListItemText>
-                            </MenuItem>
-                        </Menu>
-                    </>
-                )}
-
-                {/* Tab Content: Điểm danh */}
-                {currentTab === 1 && (
-                    <AttendanceTab />
-                )}
+                            <ListItemIcon>
+                                <Edit fontSize="small" sx={{ color: COLORS.INFO[600] }} />
+                            </ListItemIcon>
+                            <ListItemText>Chỉnh sửa</ListItemText>
+                        </MenuItem>
+                    </Menu>
+                </>
             </Box>
         </Box>
     );
