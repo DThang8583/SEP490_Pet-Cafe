@@ -564,15 +564,11 @@ const ServiceSalesPage = () => {
                                                                         day: 'numeric'
                                                                     })}
                                                                 </Typography>
-                                                                
-                                                            </Box>
-
                                                             {/* Time Range */}
                                                             {item.slot.start_time && item.slot.end_time && (
                                                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                                                     <AccessTime sx={{ fontSize: 18, color: isAvailable ? COLORS.ERROR[500] : COLORS.GRAY[400] }} />
                                                                     <Typography variant="body1" fontWeight={600}>
-                                                                        {item.slot.start_time} - {item.slot.end_time}
                                                                     </Typography>
                                                                 </Box>
                                                             )}
@@ -900,7 +896,6 @@ const ServiceSalesPage = () => {
                                                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                                                         <AccessTime sx={{ fontSize: 18, color: COLORS.ERROR[500] }} />
                                                                         <Typography variant="body1">
-                                                                            {slot.start_time} - {slot.end_time}
                                                                         </Typography>
                                                                     </Box>
                                                                 )}

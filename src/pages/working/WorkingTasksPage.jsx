@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Box, Paper, Typography, Stack, TextField, MenuItem, Chip, Button, Table, TableHead, TableBody, TableRow, TableCell, TableContainer, alpha, Snackbar, Alert, Skeleton, Tabs, Tab, IconButton, Menu, ListItemIcon, ListItemText, Tooltip } from '@mui/material';
+import { Box, Paper, Typography, Stack, TextField, MenuItem, Chip, Button, Table, TableHead, TableBody, TableRow, TableCell, TableContainer, alpha, Snackbar, Alert, Tabs, Tab, IconButton, Menu, ListItemIcon, ListItemText, Tooltip } from '@mui/material';
 import { Assignment, TaskAlt, ViewWeek, CalendarMonth, NavigateBefore, NavigateNext, CheckCircle, PlayArrow, Cancel, Block, RadioButtonUnchecked, MoreVert, Visibility, Add, SkipNext } from '@mui/icons-material';
 import workingStaffApi from '../../api/workingStaffApi';
 import { COLORS } from '../../constants/colors';
+import Loading from '../../components/loading/Loading';
 import { useLocation } from 'react-router-dom';
 import DailyTaskDetailsModal from '../../components/modals/DailyTaskDetailsModal';
 import VaccinationRecordModal from '../../components/modals/VaccinationRecordModal';
@@ -123,7 +124,7 @@ const WorkingTasksPage = () => {
     });
     const [dateRange, setDateRange] = useState({ fromDate: '', toDate: '' });
     const [tasks, setTasks] = useState([]);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [snackbar, setSnackbar] = useState(null);
 
     // Menu state for MoreVert
@@ -166,6 +167,8 @@ const WorkingTasksPage = () => {
                 }
             } catch (error) {
                 console.error('Failed to load teams', error);
+            } finally {
+                if (mounted) setLoading(false);
             }
         };
         loadTeams();
@@ -592,6 +595,10 @@ const WorkingTasksPage = () => {
         setSelectedTask(null); // Clear selectedTask when modal closes
     };
 
+    if (loading) {
+        return <Loading fullScreen variant="cafe" />;
+    }
+
     return (
         <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: COLORS.BACKGROUND.NEUTRAL, minHeight: '100%' }}>
             <Stack spacing={3}>
@@ -775,225 +782,219 @@ const WorkingTasksPage = () => {
                         border: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.2)}`
                     }}
                 >
-                    {loading ? (
-                        <Box sx={{ p: 3 }}>
-                            <Skeleton variant="rounded" height={300} />
-                        </Box>
-                    ) : (
-                        <TableContainer>
-                            <Table sx={{ minWidth: 650 }}>
-                                <TableHead>
-                                    <TableRow sx={{ bgcolor: alpha(COLORS.PRIMARY[50], 0.3) }}>
-                                        {selectedTeam === 'all' && (
-                                            <TableCell sx={{ fontWeight: 700, color: COLORS.TEXT.PRIMARY, py: 2 }}>
-                                                Nhóm
-                                            </TableCell>
-                                        )}
-                                        {viewMode === 'month' && (
-                                            <TableCell sx={{ fontWeight: 700, color: COLORS.TEXT.PRIMARY, py: 2 }}>
-                                                Ngày
-                                            </TableCell>
-                                        )}
+                    <TableContainer>
+                        <Table sx={{ minWidth: 650 }}>
+                            <TableHead>
+                                <TableRow sx={{ bgcolor: alpha(COLORS.PRIMARY[50], 0.3) }}>
+                                    {selectedTeam === 'all' && (
                                         <TableCell sx={{ fontWeight: 700, color: COLORS.TEXT.PRIMARY, py: 2 }}>
-                                            Nhiệm vụ
+                                            Nhóm
                                         </TableCell>
+                                    )}
+                                    {viewMode === 'month' && (
                                         <TableCell sx={{ fontWeight: 700, color: COLORS.TEXT.PRIMARY, py: 2 }}>
-                                            Độ ưu tiên
+                                            Ngày
                                         </TableCell>
-                                        <TableCell sx={{ fontWeight: 700, color: COLORS.TEXT.PRIMARY, py: 2 }}>
-                                            Thời gian
-                                        </TableCell>
-                                        <TableCell sx={{ fontWeight: 700, color: COLORS.TEXT.PRIMARY, py: 2 }}>
-                                            Khu vực
-                                        </TableCell>
-                                        <TableCell sx={{ fontWeight: 700, color: COLORS.TEXT.PRIMARY, py: 2 }}>
-                                            Trạng thái
-                                        </TableCell>
-                                        <TableCell sx={{ fontWeight: 700, color: COLORS.TEXT.PRIMARY, py: 2 }}>
-                                            Thời gian hoàn thành
-                                        </TableCell>
-                                        <TableCell align="right" sx={{ fontWeight: 700, color: COLORS.TEXT.PRIMARY, py: 2 }}>
-                                            Hành động
+                                    )}
+                                    <TableCell sx={{ fontWeight: 700, color: COLORS.TEXT.PRIMARY, py: 2 }}>
+                                        Nhiệm vụ
+                                    </TableCell>
+                                    <TableCell sx={{ fontWeight: 700, color: COLORS.TEXT.PRIMARY, py: 2 }}>
+                                        Độ ưu tiên
+                                    </TableCell>
+                                    <TableCell sx={{ fontWeight: 700, color: COLORS.TEXT.PRIMARY, py: 2 }}>
+                                        Thời gian
+                                    </TableCell>
+                                    <TableCell sx={{ fontWeight: 700, color: COLORS.TEXT.PRIMARY, py: 2 }}>
+                                        Khu vực
+                                    </TableCell>
+                                    <TableCell sx={{ fontWeight: 700, color: COLORS.TEXT.PRIMARY, py: 2 }}>
+                                        Trạng thái
+                                    </TableCell>
+                                    <TableCell sx={{ fontWeight: 700, color: COLORS.TEXT.PRIMARY, py: 2 }}>
+                                        Thời gian hoàn thành
+                                    </TableCell>
+                                    <TableCell align="right" sx={{ fontWeight: 700, color: COLORS.TEXT.PRIMARY, py: 2 }}>
+                                        Hành động
+                                    </TableCell>
+                                </TableRow>
+                            </TableHead>
+                            <TableBody>
+                                {tasks.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell
+                                            colSpan={
+                                                (selectedTeam === 'all' ? 1 : 0) +
+                                                (viewMode === 'month' ? 1 : 0) +
+                                                7
+                                            }
+                                            align="center"
+                                            sx={{
+                                                py: 8,
+                                                color: COLORS.TEXT.SECONDARY,
+                                                fontStyle: 'italic'
+                                            }}
+                                        >
+                                            <Stack spacing={1} alignItems="center">
+                                                <Typography variant="body1">
+                                                    {dateRange.fromDate && dateRange.toDate
+                                                        ? `Không có nhiệm vụ nào trong khoảng thời gian ${getDateRangeString()}.`
+                                                        : 'Không có nhiệm vụ nào.'}
+                                                </Typography>
+                                            </Stack>
                                         </TableCell>
                                     </TableRow>
-                                </TableHead>
-                                <TableBody>
-                                    {tasks.length === 0 ? (
-                                        <TableRow>
-                                            <TableCell
-                                                colSpan={
-                                                    (selectedTeam === 'all' ? 1 : 0) +
-                                                    (viewMode === 'month' ? 1 : 0) +
-                                                    7
-                                                }
-                                                align="center"
+                                ) : (
+                                    tasks.map((task, index) => {
+                                        const taskTeam = teams.find(t => t.id === task.team_id);
+                                        const statusDisplay = getStatusDisplay(task.status);
+                                        const formatTaskDate = (dateStr) => {
+                                            if (!dateStr) return '—';
+                                            const d = new Date(dateStr);
+                                            return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+                                        };
+                                        return (
+                                            <TableRow
+                                                key={task.id}
+                                                hover
                                                 sx={{
-                                                    py: 8,
-                                                    color: COLORS.TEXT.SECONDARY,
-                                                    fontStyle: 'italic'
+                                                    '&:hover': {
+                                                        bgcolor: alpha(COLORS.PRIMARY[50], 0.05)
+                                                    },
+                                                    borderBottom: index < tasks.length - 1 ? `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.1)}` : 'none'
                                                 }}
                                             >
-                                                <Stack spacing={1} alignItems="center">
-                                                    <Typography variant="body1">
-                                                        {dateRange.fromDate && dateRange.toDate
-                                                            ? `Không có nhiệm vụ nào trong khoảng thời gian ${getDateRangeString()}.`
-                                                            : 'Không có nhiệm vụ nào.'}
-                                                    </Typography>
-                                                </Stack>
-                                            </TableCell>
-                                        </TableRow>
-                                    ) : (
-                                        tasks.map((task, index) => {
-                                            const taskTeam = teams.find(t => t.id === task.team_id);
-                                            const statusDisplay = getStatusDisplay(task.status);
-                                            const formatTaskDate = (dateStr) => {
-                                                if (!dateStr) return '—';
-                                                const d = new Date(dateStr);
-                                                return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
-                                            };
-                                            return (
-                                                <TableRow
-                                                    key={task.id}
-                                                    hover
-                                                    sx={{
-                                                        '&:hover': {
-                                                            bgcolor: alpha(COLORS.PRIMARY[50], 0.05)
-                                                        },
-                                                        borderBottom: index < tasks.length - 1 ? `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.1)}` : 'none'
-                                                    }}
-                                                >
-                                                    {selectedTeam === 'all' && (
-                                                        <TableCell sx={{ py: 2.5 }}>
-                                                            <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.TEXT.PRIMARY }}>
-                                                                {taskTeam?.name || 'N/A'}
-                                                            </Typography>
-                                                        </TableCell>
-                                                    )}
-                                                    {viewMode === 'month' && (
-                                                        <TableCell sx={{ py: 2.5 }}>
-                                                            <Typography variant="body2" sx={{ color: COLORS.TEXT.PRIMARY }}>
-                                                                {formatTaskDate(task.assigned_date)}
-                                                            </Typography>
-                                                        </TableCell>
-                                                    )}
+                                                {selectedTeam === 'all' && (
                                                     <TableCell sx={{ py: 2.5 }}>
-                                                        <Stack spacing={0.5}>
-                                                            <Typography variant="subtitle2" sx={{ fontWeight: 600, color: COLORS.TEXT.PRIMARY }}>
-                                                                {task.title}
-                                                            </Typography>
-                                                            {task.work_type?.name && (
-                                                                <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY }}>
-                                                                    {task.work_type.name}
-                                                                </Typography>
-                                                            )}
-                                                        </Stack>
-                                                    </TableCell>
-                                                    <TableCell sx={{ py: 2.5 }}>
-                                                        {(() => {
-                                                            const taskPriority = task.task?.priority || task.priority;
-                                                            const priorityDisplay = getPriorityDisplay(taskPriority);
-                                                            return (
-                                                                <Chip
-                                                                    label={priorityDisplay.label}
-                                                                    size="small"
-                                                                    sx={{
-                                                                        bgcolor: priorityDisplay.bg,
-                                                                        color: priorityDisplay.color,
-                                                                        fontWeight: 600,
-                                                                        fontSize: '0.75rem'
-                                                                    }}
-                                                                />
-                                                            );
-                                                        })()}
-                                                    </TableCell>
-                                                    <TableCell sx={{ py: 2.5 }}>
-                                                        <Typography variant="body2" sx={{ color: COLORS.TEXT.PRIMARY, fontFamily: 'monospace' }}>
-                                                            {formatTime(task.start_time)} - {formatTime(task.end_time)}
+                                                        <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.TEXT.PRIMARY }}>
+                                                            {taskTeam?.name || 'N/A'}
                                                         </Typography>
                                                     </TableCell>
+                                                )}
+                                                {viewMode === 'month' && (
                                                     <TableCell sx={{ py: 2.5 }}>
-                                                        <Typography variant="body2" sx={{ color: task.area?.name ? COLORS.TEXT.PRIMARY : COLORS.TEXT.SECONDARY }}>
-                                                            {task.area?.name || '—'}
+                                                        <Typography variant="body2" sx={{ color: COLORS.TEXT.PRIMARY }}>
+                                                            {formatTaskDate(task.assigned_date)}
                                                         </Typography>
                                                     </TableCell>
-                                                    <TableCell sx={{ py: 2.5 }}>
-                                                        <Typography variant="body2" sx={{ color: task.completion_date ? COLORS.TEXT.PRIMARY : COLORS.TEXT.SECONDARY }}>
-                                                            {formatCompletionDate(task.completion_date)}
+                                                )}
+                                                <TableCell sx={{ py: 2.5 }}>
+                                                    <Stack spacing={0.5}>
+                                                        <Typography variant="subtitle2" sx={{ fontWeight: 600, color: COLORS.TEXT.PRIMARY }}>
+                                                            {task.title}
                                                         </Typography>
-                                                    </TableCell>
-                                                    <TableCell sx={{ py: 2.5 }}>
-                                                        <Chip
-                                                            icon={statusDisplay.icon}
-                                                            label={statusDisplay.label}
-                                                            size="small"
-                                                            sx={{
-                                                                bgcolor: statusDisplay.bg,
-                                                                color: statusDisplay.color,
-                                                                fontWeight: 600
-                                                            }}
-                                                        />
-                                                    </TableCell>
-                                                    <TableCell align="right" sx={{ py: 2.5 }}>
-                                                        <Stack direction="row" spacing={1} alignItems="center" justifyContent="flex-end">
-                                                            {/* Show "Tạo VaccinationRecord" button for completed tasks with vaccination_schedule_id */}
-                                                            {(() => {
-                                                                const canUpdate = isLeaderOfTaskTeam(task);
-                                                                const isCompleted = task.status === 'COMPLETED';
-                                                                const hasVaccinationSchedule = task.vaccination_schedule_id;
-                                                                // Check if schedule is not completed AND doesn't have a record_id yet
-                                                                // This prevents duplicate record creation
-                                                                const scheduleNotCompleted = !task.vaccination_schedule ||
-                                                                    (task.vaccination_schedule.status !== 'COMPLETED' &&
-                                                                        !task.vaccination_schedule.record_id);
-
-                                                                if (canUpdate && isCompleted && hasVaccinationSchedule && scheduleNotCompleted) {
-                                                                    return (
-                                                                        <Tooltip title="Tạo hồ sơ tiêm phòng" arrow placement="top">
-                                                                            <Button
-                                                                                size="small"
-                                                                                variant="contained"
-                                                                                color="success"
-                                                                                startIcon={<Add fontSize="small" />}
-                                                                                onClick={() => handleOpenVaccinationRecordModal(task)}
-                                                                                sx={{
-                                                                                    textTransform: 'none',
-                                                                                    fontWeight: 600,
-                                                                                    fontSize: '0.75rem',
-                                                                                    px: 2,
-                                                                                    py: 0.75,
-                                                                                    borderRadius: 2
-                                                                                }}
-                                                                            >
-                                                                                Tạo Hồ Sơ
-                                                                            </Button>
-                                                                        </Tooltip>
-                                                                    );
-                                                                }
-                                                                return null;
-                                                            })()}
-                                                            <IconButton
+                                                        {task.work_type?.name && (
+                                                            <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY }}>
+                                                                {task.work_type.name}
+                                                            </Typography>
+                                                        )}
+                                                    </Stack>
+                                                </TableCell>
+                                                <TableCell sx={{ py: 2.5 }}>
+                                                    {(() => {
+                                                        const taskPriority = task.task?.priority || task.priority;
+                                                        const priorityDisplay = getPriorityDisplay(taskPriority);
+                                                        return (
+                                                            <Chip
+                                                                label={priorityDisplay.label}
                                                                 size="small"
-                                                                onClick={(e) => handleOpenMenu(e, task)}
                                                                 sx={{
-                                                                    color: COLORS.TEXT.SECONDARY,
-                                                                    '&:hover': {
-                                                                        bgcolor: alpha(COLORS.PRIMARY[50], 0.5),
-                                                                        color: COLORS.PRIMARY[600]
-                                                                    }
+                                                                    bgcolor: priorityDisplay.bg,
+                                                                    color: priorityDisplay.color,
+                                                                    fontWeight: 600,
+                                                                    fontSize: '0.75rem'
                                                                 }}
-                                                            >
-                                                                <MoreVert fontSize="small" />
-                                                            </IconButton>
-                                                        </Stack>
-                                                    </TableCell>
-                                                </TableRow>
-                                            );
-                                        })
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </TableContainer>
-                    )}
+                                                            />
+                                                        );
+                                                    })()}
+                                                </TableCell>
+                                                <TableCell sx={{ py: 2.5 }}>
+                                                    <Typography variant="body2" sx={{ color: COLORS.TEXT.PRIMARY, fontFamily: 'monospace' }}>
+                                                        {formatTime(task.start_time)} - {formatTime(task.end_time)}
+                                                    </Typography>
+                                                </TableCell>
+                                                <TableCell sx={{ py: 2.5 }}>
+                                                    <Typography variant="body2" sx={{ color: task.area?.name ? COLORS.TEXT.PRIMARY : COLORS.TEXT.SECONDARY }}>
+                                                        {task.area?.name || '—'}
+                                                    </Typography>
+                                                </TableCell>
+                                                <TableCell sx={{ py: 2.5 }}>
+                                                    <Typography variant="body2" sx={{ color: task.completion_date ? COLORS.TEXT.PRIMARY : COLORS.TEXT.SECONDARY }}>
+                                                        {formatCompletionDate(task.completion_date)}
+                                                    </Typography>
+                                                </TableCell>
+                                                <TableCell sx={{ py: 2.5 }}>
+                                                    <Chip
+                                                        icon={statusDisplay.icon}
+                                                        label={statusDisplay.label}
+                                                        size="small"
+                                                        sx={{
+                                                            bgcolor: statusDisplay.bg,
+                                                            color: statusDisplay.color,
+                                                            fontWeight: 600
+                                                        }}
+                                                    />
+                                                </TableCell>
+                                                <TableCell align="right" sx={{ py: 2.5 }}>
+                                                    <Stack direction="row" spacing={1} alignItems="center" justifyContent="flex-end">
+                                                        {/* Show "Tạo VaccinationRecord" button for completed tasks with vaccination_schedule_id */}
+                                                        {(() => {
+                                                            const canUpdate = isLeaderOfTaskTeam(task);
+                                                            const isCompleted = task.status === 'COMPLETED';
+                                                            const hasVaccinationSchedule = task.vaccination_schedule_id;
+                                                            // Check if schedule is not completed AND doesn't have a record_id yet
+                                                            // This prevents duplicate record creation
+                                                            const scheduleNotCompleted = !task.vaccination_schedule ||
+                                                                (task.vaccination_schedule.status !== 'COMPLETED' &&
+                                                                    !task.vaccination_schedule.record_id);
+
+                                                            if (canUpdate && isCompleted && hasVaccinationSchedule && scheduleNotCompleted) {
+                                                                return (
+                                                                    <Tooltip title="Tạo hồ sơ tiêm phòng" arrow placement="top">
+                                                                        <Button
+                                                                            size="small"
+                                                                            variant="contained"
+                                                                            color="success"
+                                                                            startIcon={<Add fontSize="small" />}
+                                                                            onClick={() => handleOpenVaccinationRecordModal(task)}
+                                                                            sx={{
+                                                                                textTransform: 'none',
+                                                                                fontWeight: 600,
+                                                                                fontSize: '0.75rem',
+                                                                                px: 2,
+                                                                                py: 0.75,
+                                                                                borderRadius: 2
+                                                                            }}
+                                                                        >
+                                                                            Tạo Hồ Sơ
+                                                                        </Button>
+                                                                    </Tooltip>
+                                                                );
+                                                            }
+                                                            return null;
+                                                        })()}
+                                                        <IconButton
+                                                            size="small"
+                                                            onClick={(e) => handleOpenMenu(e, task)}
+                                                            sx={{
+                                                                color: COLORS.TEXT.SECONDARY,
+                                                                '&:hover': {
+                                                                    bgcolor: alpha(COLORS.PRIMARY[50], 0.5),
+                                                                    color: COLORS.PRIMARY[600]
+                                                                }
+                                                            }}
+                                                        >
+                                                            <MoreVert fontSize="small" />
+                                                        </IconButton>
+                                                    </Stack>
+                                                </TableCell>
+                                            </TableRow>
+                                        );
+                                    })
+                                )}
+                            </TableBody>
+                        </Table>
+                    </TableContainer>
                 </Paper>
             </Stack>
 
