@@ -1,15 +1,15 @@
-import React, { useState, useEffect, Suspense, useRef } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import {
     Box, Container, Typography, Grid, Card, CardContent, CardMedia,
-    Button, Chip, Stack, TextField, InputAdornment, ToggleButton,
-    ToggleButtonGroup, Dialog, DialogTitle, DialogContent, DialogActions,
-    Stepper, Step, StepLabel, Alert, alpha, Fade, Zoom,
-    Table, TableHead, TableRow, TableCell, TableBody, TableContainer
+    Button, Chip, Stack, Dialog, DialogTitle, DialogContent, DialogActions,
+    Stepper, Step, StepLabel, Alert, alpha, Fade, Zoom, Grow,
+    Table, TableHead, TableRow, TableCell, TableBody, TableContainer,
+    Paper
 } from '@mui/material';
 import {
-    Search, Pets, Schedule, Payment, CheckCircle, Star,
+    Pets, Schedule, Payment, CheckCircle, Star,
     AccessTime, LocationOn, Person, Phone, Email, School, LocalHospital, CalendarToday,
-    Store, Business, Restaurant, LocalCafe, Spa, LocalActivity, Loyalty
+    Store, Business, Restaurant, LocalCafe, Spa, LocalActivity, Loyalty, People, Note
 } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 import { authApi, customerApi } from '../../api/authApi';
@@ -18,11 +18,6 @@ import { bookingApi } from '../../api/bookingApi';
 import { notificationApi } from '../../api/notificationApi';
 import { feedbackApi } from '../../api/feedbackApi';
 import AlertModal from '../../components/modals/AlertModal';
-
-// Custom Icon Components to force re-render
-const SpaIcon = () => <Spa />;
-const LoyaltyIcon = () => <Loyalty />;
-const ActivityIcon = () => <LocalActivity />;
 
 // Utility function
 const formatPrice = (price) => {
@@ -34,39 +29,10 @@ const formatPrice = (price) => {
 import Loading from '../../components/loading/Loading';
 import ServiceCard from '../../components/booking/ServiceCard';
 import BookingForm from '../../components/booking/BookingForm';
+import BookingDateModal from '../../components/modals/BookingDateModal';
 import PaymentModal from '../../components/booking/PaymentModal';
 import BookingConfirmation from '../../components/booking/BookingConfirmation';
 import FeedbackModal from '../../components/booking/FeedbackModal';
-
-// Safe Transition Component
-const SafeZoom = ({ children, in: inProp, timeout, ...props }) => {
-    const [shouldRender, setShouldRender] = useState(false);
-    const timeoutRef = useRef(null);
-
-    useEffect(() => {
-        if (inProp) {
-            setShouldRender(true);
-        } else {
-            timeoutRef.current = setTimeout(() => {
-                setShouldRender(false);
-            }, timeout || 300);
-        }
-
-        return () => {
-            if (timeoutRef.current) {
-                clearTimeout(timeoutRef.current);
-            }
-        };
-    }, [inProp, timeout]);
-
-    if (!shouldRender) return null;
-
-    return (
-        <Zoom in={inProp} timeout={timeout} {...props}>
-            {children}
-        </Zoom>
-    );
-};
 
 // Error Boundary Component
 class ErrorBoundary extends React.Component {
@@ -105,8 +71,6 @@ const BookingPage = () => {
     const [loading, setLoading] = useState(true);
     const [services, setServices] = useState([]);
     const [selectedService, setSelectedService] = useState(null);
-    const [searchQuery, setSearchQuery] = useState('');
-    const [categoryFilter, setCategoryFilter] = useState('all');
     const [currentStep, setCurrentStep] = useState(0);
     const [bookingData, setBookingData] = useState({});
     const [showPayment, setShowPayment] = useState(false);
@@ -119,6 +83,10 @@ const BookingPage = () => {
     const [historyMode, setHistoryMode] = useState(false);
     const [alert, setAlert] = useState({ open: false, message: '', type: 'info', title: 'Thông báo' });
     const [currentUser, setCurrentUser] = useState(null);
+    const [showDateSelection, setShowDateSelection] = useState(false);
+    const [serviceForDateSelection, setServiceForDateSelection] = useState(null);
+    const [selectedDate, setSelectedDate] = useState('');
+    const [selectedSlot, setSelectedSlot] = useState(null);
 
     const steps = ['Chọn dịch vụ', 'Điền thông tin', 'Thanh toán', 'Xác nhận'];
 
@@ -136,30 +104,11 @@ const BookingPage = () => {
             const user = authApi.getCurrentUser();
             console.log('Current user:', user);
 
-            if (!user) {
-                // Auto-login with test customer account for development
-                console.log('No user found, attempting auto-login...');
-                try {
-                    const loginResponse = await authApi.login({
-                        email: 'eva@gmail.com',
-                        password: 'customer123'
-                    });
-
-                    if (loginResponse.success) {
-                        console.log('Auto-login successful:', loginResponse.user);
-                        setCurrentUser(loginResponse.user);
-                    } else {
-                        console.log('Auto-login failed, showing services anyway...');
-                        // Still show services for browsing, but disable booking
-                    }
-                } catch (loginErr) {
-                    console.error('Auto-login failed:', loginErr);
-                    console.log('Continuing without authentication...');
-                    // Still show services for browsing
-                }
-            } else {
+            if (user) {
                 setCurrentUser(user);
                 console.log('User authenticated successfully:', user.name);
+            } else {
+                console.log('No user found, showing services in view-only mode');
             }
 
             // Get current user after potential auto-login  
@@ -171,23 +120,65 @@ const BookingPage = () => {
                 console.log('User role check passed:', currentUserCheck.name);
             }
 
-            // Load available services
+            // Load available services from API
             console.log('Loading services...');
-            const servicesResponse = await serviceApi.getAvailableServices();
-            console.log('Services response:', servicesResponse);
-            if (servicesResponse.success) {
-                setServices(servicesResponse.data);
-                console.log('Services loaded:', servicesResponse.data);
-            } else {
-                console.error('Failed to load services:', servicesResponse);
-                // Fallback: Load services directly from serviceApi if needed
-                setAlert({
-                    open: true,
-                    title: 'Lỗi',
-                    message: 'Không thể tải danh sách dịch vụ',
-                    type: 'error'
-                });
+            const token = localStorage.getItem('authToken');
+            const response = await fetch('https://petcafe-htc6dadbayh6h4dz.southeastasia-01.azurewebsites.net/api/services', {
+                headers: {
+                    'Authorization': token ? `Bearer ${token}` : '',
+                    'Accept': 'application/json'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
             }
+
+            const json = await response.json();
+            console.log('Services API response:', json);
+
+            // Extract services from response.data and filter active, non-deleted services
+            const rawServices = Array.isArray(json?.data)
+                ? json.data.filter(service => service?.is_active && !service?.is_deleted)
+                : [];
+
+            // Map API data to component format
+            const apiServices = rawServices.map(service => {
+                // Determine petRequired based on slots
+                // If service has slots with pet_group_id or pet_id, it's a pet care service (petRequired = true)
+                // If all slots have pet_group_id and pet_id as null, it's a cafe service (petRequired = false)
+                const hasPetSlots = service.slots && service.slots.length > 0
+                    ? service.slots.some(slot => slot?.pet_group_id || slot?.pet_id)
+                    : false;
+                const petRequired = hasPetSlots;
+
+                // Use base_price from API, or get from slots if available
+                const price = service.base_price || 0;
+
+                return {
+                    ...service,
+                    id: service.id,
+                    name: service.name,
+                    description: service.description,
+                    price: price,
+                    base_price: service.base_price,
+                    duration_minutes: service.duration_minutes,
+                    image_url: service.image_url,
+                    thumbnails: service.thumbnails || [],
+                    petRequired: petRequired,
+                    slots: service.slots || [],
+                    task: service.task,
+                    task_id: service.task_id,
+                    order_details: service.order_details || [],
+                    bookings: service.bookings || [],
+                    feedbacks: service.feedbacks || [],
+                    created_at: service.created_at,
+                    updated_at: service.updated_at
+                };
+            });
+
+            console.log('Mapped services:', apiServices);
+            setServices(apiServices);
 
             setLoading(false);
         } catch (err) {
@@ -202,47 +193,27 @@ const BookingPage = () => {
         }
     };
 
-    // Filter services based on search and category
-    const filteredServices = services?.filter(service => {
-        if (!service) return false;
-        const matchesSearch = service.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            service.description?.toLowerCase().includes(searchQuery.toLowerCase());
 
-        let matchesCategory = false;
-        if (categoryFilter === 'all') {
-            matchesCategory = true;
-        } else if (categoryFilter === 'pet_care') {
-            // Chăm sóc pet: grooming, healthcare, daycare (cần mang pet)
-            matchesCategory = service.petRequired === true;
-        } else if (categoryFilter === 'cafe_service') {
-            // Dịch vụ của cửa hàng: training với pet của cafe, các dịch vụ khác
-            matchesCategory = service.petRequired === false;
-        }
-
-        return matchesSearch && matchesCategory;
-    }) || [];
-
-    // Helper function to check if cafe service is available
+    // Helper function to check if cafe service is available based on slots
     const isCafeServiceAvailable = (service) => {
         if (service.petRequired === false) {
-            const now = new Date();
-            const currentDate = now.toISOString().split('T')[0];
+            // Check if service has available slots
+            if (!service.slots || service.slots.length === 0) {
+                return false;
+            }
 
-            // Use service's actual time data if available, otherwise use default
-            const serviceStartDate = service.serviceStartDate || '2024-01-15';
-            const serviceEndDate = service.serviceEndDate || '2024-01-20';
+            // Check if any slot is available (service_status === 'AVAILABLE')
+            const hasAvailableSlots = service.slots.some(slot => 
+                slot?.service_status === 'AVAILABLE' && !slot?.is_deleted
+            );
 
-            // For demo purposes, show cafe services if they haven't ended yet
-            // In production, you might want to check registration period instead
-            const isNotEnded = currentDate <= serviceEndDate;
-
-            return isNotEnded;
+            return hasAvailableSlots;
         }
         return true;
     };
 
     // Sort services: available cafe services first, then pet care services
-    const sortedServices = filteredServices.sort((a, b) => {
+    const sortedServices = (services || []).sort((a, b) => {
         if (!a || !b) return 0;
 
         // Check if services are available
@@ -253,10 +224,10 @@ const BookingPage = () => {
         if (!aAvailable && bAvailable) return 1;
         if (aAvailable && !bAvailable) return -1;
 
-        // Among available services, prioritize cafe services
+        // Among available services, prioritize pet care services
         if (aAvailable && bAvailable) {
-            if (a.petRequired === false && b.petRequired === true) return -1;
-            if (a.petRequired === true && b.petRequired === false) return 1;
+            if (a.petRequired === true && b.petRequired === false) return -1;
+            if (a.petRequired === false && b.petRequired === true) return 1;
         }
 
         return 0;
@@ -275,9 +246,13 @@ const BookingPage = () => {
     try {
         for (let i = 0; i < availableServices.length; i += servicesPerRow) {
             const rowServices = availableServices.slice(i, i + servicesPerRow);
-            // Đảm bảo mỗi hàng luôn có đúng 3 cards
+            // Chỉ thêm empty slots nếu không phải hàng cuối cùng
+            const isLastRow = i + servicesPerRow >= availableServices.length;
+            if (!isLastRow) {
+                // Đảm bảo mỗi hàng (trừ hàng cuối) luôn có đúng 3 cards
             while (rowServices.length < servicesPerRow) {
                 rowServices.push(null); // Thêm empty slot
+                }
             }
             serviceRows.push(rowServices);
         }
@@ -285,42 +260,16 @@ const BookingPage = () => {
         console.error('Error creating service rows:', error);
     }
 
-    // Debug: Check services count
-    console.log('Total services:', services.length);
-    console.log('Filtered services:', filteredServices.length);
-    console.log('Available services:', availableServices.length);
-    console.log('Service rows:', serviceRows.length);
-    console.log('First row services:', serviceRows[0]?.length);
 
-    // Debug: Check cafe services specifically
-    const cafeServices = services?.filter(s => s?.petRequired === false) || [];
-    console.log('Cafe services found:', cafeServices.length);
-    cafeServices.forEach(service => {
-        console.log(`Cafe service: ${service.name}, Available: ${isCafeServiceAvailable(service)}`);
-    });
-
-    // Service categories
-    const categories = [
-        { value: 'all', label: 'Tất cả', icon: <Pets key="all-pets" /> },
-        { value: 'pet_care', label: 'Chăm sóc thú cưng', icon: <LoyaltyIcon key="pet-loyalty" /> },
-        { value: 'cafe_service', label: 'Dịch vụ của cửa hàng', icon: <Spa key="cafe-spa" /> }
-    ];
-
-    // Debug: Check if Loyalty icon is imported correctly
-    console.log('Loyalty icon component:', Loyalty);
-    console.log('Categories array:', categories);
-    console.log('Pet Care category icon:', categories.find(cat => cat.value === 'pet_care')?.icon);
-
-    // Handle service selection
+    // Handle service selection - show date selection popup
     const handleServiceSelect = (service) => {
         try {
             if (!service) {
                 console.error('Service is null or undefined');
                 return;
             }
-            setSelectedService(service);
-            setBookingData({ ...bookingData, service });
-            setCurrentStep(1);
+            setServiceForDateSelection(service);
+            setShowDateSelection(true);
         } catch (error) {
             console.error('Error selecting service:', error);
             setAlert({
@@ -330,6 +279,36 @@ const BookingPage = () => {
                 type: 'error'
             });
         }
+    };
+
+    // Handle date selection confirmation
+    const handleDateConfirm = (slot, date) => {
+        if (!date || !slot) {
+            setAlert({
+                open: true,
+                title: 'Lỗi',
+                message: 'Vui lòng chọn ngày và khung giờ',
+                type: 'error'
+            });
+            return;
+        }
+        setSelectedDate(date);
+        setSelectedSlot(slot);
+        setSelectedService(serviceForDateSelection);
+        setBookingData({ 
+            ...bookingData, 
+            service: serviceForDateSelection, 
+            selectedDate: date,
+            slotId: slot.id,
+            slot: slot,
+            date: date,
+            time: slot.start_time,
+            pet_group_id: slot.pet_group_id || null,
+            pet_group: slot.pet_group || null
+        });
+        setShowDateSelection(false);
+        setServiceForDateSelection(null);
+        setCurrentStep(1);
     };
 
     // Handle booking form submission
@@ -350,11 +329,17 @@ const BookingPage = () => {
             let bookingDateTime = bookingData.bookingDateTime;
             if (!bookingDateTime) {
                 if (isCafe) {
-                    // bookingData.date provided, derive start from sessionId
-                    const sessionStart = bookingData.sessionId?.split('-').pop(); // HH:MM from id
-                    bookingDateTime = `${bookingData.date}T${sessionStart || '09:00'}:00`;
+                    // For cafe services, get start_time from selected slot
+                    const selectedSlot = svc?.slots?.find(slot => slot.id === bookingData.slotId);
+                    const sessionStart = selectedSlot?.start_time || bookingData.sessionId?.split('-').pop() || '09:00';
+                    bookingDateTime = `${bookingData.date}T${sessionStart}`;
                 } else if (bookingData.date && bookingData.time) {
                     bookingDateTime = `${bookingData.date}T${bookingData.time}:00`;
+                } else if (bookingData.date && bookingData.slotId) {
+                    // Get time from selected slot
+                    const selectedSlot = svc?.slots?.find(slot => slot.id === bookingData.slotId);
+                    const slotStart = selectedSlot?.start_time || '09:00';
+                    bookingDateTime = `${bookingData.date}T${slotStart}`;
                 }
             }
 
@@ -363,8 +348,8 @@ const BookingPage = () => {
             if (!isCafe) {
                 if (!petForBooking && bookingData.petInfo) {
                     petForBooking = {
-                        id: `temp-pet-${Date.now()}`,
-                        name: bookingData.petInfo?.breed || 'Pet',
+                        id: bookingData.petInfo?.id || `temp-pet-${Date.now()}`,
+                        name: bookingData.petInfo?.name || bookingData.petInfo?.breed || '',
                         species: bookingData.petInfo?.species,
                         breed: bookingData.petInfo?.breed,
                         weight: bookingData.petInfo?.weight
@@ -377,6 +362,8 @@ const BookingPage = () => {
                 ...paymentData,
                 bookingDateTime,
                 pet: petForBooking,
+                pet_group_id: bookingData.pet_group_id || null,
+                pet_group: bookingData.pet_group || null,
                 customerId: currentUser.id,
                 status: 'pending',
                 paymentMethod: paymentData.paymentMethod,
@@ -458,30 +445,12 @@ const BookingPage = () => {
             <Box sx={{
                 minHeight: '100vh',
                 width: '100%',
-                background: `
-                radial-gradient(circle at 20% 80%, ${alpha(COLORS.SECONDARY[100], 0.4)} 0%, transparent 50%),
-                radial-gradient(circle at 80% 20%, ${alpha(COLORS.WARNING[100], 0.4)} 0%, transparent 50%),
-                linear-gradient(135deg, 
-                    ${COLORS.SECONDARY[50]} 0%, 
-                    ${alpha(COLORS.WARNING[50], 0.9)} 50%,
-                    ${alpha(COLORS.ERROR[50], 0.8)} 100%
-                )
-            `,
+                backgroundColor: COLORS.BACKGROUND.DEFAULT,
                 position: 'relative',
                 py: { xs: 2, sm: 3, md: 4 },
                 px: { xs: 1, sm: 2, md: 3 }
             }}>
-                {/* Floating decorative elements */}
-                <Box sx={{
-                    position: 'absolute',
-                    inset: 0,
-                    pointerEvents: 'none',
-                    backgroundImage: `
-                    radial-gradient(circle at 15% 20%, ${alpha(COLORS.ERROR[100], 0.2)} 0 8px, transparent 9px),
-                    radial-gradient(circle at 80% 70%, ${alpha(COLORS.INFO[100], 0.15)} 0 6px, transparent 7px)
-                `,
-                    backgroundSize: '300px 300px'
-                }} />
+                {/* Floating decorative elements - Removed to make background clearer */}
 
                 <Box sx={{
                     py: historyMode ? 0.5 : 1,
@@ -531,10 +500,7 @@ const BookingPage = () => {
                                     mx: 'auto',
                                     mb: 4,
                                     p: 3,
-                                    background: `linear-gradient(135deg, 
-                                ${alpha(COLORS.BACKGROUND.DEFAULT, 0.95)} 0%, 
-                                ${alpha(COLORS.SECONDARY[50], 0.9)} 100%
-                            )`,
+                                    backgroundColor: COLORS.BACKGROUND.DEFAULT,
                                     borderRadius: 4,
                                     border: `2px solid ${alpha(COLORS.ERROR[200], 0.3)}`,
                                     boxShadow: `0 8px 32px ${alpha(COLORS.ERROR[200], 0.2)}`
@@ -567,79 +533,8 @@ const BookingPage = () => {
                     {currentStep === 0 && (
                         <Fade in={true} timeout={1000} unmountOnExit={false}>
                             <Box>
-                                {/* Search and Filter Controls */}
-                                <Box sx={{
-                                    mb: 6,
-                                    p: 4,
-                                    background: `linear-gradient(135deg, 
-                                    ${alpha(COLORS.BACKGROUND.DEFAULT, 0.95)} 0%, 
-                                    ${alpha(COLORS.SECONDARY[50], 0.9)} 100%
-                                )`,
-                                    borderRadius: 6,
-                                    border: `2px solid ${alpha(COLORS.ERROR[200], 0.3)}`,
-                                    boxShadow: `0 12px 48px ${alpha(COLORS.ERROR[200], 0.15)}`,
-                                    backdropFilter: 'blur(10px)'
-                                }}>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                        <TextField
-                                            placeholder="Tìm kiếm dịch vụ chăm sóc thú cưng..."
-                                            size="large"
-                                            value={searchQuery}
-                                            onChange={(e) => setSearchQuery(e.target.value)}
-                                            InputProps={{
-                                                startAdornment: (
-                                                    <InputAdornment position="start">
-                                                        <Search sx={{ color: COLORS.ERROR[500] }} />
-                                                    </InputAdornment>
-                                                ),
-                                                endAdornment: (
-                                                    <InputAdornment position="end">
-                                                        <Button size="small" onClick={() => setSearchQuery('')} sx={{ minWidth: 0, p: 0.5 }}>
-                                                            <span role="img" aria-label="clear">❌</span>
-                                                        </Button>
-                                                    </InputAdornment>
-                                                )
-                                            }}
-                                            sx={{
-                                                flexGrow: 1,
-                                                '& .MuiOutlinedInput-root': {
-                                                    borderRadius: 3,
-                                                    backgroundColor: alpha(COLORS.SECONDARY[50], 0.8),
-                                                    '&:hover': {
-                                                        backgroundColor: alpha(COLORS.SECONDARY[50], 0.9)
-                                                    },
-                                                    '&.Mui-focused': {
-                                                        backgroundColor: COLORS.SECONDARY[50]
-                                                    }
-                                                }
-                                            }}
-                                        />
-                                        <ToggleButtonGroup
-                                            value={categoryFilter}
-                                            exclusive
-                                            onChange={(_, value) => value && setCategoryFilter(value)}
-                                            size="large"
-                                            sx={{
-                                                '& .MuiToggleButton-root': {
-                                                    textTransform: 'none',
-                                                    borderRadius: 2,
-                                                    border: `1px solid ${alpha(COLORS.ERROR[300], 0.5)}`,
-                                                    color: COLORS.TEXT.SECONDARY,
-                                                    '&.Mui-selected': {
-                                                        backgroundColor: alpha(COLORS.ERROR[100], 0.8),
-                                                        color: COLORS.ERROR[700],
-                                                        fontWeight: 'bold'
-                                                    }
-                                                }
-                                            }}
-                                        >
-                                            {categories.map((category) => (
-                                                <ToggleButton key={category.value} value={category.value}>
-                                                    {category.icon}
-                                                    <Box sx={{ ml: 1 }}>{category.label}</Box>
-                                                </ToggleButton>
-                                            ))}
-                                        </ToggleButtonGroup>
+                                {/* History Button */}
+                                <Box sx={{ mb: 4, display: 'flex', justifyContent: 'flex-end' }}>
                                         <Button
                                             variant="outlined"
                                             onClick={async () => {
@@ -658,13 +553,11 @@ const BookingPage = () => {
                                         >
                                             Xem lịch sử đặt lịch
                                         </Button>
-                                    </Box>
-
                                 </Box>
 
                                 {/* Services Grid - Fixed 3 cards per row with equal height */}
                                 {serviceRows && serviceRows.length > 0 && serviceRows.map((rowServices, rowIndex) => (
-                                    <Box key={rowIndex} sx={{ mb: 4 }}>
+                                    <Box key={rowIndex} sx={{ mb: 3 }}>
                                         <Box sx={{
                                             display: 'grid',
                                             gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' },
@@ -673,25 +566,28 @@ const BookingPage = () => {
                                                 minHeight: '500px' // Fixed height for all cards
                                             }
                                         }}>
-                                            {rowServices && rowServices.map((service, cardIndex) => (
-                                                <Box key={service ? service.id : `empty-${rowIndex}-${cardIndex}`}>
-                                                    {service ? (
-                                                        <SafeZoom
+                                            {rowServices && rowServices.map((service, cardIndex) => {
+                                                // Bỏ qua empty slots (null) khi render
+                                                if (!service) return null;
+                                                
+                                                return (
+                                                    <Box key={service.id}>
+                                                        <Grow
                                                             in={true}
                                                             timeout={800 + (rowIndex * 3 + cardIndex) * 100}
+                                                            style={{ transformOrigin: '0 0 0' }}
                                                         >
                                                             <Box>
                                                                 <ServiceCard
                                                                     service={service}
                                                                     onSelect={() => handleServiceSelect(service)}
+                                                                    onCardClick={() => handleServiceSelect(service)}
                                                                 />
                                                             </Box>
-                                                        </SafeZoom>
-                                                    ) : (
-                                                        <Box sx={{ height: '500px' }} />
-                                                    )}
+                                                        </Grow>
                                                 </Box>
-                                            ))}
+                                                );
+                                            })}
                                         </Box>
                                     </Box>
                                 ))}
@@ -705,7 +601,7 @@ const BookingPage = () => {
                                         />
                                     </Box>
                                 ) : availableServices.length === 0 ? (
-                                    <SafeZoom in={true} timeout={600}>
+                                    <Grow in={true} timeout={600}>
                                         <Card sx={{
                                             height: 400,
                                             display: 'flex',
@@ -719,16 +615,16 @@ const BookingPage = () => {
                                             borderRadius: 4
                                         }}>
                                             <CardContent sx={{ textAlign: 'center' }}>
-                                                <Search sx={{ fontSize: 64, color: COLORS.GRAY[400], mb: 2 }} />
+                                                <Pets sx={{ fontSize: 64, color: COLORS.GRAY[400], mb: 2 }} />
                                                 <Typography variant="h5" sx={{ color: COLORS.GRAY[600], mb: 1 }}>
-                                                    Không tìm thấy dịch vụ
+                                                    Không có dịch vụ nào
                                                 </Typography>
                                                 <Typography variant="body1" color="text.secondary">
-                                                    Thử thay đổi từ khóa tìm kiếm hoặc danh mục
+                                                    Hiện tại chưa có dịch vụ nào khả dụng
                                                 </Typography>
                                             </CardContent>
                                         </Card>
-                                    </SafeZoom>
+                                    </Grow>
                                 ) : null}
                             </Box>
                         </Fade>
@@ -737,11 +633,14 @@ const BookingPage = () => {
                     {/* Step 1: Booking Form */}
                     {currentStep === 1 && selectedService && (
                         <Suspense fallback={<Loading message="Đang tải form..." />}>
-                            <BookingForm
-                                service={selectedService}
-                                onSubmit={handleBookingSubmit}
-                                onBack={() => setCurrentStep(0)}
-                            />
+                            <Box sx={{ mt: 4 }}>
+                                <BookingForm
+                                    service={selectedService}
+                                    bookingData={bookingData}
+                                    onSubmit={handleBookingSubmit}
+                                    onBack={() => setCurrentStep(0)}
+                                />
+                            </Box>
                         </Suspense>
                     )}
 
@@ -780,7 +679,7 @@ const BookingPage = () => {
                                                 <Box sx={{ p: 2, borderRadius: 2, backgroundColor: alpha(COLORS.ERROR[50], 0.6), border: `1px solid ${alpha(COLORS.ERROR[200], 0.6)}` }}>
                                                     <Typography variant="body2" color="text.secondary">Tổng cộng</Typography>
                                                     <Typography variant="h6" fontWeight="bold" sx={{ color: COLORS.ERROR[700] }}>
-                                                        {formatPrice(completedBooking?.finalPrice || completedBooking?.service?.price || 0)}
+                                                        {formatPrice(completedBooking?.finalPrice || completedBooking?.service?.base_price || completedBooking?.service?.price || 0)}
                                                     </Typography>
                                                     <Typography variant="caption" sx={{ display: 'block', mt: 0.5 }}>
                                                         Trạng thái thanh toán: {completedBooking?.paymentStatus === 'paid' ? 'Đã thanh toán' : 'Chưa thanh toán'}
@@ -913,6 +812,19 @@ const BookingPage = () => {
                             onSubmit={handleFeedbackSubmit}
                         />
                     </Suspense>
+
+                    {/* Date Selection Modal */}
+                    <BookingDateModal
+                        open={showDateSelection}
+                        onClose={() => {
+                            setShowDateSelection(false);
+                            setServiceForDateSelection(null);
+                            setSelectedDate('');
+                            setSelectedSlot(null);
+                        }}
+                        service={serviceForDateSelection}
+                        onConfirm={handleDateConfirm}
+                    />
                 </Box>
 
                 {/* Alert Modal */}

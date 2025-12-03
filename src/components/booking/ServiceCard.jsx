@@ -2,16 +2,17 @@ import React, { useState } from 'react';
 import {
     Card, CardContent, CardMedia, Typography, Button, Chip, Box,
     Stack, IconButton, Tooltip, Dialog, DialogTitle, DialogContent,
-    DialogActions, alpha, Zoom
+    DialogActions, alpha, Zoom, Divider
 } from '@mui/material';
 import {
     Schedule, LocationOn, Star, Favorite, FavoriteBorder,
     Info, AccessTime, AttachMoney, Pets, LocalHospital,
-    School, Spa, Loyalty
+    School, Spa, Loyalty, CalendarToday, People, Note
 } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
+import { WEEKDAY_LABELS } from '../../api/slotApi';
 
-const ServiceCard = ({ service, onSelect, showFavorite = true }) => {
+const ServiceCard = ({ service, onSelect, onCardClick, showFavorite = true }) => {
     const [isFavorite, setIsFavorite] = useState(false);
     const [showDetails, setShowDetails] = useState(false);
 
@@ -135,19 +136,33 @@ const ServiceCard = ({ service, onSelect, showFavorite = true }) => {
                         }
                     }
                 }}
-                onClick={() => onSelect(service)}
+                onClick={() => {
+                    if (onCardClick) {
+                        onCardClick(service);
+                    } else {
+                        onSelect(service);
+                    }
+                }}
             >
                 {/* Service Image */}
                 <Box sx={{ position: 'relative', overflow: 'hidden', height: 250 }}>
                     <CardMedia
                         component="img"
                         height="250"
-                        image={(service.images && service.images[0]) || `https://images.unsplash.com/photo-1601758228041-f3b2795255f1?q=80&w=800&auto=format&fit=crop`}
+                        image={service.image_url || (service.thumbnails && service.thumbnails[0]) || `https://images.unsplash.com/photo-1601758228041-f3b2795255f1?q=80&w=800&auto=format&fit=crop`}
                         alt={service.name}
                         className="service-image"
                         sx={{
                             transition: 'transform 0.3s ease',
                             objectFit: 'cover'
+                        }}
+                        onError={(e) => {
+                            // Fallback to thumbnail or placeholder if image_url fails
+                            if (service.image_url && service.thumbnails && service.thumbnails[0]) {
+                                e.target.src = service.thumbnails[0];
+                            } else {
+                                e.target.src = `https://images.unsplash.com/photo-1601758228041-f3b2795255f1?q=80&w=800&auto=format&fit=crop`;
+                            }
                         }}
                     />
 
@@ -359,13 +374,21 @@ const ServiceCard = ({ service, onSelect, showFavorite = true }) => {
                         {/* Service Image */}
                         <Box
                             component="img"
-                            src={(service.images && service.images[0]) || `https://images.unsplash.com/photo-1601758228041-f3b2795255f1?q=80&w=800&auto=format&fit=crop`}
+                            src={service.image_url || (service.thumbnails && service.thumbnails[0]) || `https://images.unsplash.com/photo-1601758228041-f3b2795255f1?q=80&w=800&auto=format&fit=crop`}
                             alt={service.name}
                             sx={{
                                 width: '100%',
                                 height: 250,
                                 objectFit: 'cover',
                                 borderRadius: 3
+                            }}
+                            onError={(e) => {
+                                // Fallback to thumbnail or placeholder if image_url fails
+                                if (service.image_url && service.thumbnails && service.thumbnails[0]) {
+                                    e.target.src = service.thumbnails[0];
+                                } else {
+                                    e.target.src = `https://images.unsplash.com/photo-1601758228041-f3b2795255f1?q=80&w=800&auto=format&fit=crop`;
+                                }
                             }}
                         />
 
@@ -413,7 +436,7 @@ const ServiceCard = ({ service, onSelect, showFavorite = true }) => {
                             </Typography>
                         </Box>
 
-                        {/* Details Grid */}
+                        {/* Service Basic Info */}
                         <Box sx={{
                             display: 'grid',
                             gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
@@ -422,79 +445,187 @@ const ServiceCard = ({ service, onSelect, showFavorite = true }) => {
                             backgroundColor: alpha(categoryColor[100], 0.3),
                             borderRadius: 3
                         }}>
-                            {/* Show time info for cafe services (specific period) */}
-                            {service.petRequired === false && (
-                                <>
-                                    <Box>
-                                        <Typography variant="subtitle2" color={categoryColor[700]} fontWeight="bold">
-                                            Thời gian diễn ra
-                                        </Typography>
-                                        <Typography variant="body1">
-                                            {service.serviceStartDate ?
-                                                `${service.serviceStartDate.split('-').reverse().join('/')} - ${service.serviceEndDate.split('-').reverse().join('/')}`
-                                                : '15/01/2024 - 20/01/2024'
-                                            }<br />
-                                            {service.serviceStartTime ?
-                                                `${Math.floor(service.serviceStartTime / 60).toString().padStart(2, '0')}:${(service.serviceStartTime % 60).toString().padStart(2, '0')} - ${Math.floor(service.serviceEndTime / 60).toString().padStart(2, '0')}:${(service.serviceEndTime % 60).toString().padStart(2, '0')}`
-                                                : '8:00 - 20:00'
-                                            }
-                                        </Typography>
-                                    </Box>
-                                    <Box>
-                                        <Typography variant="subtitle2" color={categoryColor[700]} fontWeight="bold">
-                                            Thời gian đăng ký
-                                        </Typography>
-                                        <Typography variant="body1">
-                                            {service.registrationStartDate ?
-                                                `${service.registrationStartDate.split('-').reverse().join('/')} - ${service.registrationEndDate.split('-').reverse().join('/')}`
-                                                : '10/01/2024 - 14/01/2024'
-                                            }<br />
-                                            {service.registrationStartTime ?
-                                                `${Math.floor(service.registrationStartTime / 60).toString().padStart(2, '0')}:${(service.registrationStartTime % 60).toString().padStart(2, '0')} - ${Math.floor(service.registrationEndTime / 60).toString().padStart(2, '0')}:${(service.registrationEndTime % 60).toString().padStart(2, '0')}`
-                                                : '9:00 - 17:00'
-                                            }
-                                        </Typography>
-                                    </Box>
-                                </>
-                            )}
+                            <Box>
+                                <Typography variant="subtitle2" color={categoryColor[700]} fontWeight="bold" sx={{ mb: 1 }}>
+                                    Giá cơ bản
+                                </Typography>
+                                <Typography variant="h6" sx={{ color: COLORS.ERROR[600], fontWeight: 'bold' }}>
+                                    {formatPrice(service.base_price || service.price || 0)}
+                                </Typography>
+                            </Box>
 
-                            {/* Show time info for pet care services (daily hours) */}
-                            {service.petRequired === true && (
-                                <Box>
-                                    <Typography variant="subtitle2" color={categoryColor[700]} fontWeight="bold">
-                                        Giờ hoạt động
-                                    </Typography>
-                                    <Typography variant="body1">
-                                        8:00 - 20:00 (Hàng ngày)
-                                    </Typography>
-                                </Box>
-                            )}
-
-                            {service.location && (
-                                <Box>
-                                    <Typography variant="subtitle2" color={categoryColor[700]} fontWeight="bold">
-                                        Địa điểm
-                                    </Typography>
-                                    <Typography variant="body1">
-                                        {service.location}
-                                    </Typography>
-                                </Box>
-                            )}
-
-                            {service.rating && (
-                                <Box>
-                                    <Typography variant="subtitle2" color={categoryColor[700]} fontWeight="bold">
-                                        Đánh giá
-                                    </Typography>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                        <Star sx={{ color: COLORS.WARNING[500], fontSize: 20 }} />
-                                        <Typography variant="body1">
-                                            {service.rating}/5 ({service.reviewCount || 0} đánh giá)
-                                        </Typography>
-                                    </Box>
-                                </Box>
-                            )}
+                            <Box>
+                                <Typography variant="subtitle2" color={categoryColor[700]} fontWeight="bold" sx={{ mb: 1 }}>
+                                    Thời lượng
+                                </Typography>
+                                <Typography variant="body1">
+                                    {formatDuration(service.duration_minutes || 0)}
+                                </Typography>
+                            </Box>
                         </Box>
+
+                        {/* Available Slots */}
+                        {service.slots && service.slots.length > 0 && (
+                            <Box>
+                                <Typography variant="h6" sx={{ mb: 2, color: categoryColor[700], fontWeight: 'bold' }}>
+                                    Lịch trình có sẵn
+                                </Typography>
+                                <Stack spacing={2}>
+                                    {service.slots
+                                        .filter(slot => slot && !slot.is_deleted)
+                                        .map((slot, index) => {
+                                            const slotPrice = slot.price !== null && slot.price !== undefined ? slot.price : (service.base_price || 0);
+                                            const isAvailable = slot.service_status === 'AVAILABLE';
+                                            
+                                            return (
+                                                <Box
+                                                    key={slot.id || index}
+                                                    sx={{
+                                                        p: 2.5,
+                                                        borderRadius: 2,
+                                                        border: `2px solid ${isAvailable ? alpha(categoryColor[300], 0.5) : alpha(COLORS.GRAY[300], 0.3)}`,
+                                                        backgroundColor: isAvailable ? alpha(categoryColor[50], 0.5) : alpha(COLORS.GRAY[50], 0.3),
+                                                        opacity: isAvailable ? 1 : 0.6
+                                                    }}
+                                                >
+                                                    <Stack spacing={1.5}>
+                                                        {/* Status Badge */}
+                                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                            <Chip
+                                                                label={isAvailable ? 'Có sẵn' : 'Không khả dụng'}
+                                                                size="small"
+                                                                color={isAvailable ? 'success' : 'default'}
+                                                                sx={{ fontWeight: 'bold' }}
+                                                            />
+                                                            {slotPrice > 0 && (
+                                                                <Typography variant="h6" sx={{ color: COLORS.ERROR[600], fontWeight: 'bold' }}>
+                                                                    {formatPrice(slotPrice)}
+                                                                </Typography>
+                                                            )}
+                                                        </Box>
+
+                                                        {/* Day of Week */}
+                                                        {slot.day_of_week && (
+                                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                                <CalendarToday sx={{ fontSize: 18, color: categoryColor[500] }} />
+                                                                <Typography variant="body1" fontWeight={600}>
+                                                                    {WEEKDAY_LABELS[slot.day_of_week] || slot.day_of_week}
+                                                                </Typography>
+                                                                {slot.is_recurring && (
+                                                                    <Chip label="Lặp lại" size="small" sx={{ ml: 1, height: 20, fontSize: '0.7rem' }} />
+                                                                )}
+                                                            </Box>
+                                                        )}
+
+                                                        {/* Specific Date */}
+                                                        {slot.specific_date && (
+                                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                                <CalendarToday sx={{ fontSize: 18, color: categoryColor[500] }} />
+                                                                <Typography variant="body1">
+                                                                    Ngày: {new Date(slot.specific_date).toLocaleDateString('vi-VN')}
+                                                                </Typography>
+                                                            </Box>
+                                                        )}
+
+                                                        {/* Time Range */}
+                                                        {slot.start_time && slot.end_time && (
+                                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                                <AccessTime sx={{ fontSize: 18, color: categoryColor[500] }} />
+                                                                <Typography variant="body1">
+                                                                    {slot.start_time.substring(0, 5)} - {slot.end_time.substring(0, 5)}
+                                                                </Typography>
+                                                            </Box>
+                                                        )}
+
+                                                        {/* Max Capacity */}
+                                                        {slot.max_capacity !== null && slot.max_capacity !== undefined && (
+                                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                                <People sx={{ fontSize: 18, color: categoryColor[500] }} />
+                                                                <Typography variant="body2" color="text.secondary">
+                                                                    Sức chứa tối đa: <strong>{slot.max_capacity}</strong> {service.petRequired ? 'thú cưng' : 'người'}
+                                                                </Typography>
+                                                            </Box>
+                                                        )}
+
+                                                        {/* Pet Group Info */}
+                                                        {slot.pet_group && (
+                                                            <Box sx={{
+                                                                p: 1.5,
+                                                                borderRadius: 1,
+                                                                backgroundColor: alpha(categoryColor[100], 0.3),
+                                                                border: `1px solid ${alpha(categoryColor[200], 0.3)}`
+                                                            }}>
+                                                                <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 0.5 }}>
+                                                                    Nhóm thú cưng: {slot.pet_group.name}
+                                                                </Typography>
+                                                                {slot.pet_group.description && (
+                                                                    <Typography variant="caption" color="text.secondary">
+                                                                        {slot.pet_group.description}
+                                                                    </Typography>
+                                                                )}
+                                                            </Box>
+                                                        )}
+
+                                                        {/* Special Notes */}
+                                                        {slot.special_notes && (
+                                                            <Box sx={{
+                                                                p: 1.5,
+                                                                borderRadius: 1,
+                                                                backgroundColor: alpha(COLORS.WARNING[50], 0.5),
+                                                                border: `1px solid ${alpha(COLORS.WARNING[200], 0.3)}`
+                                                            }}>
+                                                                <Box sx={{ display: 'flex', alignItems: 'start', gap: 1 }}>
+                                                                    <Note sx={{ fontSize: 18, color: COLORS.WARNING[600], mt: 0.25 }} />
+                                                                    <Box>
+                                                                        <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 0.5, color: COLORS.WARNING[700] }}>
+                                                                            Ghi chú đặc biệt:
+                                                                        </Typography>
+                                                                        <Typography variant="body2" color="text.secondary">
+                                                                            {slot.special_notes}
+                                                                        </Typography>
+                                                                    </Box>
+                                                                </Box>
+                                                            </Box>
+                                                        )}
+                                                    </Stack>
+                                                </Box>
+                                            );
+                                        })}
+                                </Stack>
+                            </Box>
+                        )}
+
+                        {/* Task Information */}
+                        {service.task && (
+                            <Box>
+                                <Typography variant="h6" sx={{ mb: 2, color: categoryColor[700], fontWeight: 'bold' }}>
+                                    Thông tin nhiệm vụ
+                                </Typography>
+                                <Box sx={{
+                                    p: 2.5,
+                                    borderRadius: 2,
+                                    backgroundColor: alpha(categoryColor[50], 0.5),
+                                    border: `1px solid ${alpha(categoryColor[200], 0.3)}`
+                                }}>
+                                    <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 1 }}>
+                                        {service.task.title}
+                                    </Typography>
+                                    {service.task.description && (
+                                        <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6 }}>
+                                            {service.task.description}
+                                        </Typography>
+                                    )}
+                                    {service.task.estimated_hours && (
+                                        <Box sx={{ mt: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+                                            <AccessTime sx={{ fontSize: 16, color: categoryColor[500] }} />
+                                            <Typography variant="body2" color="text.secondary">
+                                                Thời gian ước tính: <strong>{service.task.estimated_hours} giờ</strong>
+                                            </Typography>
+                                        </Box>
+                                    )}
+                                </Box>
+                            </Box>
+                        )}
 
                         {/* Features/Benefits */}
                         {service.features && service.features.length > 0 && (

@@ -2,7 +2,6 @@ import React from "react";
 import { Route } from "react-router-dom";
 import SalesDashboardPage from "../pages/sales/DashboardPage";
 import SalesPage from "../pages/sales/SalesPage";
-import InvoicesPage from "../pages/sales/InvoicesPage";
 import SalesCheckoutPage from "../pages/sales/CheckoutPage";
 import ServiceSalesPage from "../pages/sales/ServiceSalesPage";
 import CartPage from "../pages/sales/CartPage";
@@ -12,12 +11,13 @@ import PetGroupsPage from "../pages/sales/PetGroupsPage";
 import PetStatusPage from "../pages/sales/PetStatusPage";
 import AttendancePage from "../pages/sales/AttendancePage";
 import JoinedGroupsPage from "../pages/sales/JoinedGroupsPage";
+import ServiceBookingConfirmPage from "../pages/sales/ServiceBookingConfirmPage";
+import ProductSalesConfirmPage from "../pages/sales/ProductSalesConfirmPage";
 
 const salesRoutes = (
     <>
         <Route path="/sales/dashboard" element={<SalesDashboardPage />} />
         <Route path="/sales/sales" element={<SalesPage />} />
-        <Route path="/sales/invoices" element={<InvoicesPage />} />
         <Route path="/sales/checkout" element={<SalesCheckoutPage />} />
         <Route path="/sales/services" element={<ServiceSalesPage />} />
         <Route path="/sales/cart" element={<CartPage />} />
@@ -27,6 +27,8 @@ const salesRoutes = (
         <Route path="/sales/pet-status" element={<PetStatusPage />} />
         <Route path="/sales/attendance" element={<AttendancePage />} />
         <Route path="/sales/joined-groups" element={<JoinedGroupsPage />} />
+        <Route path="/sales/service-booking-confirm" element={<ServiceBookingConfirmPage />} />
+        <Route path="/sales/product-sales-confirm" element={<ProductSalesConfirmPage />} />
     </>
 );
 

@@ -10,6 +10,8 @@ import MenuPage from "./pages/menu/MenuPage";
 import AreasPage from "./pages/areas/AreasPage";
 import ProfilePage from "./pages/profile/ProfilePage";
 import BookingPage from "./pages/booking/BookingPage";
+import BookingFormPage from "./pages/booking/BookingFormPage";
+import BookingCartPage from "./pages/booking/BookingCartPage";
 import managerRoutes from "./routes/managerRoutes";
 import salesRoutes from "./routes/salesRoutes";
 import workingRoutes from "./routes/workingRoutes";
@@ -30,6 +32,8 @@ function App() {
           <Route path="/home" element={<HomePage />} />
           <Route path="/menu" element={<MenuPage />} />
           <Route path="/booking" element={<BookingPage />} />
+          <Route path="/booking/form" element={<BookingFormPage />} />
+          <Route path="/booking/cart" element={<BookingCartPage />} />
           <Route path="/areas" element={<AreasPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           {managerRoutes}
