@@ -4,15 +4,18 @@ import { Vaccines, Close } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 import AlertModal from './AlertModal';
 
+// Default form state for vaccine type
+const INITIAL_FORM_STATE = {
+    name: '',
+    description: '',
+    species_id: '',
+    interval_months: '',
+    is_required: true,
+    required_doses: ''
+};
+
 const VaccineTypeModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData = null, species = [], isLoading = false }) => {
-    const [formData, setFormData] = useState({
-        name: '',
-        description: '',
-        species_id: '',
-        interval_months: '',
-        is_required: true,
-        required_doses: ''
-    });
+    const [formData, setFormData] = useState(INITIAL_FORM_STATE);
 
     const [errors, setErrors] = useState({});
     const [alertModal, setAlertModal] = useState({
@@ -23,34 +26,28 @@ const VaccineTypeModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
     });
 
     useEffect(() => {
-        if (isOpen) {
-            if (editMode && initialData) {
-                // Safeguard: ensure species_id is a string, not an object
-                let speciesId = initialData.species_id || '';
-                if (typeof speciesId === 'object' && speciesId.id) {
-                    speciesId = speciesId.id;
-                }
+        if (!isOpen) return;
 
-                setFormData({
-                    name: initialData.name || '',
-                    description: initialData.description || '',
-                    species_id: String(speciesId),
-                    interval_months: initialData.interval_months || '',
-                    is_required: initialData.is_required !== undefined ? initialData.is_required : true,
-                    required_doses: initialData.required_doses || ''
-                });
-            } else {
-                setFormData({
-                    name: '',
-                    description: '',
-                    species_id: '',
-                    interval_months: '',
-                    is_required: true,
-                    required_doses: ''
-                });
+        if (editMode && initialData) {
+            // Safeguard: ensure species_id is a string, not an object
+            let speciesId = initialData.species_id || '';
+            if (typeof speciesId === 'object' && speciesId.id) {
+                speciesId = speciesId.id;
             }
-            setErrors({});
+
+            setFormData({
+                name: initialData.name || '',
+                description: initialData.description || '',
+                species_id: String(speciesId),
+                interval_months: initialData.interval_months || '',
+                is_required: initialData.is_required !== undefined ? initialData.is_required : true,
+                required_doses: initialData.required_doses || ''
+            });
+        } else {
+            setFormData(INITIAL_FORM_STATE);
         }
+
+        setErrors({});
     }, [isOpen, editMode, initialData]);
 
     const validate = () => {
@@ -68,8 +65,8 @@ const VaccineTypeModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
         }
 
         if (!formData.interval_months || formData.interval_months <= 0) {
-            newErrors.interval_months = 'Chu kỳ tiêm lại phải lớn hơn 0';
-            errorMessages.push('• Chu kỳ tiêm lại phải lớn hơn 0');
+            newErrors.interval_months = 'Lịch tiêm kế tiếp phải lớn hơn 0 tháng';
+            errorMessages.push('• Lịch tiêm kế tiếp phải lớn hơn 0 tháng');
         }
 
         if (!formData.required_doses || formData.required_doses <= 0) {
@@ -93,22 +90,19 @@ const VaccineTypeModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
     };
 
     const handleSubmit = () => {
-        if (validate()) {
-            onSubmit(formData);
-        }
+        if (!validate()) return;
+        onSubmit(formData);
     };
 
     const handleClose = () => {
-        setFormData({
-            name: '',
-            description: '',
-            species_id: '',
-            interval_months: '',
-            is_required: true,
-            required_doses: ''
-        });
+        setFormData(INITIAL_FORM_STATE);
         setErrors({});
         onClose();
+    };
+
+    // Helper to update a single field
+    const updateField = (field, value) => {
+        setFormData(prev => ({ ...prev, [field]: value }));
     };
 
     // Helper function to capitalize first letter
@@ -147,7 +141,7 @@ const VaccineTypeModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
                     <TextField
                         label="Tên vaccine"
                         value={formData.name}
-                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        onChange={(e) => updateField('name', e.target.value)}
                         fullWidth
                         required
                         placeholder="VD: Vaccine 5 trong 1 (DHPPI)"
@@ -157,7 +151,7 @@ const VaccineTypeModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
                     <TextField
                         label="Mô tả"
                         value={formData.description}
-                        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                        onChange={(e) => updateField('description', e.target.value)}
                         fullWidth
                         multiline
                         rows={4}
@@ -167,7 +161,7 @@ const VaccineTypeModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
                         <InputLabel>Loài thú cưng</InputLabel>
                         <Select
                             value={formData.species_id}
-                            onChange={(e) => setFormData({ ...formData, species_id: e.target.value })}
+                            onChange={(e) => updateField('species_id', e.target.value)}
                             label="Loài thú cưng"
                         >
                             {Array.isArray(species) && species
@@ -185,20 +179,19 @@ const VaccineTypeModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
                         )}
                     </FormControl>
                     <TextField
-                        label="Chu kỳ tiêm lại (tháng)"
+                        label="Lịch tiêm kế tiếp (tháng)"
                         value={formData.interval_months}
-                        onChange={(e) => setFormData({ ...formData, interval_months: e.target.value })}
+                        onChange={(e) => updateField('interval_months', e.target.value)}
                         fullWidth
                         required
                         type="number"
                         inputProps={{ min: 1 }}
                         error={Boolean(errors.interval_months)}
-                        helperText={errors.interval_months || 'Khoảng thời gian giữa các mũi tiêm'}
                     />
                     <TextField
                         label="Số mũi tiêm tối đa"
                         value={formData.required_doses}
-                        onChange={(e) => setFormData({ ...formData, required_doses: e.target.value })}
+                        onChange={(e) => updateField('required_doses', e.target.value)}
                         fullWidth
                         required
                         type="number"
@@ -210,7 +203,7 @@ const VaccineTypeModal = ({ isOpen, onClose, onSubmit, editMode = false, initial
                         control={
                             <Switch
                                 checked={formData.is_required}
-                                onChange={(e) => setFormData({ ...formData, is_required: e.target.checked })}
+                                onChange={(e) => updateField('is_required', e.target.checked)}
                                 sx={{
                                     '& .MuiSwitch-switchBase.Mui-checked': {
                                         color: COLORS.ERROR[600]

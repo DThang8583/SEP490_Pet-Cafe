@@ -328,7 +328,6 @@ const DailyTaskDetailsModal = ({ open, onClose, dailyTask }) => {
                                                             variant="caption"
                                                             color="text.secondary"
                                                             sx={{
-                                                                display: 'block',
                                                                 mt: 0.5,
                                                                 wordBreak: 'break-word',
                                                                 overflow: 'hidden',

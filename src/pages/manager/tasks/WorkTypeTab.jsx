@@ -85,23 +85,35 @@ const WorkTypeTab = ({ onAlert }) => {
             if (formMode === 'create') {
                 response = await workTypeApi.createWorkType(formData);
                 if (response?.success) {
-                    setWorkTypes(prev => [...prev, response.data]);
+                    // Luôn refetch để đồng bộ hoàn toàn với BE
+                    await loadWorkTypes();
                     onAlert?.({
                         title: 'Thành công',
                         message: 'Tạo loại công việc thành công!',
                         type: 'success'
                     });
+                } else {
+                    onAlert?.({
+                        title: 'Lỗi',
+                        message: response?.message || 'Không thể tạo loại công việc',
+                        type: 'error'
+                    });
                 }
             } else {
                 response = await workTypeApi.updateWorkType(selectedWorkType.id, formData);
                 if (response?.success) {
-                    setWorkTypes(prev => prev.map(wt =>
-                        wt.id === selectedWorkType.id ? response.data : wt
-                    ));
+                    // Refetch từ BE sau khi cập nhật
+                    await loadWorkTypes();
                     onAlert?.({
                         title: 'Thành công',
                         message: 'Cập nhật loại công việc thành công!',
                         type: 'success'
+                    });
+                } else {
+                    onAlert?.({
+                        title: 'Lỗi',
+                        message: response?.message || 'Không thể cập nhật loại công việc',
+                        type: 'error'
                     });
                 }
             }
@@ -120,7 +132,7 @@ const WorkTypeTab = ({ onAlert }) => {
         try {
             const response = await workTypeApi.deleteWorkType(deleteTarget.id);
             if (response?.success) {
-                setWorkTypes(prev => prev.filter(wt => wt.id !== deleteTarget.id));
+                await loadWorkTypes();
                 onAlert?.({
                     title: 'Thành công',
                     message: 'Xóa loại công việc thành công!',

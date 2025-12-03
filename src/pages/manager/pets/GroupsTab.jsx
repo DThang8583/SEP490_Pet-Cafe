@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Stack, Toolbar, TextField, Select, MenuItem, InputLabel, FormControl, IconButton, Button, Avatar, alpha, Dialog, DialogTitle, DialogContent, DialogActions, Divider, Menu, ListItemIcon, ListItemText } from '@mui/material';
 import { Add, Edit, Delete, Groups, Pets as PetsIcon, Visibility, Close, MoreVert } from '@mui/icons-material';
 import { COLORS } from '../../../constants/colors';
@@ -38,23 +38,94 @@ const GroupsTab = ({ pets, species, breeds, groups, onDataChange }) => {
     const [groupDetailDialog, setGroupDetailDialog] = useState({ open: false, group: null, pets: [] });
     const [addPetToGroupDialog, setAddPetToGroupDialog] = useState({ open: false, group: null });
 
+    // Local groups data & pagination for server-side pagination (independent from PetsPage)
+    const [groupsPageData, setGroupsPageData] = useState([]);
+    const [groupsPagination, setGroupsPagination] = useState({
+        total_items_count: 0,
+        page_size: groupItemsPerPage,
+        total_pages_count: 0,
+        page_index: 0
+    });
+    const [isLoadingGroups, setIsLoadingGroups] = useState(false);
+
     // Helper function to capitalize first letter
-    const capitalizeName = (name) => {
+    const capitalizeName = useCallback((name) => {
         if (!name) return name;
         return name.charAt(0).toUpperCase() + name.slice(1);
-    };
+    }, []);
+
+    // Precompute species & breed maps for O(1) lookup
+    const speciesNameMap = useMemo(() => {
+        if (!Array.isArray(species)) return new Map();
+        return new Map(species.map(s => [s.id, capitalizeName(s.name)]));
+    }, [species, capitalizeName]);
+
+    const breedNameMap = useMemo(() => {
+        if (!Array.isArray(breeds)) return new Map();
+        return new Map(breeds.map(b => [b.id, b.name]));
+    }, [breeds]);
+
+    // Color palette per species so chips dễ phân biệt theo Loài
+    const speciesColorMap = useMemo(() => {
+        if (!Array.isArray(species)) return new Map();
+
+        const colorPairs = [
+            { bg: COLORS.WARNING[100], text: COLORS.WARNING[800] },    // ví dụ: Chó
+            { bg: COLORS.INFO[100], text: COLORS.INFO[800] },          // ví dụ: Mèo
+            { bg: COLORS.SUCCESS[100], text: COLORS.SUCCESS[800] },
+            { bg: COLORS.ERROR[100], text: COLORS.ERROR[800] }
+        ];
+
+        const map = new Map();
+        species.forEach((s, index) => {
+            map.set(s.id, colorPairs[index % colorPairs.length]);
+        });
+
+        return map;
+    }, [species]);
+
+    const getSpeciesChipColors = useCallback(
+        (speciesId) => {
+            if (!speciesId) {
+                return { bg: COLORS.WARNING[50], text: COLORS.WARNING[700] };
+            }
+            return speciesColorMap.get(speciesId) || { bg: COLORS.WARNING[50], text: COLORS.WARNING[700] };
+        },
+        [speciesColorMap]
+    );
+
+    // Colors for dog & cat stats cards – đồng bộ với chip Loài
+    const dogSpeciesColors = useMemo(() => {
+        let palette = null;
+        species.forEach((s) => {
+            if ((s.name || '').toLowerCase() === 'chó') {
+                palette = speciesColorMap.get(s.id) || palette;
+            }
+        });
+        return palette || { bg: COLORS.WARNING[100], text: COLORS.WARNING[800] };
+    }, [species, speciesColorMap]);
+
+    const catSpeciesColors = useMemo(() => {
+        let palette = null;
+        species.forEach((s) => {
+            if ((s.name || '').toLowerCase() === 'mèo') {
+                palette = speciesColorMap.get(s.id) || palette;
+            }
+        });
+        return palette || { bg: COLORS.INFO[100], text: COLORS.INFO[800] };
+    }, [species, speciesColorMap]);
 
     // Get species name by ID
-    const getSpeciesName = (speciesId) => {
-        const sp = species.find(s => s.id === speciesId);
-        return sp ? capitalizeName(sp.name) : '—';
-    };
+    const getSpeciesName = useCallback((speciesId) => {
+        if (!speciesId) return '—';
+        return speciesNameMap.get(speciesId) || '—';
+    }, [speciesNameMap]);
 
     // Get breed name by ID
-    const getBreedName = (breedId) => {
-        const br = breeds.find(b => b.id === breedId);
-        return br ? br.name : '—';
-    };
+    const getBreedName = useCallback((breedId) => {
+        if (!breedId) return '—';
+        return breedNameMap.get(breedId) || '—';
+    }, [breedNameMap]);
 
     // Get pet health status
     const getPetHealthStatus = (pet) => {
@@ -67,28 +138,92 @@ const GroupsTab = ({ pets, species, breeds, groups, onDataChange }) => {
         return { label: 'Khỏe mạnh', color: COLORS.SUCCESS, bg: COLORS.SUCCESS[100] };
     };
 
-    // Statistics
-    const stats = useMemo(() => ({
-        total: groups.length,
-        active: groups.filter(g => g.is_active !== false).length,
-        inactive: groups.filter(g => g.is_active === false).length
-    }), [groups]);
+    // Smooth search for groups to avoid blocking when typing
+    const deferredSearchGroup = useDeferredValue(searchGroup);
 
-    // Filtered groups
+    // Load groups page from API using page & limit (server-side pagination)
+    const loadGroupsPage = useCallback(async () => {
+        try {
+            setIsLoadingGroups(true);
+
+            const speciesFilter =
+                groupFilterSpecies && groupFilterSpecies !== 'all' ? groupFilterSpecies : null;
+
+            const response = await petGroupsApi.getAllGroups({
+                page: groupPage - 1,
+                limit: groupItemsPerPage,
+                pet_species_id: speciesFilter
+            });
+
+            const data = response?.data || [];
+            const pagination = response?.pagination || {};
+
+            setGroupsPageData(Array.isArray(data) ? data : []);
+            setGroupsPagination({
+                total_items_count: pagination.total_items_count ?? data.length,
+                page_size: pagination.page_size ?? groupItemsPerPage,
+                total_pages_count: pagination.total_pages_count ?? 1,
+                page_index: pagination.page_index ?? (groupPage - 1)
+            });
+        } catch (error) {
+            console.error('Error loading groups page:', error);
+            setGroupsPageData([]);
+        } finally {
+            setIsLoadingGroups(false);
+        }
+    }, [groupFilterSpecies, groupItemsPerPage, groupPage]);
+
+    // Trigger load when pagination or filter changes
+    useEffect(() => {
+        loadGroupsPage();
+    }, [loadGroupsPage]);
+
+    // Statistics
+    const stats = useMemo(() => {
+        const total = groups.length;
+        const active = groups.filter(g => g.is_active !== false).length;
+        const inactive = groups.filter(g => g.is_active === false).length;
+
+        let dogGroups = 0;
+        let catGroups = 0;
+
+        groups.forEach(group => {
+            const speciesName = (speciesNameMap.get(group.pet_species_id) || '').toLowerCase();
+            if (speciesName === 'chó') {
+                dogGroups += 1;
+            } else if (speciesName === 'mèo') {
+                catGroups += 1;
+            }
+        });
+
+        return {
+            total,
+            active,
+            inactive,
+            dogGroups,
+            catGroups
+        };
+    }, [groups, speciesNameMap]);
+
+    // Filtered groups (search applied client-side on current page)
     const filteredGroups = useMemo(() => {
-        return groups.filter(group => {
-            const matchSearch = group.name?.toLowerCase().includes(searchGroup.toLowerCase());
+        const searchLower = deferredSearchGroup.trim().toLowerCase();
+
+        return groupsPageData.filter(group => {
+            const matchSearch = searchLower
+                ? (group.name || '').toLowerCase().includes(searchLower)
+                : true;
             const matchSpecies = groupFilterSpecies === 'all' || group.pet_species_id === groupFilterSpecies;
             return matchSearch && matchSpecies;
         });
-    }, [groups, searchGroup, groupFilterSpecies]);
+    }, [groupsPageData, deferredSearchGroup, groupFilterSpecies]);
 
     // Pagination
-    const groupTotalPages = Math.ceil(filteredGroups.length / groupItemsPerPage);
+    const groupTotalPages = groupsPagination.total_pages_count || 1;
     const currentPageGroups = useMemo(() => {
-        const startIndex = (groupPage - 1) * groupItemsPerPage;
-        return filteredGroups.slice(startIndex, startIndex + groupItemsPerPage);
-    }, [groupPage, groupItemsPerPage, filteredGroups]);
+        // Server-side pagination: filteredGroups đã là dữ liệu của page hiện tại
+        return filteredGroups;
+    }, [filteredGroups]);
 
     // Handle group add/edit
     const handleOpenGroupDialog = (group = null) => {
@@ -399,9 +534,10 @@ const GroupsTab = ({ pets, species, breeds, groups, onDataChange }) => {
                 {[
                     { label: 'Tổng nhóm', value: stats.total, color: COLORS.WARNING[500], valueColor: COLORS.WARNING[700] },
                     { label: 'Đang hoạt động', value: stats.active, color: COLORS.SUCCESS[500], valueColor: COLORS.SUCCESS[700] },
-                    { label: 'Vô hiệu hóa', value: stats.inactive, color: COLORS.ERROR[500], valueColor: COLORS.ERROR[700] }
-                ].map((stat, index) => {
-                    const cardWidth = `calc((100% - ${2 * 16}px) / 3)`;
+                    { label: 'Tổng nhóm chó', value: stats.dogGroups, color: dogSpeciesColors.bg, valueColor: dogSpeciesColors.text },
+                    { label: 'Tổng nhóm mèo', value: stats.catGroups, color: catSpeciesColors.bg, valueColor: catSpeciesColors.text }
+                ].map((stat, index, arr) => {
+                    const cardWidth = `calc((100% - ${(arr.length - 1) * 16}px) / ${arr.length})`;
                     return (
                         <Box
                             key={index}
@@ -508,7 +644,7 @@ const GroupsTab = ({ pets, species, breeds, groups, onDataChange }) => {
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {currentPageGroups.map((group) => (
+                            {isLoadingGroups ? null : currentPageGroups.map((group) => (
                                 <TableRow
                                     key={group.id}
                                     hover
@@ -524,8 +660,8 @@ const GroupsTab = ({ pets, species, breeds, groups, onDataChange }) => {
                                             size="small"
                                             label={getSpeciesName(group.pet_species_id)}
                                             sx={{
-                                                bgcolor: alpha(COLORS.WARNING[600], 0.2),
-                                                color: COLORS.WARNING[700],
+                                                bgcolor: alpha(getSpeciesChipColors(group.pet_species_id).bg, 0.9),
+                                                color: getSpeciesChipColors(group.pet_species_id).text,
                                                 fontWeight: 600
                                             }}
                                         />
@@ -557,7 +693,7 @@ const GroupsTab = ({ pets, species, breeds, groups, onDataChange }) => {
             </Paper>
 
             {/* Pagination */}
-            {filteredGroups.length > 0 && (
+            {groupsPagination.total_items_count > 0 && (
                 <Pagination
                     page={groupPage}
                     totalPages={groupTotalPages}
@@ -567,7 +703,7 @@ const GroupsTab = ({ pets, species, breeds, groups, onDataChange }) => {
                         setGroupItemsPerPage(newValue);
                         setGroupPage(1);
                     }}
-                    totalItems={filteredGroups.length}
+                    totalItems={groupsPagination.total_items_count}
                 />
             )}
 
@@ -878,7 +1014,7 @@ const GroupsTab = ({ pets, species, breeds, groups, onDataChange }) => {
             >
                 <DialogTitle
                     sx={{
-                        background: `linear-gradient(135deg, ${COLORS.ERROR[500]} 0%, ${COLORS.ERROR[700]} 100())`,
+                        bgcolor: COLORS.ERROR[600],
                         color: '#fff',
                         fontWeight: 800,
                         fontSize: '1.3rem',
@@ -1267,14 +1403,14 @@ const AddPetsToGroupContent = ({ group, allPets, species, breeds, groups, onSubm
                     onClick={handleSubmit}
                     disabled={selectedPets.length === 0}
                     sx={{
-                        background: `linear-gradient(135deg, ${COLORS.ERROR[500]} 0%, ${COLORS.ERROR[700]} 100())`,
+                        bgcolor: COLORS.ERROR[600],
                         color: '#fff',
                         fontWeight: 700,
                         '&:hover': {
-                            background: `linear-gradient(135deg, ${COLORS.ERROR[600]} 0%, ${COLORS.ERROR[800]} 100())`
+                            bgcolor: COLORS.ERROR[700]
                         },
                         '&:disabled': {
-                            background: COLORS.BORDER.DEFAULT,
+                            bgcolor: COLORS.BORDER.DEFAULT,
                             color: COLORS.TEXT.SECONDARY
                         }
                     }}

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useDeferredValue, useMemo, useState } from 'react';
 import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Stack, Toolbar, TextField, Select, MenuItem, InputLabel, FormControl, IconButton, Button, Avatar, alpha, Dialog, DialogTitle, DialogContent, DialogActions, Divider, Menu, ListItemIcon, ListItemText } from '@mui/material';
 import { Add, Edit, Delete, Category, Pets as PetsIcon, Visibility, Close, MoreVert } from '@mui/icons-material';
 import { COLORS } from '../../../constants/colors';
@@ -30,16 +30,76 @@ const BreedsTab = ({ pets, species, breeds, onDataChange }) => {
     const [breedDetailDialog, setBreedDetailDialog] = useState({ open: false, breed: null, pets: [] });
 
     // Helper function to capitalize first letter
-    const capitalizeName = (name) => {
+    const capitalizeName = useCallback((name) => {
         if (!name) return name;
         return name.charAt(0).toUpperCase() + name.slice(1);
-    };
+    }, []);
 
-    // Get species name by ID
-    const getSpeciesName = (speciesId) => {
-        const sp = species.find(s => s.id === speciesId);
-        return sp ? capitalizeName(sp.name) : '—';
-    };
+    // Pre-compute species name map to avoid repeated array scans
+    const speciesNameMap = useMemo(() => {
+        if (!Array.isArray(species)) return new Map();
+        return new Map(species.map((s) => [s.id, capitalizeName(s.name)]));
+    }, [species, capitalizeName]);
+
+    // Map mỗi speciesId sang một cặp màu riêng để chip "Loài" dễ phân biệt
+    const speciesColorMap = useMemo(() => {
+        if (!Array.isArray(species)) return new Map();
+
+        const colorPairs = [
+            { bg: COLORS.INFO[100], text: COLORS.INFO[700] },
+            { bg: COLORS.ERROR[100], text: COLORS.ERROR[700] },
+            { bg: COLORS.SUCCESS[100], text: COLORS.SUCCESS[700] },
+            { bg: COLORS.WARNING[100], text: COLORS.WARNING[700] },
+            { bg: COLORS.PRIMARY?.[100] || COLORS.INFO[100], text: COLORS.PRIMARY?.[700] || COLORS.INFO[700] }
+        ];
+
+        const map = new Map();
+        species.forEach((s, index) => {
+            const palette = colorPairs[index % colorPairs.length];
+            map.set(s.id, palette);
+        });
+        return map;
+    }, [species]);
+
+    // Get species name by ID (O(1) lookup)
+    const getSpeciesName = useCallback(
+        (speciesId) => {
+            if (!speciesId) return '—';
+            return speciesNameMap.get(speciesId) || '—';
+        },
+        [speciesNameMap]
+    );
+
+    const getSpeciesChipColors = useCallback(
+        (speciesId) => {
+            if (!speciesId) {
+                return { bg: alpha(COLORS.INFO[100], 0.6), text: COLORS.INFO[700] };
+            }
+            return speciesColorMap.get(speciesId) || { bg: alpha(COLORS.INFO[100], 0.6), text: COLORS.INFO[700] };
+        },
+        [speciesColorMap]
+    );
+
+    // Colors for dog & cat stats cards – đồng bộ với chip Loài
+    const dogSpeciesColors = useMemo(() => {
+        let palette = null;
+        species.forEach((s) => {
+            if ((s.name || '').toLowerCase() === 'chó') {
+                palette = speciesColorMap.get(s.id) || palette;
+            }
+        });
+        return palette || { bg: COLORS.ERROR[100], text: COLORS.ERROR[700] };
+    }, [species, speciesColorMap]);
+
+    const catSpeciesColors = useMemo(() => {
+        let palette = null;
+        species.forEach((s) => {
+            if ((s.name || '').toLowerCase() === 'mèo') {
+                palette = speciesColorMap.get(s.id) || palette;
+            }
+        });
+        return palette || { bg: COLORS.PRIMARY?.[100] || COLORS.INFO[100], text: COLORS.PRIMARY?.[700] || COLORS.INFO[700] };
+    }, [species, speciesColorMap]);
 
     // Get pet health status
     const getPetHealthStatus = (pet) => {
@@ -52,21 +112,52 @@ const BreedsTab = ({ pets, species, breeds, onDataChange }) => {
         return { label: 'Khỏe mạnh', color: COLORS.SUCCESS, bg: COLORS.SUCCESS[100] };
     };
 
-    // Statistics
-    const stats = useMemo(() => ({
-        total: breeds.length,
-        active: breeds.filter(b => b.is_active !== false).length,
-        inactive: breeds.filter(b => b.is_active === false).length
-    }), [breeds]);
+    // Smooth search input using deferred value (avoid blocking while typing)
+    const deferredSearch = useDeferredValue(searchBreed);
+
+    // Statistics (based on full dataset)
+    const stats = useMemo(() => {
+        const total = breeds.length;
+        const active = breeds.filter(b => b.is_active !== false).length;
+        const inactive = breeds.filter(b => b.is_active === false).length;
+
+        // Đếm riêng số giống chó / mèo theo tên loài
+        let dogCount = 0;
+        let catCount = 0;
+
+        breeds.forEach((breed) => {
+            const speciesName = (speciesNameMap.get(breed.species_id) || '').toLowerCase();
+            if (speciesName === 'chó') {
+                dogCount += 1;
+            } else if (speciesName === 'mèo') {
+                catCount += 1;
+            }
+        });
+
+        return {
+            total,
+            active,
+            inactive,
+            dogs: dogCount,
+            cats: catCount
+        };
+    }, [breeds, speciesNameMap]);
 
     // Filtered breeds
     const filteredBreeds = useMemo(() => {
-        return breeds.filter(breed => {
-            const matchSearch = breed.name?.toLowerCase().includes(searchBreed.toLowerCase());
-            const matchSpecies = breedFilterSpecies === 'all' || breed.species_id === breedFilterSpecies;
+        const searchLower = deferredSearch.trim().toLowerCase();
+
+        return breeds.filter((breed) => {
+            const matchSearch = searchLower
+                ? (breed.name || '').toLowerCase().includes(searchLower)
+                : true;
+
+            const matchSpecies =
+                breedFilterSpecies === 'all' || breed.species_id === breedFilterSpecies;
+
             return matchSearch && matchSpecies;
         });
-    }, [breeds, searchBreed, breedFilterSpecies]);
+    }, [breeds, deferredSearch, breedFilterSpecies]);
 
     // Pagination
     const breedTotalPages = Math.ceil(filteredBreeds.length / breedItemsPerPage);
@@ -76,7 +167,7 @@ const BreedsTab = ({ pets, species, breeds, onDataChange }) => {
     }, [breedPage, breedItemsPerPage, filteredBreeds]);
 
     // Handle breed add/edit
-    const handleOpenBreedDialog = (breed = null) => {
+    const handleOpenBreedDialog = useCallback((breed = null) => {
         if (breed) {
             setEditMode(true);
             setSelectedBreed(breed);
@@ -85,9 +176,9 @@ const BreedsTab = ({ pets, species, breeds, onDataChange }) => {
             setSelectedBreed(null);
         }
         setBreedDialogOpen(true);
-    };
+    }, []);
 
-    const handleSubmitBreed = async (breedFormData) => {
+    const handleSubmitBreed = useCallback(async (breedFormData) => {
         try {
             setIsSubmitting(true);
 
@@ -126,15 +217,15 @@ const BreedsTab = ({ pets, species, breeds, onDataChange }) => {
         } finally {
             setIsSubmitting(false);
         }
-    };
+    }, [editMode, onDataChange, selectedBreed]);
 
     // Handle delete
-    const handleDelete = (id) => {
+    const handleDelete = useCallback((id) => {
         setDeleteTarget(id);
         setConfirmDeleteOpen(true);
-    };
+    }, []);
 
-    const confirmDelete = async () => {
+    const confirmDelete = useCallback(async () => {
         try {
             const response = await petBreedsApi.deleteBreed(deleteTarget);
             if (response.success) {
@@ -157,13 +248,13 @@ const BreedsTab = ({ pets, species, breeds, onDataChange }) => {
             setConfirmDeleteOpen(false);
             setDeleteTarget(null);
         }
-    };
+    }, [deleteTarget, onDataChange]);
 
     // Handle view breed details
-    const handleViewBreedDetails = (breed) => {
+    const handleViewBreedDetails = useCallback((breed) => {
         const breedPets = pets.filter(p => p.breed_id === breed.id);
         setBreedDetailDialog({ open: true, breed, pets: breedPets });
-    };
+    }, [pets]);
 
     return (
         <Box>
@@ -181,9 +272,10 @@ const BreedsTab = ({ pets, species, breeds, onDataChange }) => {
                 {[
                     { label: 'Tổng giống', value: stats.total, color: COLORS.INFO[500], valueColor: COLORS.INFO[700] },
                     { label: 'Đang hoạt động', value: stats.active, color: COLORS.SUCCESS[500], valueColor: COLORS.SUCCESS[700] },
-                    { label: 'Vô hiệu hóa', value: stats.inactive, color: COLORS.WARNING[500], valueColor: COLORS.WARNING[700] }
-                ].map((stat, index) => {
-                    const cardWidth = `calc((100% - ${2 * 16}px) / 3)`;
+                    { label: 'Tổng giống chó', value: stats.dogs, color: dogSpeciesColors.bg, valueColor: dogSpeciesColors.text },
+                    { label: 'Tổng giống mèo', value: stats.cats, color: catSpeciesColors.bg, valueColor: catSpeciesColors.text }
+                ].map((stat, index, arr) => {
+                    const cardWidth = `calc((100% - ${(arr.length - 1) * 16}px) / ${arr.length})`;
                     return (
                         <Box
                             key={index}
@@ -307,8 +399,8 @@ const BreedsTab = ({ pets, species, breeds, onDataChange }) => {
                                             size="small"
                                             label={getSpeciesName(breed.species_id)}
                                             sx={{
-                                                bgcolor: alpha(COLORS.INFO[600], 0.2),
-                                                color: COLORS.INFO[700],
+                                                bgcolor: alpha(getSpeciesChipColors(breed.species_id).bg, 0.9),
+                                                color: getSpeciesChipColors(breed.species_id).text,
                                                 fontWeight: 600
                                             }}
                                         />
@@ -383,7 +475,7 @@ const BreedsTab = ({ pets, species, breeds, onDataChange }) => {
             >
                 <DialogTitle
                     sx={{
-                        background: `linear-gradient(135deg, ${COLORS.INFO[500]} 0%, ${COLORS.INFO[700]} 100())`,
+                        bgcolor: COLORS.INFO[600],
                         color: '#fff',
                         fontWeight: 800,
                         fontSize: '1.5rem',
@@ -526,12 +618,12 @@ const BreedsTab = ({ pets, species, breeds, onDataChange }) => {
                         onClick={() => setBreedDetailDialog({ open: false, breed: null, pets: [] })}
                         variant="contained"
                         sx={{
-                            background: `linear-gradient(135deg, ${COLORS.INFO[500]} 0%, ${COLORS.INFO[700]} 100())`,
+                            bgcolor: COLORS.INFO[600],
                             color: '#fff',
                             fontWeight: 700,
                             px: 3,
                             '&:hover': {
-                                background: `linear-gradient(135deg, ${COLORS.INFO[600]} 0%, ${COLORS.INFO[800]} 100())`
+                                bgcolor: COLORS.INFO[700]
                             }
                         }}
                     >

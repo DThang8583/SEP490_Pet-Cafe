@@ -265,7 +265,7 @@ const SpeciesTab = ({ onDataChange }) => {
                     mb: 2,
                     p: 1.5,
                     borderRadius: 2,
-                    background: `linear-gradient(135deg, ${alpha(COLORS.ERROR[50], 0.6)}, ${alpha(COLORS.SECONDARY[50], 0.4)})`,
+                    bgcolor: COLORS.BACKGROUND.NEUTRAL,
                     border: `1px solid ${alpha(COLORS.BORDER.PRIMARY, 0.4)}`
                 }}
             >

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useCallback, useTransition, useDeferredValue } from 'react';
 import { Box, Paper, Typography, Stack, TextField, MenuItem, Chip, Button, Table, TableHead, TableBody, TableRow, TableCell, Alert, Snackbar, Skeleton, Avatar, Divider, Select, FormControl, InputLabel, alpha, Grid, Dialog, DialogTitle, DialogContent, DialogActions, TableContainer, IconButton, Tooltip, Card, CardContent } from '@mui/material';
 import { ChecklistRtl, CheckCircle, AccessTime, Block, Person, Groups, Event, Close, Edit, CalendarToday, ChevronLeft, ChevronRight } from '@mui/icons-material';
 import workingStaffApi from '../../api/workingStaffApi';
@@ -6,6 +6,7 @@ import { COLORS } from '../../constants/colors';
 import { getDailySchedules } from '../../api/dailyScheduleApi';
 import apiClient from '../../config/config';
 import { WEEKDAY_LABELS, WEEKDAYS } from '../../api/workShiftApi';
+import Loading from '../../components/loading/Loading';
 
 const STATUS_OPTIONS = [
     { value: 'PENDING', label: 'Chưa điểm danh', icon: <AccessTime fontSize="small" />, color: 'warning' },
@@ -96,6 +97,8 @@ const normalizeDateOnly = (dateString) => {
 };
 
 const WorkingAttendancePage = () => {
+    const [isPending, startTransition] = useTransition();
+
     const [profileData] = useState(() => {
         const p = workingStaffApi.getProfile();
         return {
@@ -145,6 +148,10 @@ const WorkingAttendancePage = () => {
 
         return combined;
     }, []);
+
+    // Deferred values to smooth out heavy recalculations on big data sets
+    const deferredTeams = useDeferredValue(teams);
+    const deferredAttendance = useDeferredValue(attendance);
     const upsertAttendanceRecord = useCallback((record) => {
         if (!record) return;
         const targetMemberId = record.team_member_id || record.team_member?.id;
@@ -354,7 +361,7 @@ const WorkingAttendancePage = () => {
     // Organize attendance by team -> shift -> day
     const attendanceByTeam = useMemo(() => {
         const result = [];
-        teams.forEach((team) => {
+        deferredTeams.forEach((team) => {
             const leaderAccountId = team.leader?.account_id;
             const leaderId = team.leader?.id;
             const isTeamLeader = candidateIds.some(id =>
@@ -393,7 +400,7 @@ const WorkingAttendancePage = () => {
 
                         if (isTeamLeader) {
                             dayMembers = allMembers.map((member) => {
-                                const existingRecord = attendance.find((schedule) => {
+                                const existingRecord = deferredAttendance.find((schedule) => {
                                     const scheduleTeamId = schedule.team_member?.team_id || schedule.team_id;
                                     const scheduleShiftId = schedule.work_shift_id || schedule.work_shift?.id;
                                     const scheduleDate = schedule.date ? new Date(schedule.date).toISOString().split('T')[0] : null;
@@ -423,7 +430,7 @@ const WorkingAttendancePage = () => {
                                 };
                             });
                         } else {
-                            dayMembers = attendance
+                            dayMembers = deferredAttendance
                                 .filter((schedule) => {
                                     const scheduleTeamId = schedule.team_member?.team_id || schedule.team_id;
                                     const scheduleShiftId = schedule.work_shift_id || schedule.work_shift?.id;
@@ -510,7 +517,7 @@ const WorkingAttendancePage = () => {
                                 });
                             }).flat().filter(Boolean);
                         } else {
-                            dayMembers = attendance
+                            dayMembers = deferredAttendance
                                 .filter((schedule) => {
                                     const scheduleTeamId = schedule.team_member?.team_id || schedule.team_id;
                                     const scheduleShiftId = schedule.work_shift_id || schedule.work_shift?.id;
@@ -574,7 +581,7 @@ const WorkingAttendancePage = () => {
             }
         });
         return result;
-    }, [teams, attendance, isLeader, profileData, viewMode, selectedDate, dateRange, candidateIds]);
+    }, [deferredTeams, deferredAttendance, isLeader, profileData, viewMode, selectedDate, dateRange, candidateIds]);
 
     // Calculate statistics
     const attendanceStats = useMemo(() => {
@@ -587,7 +594,7 @@ const WorkingAttendancePage = () => {
             pending: 0
         };
 
-        attendance.forEach((schedule) => {
+        deferredAttendance.forEach((schedule) => {
             stats.total++;
             const status = schedule.status || 'PENDING';
             if (status === 'PRESENT') stats.present++;
@@ -598,7 +605,7 @@ const WorkingAttendancePage = () => {
         });
 
         return stats;
-    }, [attendance]);
+    }, [deferredAttendance]);
 
     const handleStatusClick = (memberData, newStatus, teamId, shiftId, date, dayKey, isTeamLeaderForThisTeam = false) => {
         if (!isTeamLeaderForThisTeam || !teamId) {
@@ -628,6 +635,11 @@ const WorkingAttendancePage = () => {
                 item => item.recordId === recordId
             );
 
+            // Giữ nguyên trạng thái gốc ngay từ lần đầu leader bấm
+            const baseOriginalStatus = schedule?.status || 'PENDING';
+            const previousChange = existingIndex >= 0 ? existing[existingIndex] : null;
+            const originalStatus = previousChange?.originalStatus || baseOriginalStatus;
+
             const newChange = {
                 recordId,
                 dailyScheduleId,
@@ -635,7 +647,8 @@ const WorkingAttendancePage = () => {
                 status: newStatus,
                 notes: schedule?.notes || '',
                 memberName: member.full_name || member.name,
-                date: date || schedule.date
+                date: date || schedule.date,
+                originalStatus
             };
 
             let updated;
@@ -828,6 +841,52 @@ const WorkingAttendancePage = () => {
         }
     };
 
+    // Hủy trạng thái điểm danh tạm thời cho 1 thành viên (trước khi Lưu)
+    const handleResetMemberStatus = (teamId, shiftId, dayKey, recordId) => {
+        const key = `${teamId}-${shiftId}-${dayKey}`;
+        const changesForKey = pendingChanges[key] || [];
+        const targetChange = changesForKey.find(c => c.recordId === recordId);
+        const remainingChanges = changesForKey.filter(c => c.recordId !== recordId);
+
+        // Cập nhật pendingChanges (xóa change của member đó)
+        setPendingChanges(prev => {
+            const updated = { ...prev };
+            if (remainingChanges.length > 0) {
+                updated[key] = remainingChanges;
+            } else {
+                delete updated[key];
+            }
+            return updated;
+        });
+
+        // Cập nhật cờ hasUnsavedChanges cho key đó
+        setHasUnsavedChanges(prev => {
+            const updated = { ...prev };
+            if (remainingChanges.length > 0) {
+                updated[key] = true;
+            } else {
+                delete updated[key];
+            }
+            return updated;
+        });
+
+        // Nếu có dailyScheduleId & originalStatus thì revert lại status trên UI
+        if (targetChange?.dailyScheduleId && targetChange?.originalStatus) {
+            setAttendance(prev =>
+                prev.map(item =>
+                    item.id === targetChange.dailyScheduleId
+                        ? { ...item, status: targetChange.originalStatus }
+                        : item
+                )
+            );
+        }
+
+        setSnackbar({
+            message: 'Đã hủy trạng thái điểm danh tạm thời. Bạn có thể chọn lại trạng thái khác.',
+            severity: 'info'
+        });
+    };
+
     const handleStatusChange = () => {
         if (!attendanceDialog) return;
 
@@ -901,18 +960,31 @@ const WorkingAttendancePage = () => {
 
     const handleMonthChange = (delta) => {
         if (selectedMonth + delta < 0) {
-            setSelectedMonth(11);
-            setSelectedYear(selectedYear - 1);
+            startTransition(() => {
+                setSelectedMonth(11);
+                setSelectedYear(selectedYear - 1);
+            });
         } else if (selectedMonth + delta > 11) {
-            setSelectedMonth(0);
-            setSelectedYear(selectedYear + 1);
+            startTransition(() => {
+                setSelectedMonth(0);
+                setSelectedYear(selectedYear + 1);
+            });
         } else {
-            setSelectedMonth(selectedMonth + delta);
+            const nextMonth = selectedMonth + delta;
+            startTransition(() => setSelectedMonth(nextMonth));
         }
     };
 
     return (
-        <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: COLORS.BACKGROUND.NEUTRAL, minHeight: '100vh' }}>
+        <Box
+            sx={{
+                p: { xs: 2, md: 4 },
+                bgcolor: COLORS.BACKGROUND.NEUTRAL,
+                minHeight: '100vh',
+                opacity: isPending ? 0.6 : 1,
+                transition: 'opacity 0.2s ease-out'
+            }}
+        >
             <Stack spacing={4}>
                 {/* Header Section */}
                 <Box>
@@ -1098,7 +1170,10 @@ const WorkingAttendancePage = () => {
                                 <InputLabel>Chế độ xem</InputLabel>
                                 <Select
                                     value={viewMode}
-                                    onChange={(e) => setViewMode(e.target.value)}
+                                    onChange={(e) => {
+                                        const value = e.target.value;
+                                        startTransition(() => setViewMode(value));
+                                    }}
                                     label="Chế độ xem"
                                 >
                                     <MenuItem value="day">Theo ngày</MenuItem>
@@ -1111,7 +1186,10 @@ const WorkingAttendancePage = () => {
                                     type="date"
                                     label="Ngày"
                                     value={selectedDate}
-                                    onChange={(e) => setSelectedDate(e.target.value)}
+                                    onChange={(e) => {
+                                        const value = e.target.value;
+                                        startTransition(() => setSelectedDate(value));
+                                    }}
                                     fullWidth
                                     InputLabelProps={{ shrink: true }}
                                     InputProps={{
@@ -1132,7 +1210,10 @@ const WorkingAttendancePage = () => {
                                     <TextField
                                         select
                                         value={selectedMonth}
-                                        onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                                        onChange={(e) => {
+                                            const value = Number(e.target.value);
+                                            startTransition(() => setSelectedMonth(value));
+                                        }}
                                         sx={{ flex: 1 }}
                                         label="Tháng"
                                         InputLabelProps={{ shrink: true }}
@@ -1146,7 +1227,10 @@ const WorkingAttendancePage = () => {
                                     <TextField
                                         type="number"
                                         value={selectedYear}
-                                        onChange={(e) => setSelectedYear(Number(e.target.value))}
+                                        onChange={(e) => {
+                                            const value = Number(e.target.value);
+                                            startTransition(() => setSelectedYear(value));
+                                        }}
                                         sx={{ width: 120 }}
                                         label="Năm"
                                         InputLabelProps={{ shrink: true }}
@@ -1669,20 +1753,42 @@ const WorkingAttendancePage = () => {
                                                                                                                             ))}
                                                                                                                         </Stack>
                                                                                                                     ) : (
-                                                                                                                        <Chip
-                                                                                                                            icon={STATUS_OPTIONS.find((opt) => opt.value === currentStatus)?.icon}
-                                                                                                                            label={STATUS_OPTIONS.find((opt) => opt.value === currentStatus)?.label || currentStatus}
-                                                                                                                            sx={{
-                                                                                                                                bgcolor: STATUS_COLORS[currentStatus]?.bg || COLORS.GRAY[100],
-                                                                                                                                color: STATUS_COLORS[currentStatus]?.color || COLORS.GRAY[700],
-                                                                                                                                fontWeight: 700,
-                                                                                                                                height: 36,
-                                                                                                                                fontSize: '0.875rem',
-                                                                                                                                border: `2px solid ${alpha(STATUS_COLORS[currentStatus]?.color || COLORS.GRAY[700], 0.3)}`,
-                                                                                                                                boxShadow: `0 2px 8px ${alpha(STATUS_COLORS[currentStatus]?.color || COLORS.GRAY[700], 0.15)}`
-                                                                                                                            }}
-                                                                                                                            size="medium"
-                                                                                                                        />
+                                                                                                                        <Stack direction="row" spacing={1.5} justifyContent="center" alignItems="center">
+                                                                                                                            <Chip
+                                                                                                                                icon={STATUS_OPTIONS.find((opt) => opt.value === currentStatus)?.icon}
+                                                                                                                                label={STATUS_OPTIONS.find((opt) => opt.value === currentStatus)?.label || currentStatus}
+                                                                                                                                sx={{
+                                                                                                                                    bgcolor: STATUS_COLORS[currentStatus]?.bg || COLORS.GRAY[100],
+                                                                                                                                    color: STATUS_COLORS[currentStatus]?.color || COLORS.GRAY[700],
+                                                                                                                                    fontWeight: 700,
+                                                                                                                                    height: 36,
+                                                                                                                                    fontSize: '0.875rem',
+                                                                                                                                    border: `2px solid ${alpha(STATUS_COLORS[currentStatus]?.color || COLORS.GRAY[700], 0.3)}`,
+                                                                                                                                    boxShadow: `0 2px 8px ${alpha(STATUS_COLORS[currentStatus]?.color || COLORS.GRAY[700], 0.15)}`
+                                                                                                                                }}
+                                                                                                                                size="medium"
+                                                                                                                            />
+                                                                                                                            {pendingChange && (
+                                                                                                                                <Button
+                                                                                                                                    variant="outlined"
+                                                                                                                                    color="inherit"
+                                                                                                                                    size="small"
+                                                                                                                                    startIcon={<Close />}
+                                                                                                                                    onClick={() => handleResetMemberStatus(team.id, shift.id, dayKey, recordId)}
+                                                                                                                                    sx={{
+                                                                                                                                        borderRadius: 2,
+                                                                                                                                        textTransform: 'none',
+                                                                                                                                        fontWeight: 600,
+                                                                                                                                        borderWidth: 2,
+                                                                                                                                        '&:hover': {
+                                                                                                                                            borderWidth: 2
+                                                                                                                                        }
+                                                                                                                                    }}
+                                                                                                                                >
+                                                                                                                                    Hủy
+                                                                                                                                </Button>
+                                                                                                                            )}
+                                                                                                                        </Stack>
                                                                                                                     )
                                                                                                                 ) : (
                                                                                                                     <Chip

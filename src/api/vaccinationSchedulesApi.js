@@ -176,15 +176,15 @@ export const createVaccinationSchedule = async (scheduleData) => {
 export const updateVaccinationSchedule = async (scheduleId, scheduleData) => {
     try {
         // Validate required fields
-        if (!scheduleData.pet_id) {
-            throw new Error('Thú cưng là bắt buộc');
+            if (!scheduleData.pet_id) {
+                throw new Error('Thú cưng là bắt buộc');
         }
-        if (!scheduleData.vaccine_type_id) {
-            throw new Error('Loại vaccine là bắt buộc');
+            if (!scheduleData.vaccine_type_id) {
+                throw new Error('Loại vaccine là bắt buộc');
         }
-        if (!scheduleData.scheduled_date) {
-            throw new Error('Ngày tiêm dự kiến là bắt buộc');
-        }
+            if (!scheduleData.scheduled_date) {
+                throw new Error('Ngày tiêm dự kiến là bắt buộc');
+            }
 
         // Build request body according to API spec: all fields are required
         const requestData = {

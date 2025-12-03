@@ -89,8 +89,54 @@ const VaccineTypesTab = ({ species: speciesProp = [], onVaccineTypeChange }) => 
         return name.charAt(0).toUpperCase() + name.slice(1);
     };
 
+    // Precompute species name & color maps to keep colors consistent với các tab khác
+    const speciesNameMap = useMemo(() => {
+        if (!Array.isArray(species)) return new Map();
+        return new Map(species.map(s => [s.id, capitalizeName(s.name)]));
+    }, [species]);
+
+    const speciesColorMap = useMemo(() => {
+        if (!Array.isArray(species)) return new Map();
+
+        const colorPairs = [
+            { bg: COLORS.WARNING[100], text: COLORS.WARNING[800] }, // Chó
+            { bg: COLORS.INFO[100], text: COLORS.INFO[800] },       // Mèo
+            { bg: COLORS.SUCCESS[100], text: COLORS.SUCCESS[800] },
+            { bg: COLORS.ERROR[100], text: COLORS.ERROR[800] }
+        ];
+
+        const map = new Map();
+        species.forEach((s, index) => {
+            map.set(s.id, colorPairs[index % colorPairs.length]);
+        });
+
+        return map;
+    }, [species]);
+
+    const getSpeciesChipColors = (speciesId) => {
+        if (!speciesId) {
+            return { bg: COLORS.WARNING[50], text: COLORS.WARNING[700] };
+        }
+        return speciesColorMap.get(speciesId) || { bg: COLORS.WARNING[50], text: COLORS.WARNING[700] };
+    };
+
+    const getSpeciesIdFromVaccineType = (vt) => {
+        if (vt.species && typeof vt.species === 'object' && vt.species.id) {
+            return vt.species.id;
+        }
+        if (vt.species_id) {
+            return vt.species_id;
+        }
+        return null;
+    };
+
     // Get species name - Use populated species object or fallback to prop
     const getSpeciesName = (vt) => {
+        const speciesId = getSpeciesIdFromVaccineType(vt);
+        if (speciesId && speciesNameMap.has(speciesId)) {
+            return speciesNameMap.get(speciesId);
+        }
+
         if (vt.species) {
             if (typeof vt.species === 'object' && vt.species !== null && vt.species.name) {
                 return capitalizeName(String(vt.species.name));
@@ -322,7 +368,7 @@ const VaccineTypesTab = ({ species: speciesProp = [], onVaccineTypeChange }) => 
                                     <TableRow>
                                         <TableCell sx={{ fontWeight: 800 }}>Tên vaccine</TableCell>
                                         <TableCell sx={{ fontWeight: 800 }}>Loài</TableCell>
-                                        <TableCell sx={{ fontWeight: 800, display: { xs: 'none', md: 'table-cell' } }}>Chu kỳ tiêm lại</TableCell>
+                                        <TableCell sx={{ fontWeight: 800, display: { xs: 'none', md: 'table-cell' } }}>Lịch tiêm kế tiếp</TableCell>
                                         <TableCell sx={{ fontWeight: 800, display: { xs: 'none', md: 'table-cell' } }}>Số mũi</TableCell>
                                         <TableCell sx={{ fontWeight: 800 }}>Bắt buộc</TableCell>
                                         <TableCell sx={{ fontWeight: 800 }}>Thao tác</TableCell>
@@ -366,8 +412,8 @@ const VaccineTypesTab = ({ species: speciesProp = [], onVaccineTypeChange }) => 
                                                     label={getSpeciesName(vt)}
                                                     size="small"
                                                     sx={{
-                                                        background: alpha(COLORS.INFO[100], 0.5),
-                                                        color: COLORS.INFO[800],
+                                                        bgcolor: alpha(getSpeciesChipColors(getSpeciesIdFromVaccineType(vt)).bg, 0.9),
+                                                        color: getSpeciesChipColors(getSpeciesIdFromVaccineType(vt)).text,
                                                         fontWeight: 700
                                                     }}
                                                 />

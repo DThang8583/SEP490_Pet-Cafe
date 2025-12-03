@@ -7,7 +7,7 @@ export const API_BASE_URL =
         ? import.meta.env.VITE_API_BASE_URL
         : (typeof window !== 'undefined' && window.__API_BASE_URL__)
             ? window.__API_BASE_URL__
-            : 'https://petcafe-htc6dadbayh6h4dz.southeastasia-01.azurewebsites.net/api';
+            : 'https://petcafes.azurewebsites.net/api';
 
 const apiClient = axios.create({
     baseURL: API_BASE_URL,
