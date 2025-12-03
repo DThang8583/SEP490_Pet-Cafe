@@ -125,13 +125,13 @@ const BookingPage = () => {
             const token = localStorage.getItem('authToken');
             const response = await fetch('https://petcafe-htc6dadbayh6h4dz.southeastasia-01.azurewebsites.net/api/services', {
                 headers: {
-                    'Authorization': token ? `Bearer ${token}` : '',
+                    'Authorization': token ? Bearer ${token} : '',
                     'Accept': 'application/json'
                 }
             });
 
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                throw new Error(HTTP error! status: ${response.status});
             }
 
             const json = await response.json();
@@ -332,14 +332,14 @@ const BookingPage = () => {
                     // For cafe services, get start_time from selected slot
                     const selectedSlot = svc?.slots?.find(slot => slot.id === bookingData.slotId);
                     const sessionStart = selectedSlot?.start_time || bookingData.sessionId?.split('-').pop() || '09:00';
-                    bookingDateTime = `${bookingData.date}T${sessionStart}`;
+                    bookingDateTime = ${bookingData.date}T${sessionStart};
                 } else if (bookingData.date && bookingData.time) {
-                    bookingDateTime = `${bookingData.date}T${bookingData.time}:00`;
+                    bookingDateTime = ${bookingData.date}T${bookingData.time}:00;
                 } else if (bookingData.date && bookingData.slotId) {
                     // Get time from selected slot
                     const selectedSlot = svc?.slots?.find(slot => slot.id === bookingData.slotId);
                     const slotStart = selectedSlot?.start_time || '09:00';
-                    bookingDateTime = `${bookingData.date}T${slotStart}`;
+                    bookingDateTime = ${bookingData.date}T${slotStart};
                 }
             }
 
@@ -348,7 +348,7 @@ const BookingPage = () => {
             if (!isCafe) {
                 if (!petForBooking && bookingData.petInfo) {
                     petForBooking = {
-                        id: bookingData.petInfo?.id || `temp-pet-${Date.now()}`,
+                        id: bookingData.petInfo?.id || temp-pet-${Date.now()},
                         name: bookingData.petInfo?.name || bookingData.petInfo?.breed || '',
                         species: bookingData.petInfo?.species,
                         breed: bookingData.petInfo?.breed,
@@ -469,7 +469,7 @@ const BookingPage = () => {
                                     variant="h2"
                                     sx={{
                                         fontWeight: 'bold',
-                                        background: `linear-gradient(135deg, ${COLORS.ERROR[500]} 0%, ${COLORS.SECONDARY[600]} 100%)`,
+                                        background: linear-gradient(135deg, ${COLORS.ERROR[500]} 0%, ${COLORS.SECONDARY[600]} 100%),
                                         backgroundClip: 'text',
                                         WebkitBackgroundClip: 'text',
                                         WebkitTextFillColor: 'transparent',
@@ -502,8 +502,8 @@ const BookingPage = () => {
                                     p: 3,
                                     backgroundColor: COLORS.BACKGROUND.DEFAULT,
                                     borderRadius: 4,
-                                    border: `2px solid ${alpha(COLORS.ERROR[200], 0.3)}`,
-                                    boxShadow: `0 8px 32px ${alpha(COLORS.ERROR[200], 0.2)}`
+                                    border: 2px solid ${alpha(COLORS.ERROR[200], 0.3)},
+                                    boxShadow: 0 8px 32px ${alpha(COLORS.ERROR[200], 0.2)}
                                 }}>
                                     <Stepper activeStep={currentStep} alternativeLabel>
                                         {steps.map((label, index) => (
@@ -611,7 +611,7 @@ const BookingPage = () => {
                                             ${alpha(COLORS.GRAY[100], 0.8)} 0%, 
                                             ${alpha(COLORS.GRAY[50], 0.6)} 100%
                                         )`,
-                                            border: `2px dashed ${alpha(COLORS.GRAY[300], 0.5)}`,
+                                            border: 2px dashed ${alpha(COLORS.GRAY[300], 0.5)},
                                             borderRadius: 4
                                         }}>
                                             <CardContent sx={{ textAlign: 'center' }}>
@@ -650,8 +650,8 @@ const BookingPage = () => {
                             <Box sx={{ maxWidth: 960, mx: 'auto', mt: 2 }}>
                                 <Card sx={{
                                     borderRadius: 4,
-                                    border: `2px solid ${alpha(COLORS.SUCCESS[200], 0.4)}`,
-                                    background: `linear-gradient(135deg, ${alpha(COLORS.BACKGROUND.DEFAULT, 0.98)} 0%, ${alpha(COLORS.SUCCESS[50], 0.8)} 100%)`
+                                    border: 2px solid ${alpha(COLORS.SUCCESS[200], 0.4)},
+                                    background: linear-gradient(135deg, ${alpha(COLORS.BACKGROUND.DEFAULT, 0.98)} 0%, ${alpha(COLORS.SUCCESS[50], 0.8)} 100%)
                                 }}>
                                     <CardContent sx={{ p: 3 }}>
                                         <Box sx={{ textAlign: 'center', mb: 3 }}>
@@ -676,7 +676,7 @@ const BookingPage = () => {
                                                 </Box>
                                             </Grid>
                                             <Grid item xs={12} md={4}>
-                                                <Box sx={{ p: 2, borderRadius: 2, backgroundColor: alpha(COLORS.ERROR[50], 0.6), border: `1px solid ${alpha(COLORS.ERROR[200], 0.6)}` }}>
+                                                <Box sx={{ p: 2, borderRadius: 2, backgroundColor: alpha(COLORS.ERROR[50], 0.6), border: 1px solid ${alpha(COLORS.ERROR[200], 0.6)} }}>
                                                     <Typography variant="body2" color="text.secondary">Tổng cộng</Typography>
                                                     <Typography variant="h6" fontWeight="bold" sx={{ color: COLORS.ERROR[700] }}>
                                                         {formatPrice(completedBooking?.finalPrice || completedBooking?.service?.base_price || completedBooking?.service?.price || 0)}
@@ -710,9 +710,9 @@ const BookingPage = () => {
                             <Box sx={{ maxWidth: 1600, mx: 'auto', mt: 1 }}>
                                 <Card sx={{
                                     borderRadius: 2,
-                                    border: `1px solid ${alpha(COLORS.INFO[200], 0.5)}`,
+                                    border: 1px solid ${alpha(COLORS.INFO[200], 0.5)},
                                     background: COLORS.BACKGROUND.DEFAULT,
-                                    boxShadow: `0 6px 18px ${alpha(COLORS.INFO[300], 0.25)}`
+                                    boxShadow: 0 6px 18px ${alpha(COLORS.INFO[300], 0.25)}
                                 }}>
                                     <CardContent sx={{ p: 2 }}>
                                         <Typography variant="h5" fontWeight="bold" sx={{ mb: 1, color: COLORS.INFO[700] }}>
@@ -725,7 +725,7 @@ const BookingPage = () => {
                                         ) : (
                                             <TableContainer>
                                                 <Table size="small" stickyHeader>
-                                                    <TableHead sx={{ '& th': { backgroundColor: alpha(COLORS.INFO[50], 0.8) } }}>
+                                                    <TableHead sx={{ '& th': { backgroundColor: alpha(COLORS.INFO[50], 0.😎 } }}>
                                                         <TableRow>
                                                             <TableCell>Dịch vụ</TableCell>
                                                             <TableCell>Thời gian</TableCell>
