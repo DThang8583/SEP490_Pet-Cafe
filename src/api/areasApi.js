@@ -12,14 +12,36 @@ export const getAllAreas = async (params = {}) => {
         page_size = 10,
         search = '',
         is_active = null,
-        work_type_id = null
+        work_type_id = null,
+        // New explicit pagination params (API uses `page` & `limit`)
+        page,
+        limit
     } = params;
 
     try {
         // Build query parameters for API
         const queryParams = {};
 
-        // Note: API doesn't need page and limit parameters - it returns all data with pagination info
+        // Map pagination: our old API wrapper used page_index/page_size.
+        // The official API uses `page` (1-based) and `limit`.
+        // Support both styles to avoid breaking existing callers.
+        const resolvedPage =
+            page !== undefined && page !== null
+                ? page
+                : page_index !== undefined && page_index !== null
+                    ? page_index
+                    : 0;
+
+        const resolvedLimit =
+            limit !== undefined && limit !== null
+                ? limit
+                : page_size !== undefined && page_size !== null
+                    ? page_size
+                    : 10;
+
+        // Attach pagination params expected by BE
+        queryParams.page = resolvedPage;
+        queryParams.limit = resolvedLimit;
 
         // Map is_active to IsActive (API parameter name)
         if (is_active !== null) {
@@ -45,35 +67,68 @@ export const getAllAreas = async (params = {}) => {
 
             // Apply client-side search filter if search term provided
             // (API might not support search, so we filter on client side)
-    if (search) {
-        const searchLower = search.toLowerCase();
+            if (search) {
+                const searchLower = search.toLowerCase();
                 resultData = resultData.filter(area =>
                     area.name?.toLowerCase().includes(searchLower) ||
                     area.description?.toLowerCase().includes(searchLower) ||
                     area.location?.toLowerCase().includes(searchLower)
-        );
-    }
+                );
+            }
 
-            // Map API pagination format to our format
+            // Map API pagination format to our format.
+            // Support both { page, limit } and { page_index, page_size } shapes.
             const apiPagination = responseData.pagination || {};
+            const apiPage =
+                apiPagination.page !== undefined
+                    ? apiPagination.page
+                    : apiPagination.page_index !== undefined
+                        ? apiPagination.page_index
+                        : resolvedPage;
+
+            const apiPageSize =
+                apiPagination.limit !== undefined
+                    ? apiPagination.limit
+                    : apiPagination.page_size !== undefined
+                        ? apiPagination.page_size
+                        : resolvedLimit;
+
+            const totalItems =
+                apiPagination.total_items_count !== undefined
+                    ? apiPagination.total_items_count
+                    : resultData.length;
+
+            const totalPages =
+                apiPagination.total_pages_count !== undefined
+                    ? apiPagination.total_pages_count
+                    : apiPageSize > 0
+                        ? Math.ceil(totalItems / apiPageSize)
+                        : 1;
+
             return {
                 data: resultData,
                 pagination: {
-                    total_items_count: apiPagination.total_items_count || resultData.length,
-                    page_size: apiPagination.page_size || page_size,
-                    total_pages_count: apiPagination.total_pages_count || 1,
-                    page_index: apiPagination.page_index !== undefined ? apiPagination.page_index : page_index,
-                    has_next: apiPagination.has_next !== undefined ? apiPagination.has_next : false,
-                    has_previous: apiPagination.has_previous !== undefined ? apiPagination.has_previous : false
+                    total_items_count: totalItems,
+                    page_size: apiPageSize,
+                    total_pages_count: totalPages,
+                    page_index: apiPage,
+                    has_next:
+                        apiPagination.has_next !== undefined
+                            ? apiPagination.has_next
+                            : apiPage < totalPages - 1,
+                    has_previous:
+                        apiPagination.has_previous !== undefined
+                            ? apiPagination.has_previous
+                            : apiPage > 0
                 }
             };
         }
 
         // If response is directly an array (unlikely but handle it)
         if (Array.isArray(responseData)) {
-    return {
+            return {
                 data: responseData,
-        pagination: {
+                pagination: {
                     total_items_count: responseData.length,
                     page_size: page_size,
                     total_pages_count: 1,
@@ -106,8 +161,8 @@ export const getAllAreas = async (params = {}) => {
                 page_index: page_index,
                 has_next: false,
                 has_previous: false
-        }
-    };
+            }
+        };
     }
 };
 
@@ -160,26 +215,26 @@ export const getAvailableWorkTypes = async (areaId) => {
  */
 export const createArea = async (areaData) => {
     try {
-    // Validation
-    if (!areaData.name || !areaData.name.trim()) {
-        throw new Error('Tên khu vực là bắt buộc');
-    }
+        // Validation
+        if (!areaData.name || !areaData.name.trim()) {
+            throw new Error('Tên khu vực là bắt buộc');
+        }
 
-    if (!areaData.description || !areaData.description.trim()) {
-        throw new Error('Mô tả khu vực là bắt buộc');
-    }
+        if (!areaData.description || !areaData.description.trim()) {
+            throw new Error('Mô tả khu vực là bắt buộc');
+        }
 
-    if (!areaData.location || !areaData.location.trim()) {
-        throw new Error('Vị trí là bắt buộc');
-    }
+        if (!areaData.location || !areaData.location.trim()) {
+            throw new Error('Vị trí là bắt buộc');
+        }
 
-    if (areaData.max_capacity === undefined || areaData.max_capacity < 0) {
-        throw new Error('Sức chứa tối đa phải >= 0');
-    }
+        if (areaData.max_capacity === undefined || areaData.max_capacity < 0) {
+            throw new Error('Sức chứa tối đa phải >= 0');
+        }
 
         // Upload image file first if provided
-    let imageUrl = areaData.image_url || null;
-    if (areaData.image_file) {
+        let imageUrl = areaData.image_url || null;
+        if (areaData.image_file) {
             try {
                 imageUrl = await uploadFile(areaData.image_file);
             } catch (error) {
@@ -190,11 +245,11 @@ export const createArea = async (areaData) => {
 
         // Prepare request data (always use JSON, not FormData)
         const requestData = {
-        name: areaData.name.trim(),
-        description: areaData.description.trim(),
-        location: areaData.location.trim(),
-        max_capacity: parseInt(areaData.max_capacity),
-        image_url: imageUrl,
+            name: areaData.name.trim(),
+            description: areaData.description.trim(),
+            location: areaData.location.trim(),
+            max_capacity: parseInt(areaData.max_capacity),
+            image_url: imageUrl,
             work_type_ids: areaData.work_type_ids && Array.isArray(areaData.work_type_ids) && areaData.work_type_ids.length > 0
                 ? areaData.work_type_ids
                 : []
@@ -218,25 +273,25 @@ export const createArea = async (areaData) => {
  */
 export const updateArea = async (areaId, areaData) => {
     try {
-    // Validation
-    if (areaData.name !== undefined && !areaData.name.trim()) {
-        throw new Error('Tên khu vực không được rỗng');
-    }
+        // Validation
+        if (areaData.name !== undefined && !areaData.name.trim()) {
+            throw new Error('Tên khu vực không được rỗng');
+        }
 
-    if (areaData.max_capacity !== undefined && areaData.max_capacity < 0) {
-        throw new Error('Sức chứa tối đa phải >= 0');
-    }
+        if (areaData.max_capacity !== undefined && areaData.max_capacity < 0) {
+            throw new Error('Sức chứa tối đa phải >= 0');
+        }
 
         // Upload image file first if provided
         let imageUrl = areaData.image_url;
-    if (areaData.image_file) {
+        if (areaData.image_file) {
             try {
                 imageUrl = await uploadFile(areaData.image_file);
             } catch (error) {
                 console.error('Failed to upload image:', error);
                 throw new Error(`Không thể tải ảnh lên: ${error.message || 'Lỗi không xác định'}`);
             }
-    }
+        }
 
         // Prepare request data (always use JSON, not FormData)
         const requestData = {};
@@ -334,10 +389,10 @@ export const addWorkTypeToArea = async (areaId, workTypeId, description = null) 
         const currentArea = await getAreaById(areaId);
         const currentWorkTypeIds = (currentArea.area_work_types || []).map(awt => awt.work_type_id);
 
-    // Check if already assigned
+        // Check if already assigned
         if (currentWorkTypeIds.includes(workTypeId)) {
-        throw new Error('Loại công việc này đã được gán cho khu vực');
-    }
+            throw new Error('Loại công việc này đã được gán cho khu vực');
+        }
 
         // Add new work type ID to the list
         const updatedWorkTypeIds = [...currentWorkTypeIds, workTypeId];
@@ -366,7 +421,7 @@ export const removeWorkTypeFromArea = async (areaId, areaWorkTypeId) => {
         const workTypeToRemove = currentWorkTypes.find(awt => awt.id === areaWorkTypeId);
         if (!workTypeToRemove) {
             throw new Error('Không tìm thấy loại công việc cần xóa');
-    }
+        }
 
         // Remove the work type ID from the list
         const updatedWorkTypeIds = currentWorkTypes
@@ -416,7 +471,7 @@ export const getAreasStatistics = async () => {
             return sum + capacity;
         }, 0);
 
-    return {
+        return {
             total: areas.length,
             active: areas.filter(a => a.is_active).length,
             inactive: areas.filter(a => !a.is_active).length,
@@ -431,7 +486,7 @@ export const getAreasStatistics = async () => {
             inactive: 0,
             totalCapacity: 0,
             averageCapacity: 0
-    };
+        };
     }
 };
 

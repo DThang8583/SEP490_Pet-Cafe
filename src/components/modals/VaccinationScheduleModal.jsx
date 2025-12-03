@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Button, TextField, Stack, IconButton, FormControl, InputLabel, Select, MenuItem, Typography, alpha, Box, Chip, Backdrop, Paper } from '@mui/material';
 import { CalendarToday, Close } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
@@ -92,21 +92,13 @@ const VaccinationScheduleModal = ({
                 let timeOnly = '09:00'; // Default time
 
                 if (initialData.scheduled_date) {
-                    // Extract date and time directly from ISO string without Date conversion
-                    // This avoids timezone conversion issues
+                    // Extract date and time directly from ISO string (tránh lệch timezone)
                     const isoString = initialData.scheduled_date;
                     const match = isoString.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/);
 
                     if (match) {
                         dateOnly = match[1]; // YYYY-MM-DD
                         timeOnly = match[2]; // HH:MM
-
-                        console.log('📥 Loading vaccination schedule time:', {
-                            rawFromBackend: isoString,
-                            extractedDate: dateOnly,
-                            extractedTime: timeOnly,
-                            note: 'Time is stored as UTC but represents local Vietnam time'
-                        });
                     }
                 }
 
@@ -133,16 +125,6 @@ const VaccinationScheduleModal = ({
                     status: initialData.status || 'PENDING'
                 });
 
-                // Debug: Log to check if team_id is loaded
-                console.log('📋 Loading schedule data for edit:', {
-                    scheduleId: initialData.id,
-                    team_id_direct: initialData.team_id,
-                    team_object: initialData.team,
-                    team_id_from_team_object: initialData.team?.id,
-                    team_id_loaded_to_form: teamId,
-                    all_initialData_keys: Object.keys(initialData),
-                    full_initialData: initialData
-                });
             } else {
                 setFormData({
                     species_id: '',
@@ -159,7 +141,7 @@ const VaccinationScheduleModal = ({
         }
     }, [isOpen, editMode, initialData, pets]);
 
-    const validate = () => {
+    const validate = useCallback(() => {
         const newErrors = {};
 
         if (!formData.species_id) {
@@ -188,35 +170,24 @@ const VaccinationScheduleModal = ({
 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
-    };
+    }, [formData]);
 
-    const handleSubmit = () => {
-        if (validate()) {
-            // WORKAROUND: Backend extracts time from UTC timestamp without timezone conversion
-            // So we send local time AS IF it were UTC (with Z suffix)
-            // Example: User selects 15:00 Vietnam time → Send "2025-11-28T15:00:00Z"
-            // Backend will extract 15:00 and use it directly for daily task
-            const scheduledDateTime = formData.scheduled_date && formData.scheduled_time
-                ? `${formData.scheduled_date}T${formData.scheduled_time}:00Z`
-                : '';
+    const handleSubmit = useCallback(() => {
+        if (!validate()) return;
 
-            console.log('📤 Sending vaccination schedule with time:', {
-                userInput: {
-                    date: formData.scheduled_date,
-                    time: formData.scheduled_time
-                },
-                sentToBackend: scheduledDateTime,
-                note: 'Time is sent as UTC but represents local Vietnam time'
-            });
+        // WORKAROUND: Backend extracts time from UTC timestamp without timezone conversion
+        // So we send local time AS IF it were UTC (with Z suffix)
+        const scheduledDateTime = formData.scheduled_date && formData.scheduled_time
+            ? `${formData.scheduled_date}T${formData.scheduled_time}:00Z`
+            : '';
 
-            onSubmit({
-                ...formData,
-                scheduled_date: scheduledDateTime
-            });
-        }
-    };
+        onSubmit({
+            ...formData,
+            scheduled_date: scheduledDateTime
+        });
+    }, [formData, onSubmit, validate]);
 
-    const handleClose = () => {
+    const handleClose = useCallback(() => {
         setFormData({
             species_id: '',
             vaccine_type_id: '',
@@ -229,41 +200,45 @@ const VaccinationScheduleModal = ({
         });
         setErrors({});
         onClose();
-    };
+    }, [onClose]);
 
     // Helper function to capitalize first letter
-    const capitalizeName = (name) => {
+    const capitalizeName = useCallback((name) => {
         if (!name) return name;
         return name.charAt(0).toUpperCase() + name.slice(1);
-    };
+    }, []);
 
     // Helper function to extract species_id from pet object
-    const extractSpeciesId = (pet) => {
+    const extractSpeciesId = useCallback((pet) => {
         // Try multiple sources for species_id
         if (pet.species_id) return pet.species_id;
         if (pet.species?.id) return pet.species.id;
         if (pet.breed?.species_id) return pet.breed.species_id;
         if (pet.breed?.species?.id) return pet.breed.species.id;
         return null;
-    };
+    }, []);
 
-    // Get species name by ID
-    const getSpeciesName = (speciesId) => {
-        const sp = species.find(s => s.id === speciesId);
-        return sp ? capitalizeName(sp.name) : '—';
-    };
+    // Precomputed maps for fast lookup & stable references
+    const petNameMap = useMemo(() => {
+        if (!Array.isArray(pets)) return new Map();
+        return new Map(pets.map(pet => [pet.id, pet.name]));
+    }, [pets]);
 
-    // Get pet name
-    const getPetName = (petId) => {
-        const pet = pets.find(p => p.id === petId);
-        return pet ? pet.name : '';
-    };
+    const vaccineTypeNameMap = useMemo(() => {
+        if (!Array.isArray(vaccineTypes)) return new Map();
+        return new Map(vaccineTypes.map(vt => [vt.id, vt.name]));
+    }, [vaccineTypes]);
 
-    // Get vaccine type name
-    const getVaccineTypeName = (vaccineTypeId) => {
-        const vaccineType = vaccineTypes.find(vt => vt.id === vaccineTypeId);
-        return vaccineType ? vaccineType.name : '';
-    };
+    // Get pet / vaccine names
+    const getPetName = useCallback((petId) => {
+        if (!petId) return '';
+        return petNameMap.get(petId) || '';
+    }, [petNameMap]);
+
+    const getVaccineTypeName = useCallback((vaccineTypeId) => {
+        if (!vaccineTypeId) return '';
+        return vaccineTypeNameMap.get(vaccineTypeId) || '';
+    }, [vaccineTypeNameMap]);
 
     // Get available vaccine types for selected species
     const availableVaccineTypes = useMemo(() => {
@@ -321,13 +296,6 @@ const VaccinationScheduleModal = ({
 
         const scheduledTime = normalizeTime(formData.scheduled_time);
 
-        console.log('[VaccinationScheduleModal] Filtering teams:', {
-            scheduled_date: formData.scheduled_date,
-            scheduled_time: formData.scheduled_time,
-            dayOfWeek,
-            normalizedTime: scheduledTime
-        });
-
         const withMatchFlag = teamsWithShifts.map(team => {
             const matchesSchedule = team.team_work_shifts?.some(tws => {
                 const workShift = tws?.work_shift;
@@ -344,21 +312,7 @@ const VaccinationScheduleModal = ({
                 // Check if day of week matches
                 const dayMatches = applicableDays.includes(dayOfWeek);
 
-                const matches = timeMatches && dayMatches;
-
-                if (matches) {
-                    console.log('[VaccinationScheduleModal] Team matches schedule:', {
-                        teamName: team.name,
-                        workShift: workShift.name,
-                        shiftTime: `${shiftStart} - ${shiftEnd}`,
-                        applicableDays,
-                        scheduledDay: dayOfWeek,
-                        scheduledTime,
-                        matches: true
-                    });
-                }
-
-                return matches;
+                return timeMatches && dayMatches;
             }) ?? false;
 
             return {
@@ -420,12 +374,12 @@ const VaccinationScheduleModal = ({
                                 onChange={(e) => {
                                     const newSpeciesId = e.target.value;
                                     // Reset vaccine_type_id and pet_id when species changes
-                                    setFormData({
-                                        ...formData,
+                                    setFormData(prev => ({
+                                        ...prev,
                                         species_id: newSpeciesId,
                                         vaccine_type_id: '',
                                         pet_id: ''
-                                    });
+                                    }));
                                 }}
                                 label="Loài"
                             >
@@ -456,7 +410,7 @@ const VaccinationScheduleModal = ({
                             <InputLabel>Loại vaccine</InputLabel>
                             <Select
                                 value={formData.vaccine_type_id}
-                                onChange={(e) => setFormData({ ...formData, vaccine_type_id: e.target.value })}
+                                onChange={(e) => setFormData(prev => ({ ...prev, vaccine_type_id: e.target.value }))}
                                 label="Loại vaccine"
                                 disabled={!formData.species_id}
                             >
@@ -497,7 +451,7 @@ const VaccinationScheduleModal = ({
                             <InputLabel>Thú cưng</InputLabel>
                             <Select
                                 value={formData.pet_id}
-                                onChange={(e) => setFormData({ ...formData, pet_id: e.target.value })}
+                                onChange={(e) => setFormData(prev => ({ ...prev, pet_id: e.target.value }))}
                                 label="Thú cưng"
                                 disabled={!formData.species_id}
                             >
@@ -531,7 +485,7 @@ const VaccinationScheduleModal = ({
                             label="Ngày tiêm dự kiến"
                             type="date"
                             value={formData.scheduled_date}
-                            onChange={(e) => setFormData({ ...formData, scheduled_date: e.target.value })}
+                            onChange={(e) => setFormData(prev => ({ ...prev, scheduled_date: e.target.value }))}
                             fullWidth
                             required
                             InputLabelProps={{
@@ -546,7 +500,7 @@ const VaccinationScheduleModal = ({
                             label="Giờ tiêm dự kiến"
                             type="time"
                             value={formData.scheduled_time}
-                            onChange={(e) => setFormData({ ...formData, scheduled_time: e.target.value })}
+                            onChange={(e) => setFormData(prev => ({ ...prev, scheduled_time: e.target.value }))}
                             fullWidth
                             required
                             InputLabelProps={{
@@ -562,7 +516,7 @@ const VaccinationScheduleModal = ({
                                 <InputLabel>Trạng thái</InputLabel>
                                 <Select
                                     value={formData.status}
-                                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                                    onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value }))}
                                     label="Trạng thái"
                                 >
                                     <MenuItem value="PENDING">
@@ -631,7 +585,7 @@ const VaccinationScheduleModal = ({
                                 <InputLabel>Nhóm</InputLabel>
                                 <Select
                                     value={formData.team_id}
-                                    onChange={(e) => setFormData({ ...formData, team_id: e.target.value })}
+                                    onChange={(e) => setFormData(prev => ({ ...prev, team_id: e.target.value }))}
                                     label="Nhóm"
                                     disabled={!formData.scheduled_date || !formData.scheduled_time}
                                 >
@@ -682,7 +636,7 @@ const VaccinationScheduleModal = ({
                         <TextField
                             label="Ghi chú"
                             value={formData.notes}
-                            onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                            onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
                             fullWidth
                             multiline
                             rows={3}

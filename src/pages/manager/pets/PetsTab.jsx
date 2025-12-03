@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useDeferredValue, useEffect, useMemo, useState, useTransition } from 'react';
 import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, Stack, Toolbar, TextField, Select, MenuItem, InputLabel, FormControl, IconButton, Button, Avatar, alpha, Menu, ListItemIcon, ListItemText } from '@mui/material';
 import { Add, Edit, Delete, Pets as PetsIcon, Visibility, MoreVert } from '@mui/icons-material';
 import { COLORS } from '../../../constants/colors';
@@ -18,6 +18,19 @@ const PetsTab = ({ pets, species, breeds, groups, onDataChange }) => {
     const [petPage, setPetPage] = useState(1);
     const [petItemsPerPage, setPetItemsPerPage] = useState(10);
 
+    // Smooth concurrent transitions for filters / search / pagination
+    const [isPending, startTransition] = useTransition();
+
+    // Local pets data & pagination for server-side pagination (independent from PetsPage)
+    const [petsPageData, setPetsPageData] = useState([]);
+    const [petsPagination, setPetsPagination] = useState({
+        total_items_count: 0,
+        page_size: petItemsPerPage,
+        total_pages_count: 0,
+        page_index: 0
+    });
+    const [isLoadingPets, setIsLoadingPets] = useState(false);
+
     const [petDialogOpen, setPetDialogOpen] = useState(false);
     const [editMode, setEditMode] = useState(false);
     const [selectedPet, setSelectedPet] = useState(null);
@@ -34,40 +47,149 @@ const PetsTab = ({ pets, species, breeds, groups, onDataChange }) => {
     const [petDetailDialog, setPetDetailDialog] = useState({ open: false, pet: null, vaccinations: [], healthRecords: [] });
     const [detailLoading, setDetailLoading] = useState(false);
 
+    // Smooth search input so typing không bị khựng
+    const deferredSearchPet = useDeferredValue(searchPet);
+
     // Helper function to capitalize first letter
-    const capitalizeName = (name) => {
+    const capitalizeName = useCallback((name) => {
         if (!name) return name;
         return name.charAt(0).toUpperCase() + name.slice(1);
-    };
+    }, []);
+
+    // Precompute species name + color map to stay in sync with BreedsTab / GroupsTab
+    const speciesNameMap = useMemo(() => {
+        if (!Array.isArray(species)) return new Map();
+        return new Map(species.map(s => [s.id, capitalizeName(s.name)]));
+    }, [species, capitalizeName]);
+
+    const speciesColorMap = useMemo(() => {
+        if (!Array.isArray(species)) return new Map();
+
+        const colorPairs = [
+            { bg: COLORS.WARNING[100], text: COLORS.WARNING[800] }, // Chó
+            { bg: COLORS.INFO[100], text: COLORS.INFO[800] },       // Mèo
+            { bg: COLORS.SUCCESS[100], text: COLORS.SUCCESS[800] },
+            { bg: COLORS.ERROR[100], text: COLORS.ERROR[800] }
+        ];
+
+        const map = new Map();
+        species.forEach((s, index) => {
+            map.set(s.id, colorPairs[index % colorPairs.length]);
+        });
+
+        return map;
+    }, [species]);
 
     // Get species name by ID
-    const getSpeciesName = (speciesId) => {
-        const sp = species.find(s => s.id === speciesId);
-        return sp ? capitalizeName(sp.name) : '—';
-    };
+    const getSpeciesName = useCallback((speciesId) => {
+        if (!speciesId) return '—';
+        return speciesNameMap.get(speciesId) || '—';
+    }, [speciesNameMap]);
+
+    const getSpeciesChipColors = useCallback((speciesId) => {
+        if (!speciesId) {
+            return { bg: COLORS.WARNING[50], text: COLORS.WARNING[700] };
+        }
+        return speciesColorMap.get(speciesId) || { bg: COLORS.WARNING[50], text: COLORS.WARNING[700] };
+    }, [speciesColorMap]);
+
+    // Precompute breed name map for O(1) lookup
+    const breedNameMap = useMemo(() => {
+        if (!Array.isArray(breeds)) return new Map();
+        return new Map(breeds.map(b => [b.id, b.name]));
+    }, [breeds]);
 
     // Get breed name by ID
-    const getBreedName = (breedId) => {
-        const br = breeds.find(b => b.id === breedId);
-        return br ? br.name : '—';
-    };
+    const getBreedName = useCallback((breedId) => {
+        if (!breedId) return '—';
+        return breedNameMap.get(breedId) || '—';
+    }, [breedNameMap]);
 
     // Get pet health status from API health_status field
     const getPetHealthStatus = (pet) => {
         const healthStatus = pet.health_status || 'HEALTHY';
 
         const statusMap = {
-            'HEALTHY': { label: 'Khỏe mạnh', color: COLORS.SUCCESS, bg: COLORS.SUCCESS[100] },
-            'SICK': { label: 'Ốm', color: COLORS.ERROR, bg: COLORS.ERROR[100] },
-            'RECOVERING': { label: 'Đang hồi phục', color: COLORS.WARNING, bg: COLORS.WARNING[100] },
-            'UNDER_OBSERVATION': { label: 'Đang theo dõi', color: COLORS.WARNING, bg: COLORS.WARNING[100] },
-            'QUARANTINE': { label: 'Cách ly', color: COLORS.ERROR, bg: COLORS.ERROR[100] }
+            // Khỏe mạnh – xanh lá
+            'HEALTHY': {
+                label: 'Khỏe mạnh',
+                color: COLORS.SUCCESS,
+                bg: COLORS.SUCCESS[100]
+            },
+            // Ốm – đỏ
+            'SICK': {
+                label: 'Ốm',
+                color: COLORS.ERROR,
+                bg: COLORS.ERROR[100]
+            },
+            // Đang hồi phục – cam (WARNING)
+            'RECOVERING': {
+                label: 'Đang hồi phục',
+                color: COLORS.WARNING,
+                bg: COLORS.WARNING[100]
+            },
+            // Đang theo dõi – xanh dương (INFO)
+            'UNDER_OBSERVATION': {
+                label: 'Đang theo dõi',
+                color: COLORS.INFO,
+                bg: COLORS.INFO[100]
+            },
+            // Cách ly – secondary (cam đậm hơn)
+            'QUARANTINE': {
+                label: 'Cách ly',
+                color: COLORS.SECONDARY,
+                bg: COLORS.SECONDARY[100]
+            }
         };
 
         return statusMap[healthStatus] || statusMap['HEALTHY'];
     };
 
-    // Statistics
+    // Load pets page from API using page & limit (server-side pagination)
+    const loadPetsPage = useCallback(async () => {
+        try {
+            setIsLoadingPets(true);
+
+            // Áp dụng filter Loài & Giống xuống BE, các filter khác xử lý client-side
+            const speciesFilter = filterSpecies !== 'all' ? filterSpecies : null;
+            const breedFilter = filterBreed !== 'all' ? filterBreed : null;
+
+            const response = await petsApi.getAllPets({
+                page: petPage - 1,
+                limit: petItemsPerPage,
+                species_id: speciesFilter,
+                breed_id: breedFilter
+            });
+
+            const data = response?.data || [];
+            const pagination = response?.pagination || {};
+
+            setPetsPageData(Array.isArray(data) ? data : []);
+            setPetsPagination({
+                total_items_count: pagination.total_items_count ?? data.length,
+                page_size: pagination.page_size ?? petItemsPerPage,
+                total_pages_count: pagination.total_pages_count ?? 1,
+                page_index: pagination.page_index ?? (petPage - 1)
+            });
+        } catch (error) {
+            console.error('Error loading pets page:', error);
+            setPetsPageData([]);
+        } finally {
+            setIsLoadingPets(false);
+        }
+    }, [filterBreed, filterSpecies, petItemsPerPage, petPage]);
+
+    // Trigger load khi đổi page / pageSize / filter Loài, Giống
+    useEffect(() => {
+        loadPetsPage();
+    }, [loadPetsPage]);
+
+    // Reset về trang 1 khi đổi filter/phím search để tránh trang rỗng
+    useEffect(() => {
+        setPetPage(1);
+    }, [filterSpecies, filterBreed, filterGender, filterHealthStatus, searchPet]);
+
+    // Statistics (dựa trên toàn bộ pets từ PetsPage để giữ đúng tổng)
     const stats = useMemo(() => {
         const stats = {
             total: pets.length,
@@ -106,11 +228,16 @@ const PetsTab = ({ pets, species, breeds, groups, onDataChange }) => {
         return stats;
     }, [pets]);
 
-    // Filtered pets
+    // Filtered pets (áp dụng search, giới tính, health client-side trên data page hiện tại)
     const filteredPets = useMemo(() => {
-        return pets.filter(pet => {
-            const matchSearch = pet.name?.toLowerCase().includes(searchPet.toLowerCase()) ||
-                pet.color?.toLowerCase().includes(searchPet.toLowerCase());
+        const searchLower = deferredSearchPet.trim().toLowerCase();
+
+        return petsPageData.filter(pet => {
+            const matchSearch =
+                searchLower
+                    ? pet.name?.toLowerCase().includes(searchLower) ||
+                    pet.color?.toLowerCase().includes(searchLower)
+                    : true;
             const matchSpecies = filterSpecies === 'all' || pet.species_id === filterSpecies;
             const matchBreed = filterBreed === 'all' || pet.breed_id === filterBreed;
             const matchGender = filterGender === 'all' || pet.gender === filterGender;
@@ -126,20 +253,19 @@ const PetsTab = ({ pets, species, breeds, groups, onDataChange }) => {
                     matchHealthStatus = healthStatus === 'SICK' || healthStatus === 'QUARANTINE';
                 }
             }
-
             return matchSearch && matchSpecies && matchBreed && matchGender && matchHealthStatus;
         });
-    }, [pets, searchPet, filterSpecies, filterBreed, filterGender, filterHealthStatus]);
+    }, [petsPageData, deferredSearchPet, filterSpecies, filterBreed, filterGender, filterHealthStatus]);
 
     // Pagination
-    const petTotalPages = Math.ceil(filteredPets.length / petItemsPerPage);
+    const petTotalPages = petsPagination.total_pages_count || 1;
     const currentPagePets = useMemo(() => {
-        const startIndex = (petPage - 1) * petItemsPerPage;
-        return filteredPets.slice(startIndex, startIndex + petItemsPerPage);
-    }, [petPage, petItemsPerPage, filteredPets]);
+        // Server-side pagination: filteredPets đã là dữ liệu của page hiện tại
+        return filteredPets;
+    }, [filteredPets]);
 
     // Handle pet add/edit
-    const handleOpenPetDialog = (pet = null) => {
+    const handleOpenPetDialog = useCallback((pet = null) => {
         if (pet) {
             setEditMode(true);
             setSelectedPet(pet);
@@ -148,9 +274,9 @@ const PetsTab = ({ pets, species, breeds, groups, onDataChange }) => {
             setSelectedPet(null);
         }
         setPetDialogOpen(true);
-    };
+    }, []);
 
-    const handleSubmitPet = async (petFormData) => {
+    const handleSubmitPet = useCallback(async (petFormData) => {
         try {
             setIsSubmitting(true);
 
@@ -207,15 +333,15 @@ const PetsTab = ({ pets, species, breeds, groups, onDataChange }) => {
         } finally {
             setIsSubmitting(false);
         }
-    };
+    }, [editMode, onDataChange, selectedPet]);
 
     // Handle delete
-    const handleDelete = (id) => {
+    const handleDelete = useCallback((id) => {
         setDeleteTarget(id);
         setConfirmDeleteOpen(true);
-    };
+    }, []);
 
-    const confirmDelete = async () => {
+    const confirmDelete = useCallback(async () => {
         try {
             const response = await petsApi.deletePet(deleteTarget);
             if (response.success) {
@@ -238,10 +364,10 @@ const PetsTab = ({ pets, species, breeds, groups, onDataChange }) => {
             setConfirmDeleteOpen(false);
             setDeleteTarget(null);
         }
-    };
+    }, [deleteTarget, onDataChange]);
 
     // Handle view pet details
-    const handleViewPetDetails = async (pet) => {
+    const handleViewPetDetails = useCallback(async (pet) => {
         try {
             setDetailLoading(true);
             setPetDetailDialog({ open: true, pet, vaccinations: [], healthRecords: [] });
@@ -269,7 +395,7 @@ const PetsTab = ({ pets, species, breeds, groups, onDataChange }) => {
         } finally {
             setDetailLoading(false);
         }
-    };
+    }, []);
 
     return (
         <Box>
@@ -288,11 +414,16 @@ const PetsTab = ({ pets, species, breeds, groups, onDataChange }) => {
                     { label: 'Tổng thú cưng', value: stats.total, color: COLORS.ERROR[500], valueColor: COLORS.ERROR[700] },
                     { label: 'Đực', value: stats.male, color: COLORS.PRIMARY[500], valueColor: COLORS.PRIMARY[700] },
                     { label: 'Cái', value: stats.female, color: COLORS.ERROR[500], valueColor: COLORS.ERROR[700] },
+                    // Đồng bộ với chip trạng thái: HEALTHY -> SUCCESS
                     { label: 'Khỏe mạnh', value: stats.healthy, color: COLORS.SUCCESS[500], valueColor: COLORS.SUCCESS[700] },
+                    // SICK -> ERROR
                     { label: 'Ốm', value: stats.sick, color: COLORS.ERROR[500], valueColor: COLORS.ERROR[700] },
+                    // RECOVERING -> WARNING
                     { label: 'Đang hồi phục', value: stats.recovering, color: COLORS.WARNING[500], valueColor: COLORS.WARNING[700] },
-                    { label: 'Đang theo dõi', value: stats.underObservation, color: COLORS.WARNING[500], valueColor: COLORS.WARNING[700] },
-                    { label: 'Cách ly', value: stats.quarantine, color: COLORS.ERROR[500], valueColor: COLORS.ERROR[700] }
+                    // UNDER_OBSERVATION -> INFO
+                    { label: 'Đang theo dõi', value: stats.underObservation, color: COLORS.INFO[500], valueColor: COLORS.INFO[700] },
+                    // QUARANTINE -> SECONDARY
+                    { label: 'Cách ly', value: stats.quarantine, color: COLORS.SECONDARY[500], valueColor: COLORS.SECONDARY[700] }
                 ].map((stat, index) => {
                     const cardWidth = `calc((100% - ${7 * 16}px) / 8)`;
                     return (
@@ -330,12 +461,26 @@ const PetsTab = ({ pets, species, breeds, groups, onDataChange }) => {
                     size="small"
                     placeholder="Tìm theo tên, màu sắc..."
                     value={searchPet}
-                    onChange={(e) => setSearchPet(e.target.value)}
+                    onChange={(e) => {
+                        const value = e.target.value;
+                        startTransition(() => {
+                            setSearchPet(value);
+                        });
+                    }}
                     sx={{ flex: 1, minWidth: 0 }}
                 />
                 <FormControl size="small" sx={{ minWidth: 150, flexShrink: 0 }}>
                     <InputLabel>Loài</InputLabel>
-                    <Select label="Loài" value={filterSpecies} onChange={(e) => setFilterSpecies(e.target.value)}>
+                    <Select
+                        label="Loài"
+                        value={filterSpecies}
+                        onChange={(e) => {
+                            const value = e.target.value;
+                            startTransition(() => {
+                                setFilterSpecies(value);
+                            });
+                        }}
+                    >
                         <MenuItem value="all">Tất cả</MenuItem>
                         {species.map(s => (
                             <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>
@@ -344,7 +489,16 @@ const PetsTab = ({ pets, species, breeds, groups, onDataChange }) => {
                 </FormControl>
                 <FormControl size="small" sx={{ minWidth: 150, flexShrink: 0 }}>
                     <InputLabel>Giống</InputLabel>
-                    <Select label="Giống" value={filterBreed} onChange={(e) => setFilterBreed(e.target.value)}>
+                    <Select
+                        label="Giống"
+                        value={filterBreed}
+                        onChange={(e) => {
+                            const value = e.target.value;
+                            startTransition(() => {
+                                setFilterBreed(value);
+                            });
+                        }}
+                    >
                         <MenuItem value="all">Tất cả</MenuItem>
                         {breeds
                             .filter(b => filterSpecies === 'all' || b.species_id === filterSpecies)
@@ -355,7 +509,16 @@ const PetsTab = ({ pets, species, breeds, groups, onDataChange }) => {
                 </FormControl>
                 <FormControl size="small" sx={{ minWidth: 150, flexShrink: 0 }}>
                     <InputLabel>Giới tính</InputLabel>
-                    <Select label="Giới tính" value={filterGender} onChange={(e) => setFilterGender(e.target.value)}>
+                    <Select
+                        label="Giới tính"
+                        value={filterGender}
+                        onChange={(e) => {
+                            const value = e.target.value;
+                            startTransition(() => {
+                                setFilterGender(value);
+                            });
+                        }}
+                    >
                         <MenuItem value="all">Tất cả</MenuItem>
                         <MenuItem value="Male">Đực</MenuItem>
                         <MenuItem value="Female">Cái</MenuItem>
@@ -363,7 +526,16 @@ const PetsTab = ({ pets, species, breeds, groups, onDataChange }) => {
                 </FormControl>
                 <FormControl size="small" sx={{ minWidth: 150, flexShrink: 0 }}>
                     <InputLabel>Trạng thái</InputLabel>
-                    <Select label="Trạng thái" value={filterHealthStatus} onChange={(e) => setFilterHealthStatus(e.target.value)}>
+                    <Select
+                        label="Trạng thái"
+                        value={filterHealthStatus}
+                        onChange={(e) => {
+                            const value = e.target.value;
+                            startTransition(() => {
+                                setFilterHealthStatus(value);
+                            });
+                        }}
+                    >
                         <MenuItem value="all">Tất cả</MenuItem>
                         <MenuItem value="healthy">Khỏe mạnh</MenuItem>
                         <MenuItem value="needMonitoring">Cần theo dõi</MenuItem>
@@ -391,7 +563,9 @@ const PetsTab = ({ pets, species, breeds, groups, onDataChange }) => {
                     p: 3,
                     borderRadius: 3,
                     border: `2px solid ${alpha(COLORS.ERROR[200], 0.4)}`,
-                    boxShadow: `0 10px 24px ${alpha(COLORS.ERROR[200], 0.15)}`
+                    boxShadow: `0 10px 24px ${alpha(COLORS.ERROR[200], 0.15)}`,
+                    opacity: isPending ? 0.6 : 1,
+                    transition: 'opacity 0.2s ease-out'
                 }}
             >
                 <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
@@ -433,7 +607,7 @@ const PetsTab = ({ pets, species, breeds, groups, onDataChange }) => {
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {currentPagePets.map((pet) => (
+                            {isLoadingPets ? null : currentPagePets.map((pet) => (
                                 <TableRow
                                     key={pet.id}
                                     hover
@@ -458,8 +632,8 @@ const PetsTab = ({ pets, species, breeds, groups, onDataChange }) => {
                                             size="small"
                                             label={getSpeciesName(pet.species_id)}
                                             sx={{
-                                                background: alpha(COLORS.ERROR[100], 0.7),
-                                                color: COLORS.ERROR[700],
+                                                bgcolor: alpha(getSpeciesChipColors(pet.species_id).bg, 0.9),
+                                                color: getSpeciesChipColors(pet.species_id).text,
                                                 fontWeight: 700
                                             }}
                                         />
@@ -506,17 +680,23 @@ const PetsTab = ({ pets, species, breeds, groups, onDataChange }) => {
             </Paper>
 
             {/* Pagination */}
-            {filteredPets.length > 0 && (
+            {petsPagination.total_items_count > 0 && (
                 <Pagination
                     page={petPage}
                     totalPages={petTotalPages}
-                    onPageChange={setPetPage}
+                    onPageChange={(newPage) => {
+                        startTransition(() => {
+                            setPetPage(newPage);
+                        });
+                    }}
                     itemsPerPage={petItemsPerPage}
                     onItemsPerPageChange={(newValue) => {
-                        setPetItemsPerPage(newValue);
-                        setPetPage(1);
+                        startTransition(() => {
+                            setPetItemsPerPage(newValue);
+                            setPetPage(1);
+                        });
                     }}
-                    totalItems={filteredPets.length}
+                    totalItems={petsPagination.total_items_count}
                 />
             )}
 

@@ -5,6 +5,30 @@ import { Pets, CloudUpload as CloudUploadIcon, Delete as DeleteIcon } from '@mui
 import { uploadFile } from '../../api/fileApi';
 import { getHealthStatusOptions } from '../../api/petsApi';
 
+// Static mapping for health status labels (avoid recreating object on each render)
+const HEALTH_STATUS_LABELS = {
+    HEALTHY: 'Khỏe mạnh',
+    SICK: 'Ốm',
+    RECOVERING: 'Đang hồi phục',
+    UNDER_OBSERVATION: 'Đang theo dõi',
+    QUARANTINE: 'Cách ly'
+};
+
+// Fields validated on submit (excluding truly optional ones)
+const FORM_FIELDS_TO_TOUCH = [
+    'name',
+    'species_id',
+    'breed_id',
+    'age',
+    'weight',
+    'gender',
+    'health_status',
+    'color',
+    'arrival_date',
+    'preferences',
+    'special_notes'
+];
+
 const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData = null, isLoading = false, breeds = [], species = [], groups = [] }) => {
     const [formData, setFormData] = useState({
         name: '',
@@ -25,7 +49,6 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
     const [errors, setErrors] = useState({});
     const [touched, setTouched] = useState({});
     const [imagePreview, setImagePreview] = useState(null);
-    const [imageFile, setImageFile] = useState(null);
     const [isUploadingImage, setIsUploadingImage] = useState(false);
     const [healthStatusOptions, setHealthStatusOptions] = useState([]);
 
@@ -55,16 +78,7 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
     };
 
     // Get health status label in Vietnamese
-    const getHealthStatusLabel = (status) => {
-        const labels = {
-            'HEALTHY': 'Khỏe mạnh',
-            'SICK': 'Ốm',
-            'RECOVERING': 'Đang hồi phục',
-            'UNDER_OBSERVATION': 'Đang theo dõi',
-            'QUARANTINE': 'Cách ly'
-        };
-        return labels[status] || status;
-    };
+    const getHealthStatusLabel = (status) => HEALTH_STATUS_LABELS[status] || status;
 
     // Load health status options from API
     useEffect(() => {
@@ -104,7 +118,6 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
                     health_status: String(initialData.health_status || 'HEALTHY')
                 });
                 setImagePreview(initialData.image || initialData.image_url || null);
-                setImageFile(null);
             } else {
                 setFormData({
                     name: '',
@@ -122,7 +135,6 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
                     health_status: 'HEALTHY'
                 });
                 setImagePreview(null);
-                setImageFile(null);
             }
             setErrors({});
             setTouched({});
@@ -240,6 +252,16 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
         const file = event.target.files[0];
         if (!file) return;
 
+        // Only allow ONE image
+        if (imagePreview || formData.image) {
+            setErrors(prev => ({
+                ...prev,
+                image: 'Chỉ được tải lên tối đa 1 hình ảnh. Vui lòng xóa ảnh hiện tại nếu muốn thay đổi.'
+            }));
+            event.target.value = '';
+            return;
+        }
+
         // Check file type
         const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
         if (!allowedTypes.includes(file.type)) {
@@ -302,7 +324,6 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
     // Handle remove image
     const handleRemoveImage = () => {
         setImagePreview(null);
-        setImageFile(null);
         handleChange('image', '');
         // Clear error
         setErrors(prev => ({
@@ -347,6 +368,7 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
         newErrors.weight = validateWeight(formData.weight || '');
         if (!formData.gender) newErrors.gender = 'Vui lòng chọn giới tính';
         if (!formData.health_status) newErrors.health_status = 'Vui lòng chọn tình trạng sức khỏe';
+        if (!formData.image) newErrors.image = 'Vui lòng tải lên hình ảnh thú cưng';
 
         // Optional fields with validation
         newErrors.color = validateColor(formData.color || '');
@@ -409,8 +431,7 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
                     error = value ? '' : 'Vui lòng chọn tình trạng sức khỏe';
                     break;
                 case 'image':
-                    // No validation for image field
-                    error = '';
+                    error = value ? '' : 'Vui lòng tải lên hình ảnh thú cưng';
                     break;
                 default:
                     break;
@@ -469,10 +490,8 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
     };
 
     const handleSubmit = () => {
-        // Mark all fields as touched (except image and group_id - optional fields)
-        const allFields = ['name', 'species_id', 'breed_id', 'age', 'weight', 'gender', 'health_status', 'color', 'arrival_date', 'preferences', 'special_notes'];
         const newTouched = {};
-        allFields.forEach(field => {
+        FORM_FIELDS_TO_TOUCH.forEach(field => {
             newTouched[field] = true;
         });
         setTouched(newTouched);
@@ -515,7 +534,7 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
         >
             <Box
                 sx={{
-                    background: `linear-gradient(135deg, ${alpha(COLORS.ERROR[50], 0.3)}, ${alpha(COLORS.SECONDARY[50], 0.2)})`,
+                    bgcolor: COLORS.ERROR[50],
                     borderBottom: `3px solid ${COLORS.ERROR[500]}`
                 }}
             >
@@ -725,8 +744,8 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
 
                     {/* Row 7: Image Upload */}
                     <Box>
-                        <Typography variant="body2" fontWeight={500} gutterBottom>
-                            Hình ảnh (Tùy chọn)
+                        <Typography variant="body2" fontWeight={500} gutterBottom color={COLORS.ERROR[700]}>
+                            Hình ảnh *
                         </Typography>
 
                         {/* Preview */}
@@ -762,53 +781,55 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
                             </Box>
                         )}
 
-                        {/* Upload Area */}
-                        <Box
-                            component="label"
-                            sx={{
-                                display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                p: 4,
-                                border: `2px dashed ${COLORS.INFO[300]}`,
-                                borderRadius: 2,
-                                bgcolor: alpha(COLORS.INFO[50], 0.3),
-                                cursor: isLoading || isUploadingImage ? 'not-allowed' : 'pointer',
-                                transition: 'all 0.3s ease',
-                                '&:hover': {
-                                    borderColor: COLORS.INFO[500],
-                                    bgcolor: alpha(COLORS.INFO[50], 0.5)
-                                },
-                                opacity: isLoading || isUploadingImage ? 0.6 : 1
-                            }}
-                        >
-                            <input
-                                type="file"
-                                hidden
-                                accept="image/png,image/jpeg,image/jpg,image/webp"
-                                onChange={handleImageUpload}
-                                disabled={isLoading || isUploadingImage}
-                            />
-                            {isUploadingImage ? (
-                                <>
-                                    <CircularProgress size={40} sx={{ color: COLORS.INFO[500], mb: 2 }} />
-                                    <Typography variant="body2" sx={{ color: COLORS.INFO[700], fontWeight: 600 }}>
-                                        Đang tải ảnh lên...
-                                    </Typography>
-                                </>
-                            ) : (
-                                <>
-                                    <CloudUploadIcon sx={{ fontSize: 48, color: COLORS.INFO[500], mb: 2 }} />
-                                    <Typography variant="body1" sx={{ color: COLORS.INFO[700], fontWeight: 700, mb: 1 }}>
-                                        CLICK ĐỂ TẢI ẢNH LÊN
-                                    </Typography>
-                                    <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY }}>
-                                        PNG, JPG, WEBP (MAX 5MB)
-                                    </Typography>
-                                </>
-                            )}
-                        </Box>
+                        {/* Upload Area – chỉ hiển thị khi chưa có ảnh */}
+                        {!imagePreview && !formData.image && (
+                            <Box
+                                component="label"
+                                sx={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    p: 4,
+                                    border: `2px dashed ${COLORS.INFO[300]}`,
+                                    borderRadius: 2,
+                                    bgcolor: alpha(COLORS.INFO[50], 0.3),
+                                    cursor: isLoading || isUploadingImage ? 'not-allowed' : 'pointer',
+                                    transition: 'all 0.3s ease',
+                                    '&:hover': {
+                                        borderColor: COLORS.INFO[500],
+                                        bgcolor: alpha(COLORS.INFO[50], 0.5)
+                                    },
+                                    opacity: isLoading || isUploadingImage ? 0.6 : 1
+                                }}
+                            >
+                                <input
+                                    type="file"
+                                    hidden
+                                    accept="image/png,image/jpeg,image/jpg,image/webp"
+                                    onChange={handleImageUpload}
+                                    disabled={isLoading || isUploadingImage}
+                                />
+                                {isUploadingImage ? (
+                                    <>
+                                        <CircularProgress size={40} sx={{ color: COLORS.INFO[500], mb: 2 }} />
+                                        <Typography variant="body2" sx={{ color: COLORS.INFO[700], fontWeight: 600 }}>
+                                            Đang tải ảnh lên...
+                                        </Typography>
+                                    </>
+                                ) : (
+                                    <>
+                                        <CloudUploadIcon sx={{ fontSize: 48, color: COLORS.INFO[500], mb: 2 }} />
+                                        <Typography variant="body1" sx={{ color: COLORS.INFO[700], fontWeight: 700, mb: 1 }}>
+                                            CLICK ĐỂ TẢI ẢNH LÊN
+                                        </Typography>
+                                        <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY }}>
+                                            PNG, JPG, WEBP (MAX 5MB)
+                                        </Typography>
+                                    </>
+                                )}
+                            </Box>
+                        )}
 
                         {errors.image && (
                             <Typography variant="caption" color="error" sx={{ mt: 1, display: 'block' }}>

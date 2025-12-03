@@ -825,9 +825,9 @@ const SlotFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, 
                             {/* Chỉ hiển thị teams khớp ca và cùng work_type */}
                             {filteredTeams
                                 .filter(team => {
-                                    const taskWorkTypeId = taskData?.work_type_id || taskData?.work_type?.id || null;
-                                    const teamWorkTypeIds = getTeamWorkTypeIds(team);
-                                    const matchesWorkType = taskWorkTypeId ? teamWorkTypeIds.includes(taskWorkTypeId) : true;
+                                const taskWorkTypeId = taskData?.work_type_id || taskData?.work_type?.id || null;
+                                const teamWorkTypeIds = getTeamWorkTypeIds(team);
+                                const matchesWorkType = taskWorkTypeId ? teamWorkTypeIds.includes(taskWorkTypeId) : true;
 
                                     // Chỉ hiển thị nếu:
                                     // 1. Cùng work_type (hoặc không có work_type requirement)
@@ -844,8 +844,8 @@ const SlotFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, 
                                 .map(team => (
                                     <MenuItem key={team.id} value={team.id}>
                                         <Typography variant="body2">
-                                            {team.name}
-                                        </Typography>
+                                                {team.name}
+                                            </Typography>
                                     </MenuItem>
                                 ))}
                         </Select>
@@ -871,9 +871,9 @@ const SlotFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, 
                             }
 
                             return (
-                                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, ml: 2 }}>
+                            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, ml: 2 }}>
                                     ✅ {matchingTeams.length} nhóm có ca làm việc phù hợp
-                                </Typography>
+                            </Typography>
                             );
                         })()}
                         {!errors.team_id && taskData && (!formData.start_time || !formData.end_time || !formData.day_of_week) && (() => {

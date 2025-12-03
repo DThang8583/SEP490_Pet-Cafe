@@ -4,7 +4,7 @@
 import userApi from './userApi.js';
 
 // External Auth API endpoint
-const OFFICIAL_AUTH_URL = 'https://petcafe-htc6dadbayh6h4dz.southeastasia-01.azurewebsites.net/api/auths';
+const OFFICIAL_AUTH_URL = 'https://petcafes.azurewebsites.net/api/auths';
 
 const mapExternalRole = (account) => {
     const upperRole = (account?.role || '').toUpperCase();
@@ -30,10 +30,10 @@ const mapExternalAccountToUser = (account) => {
     };
     // Minimal permissions based on role to work with existing checks
     const permissionsByRole = {
-        manager: ['staff_management','pet_management','service_management','report_access','revenue_tracking','full_access'],
-        sales_staff: ['product_sales','invoice_management','customer_support','payment_processing'],
-        working_staff: ['task_management','pet_status_update','service_execution','booking_management'],
-        customer: ['service_booking','product_purchase','feedback_submission','notification_receive']
+        manager: ['staff_management', 'pet_management', 'service_management', 'report_access', 'revenue_tracking', 'full_access'],
+        sales_staff: ['product_sales', 'invoice_management', 'customer_support', 'payment_processing'],
+        working_staff: ['task_management', 'pet_status_update', 'service_execution', 'booking_management'],
+        customer: ['service_booking', 'product_purchase', 'feedback_submission', 'notification_receive']
     };
     return { ...base, permissions: permissionsByRole[role] || [] };
 };

@@ -18,7 +18,8 @@ const createPagination = (totalItems, pageSize, pageIndex) => ({
 
 /**
  * Get all pets from official API
- * @param {Object} params - { page_index, page_size, species_id, breed_id, group_id, is_active }
+ * @param {Object} params - { page_index, page_size, species_id, breed_id, group_id, is_active, page, limit }
+ * Supports both old (page_index/page_size) and new (page/limit) styles.
  * @returns {Promise<Object>} { data, pagination }
  */
 export const getAllPets = async (params = {}) => {
@@ -28,11 +29,34 @@ export const getAllPets = async (params = {}) => {
         species_id = null,
         breed_id = null,
         group_id = null,
-        is_active = null
+        is_active = null,
+        // New explicit pagination params used by API (page, limit)
+        page,
+        limit
     } = params;
+
+    // Resolve pagination parameters once so we can reuse in both try/catch
+    const resolvedPage =
+        page !== undefined && page !== null
+            ? page
+            : page_index !== undefined && page_index !== null
+                ? page_index
+                : 0;
+
+    const resolvedLimit =
+        limit !== undefined && limit !== null
+            ? limit
+            : page_size !== undefined && page_size !== null
+                ? page_size
+                : 10;
 
     try {
         const queryParams = {};
+
+        // Map page & limit expected by BE
+        queryParams.page = resolvedPage;
+        queryParams.limit = resolvedLimit;
+
         if (species_id) {
             queryParams.species_id = species_id;
         }
@@ -53,32 +77,71 @@ export const getAllPets = async (params = {}) => {
 
         const responseData = response.data;
         if (responseData?.data && Array.isArray(responseData.data)) {
+            const data = responseData.data;
+            const apiPagination = responseData.pagination || {};
+
+            // Support both { page, limit } and { page_index, page_size }
+            const apiPage =
+                apiPagination.page !== undefined
+                    ? apiPagination.page
+                    : apiPagination.page_index !== undefined
+                        ? apiPagination.page_index
+                        : resolvedPage;
+
+            const apiPageSize =
+                apiPagination.limit !== undefined
+                    ? apiPagination.limit
+                    : apiPagination.page_size !== undefined
+                        ? apiPagination.page_size
+                        : resolvedLimit;
+
+            const totalItems =
+                apiPagination.total_items_count !== undefined
+                    ? apiPagination.total_items_count
+                    : data.length;
+
+            const totalPages =
+                apiPagination.total_pages_count !== undefined
+                    ? apiPagination.total_pages_count
+                    : apiPageSize > 0
+                        ? Math.ceil(totalItems / apiPageSize)
+                        : 0;
+
             return {
-                data: responseData.data,
-                pagination: responseData.pagination || createPagination(
-                    responseData.data.length,
-                    page_size,
-                    page_index
-                )
+                data,
+                pagination: {
+                    total_items_count: totalItems,
+                    page_size: apiPageSize,
+                    total_pages_count: totalPages,
+                    page_index: apiPage,
+                    has_next:
+                        apiPagination.has_next !== undefined
+                            ? apiPagination.has_next
+                            : apiPage < totalPages - 1,
+                    has_previous:
+                        apiPagination.has_previous !== undefined
+                            ? apiPagination.has_previous
+                            : apiPage > 0
+                }
             };
         }
 
         if (Array.isArray(responseData)) {
             return {
                 data: responseData,
-                pagination: createPagination(responseData.length, page_size, page_index)
+                pagination: createPagination(responseData.length, resolvedLimit, resolvedPage)
             };
         }
 
         return {
             data: [],
-            pagination: createPagination(0, page_size, page_index)
+            pagination: createPagination(0, resolvedLimit, resolvedPage)
         };
     } catch (error) {
         console.error('Failed to fetch pets from API:', error);
         return {
             data: [],
-            pagination: createPagination(0, page_size, page_index)
+            pagination: createPagination(0, resolvedLimit, resolvedPage)
         };
     }
 };

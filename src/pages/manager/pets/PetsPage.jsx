@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Box, Typography, Stack, Tabs, Tab } from '@mui/material';
 import { Pets as PetsIcon, Category, Groups, Pets } from '@mui/icons-material';
 import { COLORS } from '../../../constants/colors';
@@ -22,28 +22,8 @@ const PetsPage = () => {
     const [breeds, setBreeds] = useState([]);
     const [groups, setGroups] = useState([]);
 
-    // Load initial data
-    useEffect(() => {
-        loadAllData();
-    }, []);
-
-    const loadAllData = async () => {
-        try {
-            setIsLoading(true);
-            await Promise.all([
-                loadPets(),
-                loadSpecies(),
-                loadBreeds(),
-                loadGroups()
-            ]);
-        } catch (error) {
-            console.error('Error loading data:', error);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const loadPets = async () => {
+    // Load pets list (for stats & sharing to tabs)
+    const loadPets = useCallback(async () => {
         try {
             const response = await petsApi.getAllPets({ page_size: 1000 });
             const allPets = response?.data || [];
@@ -58,9 +38,10 @@ const PetsPage = () => {
             console.error('Error loading pets:', error);
             setPets([]);
         }
-    };
+    }, []);
 
-    const loadSpecies = async () => {
+    // Load species list
+    const loadSpecies = useCallback(async () => {
         try {
             const response = await petSpeciesApi.getAllSpecies();
             const allSpecies = response?.data || [];
@@ -75,11 +56,16 @@ const PetsPage = () => {
             console.error('Error loading species:', error);
             setSpecies([]);
         }
-    };
+    }, []);
 
-    const loadBreeds = async () => {
+    // Load all breeds (for filters & stats)
+    const loadBreeds = useCallback(async () => {
         try {
-            const response = await petBreedsApi.getAllBreeds();
+            // Lấy đầy đủ toàn bộ giống để thống kê & hiển thị, không chỉ mỗi trang đầu
+            const response = await petBreedsApi.getAllBreeds({
+                page: 0,      // page_index
+                limit: 1000   // page_size lớn để tránh cắt mất data
+            });
             const allBreeds = response?.data || [];
 
             // Deduplicate by id to prevent duplicates
@@ -92,11 +78,16 @@ const PetsPage = () => {
             console.error('Error loading breeds:', error);
             setBreeds([]);
         }
-    };
+    }, []);
 
-    const loadGroups = async () => {
+    // Load all groups (for filters & stats)
+    const loadGroups = useCallback(async () => {
         try {
-            const response = await petGroupsApi.getAllGroups();
+            // Lấy đầy đủ danh sách nhóm từ API (không chỉ mỗi trang đầu)
+            const response = await petGroupsApi.getAllGroups({
+                page: 0,
+                limit: 1000
+            });
             const allGroups = response?.data || [];
 
             // Deduplicate by id to prevent duplicates
@@ -108,8 +99,30 @@ const PetsPage = () => {
         } catch (error) {
             console.error('Error loading groups:', error);
             setGroups([]);
-            }
-    };
+        }
+    }, []);
+
+    // Load all shared data at once
+    const loadAllData = useCallback(async () => {
+        try {
+            setIsLoading(true);
+            await Promise.all([
+                loadPets(),
+                loadSpecies(),
+                loadBreeds(),
+                loadGroups()
+            ]);
+        } catch (error) {
+            console.error('Error loading data:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [loadPets, loadSpecies, loadBreeds, loadGroups]);
+
+    // Initial load
+    useEffect(() => {
+        loadAllData();
+    }, [loadAllData]);
 
     if (isLoading) {
         return <Loading message="Đang tải dữ liệu thú cưng..." fullScreen />;

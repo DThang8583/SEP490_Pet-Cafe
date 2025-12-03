@@ -121,11 +121,11 @@ const VaccinationsPage = () => {
             // Load pets, species, breeds, vaccine types, teams data (only if not already loaded)
             if (pets.length === 0 || species.length === 0 || vaccineTypes.length === 0 || teams.length === 0) {
                 const [petsRes, speciesRes, breedsRes, vaccineTypesRes, teamsRes] = await Promise.allSettled([
-                    petsApi.getAllPets({ page_size: 1000, page_index: 0 }),
-                    petSpeciesApi.getAllSpecies({ page_size: 1000 }),
-                    petBreedsApi.getAllBreeds({ page_size: 1000 }),
-                    vaccineTypesApi.getAllVaccineTypes({ page_size: 1000 }),
-                    teamApi.getTeams({ page_size: 1000, page_index: 0 })
+                    petsApi.getAllPets({ page: 0, limit: 1000 }),
+                    petSpeciesApi.getAllSpecies({ page: 0, limit: 1000 }),
+                    petBreedsApi.getAllBreeds({ page: 0, limit: 1000 }),
+                    vaccineTypesApi.getAllVaccineTypes({ page: 0, limit: 1000 }),
+                    teamApi.getTeams({ page_index: 0, page_size: 1000 })
                 ]);
 
                 const petsData = petsRes.status === 'fulfilled' ? (petsRes.value?.data || []) : [];
@@ -143,8 +143,8 @@ const VaccinationsPage = () => {
 
             // Prepare filter params for API - Only use date/status filters, let client-side handle the rest
             const scheduleParams = {
-                page_index: 0,
-                page_size: 1000
+                page: 0,
+                limit: 1000
             };
             // Only use date and status filters from API, filter the rest client-side
             if (filterFromDate) {
@@ -242,11 +242,11 @@ const VaccinationsPage = () => {
 
             // Load pets, species, breeds, vaccine types, teams data
             const [petsRes, speciesRes, breedsRes, vaccineTypesRes, teamsRes] = await Promise.allSettled([
-                petsApi.getAllPets({ page_size: 1000, page_index: 0 }),
-                petSpeciesApi.getAllSpecies({ page_size: 1000 }),
-                petBreedsApi.getAllBreeds({ page_size: 1000 }),
-                vaccineTypesApi.getAllVaccineTypes({ page_size: 1000 }),
-                teamApi.getTeams({ page_size: 1000, page_index: 0 })
+                petsApi.getAllPets({ page: 0, limit: 1000 }),
+                petSpeciesApi.getAllSpecies({ page: 0, limit: 1000 }),
+                petBreedsApi.getAllBreeds({ page: 0, limit: 1000 }),
+                vaccineTypesApi.getAllVaccineTypes({ page: 0, limit: 1000 }),
+                teamApi.getTeams({ page_index: 0, page_size: 1000 })
             ]);
 
             const petsData = petsRes.status === 'fulfilled' ? (petsRes.value?.data || []) : [];
@@ -264,7 +264,7 @@ const VaccinationsPage = () => {
             // Load all vaccination data (stats, schedules, records)
             const [statsRes, upcomingRes, recordsRes] = await Promise.all([
                 vaccinationApi.getVaccinationStats(),
-                vaccinationSchedulesApi.getAllVaccinationSchedules({ page_index: 0, page_size: 1000 }),
+                vaccinationSchedulesApi.getAllVaccinationSchedules({ page: 0, limit: 1000 }),
                 vaccinationApi.getVaccinationRecords(null, petsData)
             ]);
 
