@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
-import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, FormControl, InputLabel, Select, MenuItem, Box, Alert, Chip, Typography, Paper, Divider, InputAdornment, FormHelperText, OutlinedInput, alpha } from '@mui/material';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, FormControl, InputLabel, Select, MenuItem, Box, Alert, Chip, Typography, Paper, Divider, InputAdornment, FormHelperText, OutlinedInput, alpha, IconButton, Stack } from '@mui/material';
+import { Close, RocketLaunch } from '@mui/icons-material';
 import { WEEKDAYS, WEEKDAY_LABELS } from '../../api/slotApi';
 import { formatPrice } from '../../utils/formatPrice';
 import * as areasApi from '../../api/areasApi';
@@ -19,6 +20,35 @@ const SlotPublishModal = ({ open, onClose, onSubmit, slotData }) => {
     const [errors, setErrors] = useState({});
     const [loading, setLoading] = useState(false);
 
+    // Reset form function - defined before useEffect to avoid initialization error
+    const resetForm = useCallback(() => {
+        setFormData({
+            capacity: 1,
+            price: 0,
+            description: '',
+            start_time: '',
+            end_time: '',
+            applicable_days: []
+        });
+        setAreaInfo(null);
+        setErrors({});
+    }, []);
+
+    // Load area info function
+    const loadAreaInfo = useCallback(async (areaId) => {
+        if (!areaId) return;
+        try {
+            const response = await areasApi.getAreaById(areaId);
+            setAreaInfo(response);
+        } catch (error) {
+            console.error('Error loading area info:', error);
+            setErrors(prev => ({
+                ...prev,
+                submit: 'Không thể tải thông tin khu vực'
+            }));
+        }
+    }, []);
+
     // Load slot data and area info when modal opens
     useEffect(() => {
         if (open && slotData) {
@@ -37,48 +67,26 @@ const SlotPublishModal = ({ open, onClose, onSubmit, slotData }) => {
         } else {
             resetForm();
         }
-    }, [open, slotData]);
+    }, [open, slotData, loadAreaInfo, resetForm]);
 
-    const loadAreaInfo = async (areaId) => {
-        try {
-            const response = await areasApi.getAreaById(areaId);
-            // areasApi.getAreaById returns area object directly, not wrapped in {data: ...}
-            setAreaInfo(response);
-        } catch (error) {
-            console.error('Error loading area info:', error);
-            setErrors({ submit: 'Không thể tải thông tin khu vực' });
-        }
-    };
-
-    const resetForm = () => {
-        setFormData({
-            capacity: 1,
-            price: 0,
-            description: '',
-            start_time: '',
-            end_time: '',
-            applicable_days: []
-        });
-        setAreaInfo(null);
-        setErrors({});
-    };
-
-    const handleChange = (field, value) => {
+    const handleChange = useCallback((field, value) => {
         setFormData(prev => ({
             ...prev,
             [field]: value
         }));
 
-        // Clear error for this field
-        if (errors[field]) {
-            setErrors(prev => ({
-                ...prev,
-                [field]: ''
-            }));
-        }
-    };
+        // Clear error for this field using functional update
+        setErrors(prev => {
+            if (prev[field]) {
+                const newErrors = { ...prev };
+                delete newErrors[field];
+                return newErrors;
+            }
+            return prev;
+        });
+    }, []);
 
-    const validateForm = () => {
+    const validateForm = useCallback(() => {
         const newErrors = {};
 
         // Capacity validation (Required)
@@ -123,9 +131,9 @@ const SlotPublishModal = ({ open, onClose, onSubmit, slotData }) => {
 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
-    };
+    }, [formData, areaInfo]);
 
-    const handleSubmit = async () => {
+    const handleSubmit = useCallback(async () => {
         if (!validateForm()) {
             return;
         }
@@ -134,7 +142,8 @@ const SlotPublishModal = ({ open, onClose, onSubmit, slotData }) => {
 
         try {
             await onSubmit(formData);
-            handleClose();
+            resetForm();
+            onClose();
         } catch (error) {
             setErrors({
                 submit: error.message || 'Có lỗi xảy ra'
@@ -142,16 +151,28 @@ const SlotPublishModal = ({ open, onClose, onSubmit, slotData }) => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [formData, validateForm, onSubmit, resetForm, onClose]);
 
-    const handleClose = () => {
-        if (!loading) {
-            resetForm();
-            onClose();
-        }
-    };
+    const handleClose = useCallback(() => {
+        if (loading) return;
+        resetForm();
+        onClose();
+    }, [loading, resetForm, onClose]);
 
-    const capacityUsagePercent = areaInfo ? (formData.capacity / areaInfo.capacity) * 100 : 0;
+    // Memoize computed values for performance
+    const capacityUsagePercent = useMemo(() => {
+        return areaInfo && areaInfo.capacity > 0 ? (formData.capacity / areaInfo.capacity) * 100 : 0;
+    }, [areaInfo, formData.capacity]);
+
+    const formattedPrice = useMemo(() => {
+        return formData.price > 0 ? formatPrice(formData.price) : null;
+    }, [formData.price]);
+
+    const capacityColor = useMemo(() => {
+        if (capacityUsagePercent > 100) return { bg: '#ffebee', border: '#f44336', bar: '#f44336' };
+        if (capacityUsagePercent > 80) return { bg: '#fff3e0', border: '#ff9800', bar: '#ff9800' };
+        return { bg: '#e8f5e9', border: '#4caf50', bar: '#4caf50' };
+    }, [capacityUsagePercent]);
 
     return (
         <Dialog
@@ -169,37 +190,76 @@ const SlotPublishModal = ({ open, onClose, onSubmit, slotData }) => {
         >
             <Box
                 sx={{
-                    background: `linear-gradient(135deg, ${alpha(COLORS.PRIMARY[50], 0.3)}, ${alpha(COLORS.SECONDARY[50], 0.2)})`,
-                    borderBottom: `3px solid ${COLORS.PRIMARY[500]}`
+                    bgcolor: COLORS.SUCCESS[50],
+                    borderBottom: `3px solid ${COLORS.SUCCESS[500]}`
                 }}
             >
-                <DialogTitle sx={{ fontWeight: 800, color: COLORS.PRIMARY[700], pb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-                    🚀 Publish Slot cho khách hàng
+                <DialogTitle sx={{
+                    fontWeight: 800,
+                    color: COLORS.SUCCESS[800],
+                    pb: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 1
+                }}>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                        <RocketLaunch />
+                        <Typography variant="h6" component="span">
+                            🚀 Publish Slot cho khách hàng
+                        </Typography>
+                    </Stack>
+                    <IconButton
+                        onClick={handleClose}
+                        disabled={loading}
+                        sx={{
+                            color: COLORS.SUCCESS[800],
+                            '&:hover': {
+                                bgcolor: alpha(COLORS.SUCCESS[100], 0.5)
+                            }
+                        }}
+                    >
+                        <Close />
+                    </IconButton>
                 </DialogTitle>
             </Box>
 
             <DialogContent sx={{ pt: 3, pb: 2, px: 3 }}>
                 {errors.submit && (
-                    <Alert severity="error" sx={{ mb: 2 }}>
+                    <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>
                         {errors.submit}
                     </Alert>
                 )}
 
                 {/* Current Slot Info */}
                 {slotData && (
-                    <Paper elevation={0} sx={{ p: 2, mb: 3, bgcolor: '#f5f5f5', borderRadius: 1 }}>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                            📋 Slot hiện tại
+                    <Box
+                        sx={{
+                            p: 2,
+                            mb: 3,
+                            borderRadius: 2,
+                            bgcolor: alpha(COLORS.INFO[50], 0.3),
+                            border: `1px solid ${alpha(COLORS.INFO[200], 0.3)}`
+                        }}
+                    >
+                        <Typography variant="body2" sx={{ fontWeight: 600, mb: 1, color: COLORS.INFO[700] }}>
+                            📋 Thông tin slot hiện tại:
                         </Typography>
-                        <Typography variant="body1" fontWeight={600}>
+                        <Typography variant="body1" fontWeight={600} sx={{ mb: 1 }}>
                             {slotData.start_time} - {slotData.end_time}
                         </Typography>
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 1 }}>
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                             {slotData.applicable_days?.map(day => (
-                                <Chip key={day} label={WEEKDAY_LABELS[day]} size="small" />
+                                <Chip
+                                    key={day}
+                                    label={WEEKDAY_LABELS[day]}
+                                    size="small"
+                                    variant="outlined"
+                                    color="primary"
+                                />
                             ))}
                         </Box>
-                    </Paper>
+                    </Box>
                 )}
 
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
@@ -213,25 +273,27 @@ const SlotPublishModal = ({ open, onClose, onSubmit, slotData }) => {
                                 fullWidth
                                 required
                                 type="time"
-                                label="Thời gian bắt đầu"
+                                label="Thời gian bắt đầu *"
                                 value={formData.start_time}
                                 onChange={(e) => handleChange('start_time', e.target.value)}
                                 disabled={loading}
                                 error={!!errors.start_time}
                                 helperText={errors.start_time}
                                 InputLabelProps={{ shrink: true }}
+                                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
                             />
                             <TextField
                                 fullWidth
                                 required
                                 type="time"
-                                label="Thời gian kết thúc"
+                                label="Thời gian kết thúc *"
                                 value={formData.end_time}
                                 onChange={(e) => handleChange('end_time', e.target.value)}
                                 disabled={loading}
                                 error={!!errors.end_time}
                                 helperText={errors.end_time}
                                 InputLabelProps={{ shrink: true }}
+                                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
                             />
                         </Box>
                     </Box>
@@ -280,7 +342,7 @@ const SlotPublishModal = ({ open, onClose, onSubmit, slotData }) => {
                             fullWidth
                             required
                             type="number"
-                            label="Số lượng khách tối đa"
+                            label="Số lượng khách tối đa *"
                             value={formData.capacity || ''}
                             onChange={(e) => handleChange('capacity', e.target.value === '' ? '' : parseInt(e.target.value))}
                             disabled={loading}
@@ -291,45 +353,44 @@ const SlotPublishModal = ({ open, onClose, onSubmit, slotData }) => {
                                 endAdornment: <InputAdornment position="end">khách</InputAdornment>,
                                 inputProps: { min: 1, max: areaInfo?.capacity || 100 }
                             }}
-                            sx={{ mt: 1 }}
+                            sx={{ mt: 1, '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
                         />
 
                         {/* Area Capacity Info */}
                         {areaInfo && (
-                            <Paper
-                                elevation={0}
+                            <Box
                                 sx={{
                                     p: 2,
                                     mt: 2,
-                                    bgcolor: capacityUsagePercent > 100 ? '#ffebee' : capacityUsagePercent > 80 ? '#fff3e0' : '#e8f5e9',
-                                    borderRadius: 1,
-                                    border: `1px solid ${capacityUsagePercent > 100 ? '#f44336' : capacityUsagePercent > 80 ? '#ff9800' : '#4caf50'}40`
+                                    borderRadius: 2,
+                                    bgcolor: capacityColor.bg,
+                                    border: `1px solid ${alpha(capacityColor.border, 0.3)}`
                                 }}
                             >
-                                <Typography variant="body2" gutterBottom>
+                                <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
                                     📍 Khu vực: <strong>{areaInfo.name}</strong>
                                 </Typography>
-                                <Typography variant="body2">
+                                <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
                                     Capacity: <strong>{formData.capacity} / {areaInfo.capacity}</strong> khách
                                     ({capacityUsagePercent.toFixed(0)}%)
                                 </Typography>
                                 <Box sx={{
-                                    mt: 1,
+                                    mt: 1.5,
                                     height: 8,
-                                    bgcolor: 'rgba(0,0,0,0.1)',
                                     borderRadius: 1,
+                                    bgcolor: alpha(COLORS.GRAY[300], 0.3),
                                     overflow: 'hidden'
                                 }}>
                                     <Box
                                         sx={{
                                             height: '100%',
                                             width: `${Math.min(capacityUsagePercent, 100)}%`,
-                                            bgcolor: capacityUsagePercent > 100 ? '#f44336' : capacityUsagePercent > 80 ? '#ff9800' : '#4caf50',
-                                            transition: 'width 0.3s'
+                                            bgcolor: capacityColor.bar,
+                                            transition: 'width 0.3s ease'
                                         }}
                                     />
                                 </Box>
-                            </Paper>
+                            </Box>
                         )}
                     </Box>
 
@@ -354,28 +415,27 @@ const SlotPublishModal = ({ open, onClose, onSubmit, slotData }) => {
                                 endAdornment: <InputAdornment position="end">VNĐ</InputAdornment>,
                                 inputProps: { min: 0, step: 1000 }
                             }}
-                            sx={{ mt: 1 }}
+                            sx={{ mt: 1, '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
                         />
 
                         {/* Price Preview */}
-                        {formData.price > 0 && (
-                            <Paper
-                                elevation={0}
+                        {formattedPrice && (
+                            <Box
                                 sx={{
                                     p: 2,
                                     mt: 2,
-                                    bgcolor: '#e8f5e9',
-                                    borderRadius: 1,
-                                    border: '1px solid #4caf5040'
+                                    borderRadius: 2,
+                                    bgcolor: alpha(COLORS.SUCCESS[50], 0.3),
+                                    border: `1px solid ${alpha(COLORS.SUCCESS[200], 0.3)}`
                                 }}
                             >
-                                <Typography variant="body2" color="text.secondary" gutterBottom>
-                                    Khách hàng sẽ thấy
+                                <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, mb: 0.5, fontWeight: 600 }}>
+                                    💰 Khách hàng sẽ thấy
                                 </Typography>
-                                <Typography variant="h5" fontWeight={600} color="success.main">
-                                    {formatPrice(formData.price)}
+                                <Typography variant="h5" fontWeight={700} sx={{ color: COLORS.SUCCESS[700] }}>
+                                    {formattedPrice}
                                 </Typography>
-                            </Paper>
+                            </Box>
                         )}
                     </Box>
 
@@ -394,12 +454,12 @@ const SlotPublishModal = ({ open, onClose, onSubmit, slotData }) => {
                             disabled={loading}
                             placeholder="Thêm mô tả hoặc ghi chú cho slot này..."
                             helperText="Thông tin này sẽ hiển thị cho khách hàng"
-                            sx={{ mt: 1 }}
+                            sx={{ mt: 1, '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
                         />
                     </Box>
 
                     {/* Status Change Info */}
-                    <Alert severity="success" variant="outlined">
+                    <Alert severity="success" variant="outlined" sx={{ borderRadius: 2 }}>
                         <Typography variant="body2">
                             ✅ Sau khi publish, slot này sẽ được công khai và khách hàng có thể đặt lịch.
                         </Typography>
@@ -410,23 +470,40 @@ const SlotPublishModal = ({ open, onClose, onSubmit, slotData }) => {
             <DialogActions sx={{
                 borderTop: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.1)}`,
                 px: 3,
-                py: 2,
-                gap: 1
+                pt: 2,
+                pb: 2,
+                gap: 1.5
             }}>
                 <Button
                     onClick={handleClose}
                     disabled={loading}
                     variant="outlined"
-                    sx={{ minWidth: 100 }}
+                    sx={{
+                        minWidth: 100,
+                        borderRadius: 2,
+                        textTransform: 'none',
+                        fontWeight: 600,
+                        borderColor: alpha(COLORS.BORDER.DEFAULT, 0.5)
+                    }}
                 >
                     Hủy
                 </Button>
                 <Button
+                    type="button"
                     onClick={handleSubmit}
                     disabled={loading || !areaInfo}
                     variant="contained"
                     color="success"
-                    sx={{ minWidth: 100 }}
+                    sx={{
+                        minWidth: 120,
+                        borderRadius: 2,
+                        textTransform: 'none',
+                        fontWeight: 600,
+                        boxShadow: `0 4px 12px ${alpha(COLORS.SUCCESS[500], 0.3)}`,
+                        '&:hover': {
+                            boxShadow: `0 6px 16px ${alpha(COLORS.SUCCESS[500], 0.4)}`
+                        }
+                    }}
                 >
                     {loading ? 'Đang publish...' : '🚀 Publish'}
                 </Button>

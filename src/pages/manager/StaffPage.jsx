@@ -29,9 +29,9 @@ const getDisplayRole = (employee) => {
 
 const roleLabel = (role) => {
     switch (role) {
-        case 'MANAGER': return 'Manager';
-        case 'SALE_STAFF': return 'Sale Staff';
-        case 'WORKING_STAFF': return 'Working Staff';
+        case 'MANAGER': return 'Quản lý';
+        case 'SALE_STAFF': return 'Nhân viên bán hàng';
+        case 'WORKING_STAFF': return 'Nhân viên chăm sóc';
         default: return role || '—';
     }
 };
@@ -630,8 +630,8 @@ const StaffPage = () => {
                             <InputLabel>Vai trò</InputLabel>
                             <Select label="Vai trò" value={filterRole} onChange={(e) => setFilterRole(e.target.value)}>
                                 <MenuItem value="all">Tất cả</MenuItem>
-                                <MenuItem value="SALE_STAFF">Sale Staff</MenuItem>
-                                <MenuItem value="WORKING_STAFF">Working Staff</MenuItem>
+                                <MenuItem value="SALE_STAFF">Nhân viên bán hàng</MenuItem>
+                                <MenuItem value="WORKING_STAFF">Nhân viên chăm sóc</MenuItem>
                             </Select>
                         </FormControl>
                         <FormControl size="small" sx={{ minWidth: 160, flexShrink: 0 }}>

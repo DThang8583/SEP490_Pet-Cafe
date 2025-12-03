@@ -179,12 +179,12 @@ const VaccinationScheduleModal = ({
         // So we send local time AS IF it were UTC (with Z suffix)
         const scheduledDateTime = formData.scheduled_date && formData.scheduled_time
             ? `${formData.scheduled_date}T${formData.scheduled_time}:00Z`
-            : '';
+                : '';
 
-        onSubmit({
-            ...formData,
-            scheduled_date: scheduledDateTime
-        });
+            onSubmit({
+                ...formData,
+                scheduled_date: scheduledDateTime
+            });
     }, [formData, onSubmit, validate]);
 
     const handleClose = useCallback(() => {
@@ -598,12 +598,12 @@ const VaccinationScheduleModal = ({
                                     {filteredTeams
                                         .filter(team => team.__matchesSchedule)
                                         .map(team => (
-                                            <MenuItem key={team.id} value={team.id}>
+                                        <MenuItem key={team.id} value={team.id}>
                                                 <Typography variant="body2" sx={{ fontWeight: 500 }}>
                                                     {team.name}
                                                 </Typography>
-                                            </MenuItem>
-                                        ))}
+                                        </MenuItem>
+                                    ))}
                                 </Select>
                                 {errors.team_id && (
                                     <Typography variant="caption" sx={{ color: COLORS.ERROR[600], mt: 0.5, ml: 1.5 }}>

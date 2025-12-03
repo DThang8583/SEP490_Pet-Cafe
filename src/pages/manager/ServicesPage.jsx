@@ -458,10 +458,11 @@ const ServicesPage = () => {
             }
             await Promise.all([loadAllServices(), loadServices()]);
             setServiceFormOpen(false);
+            setEditingService(null); // Clear editing service after submit
         } catch (error) {
             throw error;
         }
-    }, [loadAllServices, loadServices]);
+    }, [editingService, loadAllServices, loadServices]);
 
     const handleToggleStatus = useCallback(async (service) => {
         // Nếu service đang active, hiển thị confirm modal trước khi inactive
@@ -1194,7 +1195,11 @@ const ServicesPage = () => {
             {/* Modals */}
             <ServiceFormModal
                 open={serviceFormOpen}
-                onClose={() => setServiceFormOpen(false)}
+                onClose={() => {
+                    setServiceFormOpen(false);
+                    setEditingService(null);
+                    setSelectedTask(null);
+                }}
                 onSubmit={handleServiceFormSubmit}
                 taskData={selectedTask}
                 initialData={editingService}

@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Box, Alert, InputAdornment, Typography, Paper, Divider, IconButton, Stack, alpha, CircularProgress, Switch, FormControlLabel } from '@mui/material';
-import { CloudUpload as CloudUploadIcon, Delete as DeleteIcon, Image as ImageIcon } from '@mui/icons-material';
+import { CloudUpload as CloudUploadIcon, Delete as DeleteIcon, Image as ImageIcon, Close, LocalOffer } from '@mui/icons-material';
 import { formatPrice } from '../../utils/formatPrice';
 import { COLORS } from '../../constants/colors';
 import { uploadFile } from '../../api/fileApi';
@@ -21,6 +21,22 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
     const [loading, setLoading] = useState(false);
     const [uploadingImages, setUploadingImages] = useState(false);
     const [imagePreviews, setImagePreviews] = useState([]);
+
+    // Reset form function - defined before useEffect to avoid initialization error
+    const resetForm = useCallback(() => {
+        setFormData({
+            task_id: '',
+            name: '',
+            description: '',
+            duration_minutes: 0,
+            base_price: 0,
+            image_url: '',
+            thumbnails: [],
+            is_active: false
+        });
+        setImagePreviews([]);
+        setErrors({});
+    }, []);
 
     // Initialize form data when modal opens
     useEffect(() => {
@@ -60,52 +76,42 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
             }
             setErrors({});
         }
-    }, [open, mode, taskData, initialData]);
+    }, [open, mode, taskData, initialData, resetForm]);
 
-    const resetForm = () => {
-        setFormData({
-            task_id: '',
-            name: '',
-            description: '',
-            duration_minutes: 0,
-            base_price: 0,
-            image_url: '',
-            thumbnails: [],
-            is_active: false
-        });
-        setImagePreviews([]);
-        setErrors({});
-    };
-
-    const handleChange = (field, value) => {
+    const handleChange = useCallback((field, value) => {
         setFormData(prev => ({
             ...prev,
             [field]: value
         }));
 
-        // Clear error for this field
-        if (errors[field]) {
-            setErrors(prev => ({
-                ...prev,
-                [field]: ''
-            }));
-        }
-    };
+        // Clear error for this field using functional update
+        setErrors(prev => {
+            if (prev[field]) {
+                const newErrors = { ...prev };
+                delete newErrors[field];
+                return newErrors;
+            }
+            return prev;
+        });
+    }, []);
 
     // Handle multiple images upload
-    const handleImagesUpload = async (event) => {
+    const handleImagesUpload = useCallback(async (event) => {
         const files = Array.from(event.target.files);
         if (files.length === 0) return;
 
         // Limit to 5 images total
-        if (imagePreviews.length + files.length > 5) {
-            setErrors(prev => ({
-                ...prev,
-                images: 'Chỉ được tải tối đa 5 ảnh'
-            }));
-            event.target.value = '';
-            return;
-        }
+        setImagePreviews(prev => {
+            if (prev.length + files.length > 5) {
+                setErrors(prevErrors => ({
+                    ...prevErrors,
+                    images: 'Chỉ được tải tối đa 5 ảnh'
+                }));
+                event.target.value = '';
+                return prev;
+            }
+            return prev;
+        });
 
         const validFiles = [];
         for (const file of files) {
@@ -132,11 +138,14 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
             validFiles.push(file);
         }
 
+        if (validFiles.length === 0) return;
+
         // Clear previous errors
-        setErrors(prev => ({
-            ...prev,
-            images: ''
-        }));
+        setErrors(prev => {
+            const newErrors = { ...prev };
+            delete newErrors.images;
+            return newErrors;
+        });
 
         // Set uploading state
         setUploadingImages(true);
@@ -146,21 +155,19 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
             const uploadPromises = validFiles.map(file => uploadFile(file));
             const uploadedUrls = await Promise.all(uploadPromises);
 
-            // Create preview URLs (use uploaded URLs for preview)
-            const newPreviews = [...imagePreviews, ...uploadedUrls];
-            setImagePreviews(newPreviews);
+            // Update previews and form data using functional updates
+            setImagePreviews(prev => {
+                const newPreviews = [...prev, ...uploadedUrls];
 
-            // Set first image as main image_url, rest as thumbnails
-            if (newPreviews.length > 0) {
-                handleChange('image_url', newPreviews[0]);
-                handleChange('thumbnails', newPreviews.slice(1));
-            }
+                // Update formData: first image is main, rest are thumbnails
+                setFormData(formDataPrev => ({
+                    ...formDataPrev,
+                    image_url: newPreviews[0] || '',
+                    thumbnails: newPreviews.slice(1)
+                }));
 
-            // Clear error
-            setErrors(prev => ({
-                ...prev,
-                images: ''
-            }));
+                return newPreviews;
+            });
         } catch (error) {
             console.error('Error uploading images:', error);
             setErrors(prev => ({
@@ -171,32 +178,35 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
             setUploadingImages(false);
             event.target.value = '';
         }
-    };
+    }, []);
 
     // Handle remove single image
-    const handleRemoveImage = (index) => {
-        const newPreviews = imagePreviews.filter((_, i) => i !== index);
-        setImagePreviews(newPreviews);
+    const handleRemoveImage = useCallback((index) => {
+        setImagePreviews(prev => {
+            const newPreviews = prev.filter((_, i) => i !== index);
 
-        // Update formData: first image is main, rest are thumbnails
-        if (newPreviews.length > 0) {
-            handleChange('image_url', newPreviews[0]);
-            handleChange('thumbnails', newPreviews.slice(1));
-        } else {
-            handleChange('image_url', '');
-            handleChange('thumbnails', []);
-        }
+            // Update formData: first image is main, rest are thumbnails
+            setFormData(formDataPrev => ({
+                ...formDataPrev,
+                image_url: newPreviews[0] || '',
+                thumbnails: newPreviews.slice(1)
+            }));
+
+            return newPreviews;
+        });
 
         // Clear error if any
-        if (errors.images) {
-            setErrors(prev => ({
-                ...prev,
-                images: ''
-            }));
-        }
-    };
+        setErrors(prev => {
+            if (prev.images) {
+                const newErrors = { ...prev };
+                delete newErrors.images;
+                return newErrors;
+            }
+            return prev;
+        });
+    }, []);
 
-    const validateForm = () => {
+    const validateForm = useCallback(() => {
         const newErrors = {};
 
         if (!formData.task_id) {
@@ -221,9 +231,9 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
-    };
+    }, [formData]);
 
-    const handleSubmit = async () => {
+    const handleSubmit = useCallback(async () => {
         if (!validateForm()) {
             return;
         }
@@ -231,23 +241,23 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
         setLoading(true);
 
         try {
-            // Prepare submit data according to API
+            // Prepare submit data according to API PUT /api/services/{id}
             const submitData = {
                 name: formData.name.trim(),
                 description: formData.description.trim(),
-                duration_minutes: parseInt(formData.duration_minutes),
-                base_price: parseFloat(formData.base_price),
-                task_id: formData.task_id,
-                // Always include image fields - use null/empty array if not provided
-                image_url: formData.image_url && formData.image_url.trim() ? formData.image_url.trim() : null,
+                duration_minutes: parseInt(formData.duration_minutes) || 0,
+                base_price: parseFloat(formData.base_price) || 0,
+                image_url: formData.image_url && formData.image_url.trim() ? formData.image_url.trim() : '',
                 thumbnails: formData.thumbnails && Array.isArray(formData.thumbnails) && formData.thumbnails.length > 0
                     ? formData.thumbnails.filter(url => url && url.trim()).map(url => url.trim())
                     : [],
+                task_id: formData.task_id,
                 is_active: Boolean(formData.is_active)
             };
 
             await onSubmit(submitData);
-            handleClose();
+            resetForm();
+            onClose();
         } catch (error) {
             setErrors({
                 submit: error.message || 'Có lỗi xảy ra'
@@ -255,14 +265,30 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
         } finally {
             setLoading(false);
         }
-    };
+    }, [formData, validateForm, onSubmit, resetForm, onClose]);
 
-    const handleClose = () => {
-        if (!loading) {
-            resetForm();
-            onClose();
-        }
-    };
+    const handleClose = useCallback(() => {
+        if (loading) return;
+        resetForm();
+        onClose();
+    }, [loading, resetForm, onClose]);
+
+    // Memoize computed values for performance
+    const durationHours = useMemo(() => {
+        if (formData.duration_minutes <= 0) return null;
+        return {
+            hours: Math.floor(formData.duration_minutes / 60),
+            minutes: formData.duration_minutes % 60
+        };
+    }, [formData.duration_minutes]);
+
+    const formattedPrice = useMemo(() => {
+        return formData.base_price > 0 ? formatPrice(formData.base_price) : null;
+    }, [formData.base_price]);
+
+    const thumbnailCount = useMemo(() => {
+        return Math.max(0, imagePreviews.length - 1);
+    }, [imagePreviews.length]);
 
     return (
         <Dialog
@@ -280,52 +306,84 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
         >
             <Box
                 sx={{
-                    background: `linear-gradient(135deg, ${alpha(COLORS.PRIMARY[50], 0.3)}, ${alpha(COLORS.SECONDARY[50], 0.2)})`,
-                    borderBottom: `3px solid ${COLORS.PRIMARY[500]}`
+                    bgcolor: mode === 'edit' ? COLORS.INFO[50] : COLORS.SUCCESS[50],
+                    borderBottom: `3px solid ${mode === 'edit' ? COLORS.INFO[500] : COLORS.SUCCESS[500]}`
                 }}
             >
-                <DialogTitle sx={{ fontWeight: 800, color: COLORS.PRIMARY[700], pb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <ImageIcon />
-                    {mode === 'edit' ? '✏️ Chỉnh sửa Dịch vụ' : '➕ Tạo Dịch vụ từ Nhiệm vụ'}
+                <DialogTitle sx={{
+                    fontWeight: 800,
+                    color: mode === 'edit' ? COLORS.INFO[800] : COLORS.SUCCESS[800],
+                    pb: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 1
+                }}>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                        {mode === 'edit' ? <LocalOffer /> : <ImageIcon />}
+                        <Typography variant="h6" component="span">
+                            {mode === 'edit' ? '✏️ Chỉnh sửa Dịch vụ' : '➕ Tạo Dịch vụ từ Nhiệm vụ'}
+                        </Typography>
+                    </Stack>
+                    <IconButton
+                        onClick={handleClose}
+                        disabled={loading}
+                        sx={{
+                            color: mode === 'edit' ? COLORS.INFO[800] : COLORS.SUCCESS[800],
+                            '&:hover': {
+                                bgcolor: alpha(mode === 'edit' ? COLORS.INFO[100] : COLORS.SUCCESS[100], 0.5)
+                            }
+                        }}
+                    >
+                        <Close />
+                    </IconButton>
                 </DialogTitle>
             </Box>
 
-            <DialogContent sx={{ pt: 3, pb: 2, px: 3, maxHeight: '70vh', overflowY: 'auto' }}>
+            <DialogContent sx={{ pt: 3, pb: 2, px: 3 }}>
                 {errors.submit && (
-                    <Alert severity="error" sx={{ mb: 2 }}>
+                    <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>
                         {errors.submit}
                     </Alert>
                 )}
 
                 {/* Task Info (for create mode) */}
                 {mode === 'create' && taskData && (
-                    <Paper elevation={0} sx={{ p: 2, mb: 3, bgcolor: '#e3f2fd', borderRadius: 1 }}>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                            📋 Tạo từ Nhiệm vụ
+                    <Box
+                        sx={{
+                            p: 2,
+                            mb: 3,
+                            borderRadius: 2,
+                            bgcolor: alpha(COLORS.INFO[50], 0.3),
+                            border: `1px solid ${alpha(COLORS.INFO[200], 0.3)}`
+                        }}
+                    >
+                        <Typography variant="body2" sx={{ fontWeight: 600, mb: 1, color: COLORS.INFO[700] }}>
+                            📋 Thông tin nhiệm vụ:
                         </Typography>
-                        <Typography variant="h6" fontWeight={600}>
+                        <Typography variant="h6" fontWeight={600} sx={{ mb: 1 }}>
                             {taskData.title || taskData.name}
                         </Typography>
-                        <Stack direction="row" spacing={2} sx={{ mt: 1 }}>
+                        <Stack direction="row" spacing={2} flexWrap="wrap" gap={1}>
                             {taskData.work_type && (
-                                <Typography variant="body2" color="text.secondary">
+                                <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
                                     🏷️ {taskData.work_type.name}
                                 </Typography>
                             )}
                             {taskData.estimated_hours > 0 && (
-                                <Typography variant="body2" color="text.secondary">
+                                <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
                                     ⏱️ {taskData.estimated_hours} giờ
                                 </Typography>
                             )}
                         </Stack>
-                    </Paper>
+                    </Box>
                 )}
 
-                <Stack spacing={2.5}>
+                <Stack spacing={3} sx={{ mt: 0 }}>
                     {/* Multiple Images Upload */}
                     <Box>
-                        <Typography variant="body2" fontWeight={500} gutterBottom>
-                            Hình ảnh dịch vụ (Tùy chọn - Tối đa 5 ảnh)
+                        <Typography variant="body2" fontWeight={600} gutterBottom sx={{ mb: 1.5 }}>
+                            Hình ảnh dịch vụ <Typography component="span" variant="caption" sx={{ color: COLORS.TEXT.SECONDARY }}>(Tùy chọn - Tối đa 5 ảnh)</Typography>
                         </Typography>
 
                         {/* Upload Button */}
@@ -334,7 +392,12 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
                             variant="outlined"
                             startIcon={uploadingImages ? <CircularProgress size={16} /> : <CloudUploadIcon />}
                             disabled={loading || uploadingImages || imagePreviews.length >= 5}
-                            sx={{ mb: 2 }}
+                            sx={{
+                                mb: 2,
+                                borderRadius: 2,
+                                textTransform: 'none',
+                                fontWeight: 600
+                            }}
                         >
                             {uploadingImages ? 'Đang tải lên...' : (imagePreviews.length > 0 ? 'Thêm ảnh' : 'Tải ảnh lên')}
                             <input
@@ -504,18 +567,18 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
                         )}
 
                         {errors.images && (
-                            <Typography variant="caption" color="error" sx={{ display: 'block', mt: 1 }}>
+                            <Typography variant="caption" sx={{ display: 'block', mt: 1, color: COLORS.ERROR[600], fontWeight: 500 }}>
                                 {errors.images}
                             </Typography>
                         )}
                         {!errors.images && imagePreviews.length === 0 && (
-                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                            <Typography variant="caption" sx={{ display: 'block', mt: 1, color: COLORS.TEXT.SECONDARY }}>
                                 📌 <strong>Hướng dẫn:</strong> Ảnh đầu tiên sẽ là <strong>ảnh chính (image_url)</strong>, các ảnh sau sẽ là <strong>ảnh phụ (thumbnails)</strong>
                             </Typography>
                         )}
                         {!errors.images && imagePreviews.length > 0 && (
-                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-                                ✅ Đã tải {imagePreviews.length} ảnh: 1 ảnh chính + {Math.max(0, imagePreviews.length - 1)} thumbnails
+                            <Typography variant="caption" sx={{ display: 'block', mt: 1, color: COLORS.SUCCESS[700], fontWeight: 500 }}>
+                                ✅ Đã tải {imagePreviews.length} ảnh: 1 ảnh chính + {thumbnailCount} thumbnails
                             </Typography>
                         )}
                     </Box>
@@ -524,13 +587,14 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
                     <TextField
                         fullWidth
                         required
-                        label="Tên dịch vụ"
+                        label="Tên dịch vụ *"
                         value={formData.name}
                         onChange={(e) => handleChange('name', e.target.value)}
                         disabled={loading}
                         error={!!errors.name}
-                        helperText={errors.name || 'Có thể chỉnh sửa tên dịch vụ'}
+                        helperText={errors.name || (mode === 'edit' ? 'Có thể chỉnh sửa tên dịch vụ' : 'Nhập tên dịch vụ')}
                         placeholder="Ví dụ: Combo Trải Nghiệm Thú Cưng"
+                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
                     />
 
                     {/* Description */}
@@ -539,13 +603,14 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
                         required
                         multiline
                         rows={4}
-                        label="Mô tả chi tiết"
+                        label="Mô tả chi tiết *"
                         value={formData.description}
                         onChange={(e) => handleChange('description', e.target.value)}
                         disabled={loading}
                         error={!!errors.description}
-                        helperText={errors.description || 'Có thể chỉnh sửa mô tả dịch vụ'}
+                        helperText={errors.description || (mode === 'edit' ? 'Có thể chỉnh sửa mô tả dịch vụ' : 'Nhập mô tả chi tiết về dịch vụ')}
                         placeholder="Mô tả chi tiết về dịch vụ..."
+                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
                     />
 
                     {/* Duration Minutes */}
@@ -553,97 +618,103 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
                         fullWidth
                         required
                         type="number"
-                        label="Thời gian thực hiện"
+                        label="Thời gian thực hiện *"
                         value={formData.duration_minutes || ''}
                         onChange={(e) => handleChange('duration_minutes', e.target.value === '' ? '' : parseInt(e.target.value))}
                         disabled={loading}
                         error={!!errors.duration_minutes}
-                        helperText={errors.duration_minutes || 'Thời gian thực hiện dịch vụ'}
+                        helperText={errors.duration_minutes || 'Thời gian thực hiện dịch vụ (phút)'}
                         placeholder="Nhập thời gian (phút)"
                         InputProps={{
                             endAdornment: <InputAdornment position="end">phút</InputAdornment>,
                             inputProps: { min: 1, step: 5 }
                         }}
+                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
                     />
 
                     {/* Duration Preview */}
-                    {formData.duration_minutes > 0 && (
+                    {durationHours && (
                         <Box sx={{
                             p: 1.5,
-                            bgcolor: '#f5f5f5',
-                            borderRadius: 1,
+                            borderRadius: 2,
+                            bgcolor: alpha(COLORS.INFO[50], 0.3),
+                            border: `1px solid ${alpha(COLORS.INFO[200], 0.3)}`,
                             display: 'flex',
                             alignItems: 'center',
                             gap: 1
                         }}>
-                            <Typography variant="body2" color="text.secondary">
+                            <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
                                 ⏱️ Thời gian: <strong>{formData.duration_minutes} phút</strong>
                                 {formData.duration_minutes >= 60 && (
-                                    <span> ({Math.floor(formData.duration_minutes / 60)}h {formData.duration_minutes % 60}m)</span>
+                                    <span> ({durationHours.hours}h {durationHours.minutes}m)</span>
                                 )}
                             </Typography>
                         </Box>
                     )}
-
-                    <Divider />
 
                     {/* Base Price */}
                     <TextField
                         fullWidth
                         required
                         type="number"
-                        label="Giá dịch vụ"
+                        label="Giá dịch vụ *"
                         value={formData.base_price || ''}
                         onChange={(e) => handleChange('base_price', e.target.value === '' ? '' : parseFloat(e.target.value))}
                         disabled={loading}
                         error={!!errors.base_price}
-                        helperText={errors.base_price || 'Giá dịch vụ cho khách hàng'}
+                        helperText={errors.base_price || 'Giá dịch vụ cho khách hàng (VNĐ)'}
                         placeholder="Nhập giá (VNĐ)"
                         InputProps={{
                             endAdornment: <InputAdornment position="end">VNĐ</InputAdornment>,
                             inputProps: { min: 0, step: 1000 }
                         }}
+                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
                     />
 
                     {/* Price Preview */}
-                    {formData.base_price > 0 && (
-                        <Paper
-                            elevation={0}
+                    {formattedPrice && (
+                        <Box
                             sx={{
                                 p: 2,
-                                bgcolor: '#e8f5e9',
-                                borderRadius: 1,
-                                border: '1px solid #4caf5040'
+                                borderRadius: 2,
+                                bgcolor: alpha(COLORS.SUCCESS[50], 0.3),
+                                border: `1px solid ${alpha(COLORS.SUCCESS[200], 0.3)}`
                             }}
                         >
-                            <Typography variant="body2" color="text.secondary" gutterBottom>
+                            <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, mb: 0.5, fontWeight: 600 }}>
                                 💰 Giá dịch vụ
                             </Typography>
-                            <Typography variant="h5" fontWeight={600} color="success.main">
-                                {formatPrice(formData.base_price)}
+                            <Typography variant="h5" fontWeight={700} sx={{ color: COLORS.SUCCESS[700] }}>
+                                {formattedPrice}
                             </Typography>
-                        </Paper>
+                        </Box>
                     )}
-
-                    <Divider />
 
                     {/* Trạng thái dịch vụ - Chỉ hiển thị khi edit */}
                     {mode === 'edit' && (
-                        <Box>
+                        <Box
+                            sx={{
+                                p: 2,
+                                borderRadius: 2,
+                                bgcolor: alpha(formData.is_active ? COLORS.SUCCESS[50] : COLORS.WARNING[50], 0.3),
+                                border: `1px solid ${alpha(formData.is_active ? COLORS.SUCCESS[200] : COLORS.WARNING[200], 0.3)}`
+                            }}
+                        >
                             <FormControlLabel
                                 control={
                                     <Switch
                                         checked={formData.is_active === true}
                                         onChange={(e) => handleChange('is_active', e.target.checked)}
                                         color="success"
+                                        sx={{ mr: 1 }}
                                     />
                                 }
                                 label={
                                     <Box>
-                                        <Typography variant="body1" fontWeight={600}>
+                                        <Typography variant="body1" fontWeight={600} sx={{ color: formData.is_active ? COLORS.SUCCESS[700] : COLORS.WARNING[700] }}>
                                             {formData.is_active ? '✅ Dịch vụ đang Hoạt động' : '⛔ Dịch vụ Không hoạt động'}
                                         </Typography>
-                                        <Typography variant="caption" color="text.secondary">
+                                        <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, display: 'block', mt: 0.5 }}>
                                             {formData.is_active
                                                 ? 'Dịch vụ có sẵn cho khách hàng đặt lịch'
                                                 : 'Dịch vụ không hiển thị cho khách hàng'}
@@ -655,7 +726,11 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
                     )}
 
                     {/* Status Info */}
-                    <Alert severity={mode === 'create' ? 'info' : formData.is_active ? 'success' : 'warning'} variant="outlined">
+                    <Alert
+                        severity={mode === 'create' ? 'info' : formData.is_active ? 'success' : 'warning'}
+                        variant="outlined"
+                        sx={{ borderRadius: 2 }}
+                    >
                         <Typography variant="body2">
                             💡 <strong>Lưu ý:</strong>
                             <br />
@@ -688,24 +763,42 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
             <DialogActions sx={{
                 borderTop: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.1)}`,
                 px: 3,
-                py: 2,
-                gap: 1
+                pt: 2,
+                pb: 2,
+                gap: 1.5
             }}>
                 <Button
                     onClick={handleClose}
                     disabled={loading}
                     variant="outlined"
-                    sx={{ minWidth: 100 }}
+                    sx={{
+                        minWidth: 100,
+                        borderRadius: 2,
+                        textTransform: 'none',
+                        fontWeight: 600,
+                        borderColor: alpha(COLORS.BORDER.DEFAULT, 0.5)
+                    }}
                 >
                     Hủy
                 </Button>
                 <Button
+                    type="button"
                     onClick={handleSubmit}
                     disabled={loading}
                     variant="contained"
-                    sx={{ minWidth: 100 }}
+                    color={mode === 'edit' ? 'info' : 'success'}
+                    sx={{
+                        minWidth: 120,
+                        borderRadius: 2,
+                        textTransform: 'none',
+                        fontWeight: 600,
+                        boxShadow: `0 4px 12px ${alpha(mode === 'edit' ? COLORS.INFO[500] : COLORS.SUCCESS[500], 0.3)}`,
+                        '&:hover': {
+                            boxShadow: `0 6px 16px ${alpha(mode === 'edit' ? COLORS.INFO[500] : COLORS.SUCCESS[500], 0.4)}`
+                        }
+                    }}
                 >
-                    {loading ? 'Đang xử lý...' : (mode === 'edit' ? 'Cập nhật' : 'Tạo Dịch vụ')}
+                    {loading ? 'Đang xử lý...' : (mode === 'edit' ? 'Cập Nhật' : 'Tạo Dịch vụ')}
                 </Button>
             </DialogActions>
         </Dialog>
