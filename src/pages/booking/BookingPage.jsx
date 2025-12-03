@@ -1,31 +1,68 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import {
-    Box, Container, Typography, Grid, Card, CardContent, CardMedia,
-    Button, Chip, Stack, Dialog, DialogTitle, DialogContent, DialogActions,
-    Stepper, Step, StepLabel, Alert, alpha, Fade, Zoom, Grow,
-    Table, TableHead, TableRow, TableCell, TableBody, TableContainer,
-    Paper
+  Box,
+  Container,
+  Typography,
+  Grid,
+  Card,
+  CardContent,
+  CardMedia,
+  Button,
+  Chip,
+  Stack,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Stepper,
+  Step,
+  StepLabel,
+  Alert,
+  alpha,
+  Fade,
+  Zoom,
+  Grow,
+  Table,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableBody,
+  TableContainer,
+  Paper,
 } from '@mui/material';
 import {
-    Pets, Schedule, Payment, CheckCircle, Star,
-    AccessTime, LocationOn, Person, Phone, Email, School, LocalHospital, CalendarToday,
-    Store, Business, Restaurant, LocalCafe, Spa, LocalActivity, Loyalty, People, Note
+  Pets,
+  Schedule,
+  Payment,
+  CheckCircle,
+  Star,
+  AccessTime,
+  LocationOn,
+  Person,
+  Phone,
+  Email,
+  School,
+  LocalHospital,
+  CalendarToday,
+  Store,
+  Business,
+  Restaurant,
+  LocalCafe,
+  Spa,
+  LocalActivity,
+  Loyalty,
+  People,
+  Note,
 } from '@mui/icons-material';
+
 import { COLORS } from '../../constants/colors';
-import { authApi, customerApi } from '../../api/authApi';
+import { authApi } from '../../api/authApi';
 import serviceApi from '../../api/serviceApi';
 import { bookingApi } from '../../api/bookingApi';
 import { notificationApi } from '../../api/notificationApi';
 import { feedbackApi } from '../../api/feedbackApi';
-import AlertModal from '../../components/modals/AlertModal';
 
-// Utility function
-const formatPrice = (price) => {
-    return new Intl.NumberFormat('vi-VN', {
-        style: 'currency',
-        currency: 'VND'
-    }).format(price);
-};
+import AlertModal from '../../components/modals/AlertModal';
 import Loading from '../../components/loading/Loading';
 import ServiceCard from '../../components/booking/ServiceCard';
 import BookingForm from '../../components/booking/BookingForm';
@@ -34,810 +71,571 @@ import PaymentModal from '../../components/booking/PaymentModal';
 import BookingConfirmation from '../../components/booking/BookingConfirmation';
 import FeedbackModal from '../../components/booking/FeedbackModal';
 
-// Error Boundary Component
+// Utility
+const formatPrice = (price) =>
+  new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
+
+// Error Boundary
 class ErrorBoundary extends React.Component {
-    constructor(props) {
-        super(props);
-        this.state = { hasError: false, error: null };
-    }
+  state = { hasError: false, error: null };
 
-    static getDerivedStateFromError(error) {
-        return { hasError: true, error };
-    }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
 
-    componentDidCatch(error, errorInfo) {
-        console.error('Error caught by boundary:', error, errorInfo);
-    }
+  componentDidCatch(error, errorInfo) {
+    console.error('ErrorBoundary caught:', error, errorInfo);
+  }
 
-    render() {
-        if (this.state.hasError) {
-            return (
-                <Box sx={{ p: 4, textAlign: 'center' }}>
-                    <Typography variant="h6" color="error">
-                        Có lỗi xảy ra khi tải trang
-                    </Typography>
-                    <Button onClick={() => window.location.reload()}>
-                        Tải lại trang
-                    </Button>
-                </Box>
-            );
-        }
-        return this.props.children;
+  render() {
+    if (this.state.hasError) {
+      return (
+        <Box sx={{ p: 4, textAlign: 'center' }}>
+          <Typography variant="h6" color="error">
+            Có lỗi xảy ra khi tải trang
+          </Typography>
+          <Button onClick={() => window.location.reload()}>Tải lại trang</Button>
+        </Box>
+      );
     }
+    return this.props.children;
+  }
 }
 
 const BookingPage = () => {
-    // State management
-    const [loading, setLoading] = useState(true);
-    const [services, setServices] = useState([]);
-    const [selectedService, setSelectedService] = useState(null);
-    const [currentStep, setCurrentStep] = useState(0);
-    const [bookingData, setBookingData] = useState({});
-    const [showPayment, setShowPayment] = useState(false);
-    const [showConfirmation, setShowConfirmation] = useState(false);
-    const [showFeedback, setShowFeedback] = useState(false);
-    const [completedBooking, setCompletedBooking] = useState(null);
-    const [showHistory, setShowHistory] = useState(false);
-    const [history, setHistory] = useState([]);
-    const [loadingHistory, setLoadingHistory] = useState(false);
-    const [historyMode, setHistoryMode] = useState(false);
-    const [alert, setAlert] = useState({ open: false, message: '', type: 'info', title: 'Thông báo' });
-    const [currentUser, setCurrentUser] = useState(null);
-    const [showDateSelection, setShowDateSelection] = useState(false);
-    const [serviceForDateSelection, setServiceForDateSelection] = useState(null);
-    const [selectedDate, setSelectedDate] = useState('');
-    const [selectedSlot, setSelectedSlot] = useState(null);
+  // ==================== STATE ====================
+  const [loading, setLoading] = useState(true);
+  const [services, setServices] = useState([]);
+  const [selectedService, setSelectedService] = useState(null);
+  const [currentStep, setCurrentStep] = useState(0);
+  const [bookingData, setBookingData] = useState({});
+  const [showPayment, setShowPayment] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [completedBooking, setCompletedBooking] = useState(null);
+  const [showHistory, setShowHistory] = useState(false);
+  const [history, setHistory] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+  const [historyMode, setHistoryMode] = useState(false);
 
-    const steps = ['Chọn dịch vụ', 'Điền thông tin', 'Thanh toán', 'Xác nhận'];
+  const [alert, setAlert] = useState({ open: false, message: '', type: 'info', title: 'Thông báo' });
+  const [currentUser, setCurrentUser] = useState(null);
 
-    // Load data on component mount
-    useEffect(() => {
-        loadInitialData();
-    }, []);
+  const [showDateSelection, setShowDateSelection] = useState(false);
+  const [serviceForDateSelection, setServiceForDateSelection] = useState(null);
+  const [selectedDate, setSelectedDate] = useState('');
+  const [selectedSlot, setSelectedSlot] = useState(null);
 
-    const loadInitialData = async () => {
-        try {
-            setLoading(true);
+  const steps = ['Chọn dịch vụ', 'Điền thông tin', 'Thanh toán', 'Xác nhận'];
 
-            // Check authentication
-            console.log('Checking authentication...');
-            const user = authApi.getCurrentUser();
-            console.log('Current user:', user);
+  // ==================== EFFECT ====================
+  useEffect(() => {
+    loadInitialData();
+  }, []);
 
-            if (user) {
-                setCurrentUser(user);
-                console.log('User authenticated successfully:', user.name);
-            } else {
-                console.log('No user found, showing services in view-only mode');
-            }
-
-            // Get current user after potential auto-login  
-            const currentUserCheck = authApi.getCurrentUser();
-            if (currentUserCheck?.role !== 'customer') {
-                console.log('User is not customer, showing services in view-only mode');
-                // Don't return, still show services but disable booking functionality
-            } else {
-                console.log('User role check passed:', currentUserCheck.name);
-            }
-
-            // Load available services from API
-            console.log('Loading services...');
-            const token = localStorage.getItem('authToken');
-            const response = await fetch('https://petcafe-htc6dadbayh6h4dz.southeastasia-01.azurewebsites.net/api/services', {
-                headers: {
-                    'Authorization': token ? `Bearer ${token}` : '',
-                    'Accept': 'application/json'
-                }
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const json = await response.json();
-            console.log('Services API response:', json);
-
-            // Extract services from response.data and filter active, non-deleted services
-            const rawServices = Array.isArray(json?.data)
-                ? json.data.filter(service => service?.is_active && !service?.is_deleted)
-                : [];
-
-            // Map API data to component format
-            const apiServices = rawServices.map(service => {
-                // Determine petRequired based on slots
-                // If service has slots with pet_group_id or pet_id, it's a pet care service (petRequired = true)
-                // If all slots have pet_group_id and pet_id as null, it's a cafe service (petRequired = false)
-                const hasPetSlots = service.slots && service.slots.length > 0
-                    ? service.slots.some(slot => slot?.pet_group_id || slot?.pet_id)
-                    : false;
-                const petRequired = hasPetSlots;
-
-                // Use base_price from API, or get from slots if available
-                const price = service.base_price || 0;
-
-                return {
-                    ...service,
-                    id: service.id,
-                    name: service.name,
-                    description: service.description,
-                    price: price,
-                    base_price: service.base_price,
-                    duration_minutes: service.duration_minutes,
-                    image_url: service.image_url,
-                    thumbnails: service.thumbnails || [],
-                    petRequired: petRequired,
-                    slots: service.slots || [],
-                    task: service.task,
-                    task_id: service.task_id,
-                    order_details: service.order_details || [],
-                    bookings: service.bookings || [],
-                    feedbacks: service.feedbacks || [],
-                    created_at: service.created_at,
-                    updated_at: service.updated_at
-                };
-            });
-
-            console.log('Mapped services:', apiServices);
-            setServices(apiServices);
-
-            setLoading(false);
-        } catch (err) {
-            console.error('LoadInitialData error:', err);
-            setAlert({
-                open: true,
-                title: 'Lỗi',
-                message: err.message || 'Có lỗi xảy ra khi tải dữ liệu',
-                type: 'error'
-            });
-            setLoading(false);
-        }
-    };
-
-
-    // Helper function to check if cafe service is available based on slots
-    const isCafeServiceAvailable = (service) => {
-        if (service.petRequired === false) {
-            // Check if service has available slots
-            if (!service.slots || service.slots.length === 0) {
-                return false;
-            }
-
-            // Check if any slot is available (service_status === 'AVAILABLE')
-            const hasAvailableSlots = service.slots.some(slot => 
-                slot?.service_status === 'AVAILABLE' && !slot?.is_deleted
-            );
-
-            return hasAvailableSlots;
-        }
-        return true;
-    };
-
-    // Sort services: available cafe services first, then pet care services
-    const sortedServices = (services || []).sort((a, b) => {
-        if (!a || !b) return 0;
-
-        // Check if services are available
-        const aAvailable = a.petRequired === true || (a.petRequired === false && isCafeServiceAvailable(a));
-        const bAvailable = b.petRequired === true || (b.petRequired === false && isCafeServiceAvailable(b));
-
-        // Only sort available services
-        if (!aAvailable && bAvailable) return 1;
-        if (aAvailable && !bAvailable) return -1;
-
-        // Among available services, prioritize pet care services
-        if (aAvailable && bAvailable) {
-            if (a.petRequired === true && b.petRequired === false) return -1;
-            if (a.petRequired === false && b.petRequired === true) return 1;
-        }
-
-        return 0;
-    });
-
-    // Filter out unavailable services before creating rows
-    const availableServices = sortedServices.filter(service => {
-        if (service.petRequired === true) return true; // Pet care services are always available
-        if (service.petRequired === false) return isCafeServiceAvailable(service); // Check cafe services
-        return true;
-    });
-
-    // Chia services thành các nhóm 3 để hiển thị cố định 3 card/hàng
-    const servicesPerRow = 3;
-    const serviceRows = [];
+  // ==================== LOAD DATA ====================
+  const loadInitialData = async () => {
     try {
-        for (let i = 0; i < availableServices.length; i += servicesPerRow) {
-            const rowServices = availableServices.slice(i, i + servicesPerRow);
-            // Chỉ thêm empty slots nếu không phải hàng cuối cùng
-            const isLastRow = i + servicesPerRow >= availableServices.length;
-            if (!isLastRow) {
-                // Đảm bảo mỗi hàng (trừ hàng cuối) luôn có đúng 3 cards
-            while (rowServices.length < servicesPerRow) {
-                rowServices.push(null); // Thêm empty slot
-                }
-            }
-            serviceRows.push(rowServices);
+      setLoading(true);
+
+      // Kiểm tra user hiện tại
+      const user = authApi.getCurrentUser();
+      if (user) setCurrentUser(user);
+
+      // Lấy token
+      const token = localStorage.getItem('authToken');
+
+      // Gọi API lấy services
+      const response = await fetch(
+        'https://petcafe-htc6dadbayh6h4dz.southeastasia-01.azurewebsites.net/api/services',
+        {
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+            ...(token && { Authorization: `Bearer ${token}` }), // ĐÃ SỬA LỖI Ở ĐÂY
+          },
         }
-    } catch (error) {
-        console.error('Error creating service rows:', error);
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const json = await response.json();
+
+      const rawServices = Array.isArray(json?.data)
+        ? json.data.filter((s) => s?.is_active && !s?.is_deleted)
+        : [];
+
+      const mappedServices = rawServices.map((service) => {
+        const hasPetSlots =
+          service.slots && service.slots.some((slot) => slot?.pet_group_id || slot?.pet_id);
+        const petRequired = !!hasPetSlots;
+
+        return {
+          ...service,
+          petRequired,
+          price: service.base_price || 0,
+        };
+      });
+
+      setServices(mappedServices);
+    } catch (err) {
+      console.error('loadInitialData error:', err);
+      setAlert({
+        open: true,
+        title: 'Lỗi',
+        message: err.message || 'Không thể tải danh sách dịch vụ',
+        type: 'error',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ==================== HELPERS ====================
+  const isCafeServiceAvailable = (service) => {
+    if (service.petRequired) return true;
+    return service.slots?.some((slot) => slot?.service_status === 'AVAILABLE' && !slot?.is_deleted);
+  };
+
+  // Sắp xếp: dịch vụ có sẵn lên trên, ưu tiên dịch vụ cần thú cưng
+  const sortedServices = [...services].sort((a, b) => {
+    const aAvail = a.petRequired || isCafeServiceAvailable(a);
+    const bAvail = b.petRequired || isCafeServiceAvailable(b);
+
+    if (aAvail && !bAvail) return -1;
+    if (!aAvail && bAvail) return 1;
+    if (a.petRequired && !b.petRequired) return -1;
+    if (!a.petRequired && b.petRequired) return 1;
+    return 0;
+  });
+
+  const availableServices = sortedServices.filter(
+    (s) => s.petRequired || isCafeServiceAvailable(s)
+  );
+
+  // Chia thành các hàng 3 card
+  const servicesPerRow = 3;
+  const serviceRows = [];
+  for (let i = 0; i < availableServices.length; i += servicesPerRow) {
+    const row = availableServices.slice(i, i + servicesPerRow);
+    // Đảm bảo luôn đủ 3 phần tử (trừ hàng cuối)
+    while (row.length < servicesPerRow && i + servicesPerRow < availableServices.length) {
+      row.push(null);
+    }
+    serviceRows.push(row);
+  }
+
+  // ==================== HANDLERS ====================
+  const handleServiceSelect = (service) => {
+    setServiceForDateSelection(service);
+    setShowDateSelection(true);
+  };
+
+  const handleDateConfirm = (slot, date) => {
+    if (!date || !slot) {
+      setAlert({ open: true, title: 'Lỗi', message: 'Vui lòng chọn ngày và khung giờ', type: 'error' });
+      return;
     }
 
+    setSelectedDate(date);
+    setSelectedSlot(slot);
+    setSelectedService(serviceForDateSelection);
+    setBookingData({
+      ...bookingData,
+      service: serviceForDateSelection,
+      selectedDate: date,
+      slotId: slot.id,
+      slot,
+      date,
+      time: slot.start_time,
+      pet_group_id: slot.pet_group_id || null,
+      pet_group: slot.pet_group || null,
+    });
 
-    // Handle service selection - show date selection popup
-    const handleServiceSelect = (service) => {
-        try {
-            if (!service) {
-                console.error('Service is null or undefined');
-                return;
-            }
-            setServiceForDateSelection(service);
-            setShowDateSelection(true);
-        } catch (error) {
-            console.error('Error selecting service:', error);
-            setAlert({
-                open: true,
-                title: 'Lỗi',
-                message: 'Có lỗi xảy ra khi chọn dịch vụ',
-                type: 'error'
-            });
-        }
-    };
+    setShowDateSelection(false);
+    setServiceForDateSelection(null);
+    setCurrentStep(1);
+  };
 
-    // Handle date selection confirmation
-    const handleDateConfirm = (slot, date) => {
-        if (!date || !slot) {
-            setAlert({
-                open: true,
-                title: 'Lỗi',
-                message: 'Vui lòng chọn ngày và khung giờ',
-                type: 'error'
-            });
-            return;
-        }
-        setSelectedDate(date);
-        setSelectedSlot(slot);
-        setSelectedService(serviceForDateSelection);
-        setBookingData({ 
-            ...bookingData, 
-            service: serviceForDateSelection, 
-            selectedDate: date,
-            slotId: slot.id,
-            slot: slot,
-            date: date,
-            time: slot.start_time,
-            pet_group_id: slot.pet_group_id || null,
-            pet_group: slot.pet_group || null
+  const handleBookingSubmit = (formData) => {
+    setBookingData({ ...bookingData, ...formData });
+    setCurrentStep(2);
+    setShowPayment(true);
+  };
+
+  const handlePaymentComplete = async (paymentData) => {
+    try {
+      setShowPayment(false);
+
+      const svc = bookingData.service;
+      const isCafe = !svc?.petRequired;
+
+      // Xây dựng bookingDateTime
+      let bookingDateTime = `${bookingData.date}T${bookingData.time || '09:00'}:00`;
+      if (isCafe && bookingData.slot?.start_time) {
+        bookingDateTime = `${bookingData.date}T${bookingData.slot.start_time}`;
+      }
+
+      const finalBookingData = {
+        ...bookingData,
+        ...paymentData,
+        bookingDateTime,
+        customerId: currentUser?.id,
+        status: 'pending',
+        paymentMethod: paymentData.paymentMethod,
+        paymentStatus: paymentData.status === 'completed' ? 'paid' : 'pending',
+        createdAt: new Date().toISOString(),
+      };
+
+      const res = await bookingApi.createBooking(finalBookingData);
+      if (res.success) {
+        setCompletedBooking(res.data);
+        setCurrentStep(3);
+        setShowConfirmation(true);
+        setAlert({
+          open: true,
+          title: 'Thành công',
+          message: 'Đặt dịch vụ thành công! Chúng tôi sẽ liên hệ sớm nhất.',
+          type: 'success',
         });
-        setShowDateSelection(false);
-        setServiceForDateSelection(null);
-        setCurrentStep(1);
-    };
-
-    // Handle booking form submission
-    const handleBookingSubmit = (formData) => {
-        setBookingData({ ...bookingData, ...formData });
-        setCurrentStep(2);
-        setShowPayment(true);
-    };
-
-    // Handle payment completion
-    const handlePaymentComplete = async (paymentData) => {
-        try {
-            setShowPayment(false);
-
-            // Build bookingDateTime depending on cafe vs pet service
-            const svc = bookingData.service;
-            const isCafe = svc?.petRequired === false;
-            let bookingDateTime = bookingData.bookingDateTime;
-            if (!bookingDateTime) {
-                if (isCafe) {
-                    // For cafe services, get start_time from selected slot
-                    const selectedSlot = svc?.slots?.find(slot => slot.id === bookingData.slotId);
-                    const sessionStart = selectedSlot?.start_time || bookingData.sessionId?.split('-').pop() || '09:00';
-                    bookingDateTime = `${bookingData.date}T${sessionStart}`;
-                } else if (bookingData.date && bookingData.time) {
-                    bookingDateTime = `${bookingData.date}T${bookingData.time}:00`;
-                } else if (bookingData.date && bookingData.slotId) {
-                    // Get time from selected slot
-                    const selectedSlot = svc?.slots?.find(slot => slot.id === bookingData.slotId);
-                    const slotStart = selectedSlot?.start_time || '09:00';
-                    bookingDateTime = `${bookingData.date}T${slotStart}`;
-                }
-            }
-
-            // Ensure pet object for pet-care services (fallback from petInfo)
-            let petForBooking = bookingData.pet;
-            if (!isCafe) {
-                if (!petForBooking && bookingData.petInfo) {
-                    petForBooking = {
-                        id: bookingData.petInfo?.id || `temp-pet-${Date.now()}`,
-                        name: bookingData.petInfo?.name || bookingData.petInfo?.breed || '',
-                        species: bookingData.petInfo?.species,
-                        breed: bookingData.petInfo?.breed,
-                        weight: bookingData.petInfo?.weight
-                    };
-                }
-            }
-
-            const completeBookingData = {
-                ...bookingData,
-                ...paymentData,
-                bookingDateTime,
-                pet: petForBooking,
-                pet_group_id: bookingData.pet_group_id || null,
-                pet_group: bookingData.pet_group || null,
-                customerId: currentUser.id,
-                status: 'pending',
-                paymentMethod: paymentData.paymentMethod,
-                paymentStatus: paymentData.status === 'completed' ? 'paid' : (paymentData.status || 'pending'),
-                createdAt: new Date().toISOString()
-            };
-
-            // Create booking
-            const response = await bookingApi.createBooking(completeBookingData);
-
-            if (response.success) {
-                setCompletedBooking(response.data);
-                setCurrentStep(3);
-                setShowConfirmation(true);
-                setAlert({
-                    open: true,
-                    title: 'Thành công',
-                    message: 'Đặt dịch vụ thành công! Chúng tôi sẽ liên hệ xác nhận trong thời gian sớm nhất.',
-                    type: 'success'
-                });
-            }
-        } catch (err) {
-            setAlert({
-                open: true,
-                title: 'Lỗi',
-                message: err.message || 'Có lỗi xảy ra khi xử lý thanh toán',
-                type: 'error'
-            });
-        }
-    };
-
-    // Handle feedback submission
-    const handleFeedbackSubmit = async (feedbackData) => {
-        try {
-            await feedbackApi.submitFeedback({
-                ...feedbackData,
-                bookingId: completedBooking?.id,
-                type: 'service_feedback'
-            });
-            setShowFeedback(false);
-            setAlert({
-                open: true,
-                title: 'Thành công',
-                message: 'Cảm ơn bạn đã gửi phản hồi!',
-                type: 'success'
-            });
-        } catch (err) {
-            setAlert({
-                open: true,
-                title: 'Lỗi',
-                message: err.message || 'Có lỗi xảy ra khi gửi phản hồi',
-                type: 'error'
-            });
-        }
-    };
-
-    // Reset booking process
-    const resetBooking = () => {
-        setSelectedService(null);
-        setBookingData({});
-        setCurrentStep(0);
-        setCompletedBooking(null);
-        setShowConfirmation(false);
-    };
-
-    if (loading) {
-        return (
-            <Loading
-                fullScreen={true}
-                variant="cafe"
-                size="large"
-                message="Đang tải dịch vụ Pet Cafe..."
-            />
-        );
+      }
+    } catch (err) {
+      setAlert({
+        open: true,
+        title: 'Lỗi thanh toán',
+        message: err.message || 'Thanh toán thất bại',
+        type: 'error',
+      });
     }
+  };
 
-    return (
-        <ErrorBoundary>
-            <Box sx={{
-                minHeight: '100vh',
-                width: '100%',
-                backgroundColor: COLORS.BACKGROUND.DEFAULT,
-                position: 'relative',
-                py: { xs: 2, sm: 3, md: 4 },
-                px: { xs: 1, sm: 2, md: 3 }
-            }}>
-                {/* Floating decorative elements - Removed to make background clearer */}
+  const handleFeedbackSubmit = async (feedbackData) => {
+    try {
+      await feedbackApi.submitFeedback({
+        ...feedbackData,
+        bookingId: completedBooking?.id,
+        type: 'service_feedback',
+      });
+      setShowFeedback(false);
+      setAlert({ open: true, title: 'Thành công', message: 'Cảm ơn phản hồi của bạn!', type: 'success' });
+    } catch (err) {
+      setAlert({ open: true, title: 'Lỗi', message: 'Gửi phản hồi thất bại', type: 'error' });
+    }
+  };
 
-                <Box sx={{
-                    py: historyMode ? 0.5 : 1,
-                    px: historyMode ? 0 : 0,
-                    position: 'relative',
-                    zIndex: 1,
-                    width: '100%',
-                    maxWidth: 'none',
-                    minHeight: '100vh'
-                }}>
-                    {/* Header */}
-                    {!historyMode && (
-                        <Fade in timeout={800}>
-                            <Box sx={{ textAlign: 'center', mb: 1 }}>
-                                <Typography
-                                    variant="h2"
-                                    sx={{
-                                        fontWeight: 'bold',
-                                        background: `linear-gradient(135deg, ${COLORS.ERROR[500]} 0%, ${COLORS.SECONDARY[600]} 100%)`,
-                                        backgroundClip: 'text',
-                                        WebkitBackgroundClip: 'text',
-                                        WebkitTextFillColor: 'transparent',
-                                        mb: 0.5,
-                                        fontFamily: '"Comic Sans MS", cursive',
-                                        fontSize: '1.8rem',
-                                        textAlign: 'center',
-                                        letterSpacing: '-0.02em'
-                                    }}
-                                >
-                                    🐾 Đặt dịch vụ Pet Cafe
-                                </Typography>
-                                <Typography
-                                    variant="h6"
-                                    sx={{
-                                        color: COLORS.TEXT.SECONDARY,
-                                        maxWidth: '600px',
-                                        mx: 'auto',
-                                        mb: 4
-                                    }}
-                                >
-                                    Chọn dịch vụ chăm sóc tốt nhất cho thú cưng của bạn
-                                </Typography>
+  const resetBooking = () => {
+    setSelectedService(null);
+    setBookingData({});
+    setCurrentStep(0);
+    setCompletedBooking(null);
+    setShowConfirmation(false);
+    setShowFeedback(false);
+  };
 
-                                {/* Progress Stepper */}
-                                <Box sx={{
-                                    maxWidth: 600,
-                                    mx: 'auto',
-                                    mb: 4,
-                                    p: 3,
-                                    backgroundColor: COLORS.BACKGROUND.DEFAULT,
-                                    borderRadius: 4,
-                                    border: `2px solid ${alpha(COLORS.ERROR[200], 0.3)}`,
-                                    boxShadow: `0 8px 32px ${alpha(COLORS.ERROR[200], 0.2)}`
-                                }}>
-                                    <Stepper activeStep={currentStep} alternativeLabel>
-                                        {steps.map((label, index) => (
-                                            <Step key={label}>
-                                                <StepLabel
-                                                    sx={{
-                                                        '& .MuiStepLabel-label': {
-                                                            color: index <= currentStep ? COLORS.ERROR[600] : COLORS.TEXT.SECONDARY,
-                                                            fontWeight: index <= currentStep ? 'bold' : 'normal'
-                                                        },
-                                                        '& .MuiStepIcon-root': {
-                                                            color: index <= currentStep ? COLORS.ERROR[500] : COLORS.GRAY[300]
-                                                        }
-                                                    }}
-                                                >
-                                                    {label}
-                                                </StepLabel>
-                                            </Step>
-                                        ))}
-                                    </Stepper>
-                                </Box>
-                            </Box>
-                        </Fade>
-                    )}
+  // ==================== RENDER ====================
+  if (loading) {
+    return <Loading fullScreen variant="cafe" size="large" message="Đang tải dịch vụ Pet Cafe..." />;
+  }
 
-                    {/* Step 0: Service Selection */}
-                    {currentStep === 0 && (
-                        <Fade in={true} timeout={1000} unmountOnExit={false}>
-                            <Box>
-                                {/* History Button */}
-                                <Box sx={{ mb: 4, display: 'flex', justifyContent: 'flex-end' }}>
-                                        <Button
-                                            variant="outlined"
-                                            onClick={async () => {
-                                                setHistoryMode(true);
-                                                setCurrentStep(3);
-                                                setLoadingHistory(true);
-                                                try {
-                                                    const res = await bookingApi.getMyBookings({});
-                                                    if (res.success) setHistory(res.data);
-                                                } catch (e) {
-                                                    setHistory([]);
-                                                } finally {
-                                                    setLoadingHistory(false);
-                                                }
-                                            }}
-                                        >
-                                            Xem lịch sử đặt lịch
-                                        </Button>
-                                </Box>
+  return (
+    <ErrorBoundary>
+      <Box
+        sx={{
+          minHeight: '100vh',
+          backgroundColor: COLORS.BACKGROUND.DEFAULT,
+          py: { xs: 2, sm: 3, md: 4 },
+          px: { xs: 1, sm: 2, md: 3 },
+        }}
+      >
+        <Container maxWidth="xl" sx={{ position: 'relative', zIndex: 1 }}>
 
-                                {/* Services Grid - Fixed 3 cards per row with equal height */}
-                                {serviceRows && serviceRows.length > 0 && serviceRows.map((rowServices, rowIndex) => (
-                                    <Box key={rowIndex} sx={{ mb: 3 }}>
-                                        <Box sx={{
-                                            display: 'grid',
-                                            gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' },
-                                            gap: 3,
-                                            '& > *': {
-                                                minHeight: '500px' // Fixed height for all cards
-                                            }
-                                        }}>
-                                            {rowServices && rowServices.map((service, cardIndex) => {
-                                                // Bỏ qua empty slots (null) khi render
-                                                if (!service) return null;
-                                                
-                                                return (
-                                                    <Box key={service.id}>
-                                                        <Grow
-                                                            in={true}
-                                                            timeout={800 + (rowIndex * 3 + cardIndex) * 100}
-                                                            style={{ transformOrigin: '0 0 0' }}
-                                                        >
-                                                            <Box>
-                                                                <ServiceCard
-                                                                    service={service}
-                                                                    onSelect={() => handleServiceSelect(service)}
-                                                                    onCardClick={() => handleServiceSelect(service)}
-                                                                />
-                                                            </Box>
-                                                        </Grow>
-                                                </Box>
-                                                );
-                                            })}
-                                        </Box>
-                                    </Box>
-                                ))}
+          {/* Header + Stepper */}
+          {!historyMode && (
+            <Fade in timeout={800}>
+              <Box sx={{ textAlign: 'center', mb: 4 }}>
+                <Typography
+                  variant="h2"
+                  sx={{
+                    fontWeight: 'bold',
+                    background: `linear-gradient(135deg, ${COLORS.ERROR[500]} 0%, ${COLORS.SECONDARY[600]} 100%)`,
+                    backgroundClip: 'text',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    fontFamily: '"Comic Sans MS", cursive',
+                    fontSize: { xs: '2rem', md: '3rem' },
+                  }}
+                >
+                  Đặt dịch vụ Pet Cafe
+                </Typography>
+                <Typography variant="h6" color="text.secondary" sx={{ maxWidth: 600, mx: 'auto', mb: 4 }}>
+                  Chọn dịch vụ chăm sóc tốt nhất cho thú cưng của bạn
+                </Typography>
 
-                                {loading ? (
-                                    <Box sx={{ textAlign: 'center', py: 8 }}>
-                                        <Loading
-                                            message="Đang tải danh sách dịch vụ..."
-                                            size="large"
-                                            variant="cafe"
-                                        />
-                                    </Box>
-                                ) : availableServices.length === 0 ? (
-                                    <Grow in={true} timeout={600}>
-                                        <Card sx={{
-                                            height: 400,
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            background: `linear-gradient(135deg, 
-                                            ${alpha(COLORS.GRAY[100], 0.8)} 0%, 
-                                            ${alpha(COLORS.GRAY[50], 0.6)} 100%
-                                        )`,
-                                            border: `2px dashed ${alpha(COLORS.GRAY[300], 0.5)}`,
-                                            borderRadius: 4
-                                        }}>
-                                            <CardContent sx={{ textAlign: 'center' }}>
-                                                <Pets sx={{ fontSize: 64, color: COLORS.GRAY[400], mb: 2 }} />
-                                                <Typography variant="h5" sx={{ color: COLORS.GRAY[600], mb: 1 }}>
-                                                    Không có dịch vụ nào
-                                                </Typography>
-                                                <Typography variant="body1" color="text.secondary">
-                                                    Hiện tại chưa có dịch vụ nào khả dụng
-                                                </Typography>
-                                            </CardContent>
-                                        </Card>
-                                    </Grow>
-                                ) : null}
-                            </Box>
-                        </Fade>
-                    )}
+                <Box sx={{ maxWidth: 600, mx: 'auto', p: 3, backgroundColor: 'background.paper', borderRadius: 4, boxShadow: 3 }}>
+                  <Stepper activeStep={currentStep} alternativeLabel>
+                    {steps.map((label, idx) => (
+                      <Step key={label}>
+                        <StepLabel
+                          sx={{
+                            '& .MuiStepLabel-label': {
+                              color: idx <= currentStep ? COLORS.ERROR[600] : 'text.secondary',
+                              fontWeight: idx <= currentStep ? 'bold' : 'normal',
+                            },
+                            '& .MuiStepIcon-root': {
+                              color: idx <= currentStep ? COLORS.ERROR[500] : 'grey.300',
+                            },
+                          }}
+                        >
+                          {label}
+                        </StepLabel>
+                      </Step>
+                    ))}
+                  </Stepper>
+                </Box>
+              </Box>
+            </Fade>
+          )}
 
-                    {/* Step 1: Booking Form */}
-                    {currentStep === 1 && selectedService && (
-                        <Suspense fallback={<Loading message="Đang tải form..." />}>
-                            <Box sx={{ mt: 4 }}>
-                                <BookingForm
-                                    service={selectedService}
-                                    bookingData={bookingData}
-                                    onSubmit={handleBookingSubmit}
-                                    onBack={() => setCurrentStep(0)}
-                                />
-                            </Box>
-                        </Suspense>
-                    )}
-
-                    {/* Step 3: Confirmation Fallback Page (in case modal is closed) */}
-                    {currentStep === 3 && !historyMode && completedBooking && (
-                        <Fade in={true} timeout={600} unmountOnExit={false}>
-                            <Box sx={{ maxWidth: 960, mx: 'auto', mt: 2 }}>
-                                <Card sx={{
-                                    borderRadius: 4,
-                                    border: `2px solid ${alpha(COLORS.SUCCESS[200], 0.4)}`,
-                                    background: `linear-gradient(135deg, ${alpha(COLORS.BACKGROUND.DEFAULT, 0.98)} 0%, ${alpha(COLORS.SUCCESS[50], 0.8)} 100%)`
-                                }}>
-                                    <CardContent sx={{ p: 3 }}>
-                                        <Box sx={{ textAlign: 'center', mb: 3 }}>
-                                            <CheckCircle sx={{ fontSize: 40, color: COLORS.SUCCESS[500], mb: 1 }} />
-                                            <Typography variant="h6" fontWeight="bold" sx={{ color: COLORS.SUCCESS[700] }}>
-                                                Đặt lịch thành công!
-                                            </Typography>
-                                            <Typography variant="body2" color="text.secondary">
-                                                Chúng tôi đã nhận được yêu cầu và sẽ liên hệ xác nhận trong thời gian sớm nhất.
-                                            </Typography>
-                                        </Box>
-
-                                        <Grid container spacing={2}>
-                                            <Grid item xs={12} md={8}>
-                                                <Box>
-                                                    <Typography variant="body2" color="text.secondary">Dịch vụ</Typography>
-                                                    <Typography variant="subtitle1" fontWeight="bold">{completedBooking?.service?.name}</Typography>
-                                                </Box>
-                                                <Box sx={{ mt: 1 }}>
-                                                    <Typography variant="body2" color="text.secondary">Thời gian</Typography>
-                                                    <Typography variant="subtitle2" fontWeight="bold">{new Date(completedBooking?.bookingDateTime).toLocaleString('vi-VN')}</Typography>
-                                                </Box>
-                                            </Grid>
-                                            <Grid item xs={12} md={4}>
-                                                <Box sx={{ p: 2, borderRadius: 2, backgroundColor: alpha(COLORS.ERROR[50], 0.6), border: `1px solid ${alpha(COLORS.ERROR[200], 0.6)}` }}>
-                                                    <Typography variant="body2" color="text.secondary">Tổng cộng</Typography>
-                                                    <Typography variant="h6" fontWeight="bold" sx={{ color: COLORS.ERROR[700] }}>
-                                                        {formatPrice(completedBooking?.finalPrice || completedBooking?.service?.base_price || completedBooking?.service?.price || 0)}
-                                                    </Typography>
-                                                    <Typography variant="caption" sx={{ display: 'block', mt: 0.5 }}>
-                                                        Trạng thái thanh toán: {completedBooking?.paymentStatus === 'paid' ? 'Đã thanh toán' : 'Chưa thanh toán'}
-                                                    </Typography>
-                                                </Box>
-                                            </Grid>
-                                        </Grid>
-
-                                        <Box sx={{ mt: 3, display: 'flex', gap: 2, justifyContent: 'center' }}>
-                                            <Button variant="outlined" onClick={resetBooking}>
-                                                Quay về trang đặt dịch vụ
-                                            </Button>
-                                            <Button variant="outlined" onClick={() => setShowConfirmation(true)}>
-                                                Xem chi tiết
-                                            </Button>
-                                            <Button variant="contained" onClick={resetBooking}>
-                                                Đặt lịch mới
-                                            </Button>
-                                        </Box>
-                                    </CardContent>
-                                </Card>
-                            </Box>
-                        </Fade>
-                    )}
-
-                    {currentStep === 3 && historyMode && (
-                        <Fade in={true} timeout={400} unmountOnExit={false}>
-                            <Box sx={{ maxWidth: 1600, mx: 'auto', mt: 1 }}>
-                                <Card sx={{
-                                    borderRadius: 2,
-                                    border: `1px solid ${alpha(COLORS.INFO[200], 0.5)}`,
-                                    background: COLORS.BACKGROUND.DEFAULT,
-                                    boxShadow: `0 6px 18px ${alpha(COLORS.INFO[300], 0.25)}`
-                                }}>
-                                    <CardContent sx={{ p: 2 }}>
-                                        <Typography variant="h5" fontWeight="bold" sx={{ mb: 1, color: COLORS.INFO[700] }}>
-                                            Lịch sử đặt lịch
-                                        </Typography>
-                                        {loadingHistory ? (
-                                            <Box sx={{ py: 4, textAlign: 'center' }}>
-                                                <Loading message="Đang tải lịch sử..." />
-                                            </Box>
-                                        ) : (
-                                            <TableContainer>
-                                                <Table size="small" stickyHeader>
-                                                    <TableHead sx={{ '& th': { backgroundColor: alpha(COLORS.INFO[50], 0.8) } }}>
-                                                        <TableRow>
-                                                            <TableCell>Dịch vụ</TableCell>
-                                                            <TableCell>Thời gian</TableCell>
-                                                            <TableCell>Trạng thái dịch vụ</TableCell>
-                                                            <TableCell>Trạng thái thanh toán</TableCell>
-                                                            <TableCell align="right">Hành động</TableCell>
-                                                        </TableRow>
-                                                    </TableHead>
-                                                    <TableBody>
-                                                        {history.map((bk) => (
-                                                            <TableRow key={bk.id} hover sx={{ '&:nth-of-type(odd)': { backgroundColor: alpha(COLORS.GRAY[50], 0.6) } }}>
-                                                                <TableCell sx={{ fontWeight: 600 }}>{bk.service?.name || (services?.find((s) => s.id === bk.serviceId)?.name) || '—'}</TableCell>
-                                                                <TableCell>{new Date(bk.bookingDateTime).toLocaleString('vi-VN')}</TableCell>
-                                                                <TableCell>
-                                                                    {(() => {
-                                                                        const status = bk.status || 'pending';
-                                                                        const label = status === 'completed' ? 'Đã hoàn thành' : status === 'confirmed' ? 'Đã xác nhận' : status === 'cancelled' ? 'Đã hủy' : 'Đang chờ';
-                                                                        const color = status === 'completed' ? 'success' : status === 'confirmed' ? 'info' : status === 'cancelled' ? 'default' : 'warning';
-                                                                        return <Chip size="small" label={label} color={color} />;
-                                                                    })()}
-                                                                </TableCell>
-                                                                <TableCell>
-                                                                    <Chip size="small" label={bk.paymentStatus === 'paid' ? 'Đã thanh toán' : 'Chưa thanh toán'} color={bk.paymentStatus === 'paid' ? 'success' : 'warning'} />
-                                                                </TableCell>
-                                                                <TableCell align="right">
-                                                                    <Button size="small" variant="outlined" onClick={() => { setCompletedBooking(bk); setShowConfirmation(true); }}>
-                                                                        Xem chi tiết
-                                                                    </Button>
-                                                                </TableCell>
-                                                            </TableRow>
-                                                        ))}
-                                                        {history.length === 0 && (
-                                                            <TableRow>
-                                                                <TableCell colSpan={4} align="center">
-                                                                    <Typography color="text.secondary">Chưa có lịch đặt nào</Typography>
-                                                                </TableCell>
-                                                            </TableRow>
-                                                        )}
-                                                    </TableBody>
-                                                </Table>
-                                            </TableContainer>
-                                        )}
-                                        <Box sx={{ mt: 2, textAlign: 'center' }}>
-                                            <Button variant="outlined" onClick={() => { setHistoryMode(false); resetBooking(); }}>
-                                                Quay về trang đặt dịch vụ
-                                            </Button>
-                                        </Box>
-                                    </CardContent>
-                                </Card>
-                            </Box>
-                        </Fade>
-                    )}
-
-                    {/* Payment Modal */}
-                    <Suspense fallback={<div>Loading...</div>}>
-                        <PaymentModal
-                            open={showPayment}
-                            onClose={() => setShowPayment(false)}
-                            bookingData={bookingData}
-                            onPaymentComplete={handlePaymentComplete}
-                            onBackToForm={() => { setShowPayment(false); resetBooking(); }}
-                        />
-                    </Suspense>
-
-                    {/* Booking Confirmation Modal */}
-                    <Suspense fallback={<div>Loading...</div>}>
-                        <BookingConfirmation
-                            open={showConfirmation}
-                            onClose={() => setShowConfirmation(false)}
-                            booking={completedBooking}
-                            onNewBooking={resetBooking}
-                            onFeedback={() => setShowFeedback(true)}
-                            onBackToPage={() => { setShowConfirmation(false); resetBooking(); }}
-                        />
-                    </Suspense>
-
-
-                    {/* Feedback Modal */}
-                    <Suspense fallback={<div>Loading...</div>}>
-                        <FeedbackModal
-                            open={showFeedback}
-                            onClose={() => setShowFeedback(false)}
-                            booking={completedBooking}
-                            onSubmit={handleFeedbackSubmit}
-                        />
-                    </Suspense>
-
-                    {/* Date Selection Modal */}
-                    <BookingDateModal
-                        open={showDateSelection}
-                        onClose={() => {
-                            setShowDateSelection(false);
-                            setServiceForDateSelection(null);
-                            setSelectedDate('');
-                            setSelectedSlot(null);
-                        }}
-                        service={serviceForDateSelection}
-                        onConfirm={handleDateConfirm}
-                    />
+          {/* Bước 0: Chọn dịch vụ */}
+          {currentStep === 0 && !historyMode && (
+            <Fade in timeout={1000}>
+              <Box>
+                <Box sx={{ mb: 4, textAlign: 'right' }}>
+                  <Button
+                    variant="outlined"
+                    onClick={async () => {
+                      setHistoryMode(true);
+                      setCurrentStep(3);
+                      setLoadingHistory(true);
+                      try {
+                        const res = await bookingApi.getMyBookings();
+                        if (res.success) setHistory(res.data || []);
+                      } catch {
+                        setHistory([]);
+                      } finally {
+                        setLoadingHistory(false);
+                      }
+                    }}
+                  >
+                    Xem lịch sử đặt lịch
+                  </Button>
                 </Box>
 
-                {/* Alert Modal */}
-                <AlertModal
-                    isOpen={alert.open}
-                    onClose={() => setAlert({ ...alert, open: false })}
-                    title={alert.title}
-                    message={alert.message}
-                    type={alert.type}
-                />
+                {/* Grid 3 cột cố định */}
+                {serviceRows.map((row, rowIdx) => (
+                  <Box key={rowIdx} sx={{ mb: 4 }}>
+                    <Grid container spacing={3}>
+                      {row.map((service, idx) =>
+                        service ? (
+                          <Grid item xs={12} sm={6} md={4} key={service.id}>
+                            <Grow in timeout={800 + (rowIdx * 3 + idx) * 150}>
+                              <div>
+                                <ServiceCard
+                                  service={service}
+                                  onSelect={() => handleServiceSelect(service)}
+                                  onCardClick={() => handleServiceSelect(service)}
+                                />
+                              </div>
+                            </Grow>
+                          </Grid>
+                        ) : (
+                          <Grid item xs={12} sm={6} md={4} key={`empty-${idx}`} />
+                        )
+                      )}
+                    </Grid>
+                  </Box>
+                ))}
+
+                {availableServices.length === 0 && (
+                  <Card sx={{ p: 6, textAlign: 'center' }}>
+                    <Pets sx={{ fontSize: 80, color: 'grey.400', mb: 2 }} />
+                    <Typography variant="h5" color="text.secondary">
+                      Hiện tại chưa có dịch vụ nào khả dụng
+                    </Typography>
+                  </Card>
+                )}
+              </Box>
+            </Fade>
+          )}
+
+          {/* Bước 1: Form */}
+          {currentStep === 1 && selectedService && (
+            <Suspense fallback={<Loading message="Đang tải form..." />}>
+              <BookingForm
+                service={selectedService}
+                bookingData={bookingData}
+                onSubmit={handleBookingSubmit}
+                onBack={() => setCurrentStep(0)}
+              />
+            </Suspense>
+          )}
+
+          {/* Bước 3: Xác nhận (fallback khi modal đóng) */}
+          {currentStep === 3 && !historyMode && completedBooking && (
+            <Box sx={{ maxWidth: 960, mx: 'auto', mt: 4 }}>
+              {/* Nội dung xác nhận – bạn có thể để BookingConfirmation modal xử lý chính */}
             </Box>
-        </ErrorBoundary>
-    );
+          )}
+
+          {/* Lịch sử đặt lịch */}
+          {historyMode && (
+            <Fade in timeout={400}>
+              <Box sx={{ maxWidth: 1400, mx: 'auto', mt: 2 }}>
+                <Card>
+                  <CardContent>
+                    <Typography variant="h5" fontWeight="bold" color="primary" gutterBottom>
+                      Lịch sử đặt lịch
+                    </Typography>
+
+                    {loadingHistory ? (
+                      <Loading message="Đang tải lịch sử..." />
+                    ) : (
+                      <TableContainer component={Paper} elevation={2}>
+                        <Table size="small">
+                          <TableHead>
+                            <TableRow sx={{ backgroundColor: alpha(COLORS.INFO[50], 0.8) }}>
+                              <TableCell>Dịch vụ</TableCell>
+                              <TableCell>Thời gian</TableCell>
+                              <TableCell>Trạng thái dịch vụ</TableCell>
+                              <TableCell>Thanh toán</TableCell>
+                              <TableCell align="right">Hành động</TableCell>
+                            </TableRow>
+                          </TableHead>
+                          <TableBody>
+                            {history.length === 0 ? (
+                              <TableRow>
+                                <TableCell colSpan={5} align="center">
+                                  Chưa có lịch đặt nào
+                                </TableCell>
+                              </TableRow>
+                            ) : (
+                              history.map((bk) => (
+                                <TableRow key={bk.id} hover>
+                                  <TableCell>{bk.service?.name || '—'}</TableCell>
+                                  <TableCell>{new Date(bk.bookingDateTime).toLocaleString('vi-VN')}</TableCell>
+                                  <TableCell>
+                                    <Chip
+                                      size="small"
+                                      label={
+                                        bk.status === 'completed'
+                                          ? 'Hoàn thành'
+                                          : bk.status === 'confirmed'
+                                          ? 'Đã xác nhận'
+                                          : bk.status === 'cancelled'
+                                          ? 'Đã hủy'
+                                          : 'Chờ xác nhận'
+                                      }
+                                      color={
+                                        bk.status === 'completed'
+                                          ? 'success'
+                                          : bk.status === 'confirmed'
+                                          ? 'info'
+                                          : bk.status === 'cancelled'
+                                          ? 'default'
+                                          : 'warning'
+                                      }
+                                    />
+                                  </TableCell>
+                                  <TableCell>
+                                    <Chip
+                                      size="small"
+                                      label={bk.paymentStatus === 'paid' ? 'Đã thanh toán' : 'Chưa thanh toán'}
+                                      color={bk.paymentStatus === 'paid' ? 'success' : 'warning'}
+                                    />
+                                  </TableCell>
+                                  <TableCell align="right">
+                                    <Button
+                                      size="small"
+                                      variant="outlined"
+                                      onClick={() => {
+                                        setCompletedBooking(bk);
+                                        setShowConfirmation(true);
+                                      }}
+                                    >
+                                      Xem chi tiết
+                                    </Button>
+                                  </TableCell>
+                                </TableRow>
+                              ))
+                            )}
+                          </TableBody>
+                        </Table>
+                      </TableContainer>
+                    )}
+
+                    <Box sx={{ mt: 3, textAlign: 'center' }}>
+                      <Button
+                        variant="outlined"
+                        onClick={() => {
+                          setHistoryMode(false);
+                          resetBooking();
+                        }}
+                      >
+                        Quay về đặt dịch vụ
+                      </Button>
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Box>
+            </Fade>
+          )}
+        </Container>
+
+        {/* Các Modal */}
+        <Suspense fallback={null}>
+          <PaymentModal
+            open={showPayment}
+            onClose={() => setShowPayment(false)}
+            bookingData={bookingData}
+            onPaymentComplete={handlePaymentComplete}
+            onBackToForm={() => {
+              setShowPayment(false);
+              setCurrentStep(1);
+            }}
+          />
+
+          <BookingConfirmation
+            open={showConfirmation}
+            onClose={() => setShowConfirmation(false)}
+            booking={completedBooking}
+            onNewBooking={resetBooking}
+            onFeedback={() => setShowFeedback(true)}
+            onBackToPage={() => {
+              setShowConfirmation(false);
+              resetBooking();
+            }}
+          />
+
+          <FeedbackModal
+            open={showFeedback}
+            onClose={() => setShowFeedback(false)}
+            booking={completedBooking}
+            onSubmit={handleFeedbackSubmit}
+          />
+
+          <BookingDateModal
+            open={showDateSelection}
+            onClose={() => {
+              setShowDateSelection(false);
+              setServiceForDateSelection(null);
+            }}
+            service={serviceForDateSelection}
+            onConfirm={handleDateConfirm}
+          />
+        </Suspense>
+
+        <AlertModal
+          isOpen={alert.open}
+          onClose={() => setAlert({ ...alert, open: false })}
+          title={alert.title}
+          message={alert.message}
+          type={alert.type}
+        />
+      </Box>
+    </ErrorBoundary>
+  );
 };
 
 export default BookingPage;
