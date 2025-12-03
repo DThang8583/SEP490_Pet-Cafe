@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
     Box,
     Card,
@@ -6,287 +6,51 @@ import {
     Typography,
     TextField,
     Button,
-    Grid,
-    Alert,
     Stack,
-    Chip,
-    Divider,
-    Fade,
-    InputAdornment,
-    Avatar,
     Paper,
-    Select,
-    MenuItem,
-    FormControl
+    Fade,
+    Chip,
+    CardMedia,
+    Divider
 } from '@mui/material';
 import {
     CalendarToday,
     Schedule,
     Person,
     Phone,
-    Email,
-    LocationOn,
-    CheckCircle,
     ArrowBack,
-    Payment,
+    AccessTime,
+    People,
+    Note,
     Pets,
-    Favorite,
-    Star,
-    Home,
-    Cake
+    Spa,
+    ShoppingCart
 } from '@mui/icons-material';
 import { alpha } from '@mui/material/styles';
 import { COLORS } from '../../constants/colors';
-import Loading from '../../components/loading/Loading';
-import { bookingApi } from '../../api/bookingApi';
-import petsApi from '../../api/petsApi';
 import { formatPrice } from '../../utils/formatPrice';
-import CalendarGrid from './CalendarGrid';
+import { WEEKDAY_LABELS } from '../../api/slotApi';
 
-const BookingForm = ({ service, onBack, onSubmit }) => {
-    // Defaults for cafe-service display when backend data not provided
-    const DEFAULT_CAFE_PET_GROUP = ['Nhóm pet thân thiện', 'Đã huấn luyện cơ bản'];
-    const DEFAULT_CAFE_AREA = 'Khu trải nghiệm A';
+const BookingForm = ({ service, bookingData: initialBookingData, onBack, onSubmit }) => {
     const [formData, setFormData] = useState({
         selectedDate: '',
-        selectedTime: '',
-        petId: '',
-        petInfo: {
-            species: '',
-            breed: '',
-            weight: ''
-        },
         customerInfo: {
             name: '',
-            phone: '',
-            email: '',
-            address: ''
+            phone: ''
         }
     });
 
-    const [availableSlots, setAvailableSlots] = useState([]);
-    // Cafe-service sessions
-    const isCafeService = service?.petRequired === false;
-    const [availableSessions, setAvailableSessions] = useState([]);
-    const [selectedSessionId, setSelectedSessionId] = useState('');
-    const [selectedDateForSession, setSelectedDateForSession] = useState('');
-    const [selectedCafeDetail, setSelectedCafeDetail] = useState(null);
-    const [checkingAvailability, setCheckingAvailability] = useState(false);
-    const [pets, setPets] = useState([]);
-    const [loadingPets, setLoadingPets] = useState(false);
     const [errors, setErrors] = useState({});
 
-    useEffect(() => {
-        // Chỉ load pets nếu service yêu cầu thú cưng
-        if (service.petRequired !== false) {
-            loadPets();
-        }
-    }, [service.petRequired]);
-
-    // Load cafe sessions when date changes (for cafe_service)
-    useEffect(() => {
-        const fetchSessions = async () => {
-            if (!isCafeService || !selectedDateForSession) return;
-            try {
-                const res = await bookingApi.getCafeSessions(service.id, selectedDateForSession);
-                if (res.success) {
-                    setAvailableSessions(res.data.sessions || []);
-                }
-            } catch (e) {
-                setAvailableSessions([]);
-            }
-        };
-        fetchSessions();
-    }, [isCafeService, selectedDateForSession, service?.id]);
-
-    const loadPets = async () => {
-        if (service.petRequired === false) return;
-
-        setLoadingPets(true);
-        try {
-            const response = await petsApi.getAllPets({ page_size: 1000 });
-            setPets(response?.data || []);
-        } catch (error) {
-            console.warn('Không thể tải danh sách thú cưng:', error.message);
-            // Nếu không có quyền truy cập, vẫn cho phép người dùng nhập thông tin thủ công
-            // Điều này không ảnh hưởng đến quá trình đặt lịch
-            setPets([]);
-        } finally {
-            setLoadingPets(false);
-        }
-    };
-
-    const getMinDate = () => {
-        const today = new Date();
-        // For cafe services, clamp to service start date if provided
-        const min = service?.serviceStartDate ? new Date(service.serviceStartDate) : today;
-        return new Date(Math.max(min.getTime(), today.setHours(0, 0, 0, 0))).toISOString().split('T')[0];
-    };
-
-    const getMaxDate = () => {
-        // For cafe services, clamp to service end date if provided
-        if (service?.serviceEndDate) return service.serviceEndDate;
-        const maxDate = new Date();
-        maxDate.setDate(maxDate.getDate() + 30);
-        return maxDate.toISOString().split('T')[0];
-    };
-
-    const checkAvailability = async (date) => {
-        if (!date) {
-            setAvailableSlots([]);
-            return;
-        }
-
-        const today = new Date();
-        const selectedDate = new Date(date);
-        const isToday = selectedDate.toDateString() === today.toDateString();
-
-        // Tạo một bản sao của today để so sánh ngày
-        const todayForComparison = new Date();
-        todayForComparison.setHours(0, 0, 0, 0);
-        const isPastDate = selectedDate < todayForComparison;
-
-        const currentHour = today.getHours();
-        const currentMinute = today.getMinutes();
-        const currentTime = currentHour * 60 + currentMinute;
-
-        console.log('Date check:', {
-            selectedDate: selectedDate.toDateString(),
-            today: today.toDateString(),
-            isToday,
-            isPastDate,
-            currentHour,
-            currentMinute,
-            currentTime
-        });
-
-        // Nếu chọn ngày quá khứ, không hiển thị giờ nào
-        if (isPastDate) {
-            setAvailableSlots([]);
-            return;
-        }
-
-        // Luôn hiển thị khung giờ cố định, không cần API
-        const allSlots = [
-            { time: '08:00', available: true },
-            { time: '09:00', available: true },
-            { time: '10:00', available: true },
-            { time: '11:00', available: true },
-            { time: '14:00', available: true },
-            { time: '15:00', available: true },
-            { time: '16:00', available: true },
-            { time: '17:00', available: true }
-        ];
-
-        // Nếu chọn ngày hôm nay, chỉ hiển thị các giờ trong tương lai
-        let filteredSlots = allSlots;
-        if (isToday) {
-            console.log('Today selected - Current time:', currentTime, 'Current hour:', currentHour, 'Current minute:', currentMinute);
-            console.log('All slots before filtering:', allSlots);
-
-            filteredSlots = allSlots.filter(slot => {
-                const [slotHour, slotMinute] = slot.time.split(':').map(Number);
-                const slotTime = slotHour * 60 + slotMinute;
-                const isFuture = slotTime > currentTime;
-                console.log(`Slot ${slot.time}: ${slotTime} > ${currentTime} = ${isFuture}`);
-                // Chỉ hiển thị giờ trong tương lai (lớn hơn giờ hiện tại)
-                return isFuture;
-            });
-            console.log('Filtered slots for today:', filteredSlots);
-        }
-
-        setAvailableSlots(filteredSlots);
-    };
-
-    const handleFieldChange = (field, value) => {
-        setFormData(prev => ({
-            ...prev,
-            [field]: value
-        }));
-
-        // Clear related errors
-        setErrors(prev => ({
-            ...prev,
-            [field]: null
-        }));
-
-        // Check availability when date changes
-        if (field === 'selectedDate') {
+    // Initialize selectedDate and other data from bookingData if available
+    React.useEffect(() => {
+        if (service && initialBookingData) {
             setFormData(prev => ({
                 ...prev,
-                selectedTime: '' // Clear selected time when date changes
+                selectedDate: initialBookingData.selectedDate || initialBookingData.date || ''
             }));
-
-            // Real-time validation for date selection
-            if (value) {
-                const today = new Date();
-                const selectedDate = new Date(value);
-
-                if (selectedDate < today.setHours(0, 0, 0, 0)) {
-                    setErrors(prev => ({
-                        ...prev,
-                        selectedDate: 'Không thể chọn ngày trong quá khứ',
-                        selectedTime: null // Clear time error when date is invalid
-                    }));
-                } else {
-                    // Clear date error if date is valid
-                    setErrors(prev => ({
-                        ...prev,
-                        selectedDate: null
-                    }));
-                }
-            }
-
-            checkAvailability(value);
         }
-
-        // Real-time validation for time selection
-        if (field === 'selectedTime' && value) {
-            const today = new Date();
-            const selectedDate = new Date(formData.selectedDate);
-            const isToday = selectedDate.toDateString() === today.toDateString();
-
-            if (isToday) {
-                const currentHour = today.getHours();
-                const currentMinute = today.getMinutes();
-                const currentTime = currentHour * 60 + currentMinute;
-                const [selectedHour, selectedMinute] = value.split(':').map(Number);
-                const selectedTime = selectedHour * 60 + selectedMinute;
-
-                if (selectedTime <= currentTime) {
-                    setErrors(prev => ({
-                        ...prev,
-                        selectedTime: 'Không thể chọn giờ trong quá khứ'
-                    }));
-                } else {
-                    // Clear error if time is valid
-                    setErrors(prev => ({
-                        ...prev,
-                        selectedTime: null
-                    }));
-                }
-            }
-        }
-    };
-
-    const handlePetInfoChange = (field, value) => {
-        setFormData(prev => ({
-            ...prev,
-            petInfo: {
-                ...prev.petInfo,
-                [field]: value
-            }
-        }));
-
-        // Clear related errors
-        setErrors(prev => ({
-            ...prev,
-            petInfo: {
-                ...prev.petInfo,
-                [field]: null
-            }
-        }));
-    };
+    }, [service, initialBookingData]);
 
     const handleCustomerInfoChange = (field, value) => {
         setFormData(prev => ({
@@ -310,53 +74,22 @@ const BookingForm = ({ service, onBack, onSubmit }) => {
     const validateForm = () => {
         const newErrors = {};
 
-        if (isCafeService) {
-            if (!formData.selectedDate) {
-                newErrors.selectedDate = 'Vui lòng chọn ngày';
-            }
-            if (!formData.selectedTime) {
-                newErrors.selectedTime = 'Vui lòng chọn ca dịch vụ';
-            }
+        // Check if date is selected (from formData or bookingData)
+        const selectedDate = formData.selectedDate || initialBookingData?.selectedDate || initialBookingData?.date;
+        if (!selectedDate) {
+            newErrors.selectedDate = 'Vui lòng chọn ngày đặt lịch';
         } else {
-            if (!formData.selectedDate) {
-                newErrors.selectedDate = 'Vui lòng chọn ngày';
-            } else {
-                // Kiểm tra ngày không được là hôm nay hoặc quá khứ
-                const today = new Date();
-                const selectedDate = new Date(formData.selectedDate);
-                const isToday = selectedDate.toDateString() === today.toDateString();
-
-                if (selectedDate < today.setHours(0, 0, 0, 0)) {
-                    newErrors.selectedDate = 'Không thể chọn ngày trong quá khứ';
-                } else if (isToday && formData.selectedTime) {
-                    // Kiểm tra giờ nếu chọn ngày hôm nay
-                    const currentHour = today.getHours();
-                    const currentMinute = today.getMinutes();
-                    const currentTime = currentHour * 60 + currentMinute;
-                    const [selectedHour, selectedMinute] = formData.selectedTime.split(':').map(Number);
-                    const selectedTime = selectedHour * 60 + selectedMinute;
-
-                    if (selectedTime <= currentTime) {
-                        newErrors.selectedTime = 'Không thể chọn giờ trong quá khứ';
-                    }
-                }
-            }
-
-            if (!formData.selectedTime) {
-                newErrors.selectedTime = 'Vui lòng chọn khung giờ';
-            }
-
-            // Validate pet info
-            if (!formData.petInfo?.species) {
-                newErrors.petInfo = { ...newErrors.petInfo, species: 'Vui lòng chọn loài thú cưng' };
-            }
-
-            if (!formData.petInfo?.breed?.trim()) {
-                newErrors.petInfo = { ...newErrors.petInfo, breed: 'Vui lòng nhập giống thú cưng' };
-            }
-
-            if (!formData.petInfo?.weight?.trim()) {
-                newErrors.petInfo = { ...newErrors.petInfo, weight: 'Vui lòng nhập cân nặng thú cưng' };
+            // Validate date is not in the past
+            // Parse date string as local date to avoid timezone issues
+            const [year, month, day] = selectedDate.split('-').map(Number);
+            const dateToValidate = new Date(year, month - 1, day);
+            dateToValidate.setHours(0, 0, 0, 0);
+            
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            if (dateToValidate < today) {
+                newErrors.selectedDate = 'Không thể chọn ngày trong quá khứ';
             }
         }
 
@@ -368,108 +101,109 @@ const BookingForm = ({ service, onBack, onSubmit }) => {
             newErrors.customerInfo = { ...newErrors.customerInfo, phone: 'Vui lòng nhập số điện thoại' };
         }
 
-        if (!formData.customerInfo.email.trim()) {
-            newErrors.customerInfo = { ...newErrors.customerInfo, email: 'Vui lòng nhập email' };
-        }
-
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
 
-    // Function to check if all required fields are filled
     const isFormComplete = () => {
-        const contactOk = formData.customerInfo.name.trim() && formData.customerInfo.phone.trim() && formData.customerInfo.email.trim();
-        if (isCafeService) {
-            return !!formData.selectedDate && !!formData.selectedTime && !!contactOk;
-        }
-        return !!(formData.selectedDate && formData.selectedTime && formData.petInfo.species && formData.petInfo.breed?.trim() && formData.petInfo.weight?.trim() && contactOk);
+        const selectedDate = formData.selectedDate || initialBookingData?.selectedDate || initialBookingData?.date;
+        return !!(
+            selectedDate &&
+            formData.customerInfo.name.trim() &&
+            formData.customerInfo.phone.trim()
+        );
     };
 
-    // Handle slot selection from calendar
-    const handleSlotSelect = (date, time) => {
+    const handleDateChange = (date) => {
         setFormData(prev => ({
             ...prev,
-            selectedDate: date,
-            selectedTime: time
+            selectedDate: date
         }));
+        // Clear date error
+        setErrors(prev => ({
+            ...prev,
+            selectedDate: null
+        }));
+    };
 
-        if (isCafeService) {
-            // Build cafe detail for summary panel
-            const duration = service?.sessionDurationMinutes ?? service?.duration ?? 90;
-            const [h, m] = time.split(':').map(Number);
-            const start = h * 60 + m;
-            const end = start + duration;
-            const eh = String(Math.floor(end / 60)).padStart(2, '0');
-            const em = String(end % 60).padStart(2, '0');
-            // Hardcode capacity when missing (temporary until backend supplies per-session slots)
-            const capacity = service?.sessionCapacity ?? service?.maxParticipants ?? 10;
-            // Hardcode remaining slots (override with service.remainingSlots if provided)
-            const remaining = (service?.remainingSlots != null) ? service.remainingSlots : 4;
-            setSelectedCafeDetail({
-                petGroup: (service?.cafePets && service.cafePets.length > 0) ? service.cafePets : DEFAULT_CAFE_PET_GROUP,
-                area: service?.areaName || service?.area || DEFAULT_CAFE_AREA,
-                startTime: time,
-                endTime: `${eh}:${em}`,
-                capacity,
-                remaining
-            });
+    // Format duration
+    const formatDuration = (minutes) => {
+        if (minutes < 60) {
+            return `${minutes} phút`;
         }
+        const hours = Math.floor(minutes / 60);
+        const remainingMinutes = minutes % 60;
+        return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}p` : `${hours} giờ`;
     };
 
-    // Function to calculate form completion percentage
-    const getFormCompletionPercentage = () => {
-        const requiredFields = [
-            formData.selectedDate,
-            formData.selectedTime,
-            formData.petInfo.species,
-            formData.petInfo.breed?.trim(),
-            formData.petInfo.weight?.trim(),
-            formData.customerInfo.name.trim(),
-            formData.customerInfo.phone.trim(),
-            formData.customerInfo.email.trim()
-        ];
-
-        const filledFields = requiredFields.filter(field => field).length;
-        return Math.round((filledFields / requiredFields.length) * 100);
+    // Get category color
+    const getCategoryColor = () => {
+        return service.petRequired === false ? COLORS.WARNING : COLORS.INFO;
     };
 
-    const calculateEndTime = (date, startTime, duration) => {
-        const [hours, minutes] = startTime.split(':').map(Number);
-        const startDateTime = new Date(date);
-        startDateTime.setHours(hours, minutes, 0, 0);
+    const categoryColor = getCategoryColor();
 
-        const endDateTime = new Date(startDateTime.getTime() + duration * 60000);
-        return endDateTime.toLocaleTimeString('vi-VN', {
-            hour: '2-digit',
-            minute: '2-digit'
-        });
+    const handleAddToCart = () => {
+        if (!validateForm()) return;
+
+        // Use selectedDate from bookingData if available, otherwise use formData
+        const finalSelectedDate = initialBookingData?.selectedDate || initialBookingData?.date || formData.selectedDate;
+
+        const cartItem = {
+            id: `booking-${service.id}-${Date.now()}`,
+            service: service,
+            service_id: service.id,
+            slot: initialBookingData?.slot,
+            slot_id: initialBookingData?.slotId || initialBookingData?.slot?.id,
+            booking_date: finalSelectedDate,
+            selectedDate: finalSelectedDate,
+            price: initialBookingData?.slot?.price || service.base_price || service.price || 0,
+            customerInfo: {
+                full_name: formData.customerInfo.name,
+                address: formData.customerInfo.address || '',
+                phone: formData.customerInfo.phone,
+                notes: formData.customerInfo.notes || ''
+            },
+            pet_group_id: initialBookingData?.pet_group_id,
+            pet_group: initialBookingData?.pet_group
+        };
+
+        try {
+            const saved = localStorage.getItem('booking_cart');
+            const current = saved ? JSON.parse(saved) : [];
+            const next = [...current, cartItem];
+            localStorage.setItem('booking_cart', JSON.stringify(next));
+            window.dispatchEvent(new Event('bookingCartUpdated'));
+            
+            // Navigate to cart
+            window.location.href = '/booking/cart';
+        } catch (e) {
+            console.error('[BookingForm] Error adding to cart:', e);
+            alert('Lỗi khi thêm vào giỏ hàng');
+        }
     };
 
     const handleSubmit = () => {
         if (!validateForm()) return;
 
+        // Use selectedDate from bookingData if available, otherwise use formData
+        const finalSelectedDate = initialBookingData?.selectedDate || initialBookingData?.date || formData.selectedDate;
+
         const bookingData = {
             serviceId: service.id,
-            date: formData.selectedDate,
-            time: formData.selectedTime,
-            pet: null,
-            petInfo: isCafeService ? undefined : formData.petInfo,
+            selectedDate: finalSelectedDate,
+            date: finalSelectedDate,
             customerInfo: formData.customerInfo,
-            cafePets: isCafeService ? service.cafePets : null,
-            experienceType: isCafeService ? service.experienceType : null,
-            sessionId: undefined
+            // Preserve slot and pet_group info from initialBookingData
+            slotId: initialBookingData?.slotId,
+            slot: initialBookingData?.slot,
+            pet_group_id: initialBookingData?.pet_group_id,
+            pet_group: initialBookingData?.pet_group,
+            time: initialBookingData?.time || initialBookingData?.slot?.start_time
         };
 
         onSubmit(bookingData);
     };
-
-    if (loadingPets) {
-        return (
-            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
-                <Loading message="Đang tải thông tin thú cưng..." />
-            </Box>
-        );
-    }
 
     return (
         <Fade in timeout={800}>
@@ -480,356 +214,260 @@ const BookingForm = ({ service, onBack, onSubmit }) => {
                 px: { xs: 1, sm: 2, md: 3 },
                 py: { xs: 2, sm: 3, md: 4 },
                 minHeight: '80vh',
-                background: `linear-gradient(135deg, 
-                    ${alpha(COLORS.SECONDARY[50], 0.3)} 0%, 
-                    ${alpha(COLORS.PRIMARY[50], 0.4)} 25%,
-                    ${alpha(COLORS.INFO[50], 0.3)} 50%,
-                    ${alpha(COLORS.SUCCESS[50], 0.2)} 75%,
-                    ${alpha(COLORS.WARNING[50], 0.3)} 100%
-                )`,
-                position: 'relative',
-                '&::before': {
-                    content: '""',
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    background: `radial-gradient(circle at 20% 80%, ${alpha(COLORS.INFO[100], 0.1)} 0%, transparent 50%),
-                                radial-gradient(circle at 80% 20%, ${alpha(COLORS.SUCCESS[100], 0.1)} 0%, transparent 50%),
-                                radial-gradient(circle at 40% 40%, ${alpha(COLORS.WARNING[100], 0.1)} 0%, transparent 50%)`,
-                    pointerEvents: 'none'
-                }
+                backgroundColor: COLORS.BACKGROUND.DEFAULT,
+                position: 'relative'
             }}>
                 {/* Header */}
                 <Card sx={{
                     mb: { xs: 3, sm: 4, md: 4 },
                     borderRadius: 6,
-                    background: `linear-gradient(145deg, 
-                        ${alpha(COLORS.BACKGROUND.DEFAULT, 0.98)} 0%, 
-                        ${alpha(COLORS.SECONDARY[50], 0.95)} 50%,
-                        ${alpha(COLORS.INFO[50], 0.9)} 100%
-                    )`,
+                    backgroundColor: COLORS.BACKGROUND.DEFAULT,
                     border: `1px solid ${alpha(COLORS.INFO[200], 0.2)}`,
-                    boxShadow: `0 8px 32px ${alpha(COLORS.INFO[200], 0.15)}, 
-                               0 2px 8px ${alpha(COLORS.INFO[100], 0.1)}`,
-                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                    position: 'relative',
-                    overflow: 'hidden',
-                    '&::before': {
-                        content: '""',
-                        position: 'absolute',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        height: '2px',
-                        background: `linear-gradient(90deg, 
-                            ${COLORS.INFO[400]} 0%, 
-                            ${COLORS.SUCCESS[400]} 50%, 
-                            ${COLORS.WARNING[400]} 100%
-                        )`
-                    },
-                    '&:hover': {
-                        transform: 'translateY(-4px)',
-                        boxShadow: `0 12px 40px ${alpha(COLORS.INFO[200], 0.2)}, 
-                                   0 4px 12px ${alpha(COLORS.INFO[100], 0.15)}`
-                    }
+                    boxShadow: `0 8px 32px ${alpha(COLORS.INFO[200], 0.15)}`,
+                    overflow: 'hidden'
                 }}>
-                    <CardContent sx={{ p: { xs: 2, sm: 3, md: 4 } }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                            <Button
-                                startIcon={<ArrowBack />}
-                                onClick={onBack}
-                                sx={{
-                                    color: COLORS.INFO[600],
-                                    fontWeight: 600,
-                                    textTransform: 'none',
-                                    borderRadius: 3,
-                                    px: 2,
-                                    py: 1,
-                                    transition: 'all 0.2s ease',
-                                    '&:hover': {
-                                        backgroundColor: alpha(COLORS.INFO[100], 0.8),
-                                        color: COLORS.INFO[700],
-                                        transform: 'translateX(-2px)'
-                                    }
-                                }}
-                            >
-                                Quay lại
-                            </Button>
-                        </Box>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' } }}>
+                        {/* Service Image */}
+                        {service.image_url && (
+                            <Box sx={{ width: { xs: '100%', md: '300px' }, height: { xs: '200px', md: 'auto' }, flexShrink: 0 }}>
+                                <CardMedia
+                                    component="img"
+                                    image={service.image_url || (service.thumbnails && service.thumbnails[0])}
+                                    alt={service.name}
+                                    sx={{
+                                        width: '100%',
+                                        height: '100%',
+                                        objectFit: 'cover'
+                                    }}
+                                    onError={(e) => {
+                                        if (service.image_url && service.thumbnails && service.thumbnails[0]) {
+                                            e.target.src = service.thumbnails[0];
+                                        } else {
+                                            e.target.src = `https://images.unsplash.com/photo-1601758228041-f3b2795255f1?q=80&w=800&auto=format&fit=crop`;
+                                        }
+                                    }}
+                                />
+                            </Box>
+                        )}
+                        <CardContent sx={{ p: { xs: 2, sm: 3, md: 4 }, flex: 1 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                                <Button
+                                    startIcon={<ArrowBack />}
+                                    onClick={onBack}
+                                    sx={{
+                                        color: COLORS.INFO[600],
+                                        fontWeight: 600,
+                                        textTransform: 'none',
+                                        borderRadius: 3,
+                                        px: 2,
+                                        py: 1,
+                                        '&:hover': {
+                                            backgroundColor: alpha(COLORS.INFO[100], 0.8)
+                                        }
+                                    }}
+                                >
+                                    Quay lại
+                                </Button>
+                                <Chip
+                                    label={service.petRequired === false ? 'Dịch vụ của cửa hàng' : 'Chăm sóc pet'}
+                                    icon={service.petRequired === false ? <Spa /> : <Pets />}
+                                    sx={{
+                                        backgroundColor: service.petRequired === false
+                                            ? alpha(COLORS.WARNING[500], 0.9)
+                                            : alpha(COLORS.INFO[500], 0.9),
+                                        color: 'white',
+                                        fontWeight: 'bold'
+                                    }}
+                                />
+                            </Box>
                             <Typography variant="h4" sx={{
                                 fontWeight: 700,
                                 color: COLORS.INFO[700],
-                                fontFamily: '"Inter", "Roboto", sans-serif',
-                                letterSpacing: '-0.02em',
-                                lineHeight: 1.2
+                                mb: 1
                             }}>
-                                Đặt lịch: {service.name}
+                                {service.name}
                             </Typography>
-                        </Box>
-                        <Typography variant="body1" sx={{
-                            color: COLORS.TEXT.SECONDARY,
-                            mt: 1.5,
-                            fontSize: '1rem',
-                            lineHeight: 1.6,
-                            opacity: 0.8
-                        }}>
-                            {service.description}
-                        </Typography>
-                    </CardContent>
+                            <Typography variant="body1" sx={{
+                                color: COLORS.TEXT.SECONDARY,
+                                lineHeight: 1.6
+                            }}>
+                                {service.description}
+                            </Typography>
+                        </CardContent>
+                    </Box>
                 </Card>
 
-                {/* Calendar */}
-                <Box sx={{
-                    mb: { xs: 4, sm: 5, md: 5 },
-                    width: '100%'
-                }}>
-                    <CalendarGrid
-                        formData={formData}
-                        onSlotSelect={handleSlotSelect}
-                        availableSlots={availableSlots}
-                        service={service}
-                    />
-                </Box>
-
-                {/* Thông tin thú cưng hoặc Thông tin ca (cafe) */}
+                {/* Service Details */}
                 <Box sx={{ mb: { xs: 4, sm: 5, md: 5 } }}>
                     <Card sx={{
                         borderRadius: 6,
-                        background: `linear-gradient(145deg, 
-                            ${alpha(COLORS.BACKGROUND.DEFAULT, 0.98)} 0%, 
-                            ${alpha(isCafeService ? COLORS.PRIMARY[50] : COLORS.INFO[50], 0.95)} 50%,
-                            ${alpha(isCafeService ? COLORS.INFO[50] : COLORS.SUCCESS[50], 0.9)} 100%
-                        )`,
-                        border: `1px solid ${alpha(COLORS.INFO[200], 0.3)}`,
-                        boxShadow: `0 8px 32px ${alpha(COLORS.INFO[200], 0.15)}, 
-                                   0 2px 8px ${alpha(COLORS.INFO[100], 0.1)}`,
-                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                        position: 'relative',
-                        overflow: 'hidden',
-                        '&::before': {
-                            content: '""',
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            right: 0,
-                            height: '3px',
-                            background: `linear-gradient(90deg, 
-                                ${isCafeService ? COLORS.PRIMARY[400] : COLORS.INFO[400]} 0%, 
-                                ${isCafeService ? COLORS.INFO[400] : COLORS.SUCCESS[400]} 100%
-                            )`
-                        },
-                        '&:hover': {
-                            transform: 'translateY(-4px)',
-                            boxShadow: `0 12px 40px ${alpha(COLORS.INFO[200], 0.2)}, 
-                                       0 4px 12px ${alpha(COLORS.INFO[100], 0.15)}`
-                        }
+                        backgroundColor: COLORS.BACKGROUND.DEFAULT,
+                        border: `1px solid ${alpha(categoryColor[200], 0.3)}`,
+                        boxShadow: `0 8px 32px ${alpha(categoryColor[200], 0.15)}`
                     }}>
                         <CardContent sx={{ p: { xs: 2, sm: 3, md: 4 } }}>
                             <Typography variant="h6" sx={{
                                 fontWeight: 600,
-                                color: COLORS.INFO[700],
-                                mb: 3,
-                                fontSize: '1.1rem',
-                                letterSpacing: '-0.01em'
+                                color: categoryColor[700],
+                                mb: 3
                             }}>
-                                {isCafeService ? '🗓️ Thông tin ca dịch vụ' : '🐾 Thông tin thú cưng'}
+                                📋 Thông tin chi tiết dịch vụ
                             </Typography>
 
-                            {isCafeService ? (
-                                <Stack spacing={2}>
-                                    <Paper sx={{ p: 1.5, borderRadius: 3, background: alpha(COLORS.PRIMARY[50], 0.6), border: `1px solid ${alpha(COLORS.PRIMARY[200], 0.5)}` }}>
-                                        <Typography variant="body2" sx={{ color: COLORS.PRIMARY[700], fontWeight: 700, mb: 0.5 }}>Nhóm pet phục vụ</Typography>
-                                        <Typography variant="body1" sx={{ fontWeight: 600, color: COLORS.TEXT.PRIMARY }}>
-                                            {(selectedCafeDetail?.petGroup && selectedCafeDetail.petGroup.length > 0) ? selectedCafeDetail.petGroup.join(', ') : DEFAULT_CAFE_PET_GROUP.join(', ')}
-                                        </Typography>
-                                    </Paper>
-                                    <Paper sx={{ p: 1.5, borderRadius: 3, background: alpha(COLORS.INFO[50], 0.6), border: `1px solid ${alpha(COLORS.INFO[200], 0.5)}` }}>
-                                        <Typography variant="body2" sx={{ color: COLORS.INFO[700], fontWeight: 700, mb: 0.5 }}>Khu vực thực hiện</Typography>
-                                        <Typography variant="body1" sx={{ fontWeight: 600, color: COLORS.TEXT.PRIMARY }}>
-                                            {selectedCafeDetail?.area || DEFAULT_CAFE_AREA}
-                                        </Typography>
-                                    </Paper>
-                                    <Paper sx={{ p: 1.5, borderRadius: 3, background: alpha(COLORS.WARNING[50], 0.6), border: `1px solid ${alpha(COLORS.WARNING[200], 0.5)}` }}>
-                                        <Typography variant="body2" sx={{ color: COLORS.WARNING[700], fontWeight: 700, mb: 0.5 }}>Thời gian</Typography>
-                                        <Typography variant="body1" sx={{ fontWeight: 700, color: COLORS.WARNING[800] }}>
-                                            {formData.selectedTime ? `${formData.selectedTime} - ${calculateEndTime(formData.selectedDate, formData.selectedTime, service?.sessionDurationMinutes ?? 90)}` : '—'}
-                                        </Typography>
-                                    </Paper>
-                                    <Paper sx={{ p: 1.5, borderRadius: 3, background: alpha(COLORS.SUCCESS[50], 0.6), border: `1px solid ${alpha(COLORS.SUCCESS[200], 0.5)}` }}>
-                                        <Typography variant="body2" sx={{ color: COLORS.SUCCESS[700], fontWeight: 700, mb: 0.5 }}>Số slot còn lại</Typography>
-                                        <Typography variant="body1" sx={{ fontWeight: 700, color: COLORS.SUCCESS[800] }}>
-                                            {selectedCafeDetail?.remaining != null ? `Còn ${selectedCafeDetail.remaining} slot` : 'Còn chỗ'}
-                                        </Typography>
-                                    </Paper>
-                                </Stack>
-                            ) : (
-                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 2, sm: 3, md: 3 } }}>
-                                    {/* Loài thú cưng */}
-                                    <FormControl fullWidth error={!!errors.petInfo?.species}>
-                                        <Select
-                                            value={formData.petInfo.species}
-                                            onChange={(e) => handlePetInfoChange('species', e.target.value)}
-                                            displayEmpty
-                                            renderValue={(selected) => {
-                                                if (!selected) {
-                                                    return (
-                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: COLORS.INFO[500], fontStyle: 'italic' }}>
-                                                            <Typography sx={{ color: COLORS.INFO[500], fontStyle: 'italic' }}>
-                                                                Chọn loài thú cưng
+                            {/* Service Basic Info */}
+                            <Box sx={{
+                                display: 'grid',
+                                gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+                                gap: 2,
+                                p: 3,
+                                backgroundColor: alpha(categoryColor[100], 0.3),
+                                borderRadius: 3,
+                                mb: 3
+                            }}>
+                                <Box>
+                                    <Typography variant="subtitle2" color={categoryColor[700]} fontWeight="bold" sx={{ mb: 1 }}>
+                                        Giá cơ bản
+                                    </Typography>
+                                    <Typography variant="h6" sx={{ color: COLORS.ERROR[600], fontWeight: 'bold' }}>
+                                        {formatPrice(service.base_price || service.price || 0)}
+                                    </Typography>
+                                </Box>
+
+                                <Box>
+                                    <Typography variant="subtitle2" color={categoryColor[700]} fontWeight="bold" sx={{ mb: 1 }}>
+                                        Thời lượng
+                                    </Typography>
+                                    <Typography variant="body1">
+                                        {formatDuration(service.duration_minutes || 0)}
+                                    </Typography>
+                                </Box>
+                            </Box>
+
+                            {/* Available Slots */}
+                            {service.slots && service.slots.length > 0 && (
+                                <Box sx={{ mb: 3 }}>
+                                    <Typography variant="h6" sx={{ mb: 2, color: categoryColor[700], fontWeight: 'bold' }}>
+                                        Lịch trình có sẵn
+                                    </Typography>
+                                    
+                                    {/* Ngày đã chọn (if already selected from modal) */}
+                                    {(initialBookingData?.selectedDate || initialBookingData?.date) && (
+                                        <Paper sx={{
+                                            p: 2.5,
+                                            mb: 3,
+                                            borderRadius: 3,
+                                            backgroundColor: COLORS.BACKGROUND.DEFAULT,
+                                            border: `2px solid ${alpha(COLORS.SUCCESS[300], 0.5)}`,
+                                            boxShadow: `0 4px 12px ${alpha(COLORS.SUCCESS[200], 0.2)}`
+                                        }}>
+                                            <Typography variant="subtitle1" sx={{ 
+                                                color: COLORS.SUCCESS[700], 
+                                                fontWeight: 'bold', 
+                                                mb: 1.5,
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: 1
+                                            }}>
+                                                <CalendarToday sx={{ fontSize: 20 }} />
+                                                Ngày đã chọn
+                                            </Typography>
+                                            <Typography variant="h6" sx={{ color: COLORS.SUCCESS[800], fontWeight: 'bold', mb: 1.5 }}>
+                                                {(() => {
+                                                    const dateStr = initialBookingData.selectedDate || initialBookingData.date;
+                                                    // Parse date string as local date to avoid timezone issues
+                                                    const [year, month, day] = dateStr.split('-').map(Number);
+                                                    const date = new Date(year, month - 1, day);
+                                                    return date.toLocaleDateString('vi-VN', {
+                                                        weekday: 'long',
+                                                        year: 'numeric',
+                                                        month: 'long',
+                                                        day: 'numeric'
+                                                    });
+                                                })()}
+                                            </Typography>
+                                            {initialBookingData?.slot && (
+                                                <Box sx={{ mt: 1.5 }}>
+                                                    {initialBookingData.slot.start_time && initialBookingData.slot.end_time && (
+                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                                                            <AccessTime sx={{ fontSize: 18, color: COLORS.SUCCESS[600] }} />
+                                                            <Typography variant="body1" fontWeight={600}>
+                                                                {initialBookingData.slot.start_time.substring(0, 5)} - {initialBookingData.slot.end_time.substring(0, 5)}
                                                             </Typography>
                                                         </Box>
-                                                    );
-                                                }
-                                                const options = {
-                                                    dog: { emoji: '🐕', text: 'Chó' },
-                                                    cat: { emoji: '🐱', text: 'Mèo' }
-                                                };
-                                                const option = options[selected];
-                                                return (
-                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                        <Typography>{option.emoji}</Typography>
-                                                        <Typography>{option.text}</Typography>
-                                                    </Box>
-                                                );
-                                            }}
-                                            sx={{
-                                                borderRadius: 4,
-                                                backgroundColor: alpha(COLORS.BACKGROUND.DEFAULT, 0.95),
-                                                minHeight: '56px',
-                                                border: `1px solid ${alpha(COLORS.INFO[300], 0.3)}`,
-                                                transition: 'all 0.2s ease',
-                                                '&:hover': {
-                                                    borderColor: COLORS.INFO[400],
-                                                    boxShadow: `0 4px 12px ${alpha(COLORS.INFO[300], 0.15)}`,
-                                                    backgroundColor: alpha(COLORS.INFO[50], 0.1)
-                                                },
-                                                '&.Mui-focused': {
-                                                    borderColor: COLORS.INFO[500],
-                                                    boxShadow: `0 0 0 3px ${alpha(COLORS.INFO[300], 0.2)}`,
-                                                    backgroundColor: alpha(COLORS.INFO[50], 0.05)
-                                                },
-                                                '& .MuiSelect-select': {
-                                                    fontSize: '0.95rem',
-                                                    padding: '16px 20px',
-                                                    fontWeight: 500,
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    gap: 1,
-                                                    color: COLORS.TEXT.PRIMARY
-                                                }
-                                            }}
-                                        >
-                                            <MenuItem value="dog">
-                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                    <Typography>🐕</Typography>
-                                                    <Typography>Chó</Typography>
+                                                    )}
+                                                    {initialBookingData?.pet_group && (
+                                                        <Box sx={{
+                                                            mt: 1.5,
+                                                            p: 1.5,
+                                                            borderRadius: 2,
+                                                            backgroundColor: alpha(COLORS.INFO[50], 0.5),
+                                                            border: `1px solid ${alpha(COLORS.INFO[200], 0.3)}`
+                                                        }}>
+                                                            <Box sx={{ display: 'flex', alignItems: 'start', gap: 1 }}>
+                                                                <Pets sx={{ fontSize: 18, color: COLORS.INFO[600], mt: 0.25 }} />
+                                                                <Box>
+                                                                    <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 0.5, color: COLORS.INFO[700] }}>
+                                                                        Nhóm thú cưng: {initialBookingData.pet_group.name}
+                                                                    </Typography>
+                                                                    {initialBookingData.pet_group.description && (
+                                                                        <Typography variant="caption" color="text.secondary">
+                                                                            {initialBookingData.pet_group.description}
+                                                                        </Typography>
+                                                                    )}
+                                                                </Box>
+                                                            </Box>
+                                                        </Box>
+                                                    )}
                                                 </Box>
-                                            </MenuItem>
-                                            <MenuItem value="cat">
-                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                    <Typography>🐱</Typography>
-                                                    <Typography>Mèo</Typography>
-                                                </Box>
-                                            </MenuItem>
-
-                                        </Select>
-                                        {errors.petInfo?.species && (
-                                            <Typography variant="caption" sx={{ color: 'error.main', mt: 0.5, ml: 1.5 }}>
-                                                {errors.petInfo.species}
-                                            </Typography>
-                                        )}
-                                    </FormControl>
-
-                                    {/* Giống thú cưng */}
-                                    <TextField
-                                        fullWidth
-                                        placeholder="Nhập giống thú cưng"
-                                        value={formData.petInfo.breed}
-                                        onChange={(e) => handlePetInfoChange('breed', e.target.value)}
-                                        error={!!errors.petInfo?.breed}
-                                        helperText={errors.petInfo?.breed}
-                                        sx={{
-                                            '& .MuiOutlinedInput-root': {
-                                                borderRadius: 4,
-                                                backgroundColor: alpha(COLORS.BACKGROUND.DEFAULT, 0.95),
-                                                minHeight: '56px',
-                                                border: `1px solid ${alpha(COLORS.INFO[300], 0.3)}`,
-                                                transition: 'all 0.2s ease',
-                                                '&:hover': {
-                                                    borderColor: COLORS.INFO[400],
-                                                    boxShadow: `0 4px 12px ${alpha(COLORS.INFO[300], 0.15)}`,
-                                                    backgroundColor: alpha(COLORS.INFO[50], 0.1)
-                                                },
-                                                '&.Mui-focused': {
-                                                    borderColor: COLORS.INFO[500],
-                                                    boxShadow: `0 0 0 3px ${alpha(COLORS.INFO[300], 0.2)}`,
-                                                    backgroundColor: alpha(COLORS.INFO[50], 0.05)
-                                                }
-                                            },
-                                            '& .MuiInputBase-input': {
-                                                fontSize: '0.95rem',
-                                                padding: '16px 20px',
-                                                fontWeight: 500,
-                                                color: COLORS.TEXT.PRIMARY,
-                                                '&::placeholder': {
-                                                    color: COLORS.INFO[500],
-                                                    opacity: 0.7,
-                                                    fontWeight: 400
-                                                }
-                                            }
-                                        }}
-                                    />
-
-                                    {/* Cân nặng */}
-                                    <TextField
-                                        fullWidth
-                                        placeholder="Nhập cân nặng (kg)"
-                                        type="number"
-                                        value={formData.petInfo.weight}
-                                        onChange={(e) => handlePetInfoChange('weight', e.target.value)}
-                                        error={!!errors.petInfo?.weight}
-                                        helperText={errors.petInfo?.weight}
-                                        InputProps={{
-                                            endAdornment: (
-                                                <InputAdornment position="end">
-                                                    <Typography sx={{ color: COLORS.INFO[500], fontSize: '0.8rem', fontWeight: 'bold' }}>
-                                                        kg
-                                                    </Typography>
-                                                </InputAdornment>
-                                            )
-                                        }}
-                                        sx={{
-                                            '& .MuiOutlinedInput-root': {
-                                                borderRadius: 3,
-                                                backgroundColor: alpha(COLORS.BACKGROUND.DEFAULT, 0.9),
-                                                minHeight: '52px',
-                                                border: `2px solid ${alpha(COLORS.INFO[300], 0.3)}`,
-                                                '&:hover': {
-                                                    borderColor: COLORS.INFO[400],
-                                                    boxShadow: `0 4px 12px ${alpha(COLORS.INFO[300], 0.2)}`
-                                                },
-                                                '&.Mui-focused': {
-                                                    borderColor: COLORS.INFO[500],
-                                                    boxShadow: `0 0 0 3px ${alpha(COLORS.INFO[300], 0.2)}`
-                                                }
-                                            },
-                                            '& .MuiInputBase-input': {
-                                                fontSize: '0.9rem',
-                                                padding: '14px 18px',
+                                            )}
+                                        </Paper>
+                                    )}
+                                    
+                                    {/* Thông tin liên hệ người dùng */}
+                                    {(formData.customerInfo.name || formData.customerInfo.phone || formData.customerInfo.email) && (
+                                        <Paper sx={{
+                                            p: 2,
+                                            mb: 3,
+                                            borderRadius: 2,
+                                            backgroundColor: COLORS.BACKGROUND.DEFAULT,
+                                            border: `2px solid ${alpha(COLORS.INFO[200], 0.5)}`,
+                                            boxShadow: `0 4px 12px ${alpha(COLORS.INFO[200], 0.2)}`
+                                        }}>
+                                            <Typography variant="subtitle1" sx={{ 
+                                                mb: 1.5, 
+                                                color: COLORS.INFO[700], 
                                                 fontWeight: 'bold',
-                                                '&::placeholder': {
-                                                    color: COLORS.INFO[500],
-                                                    opacity: 0.8,
-                                                    fontWeight: 'bold'
-                                                }
-                                            }
-                                        }}
-                                    />
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: 1
+                                            }}>
+                                                <Person sx={{ fontSize: 20 }} />
+                                                Thông tin liên hệ của bạn
+                                            </Typography>
+                                            <Stack spacing={1.5}>
+                                                {formData.customerInfo.name && (
+                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                        <Person sx={{ fontSize: 18, color: categoryColor[500] }} />
+                                                        <Typography variant="body2" color="text.secondary">
+                                                            <strong>Họ tên:</strong> {formData.customerInfo.name}
+                                                        </Typography>
+                                                    </Box>
+                                                )}
+                                                {formData.customerInfo.phone && (
+                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                        <Phone sx={{ fontSize: 18, color: categoryColor[500] }} />
+                                                        <Typography variant="body2" color="text.secondary">
+                                                            <strong>Số điện thoại:</strong> {formData.customerInfo.phone}
+                                                        </Typography>
+                                                    </Box>
+                                                )}
+                                            </Stack>
+                                        </Paper>
+                                    )}
                                 </Box>
                             )}
+
+                            
                         </CardContent>
                     </Card>
                 </Box>
@@ -838,80 +476,34 @@ const BookingForm = ({ service, onBack, onSubmit }) => {
                 <Box sx={{ mb: { xs: 4, sm: 5, md: 5 } }}>
                     <Card sx={{
                         borderRadius: 6,
-                        background: `linear-gradient(145deg, 
-                            ${alpha(COLORS.BACKGROUND.DEFAULT, 0.98)} 0%, 
-                            ${alpha(COLORS.SECONDARY[50], 0.95)} 50%,
-                            ${alpha(COLORS.INFO[50], 0.9)} 100%
-                        )`,
+                        backgroundColor: COLORS.BACKGROUND.DEFAULT,
                         border: `1px solid ${alpha(COLORS.SECONDARY[200], 0.3)}`,
-                        boxShadow: `0 8px 32px ${alpha(COLORS.SECONDARY[200], 0.15)}, 
-                                   0 2px 8px ${alpha(COLORS.SECONDARY[100], 0.1)}`,
-                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                        position: 'relative',
-                        overflow: 'hidden',
-                        '&::before': {
-                            content: '""',
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            right: 0,
-                            height: '3px',
-                            background: `linear-gradient(90deg, 
-                                ${COLORS.SECONDARY[400]} 0%, 
-                                ${COLORS.INFO[400]} 100%
-                            )`
-                        },
-                        '&:hover': {
-                            transform: 'translateY(-4px)',
-                            boxShadow: `0 12px 40px ${alpha(COLORS.SECONDARY[200], 0.2)}, 
-                                       0 4px 12px ${alpha(COLORS.SECONDARY[100], 0.15)}`
-                        }
+                        boxShadow: `0 8px 32px ${alpha(COLORS.SECONDARY[200], 0.15)}`
                     }}>
                         <CardContent sx={{ p: { xs: 2, sm: 3, md: 4 } }}>
                             <Typography variant="h6" sx={{
                                 fontWeight: 600,
                                 color: COLORS.SECONDARY[700],
-                                mb: 3,
-                                fontSize: '1.1rem',
-                                letterSpacing: '-0.01em'
+                                mb: 3
                             }}>
-                                👤 Thông tin liên hệ
+                                📞 Thông tin liên hệ
                             </Typography>
 
-                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: { xs: 2, sm: 3, md: 3 } }}>
+                            <Stack spacing={3}>
                                 {/* Họ tên */}
                                 <TextField
                                     fullWidth
+                                    label="Họ tên *"
                                     placeholder="Nhập tên của bạn"
                                     value={formData.customerInfo.name}
                                     onChange={(e) => handleCustomerInfoChange('name', e.target.value)}
                                     error={!!errors.customerInfo?.name}
                                     helperText={errors.customerInfo?.name}
-                                    InputProps={{}}
+                                    required
                                     sx={{
                                         '& .MuiOutlinedInput-root': {
                                             borderRadius: 3,
-                                            backgroundColor: alpha(COLORS.BACKGROUND.DEFAULT, 0.9),
-                                            minHeight: '52px',
-                                            border: `2px solid ${alpha(COLORS.SECONDARY[300], 0.3)}`,
-                                            '&:hover': {
-                                                borderColor: COLORS.SECONDARY[400],
-                                                boxShadow: `0 4px 12px ${alpha(COLORS.SECONDARY[300], 0.2)}`
-                                            },
-                                            '&.Mui-focused': {
-                                                borderColor: COLORS.SECONDARY[500],
-                                                boxShadow: `0 0 0 3px ${alpha(COLORS.SECONDARY[300], 0.2)}`
-                                            }
-                                        },
-                                        '& .MuiInputBase-input': {
-                                            fontSize: '0.9rem',
-                                            padding: '14px 18px',
-                                            fontWeight: 'bold',
-                                            '&::placeholder': {
-                                                color: COLORS.SECONDARY[500],
-                                                opacity: 0.8,
-                                                fontWeight: 'bold'
-                                            }
+                                            backgroundColor: alpha(COLORS.BACKGROUND.DEFAULT, 0.9)
                                         }
                                     }}
                                 />
@@ -919,125 +511,70 @@ const BookingForm = ({ service, onBack, onSubmit }) => {
                                 {/* Số điện thoại */}
                                 <TextField
                                     fullWidth
+                                    label="Số điện thoại *"
                                     placeholder="Nhập số điện thoại của bạn"
                                     value={formData.customerInfo.phone}
                                     onChange={(e) => handleCustomerInfoChange('phone', e.target.value)}
                                     error={!!errors.customerInfo?.phone}
                                     helperText={errors.customerInfo?.phone}
-                                    InputProps={{}}
+                                    required
                                     sx={{
                                         '& .MuiOutlinedInput-root': {
                                             borderRadius: 3,
-                                            backgroundColor: alpha(COLORS.BACKGROUND.DEFAULT, 0.9),
-                                            minHeight: '52px',
-                                            border: `2px solid ${alpha(COLORS.SECONDARY[300], 0.3)}`,
-                                            '&:hover': {
-                                                borderColor: COLORS.SECONDARY[400],
-                                                boxShadow: `0 4px 12px ${alpha(COLORS.SECONDARY[300], 0.2)}`
-                                            },
-                                            '&.Mui-focused': {
-                                                borderColor: COLORS.SECONDARY[500],
-                                                boxShadow: `0 0 0 3px ${alpha(COLORS.SECONDARY[300], 0.2)}`
-                                            }
-                                        },
-                                        '& .MuiInputBase-input': {
-                                            fontSize: '0.9rem',
-                                            padding: '14px 18px',
-                                            fontWeight: 'bold',
-                                            '&::placeholder': {
-                                                color: COLORS.SECONDARY[500],
-                                                opacity: 0.8,
-                                                fontWeight: 'bold'
-                                            }
+                                            backgroundColor: alpha(COLORS.BACKGROUND.DEFAULT, 0.9)
                                         }
                                     }}
                                 />
 
-                                {/* Email */}
+                                {/* Địa chỉ */}
                                 <TextField
                                     fullWidth
-                                    placeholder="Nhập email của bạn"
-                                    type="email"
-                                    value={formData.customerInfo.email}
-                                    onChange={(e) => handleCustomerInfoChange('email', e.target.value)}
-                                    error={!!errors.customerInfo?.email}
-                                    helperText={errors.customerInfo?.email}
-                                    InputProps={{}}
+                                    label="Địa chỉ"
+                                    placeholder="Nhập địa chỉ (tùy chọn)"
+                                    value={formData.customerInfo.address || ''}
+                                    onChange={(e) => handleCustomerInfoChange('address', e.target.value)}
                                     sx={{
                                         '& .MuiOutlinedInput-root': {
                                             borderRadius: 3,
-                                            backgroundColor: alpha(COLORS.BACKGROUND.DEFAULT, 0.9),
-                                            minHeight: '52px',
-                                            border: `2px solid ${alpha(COLORS.SECONDARY[300], 0.3)}`,
-                                            '&:hover': {
-                                                borderColor: COLORS.SECONDARY[400],
-                                                boxShadow: `0 4px 12px ${alpha(COLORS.SECONDARY[300], 0.2)}`
-                                            },
-                                            '&.Mui-focused': {
-                                                borderColor: COLORS.SECONDARY[500],
-                                                boxShadow: `0 0 0 3px ${alpha(COLORS.SECONDARY[300], 0.2)}`
-                                            }
-                                        },
-                                        '& .MuiInputBase-input': {
-                                            fontSize: '0.9rem',
-                                            padding: '14px 18px',
-                                            fontWeight: 'bold',
-                                            '&::placeholder': {
-                                                color: COLORS.SECONDARY[500],
-                                                opacity: 0.8,
-                                                fontWeight: 'bold'
-                                            }
+                                            backgroundColor: alpha(COLORS.BACKGROUND.DEFAULT, 0.9)
                                         }
                                     }}
                                 />
-                            </Box>
+
+                                {/* Ghi chú */}
+                                <TextField
+                                    fullWidth
+                                    label="Ghi chú"
+                                    placeholder="Nhập ghi chú (tùy chọn)"
+                                    value={formData.customerInfo.notes || ''}
+                                    onChange={(e) => handleCustomerInfoChange('notes', e.target.value)}
+                                    multiline
+                                    rows={3}
+                                    sx={{
+                                        '& .MuiOutlinedInput-root': {
+                                            borderRadius: 3,
+                                            backgroundColor: alpha(COLORS.BACKGROUND.DEFAULT, 0.9)
+                                        }
+                                    }}
+                                />
+                            </Stack>
                         </CardContent>
                     </Card>
                 </Box>
 
                 {/* Tóm tắt đặt lịch */}
-                <Box sx={{
-                    mb: { xs: 3, sm: 4, md: 4 }
-                }}>
+                <Box sx={{ mb: { xs: 3, sm: 4, md: 4 } }}>
                     <Card sx={{
                         borderRadius: 6,
-                        background: `linear-gradient(145deg, 
-                            ${alpha(COLORS.BACKGROUND.DEFAULT, 0.98)} 0%, 
-                            ${alpha(COLORS.SUCCESS[50], 0.95)} 50%,
-                            ${alpha(COLORS.WARNING[50], 0.9)} 100%
-                        )`,
+                        backgroundColor: COLORS.BACKGROUND.DEFAULT,
                         border: `1px solid ${alpha(COLORS.SUCCESS[200], 0.3)}`,
-                        boxShadow: `0 4px 20px ${alpha(COLORS.SUCCESS[200], 0.15)}, 
-                                   0 2px 8px ${alpha(COLORS.SUCCESS[100], 0.1)}`,
-                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                        position: 'relative',
-                        overflow: 'hidden',
-                        '&::before': {
-                            content: '""',
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            right: 0,
-                            height: '3px',
-                            background: `linear-gradient(90deg, 
-                                ${COLORS.SUCCESS[400]} 0%, 
-                                ${COLORS.WARNING[400]} 50%,
-                                ${COLORS.INFO[400]} 100%
-                            )`
-                        },
-                        '&:hover': {
-                            transform: 'translateY(-2px)',
-                            boxShadow: `0 8px 32px ${alpha(COLORS.SUCCESS[200], 0.2)}, 
-                                       0 4px 12px ${alpha(COLORS.SUCCESS[100], 0.15)}`
-                        }
+                        boxShadow: `0 4px 20px ${alpha(COLORS.SUCCESS[200], 0.15)}`
                     }}>
                         <CardContent sx={{ p: { xs: 2, sm: 3, md: 4 } }}>
                             <Typography variant="h6" sx={{
                                 fontWeight: 600,
                                 color: COLORS.SUCCESS[700],
-                                mb: 3,
-                                fontSize: '1.1rem',
-                                letterSpacing: '-0.01em'
+                                mb: 3
                             }}>
                                 📋 Tóm tắt đặt lịch
                             </Typography>
@@ -1049,7 +586,7 @@ const BookingForm = ({ service, onBack, onSubmit }) => {
                                 alignItems: { xs: 'stretch', lg: 'flex-start' },
                                 gap: { xs: 3, lg: 4 }
                             }}>
-                                {/* Phần thông tin dịch vụ - bên trái */}
+                                {/* Phần thông tin dịch vụ */}
                                 <Box sx={{ flex: 1 }}>
                                     <Stack spacing={2}>
                                         <Paper sx={{
@@ -1061,21 +598,19 @@ const BookingForm = ({ service, onBack, onSubmit }) => {
                                             <Typography variant="body2" sx={{
                                                 color: COLORS.SUCCESS[600],
                                                 mb: 0.5,
-                                                fontWeight: 'bold',
-                                                fontSize: '0.85rem'
+                                                fontWeight: 'bold'
                                             }}>
                                                 🐾 Dịch vụ
                                             </Typography>
                                             <Typography variant="body1" sx={{
                                                 fontWeight: 'bold',
-                                                color: COLORS.SUCCESS[700],
-                                                fontSize: '1rem'
+                                                color: COLORS.SUCCESS[700]
                                             }}>
                                                 {service.name}
                                             </Typography>
                                         </Paper>
 
-                                        {(formData.selectedDate || formData.selectedTime) && (
+                                        {(formData.selectedDate || initialBookingData?.selectedDate || initialBookingData?.date) && (
                                             <Paper sx={{
                                                 p: 1.5,
                                                 borderRadius: 3,
@@ -1085,99 +620,76 @@ const BookingForm = ({ service, onBack, onSubmit }) => {
                                                 <Typography variant="body2" sx={{
                                                     color: COLORS.INFO[700],
                                                     mb: 0.5,
-                                                    fontWeight: 'bold',
-                                                    fontSize: '0.85rem'
+                                                    fontWeight: 'bold'
                                                 }}>
-                                                    Lịch hẹn
+                                                    📅 Ngày đã chọn
                                                 </Typography>
-                                                <Stack direction="row" spacing={1} flexWrap="wrap">
-                                                    <Chip
-                                                        icon={<CalendarToday sx={{ fontSize: '1rem' }} />}
-                                                        label={formData.selectedDate ? new Date(formData.selectedDate).toLocaleDateString('vi-VN') : '—'}
-                                                        variant="outlined"
-                                                        sx={{
-                                                            borderColor: alpha(COLORS.INFO[400], 0.6),
-                                                            color: COLORS.INFO[700],
-                                                            fontWeight: 600
-                                                        }}
-                                                    />
-                                                    <Chip
-                                                        icon={<Schedule sx={{ fontSize: '1rem' }} />}
-                                                        label={formData.selectedDate && formData.selectedTime ? `${formData.selectedTime} - ${calculateEndTime(formData.selectedDate, formData.selectedTime, isCafeService ? (service?.sessionDurationMinutes ?? 90) : service.duration)}` : '—'}
-                                                        variant="outlined"
-                                                        sx={{
-                                                            borderColor: alpha(COLORS.WARNING[400], 0.6),
-                                                            color: COLORS.WARNING[800],
-                                                            fontWeight: 600
-                                                        }}
-                                                    />
-                                                    {isCafeService && (
-                                                        <Chip
-                                                            icon={<LocationOn sx={{ fontSize: '1rem' }} />}
-                                                            label={selectedCafeDetail?.area || DEFAULT_CAFE_AREA}
-                                                            variant="outlined"
-                                                            sx={{
-                                                                borderColor: alpha(COLORS.PRIMARY[400], 0.6),
-                                                                color: COLORS.PRIMARY[800],
-                                                                fontWeight: 600
-                                                            }}
-                                                        />
-                                                    )}
-                                                </Stack>
+                                                <Typography variant="body1" sx={{
+                                                    fontWeight: 'bold',
+                                                    color: COLORS.INFO[700]
+                                                }}>
+                                                    {(() => {
+                                                        const dateStr = formData.selectedDate || initialBookingData?.selectedDate || initialBookingData?.date;
+                                                        // Parse date string as local date to avoid timezone issues
+                                                        const [year, month, day] = dateStr.split('-').map(Number);
+                                                        const date = new Date(year, month - 1, day);
+                                                        return date.toLocaleDateString('vi-VN', {
+                                                            weekday: 'long',
+                                                            year: 'numeric',
+                                                            month: 'long',
+                                                            day: 'numeric'
+                                                        });
+                                                    })()}
+                                                </Typography>
+                                                {initialBookingData?.slot?.start_time && initialBookingData?.slot?.end_time && (
+                                                    <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                        <AccessTime sx={{ fontSize: 16, color: COLORS.INFO[600] }} />
+                                                        <Typography variant="body2" color="text.secondary">
+                                                            {initialBookingData.slot.start_time.substring(0, 5)} - {initialBookingData.slot.end_time.substring(0, 5)}
+                                                        </Typography>
+                                                    </Box>
+                                                )}
+                                                {initialBookingData?.pet_group && (
+                                                    <Box sx={{ mt: 1 }}>
+                                                        <Typography variant="caption" color="text.secondary">
+                                                            Nhóm: {initialBookingData.pet_group.name}
+                                                        </Typography>
+                                                    </Box>
+                                                )}
                                             </Paper>
                                         )}
                                     </Stack>
                                 </Box>
 
-                                {/* Phần tổng tiền và nút - bên phải */}
-                                <Box sx={{
-                                    minWidth: { xs: '100%', lg: '280px' }
-                                }}>
+                                {/* Phần tổng tiền và nút */}
+                                <Box sx={{ minWidth: { xs: '100%', lg: '280px' } }}>
                                     <Stack spacing={2}>
                                         <Paper sx={{
                                             p: 2,
                                             borderRadius: 3,
-                                            background: `linear-gradient(135deg, 
-                                                ${alpha(COLORS.SUCCESS[100], 0.8)} 0%, 
-                                                ${alpha(COLORS.SUCCESS[200], 0.6)} 100%
-                                            )`,
+                                            backgroundColor: COLORS.BACKGROUND.DEFAULT,
                                             border: `1px solid ${alpha(COLORS.SUCCESS[300], 0.7)}`,
-                                            boxShadow: `0 2px 8px ${alpha(COLORS.SUCCESS[200], 0.3)}`,
                                             textAlign: 'center'
                                         }}>
                                             <Typography variant="body2" sx={{
                                                 color: COLORS.SUCCESS[600],
                                                 fontWeight: 600,
-                                                mb: 1,
-                                                fontSize: '0.9rem'
+                                                mb: 1
                                             }}>
                                                 💰 TỔNG TIỀN
                                             </Typography>
                                             <Typography variant="h5" sx={{
                                                 color: COLORS.SUCCESS[700],
-                                                fontWeight: 700,
-                                                textShadow: `0 1px 2px ${alpha(COLORS.SUCCESS[200], 0.3)}`
+                                                fontWeight: 700
                                             }}>
-                                                {(() => {
-                                                    if (isCafeService) {
-                                                        return formatPrice(service.price);
-                                                    }
-                                                    const hasRequiredInfo = formData.selectedDate &&
-                                                        formData.selectedTime &&
-                                                        formData.petInfo.species &&
-                                                        formData.petInfo.breed &&
-                                                        formData.petInfo.weight;
-                                                    if (!hasRequiredInfo) return formatPrice(0);
-                                                    const slotPrice = availableSlots.find(slot => slot.time === formData.selectedTime)?.price;
-                                                    return formatPrice(slotPrice || service.price);
-                                                })()}
+                                                {formatPrice(service.base_price || service.price || 0)}
                                             </Typography>
                                         </Paper>
 
                                         <Button
                                             variant="contained"
                                             size="large"
-                                            onClick={handleSubmit}
+                                            onClick={handleAddToCart}
                                             disabled={!isFormComplete()}
                                             sx={{
                                                 py: 2.5,
@@ -1193,37 +705,20 @@ const BookingForm = ({ service, onBack, onSubmit }) => {
                                                     ${COLORS.SUCCESS[600]} 50%,
                                                     ${COLORS.WARNING[500]} 100%
                                                 )`,
-                                                border: `1px solid ${alpha(COLORS.SUCCESS[400], 0.3)}`,
-                                                boxShadow: `0 4px 12px ${alpha(COLORS.SUCCESS[300], 0.3)}, 
-                                                           0 2px 4px ${alpha(COLORS.SUCCESS[200], 0.2)}`,
-                                                position: 'relative',
-                                                overflow: 'hidden',
                                                 '&:hover': {
                                                     background: `linear-gradient(135deg, 
-                                                            ${COLORS.SUCCESS[600]} 0%, 
-                                                            ${COLORS.SUCCESS[700]} 50%,
-                                                            ${COLORS.WARNING[600]} 100%
-                                                        )`,
-                                                    transform: 'translateY(-2px)',
-                                                    boxShadow: `0 6px 16px ${alpha(COLORS.SUCCESS[400], 0.4)}, 
-                                                               0 3px 8px ${alpha(COLORS.SUCCESS[300], 0.3)}`
+                                                        ${COLORS.SUCCESS[600]} 0%, 
+                                                        ${COLORS.SUCCESS[700]} 50%,
+                                                        ${COLORS.WARNING[600]} 100%
+                                                    )`
                                                 },
                                                 '&:disabled': {
-                                                    background: `linear-gradient(135deg, 
-                                                        ${alpha(COLORS.GRAY[300], 0.6)} 0%, 
-                                                        ${alpha(COLORS.GRAY[400], 0.5)} 100%
-                                                    )`,
-                                                    color: COLORS.GRAY[500],
-                                                    border: `1px solid ${alpha(COLORS.GRAY[300], 0.3)}`,
-                                                    boxShadow: `0 1px 2px ${alpha(COLORS.GRAY[200], 0.2)}`,
-                                                    transform: 'none',
-                                                    cursor: 'not-allowed',
-                                                    opacity: 0.7
-                                                },
-                                                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                                                    background: alpha(COLORS.GRAY[300], 0.6),
+                                                    color: COLORS.GRAY[500]
+                                                }
                                             }}
                                         >
-                                            {isFormComplete() ? '💳 Thanh toán' : '⏳ Điền đầy đủ thông tin'}
+                                            {isFormComplete() ? '🛒 Thêm vào giỏ hàng' : '⏳ Điền đầy đủ thông tin'}
                                         </Button>
                                     </Stack>
                                 </Box>
@@ -1237,3 +732,4 @@ const BookingForm = ({ service, onBack, onSubmit }) => {
 };
 
 export default BookingForm;
+

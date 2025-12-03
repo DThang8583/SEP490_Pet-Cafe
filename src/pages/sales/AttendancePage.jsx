@@ -243,7 +243,7 @@ const AttendancePage = () => {
                 <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ xs: 'flex-start', sm: 'center' }} justifyContent="space-between" sx={{ mb: 3 }} spacing={2}>
                     <Stack direction="row" spacing={1} alignItems="center">
                         <AccessTime sx={{ color: COLORS.WARNING[600], fontSize: 32 }} />
-                        <Typography variant="h4" sx={{ fontWeight: 900, color: COLORS.WARNING[600] }}>Điểm danh nhân viên</Typography>
+                        <Typography variant="h4" sx={{ fontWeight: 700, color: COLORS.WARNING[600], letterSpacing: '-0.02em', lineHeight: 1.2 }}>Điểm danh nhân viên</Typography>
                     </Stack>
                     <Stack direction="row" spacing={2} alignItems="center">
                         <Chip 
@@ -311,7 +311,7 @@ const AttendancePage = () => {
                                 }}>
                                     <Stack direction="row" alignItems="center" spacing={1.5}>
                                         <People sx={{ fontSize: 28 }} />
-                                        <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                                        <Typography variant="h6" sx={{ fontWeight: 600, letterSpacing: '-0.01em', lineHeight: 1.3 }}>
                                             Danh sách nhân viên ({teamMembers.length})
                                         </Typography>
                                     </Stack>
@@ -320,13 +320,13 @@ const AttendancePage = () => {
                                     <Table>
                                         <TableHead>
                                             <TableRow sx={{ bgcolor: alpha(COLORS.WARNING[100], 0.5) }}>
-                                                <TableCell sx={{ fontWeight: 700, width: '60px' }}>Avatar</TableCell>
-                                                <TableCell sx={{ fontWeight: 700 }}>Họ và tên</TableCell>
-                                                <TableCell sx={{ fontWeight: 700 }}>Email</TableCell>
-                                                <TableCell sx={{ fontWeight: 700 }}>Số điện thoại</TableCell>
-                                                <TableCell sx={{ fontWeight: 700 }}>Vai trò</TableCell>
-                                                <TableCell sx={{ fontWeight: 700, textAlign: 'center' }}>Trạng thái điểm danh</TableCell>
-                                                <TableCell sx={{ fontWeight: 700, textAlign: 'center', width: '250px' }}>Thao tác</TableCell>
+                                                <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', letterSpacing: '0.01em', width: '60px' }}>Avatar</TableCell>
+                                                <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', letterSpacing: '0.01em' }}>Họ và tên</TableCell>
+                                                <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', letterSpacing: '0.01em' }}>Email</TableCell>
+                                                <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', letterSpacing: '0.01em' }}>Số điện thoại</TableCell>
+                                                <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', letterSpacing: '0.01em' }}>Vai trò</TableCell>
+                                                <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', letterSpacing: '0.01em', textAlign: 'center' }}>Trạng thái điểm danh</TableCell>
+                                                <TableCell sx={{ fontWeight: 600, fontSize: '0.875rem', letterSpacing: '0.01em', textAlign: 'center', width: '250px' }}>Thao tác</TableCell>
                                             </TableRow>
                                         </TableHead>
                                         <TableBody>
@@ -347,11 +347,11 @@ const AttendancePage = () => {
                                                                 <Person />
                                                             </Avatar>
                                                         </TableCell>
-                                                        <TableCell sx={{ fontWeight: 600 }}>
+                                                        <TableCell sx={{ fontWeight: 500, fontSize: '0.9375rem', lineHeight: 1.5 }}>
                                                             {employee.full_name || '-'}
                                                         </TableCell>
-                                                        <TableCell>{employee.email || '-'}</TableCell>
-                                                        <TableCell>{employee.phone || '-'}</TableCell>
+                                                        <TableCell sx={{ fontSize: '0.9375rem', lineHeight: 1.5 }}>{employee.email || '-'}</TableCell>
+                                                        <TableCell sx={{ fontSize: '0.9375rem', lineHeight: 1.5 }}>{employee.phone || '-'}</TableCell>
                                                         <TableCell>
                                                             <Chip 
                                                                 label={employee.sub_role === 'SALE_STAFF' ? 'Nhân viên bán hàng' : 
@@ -423,7 +423,7 @@ const AttendancePage = () => {
                             </Paper>
                         ) : (
                             <Paper elevation={2} sx={{ p: 4, borderRadius: 3, textAlign: 'center', bgcolor: alpha(COLORS.GRAY[50], 0.5) }}>
-                                <Typography variant="h6" sx={{ color: COLORS.TEXT.SECONDARY }}>
+                                <Typography variant="h6" sx={{ color: COLORS.TEXT.SECONDARY, fontWeight: 500, lineHeight: 1.6 }}>
                                     Nhóm này chưa có thành viên nào
                                 </Typography>
                             </Paper>
@@ -438,14 +438,14 @@ const AttendancePage = () => {
                 setCurrentEmployee(null);
                 setCurrentStatus(null);
             }} maxWidth="sm" fullWidth>
-                <DialogTitle sx={{ fontWeight: 700, color: currentStatus === 'absent' ? COLORS.ERROR[600] : COLORS.WARNING[600] }}>
+                <DialogTitle sx={{ fontWeight: 600, fontSize: '1.25rem', letterSpacing: '-0.01em', color: currentStatus === 'absent' ? COLORS.ERROR[600] : COLORS.WARNING[600] }}>
                     {currentStatus === 'absent' ? 'Ghi chú vắng mặt' : 'Ghi chú đi muộn'}
                 </DialogTitle>
                 <DialogContent>
                     <Box sx={{ mt: 2 }}>
                         {currentEmployee && (
-                            <Typography variant="body2" sx={{ mb: 2, color: COLORS.TEXT.SECONDARY }}>
-                                Nhân viên: <strong>{currentEmployee.full_name}</strong>
+                            <Typography variant="body2" sx={{ mb: 2, color: COLORS.TEXT.SECONDARY, lineHeight: 1.6, fontSize: '0.9375rem' }}>
+                                Nhân viên: <strong style={{ fontWeight: 600 }}>{currentEmployee.full_name}</strong>
                             </Typography>
                         )}
                         <TextField

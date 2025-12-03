@@ -13,9 +13,8 @@ const SuccessPage = () => {
                     <CardContent>
                         <Stack alignItems="center" spacing={2}>
                             <CheckCircle sx={{ color: 'success.main', fontSize: 64 }} />
-                            <Typography variant="h5" sx={{ fontWeight: 800, color: COLORS.ERROR[600] }}>Thanh toán thành công!</Typography>
+                            <Typography variant="h5" sx={{ fontWeight: 700, fontSize: '1.75rem', color: COLORS.ERROR[600], letterSpacing: '-0.02em', lineHeight: 1.3 }}>Thanh toán thành công!</Typography>
                             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-                                <Button variant="contained" color="error" onClick={() => navigate('/sales/invoices')}>Xem hóa đơn</Button>
                                 <Button variant="outlined" color="error" onClick={() => navigate('/sales/sales')}>Tiếp tục bán hàng</Button>
                             </Stack>
                         </Stack>

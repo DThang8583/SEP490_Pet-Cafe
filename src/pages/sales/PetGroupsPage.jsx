@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { Box, Container, Grid, Card, CardContent, Typography, TextField, Chip, Button, Stack, Dialog, DialogTitle, DialogContent, DialogActions, CircularProgress } from '@mui/material';
+import { Box, Container, Card, CardContent, Typography, TextField, Chip, Button, Stack, Dialog, DialogTitle, DialogContent, DialogActions, CircularProgress } from '@mui/material';
 import { COLORS } from '../../constants/colors';
 import { useNavigate } from 'react-router-dom';
 
@@ -82,7 +82,7 @@ const PetGroupsPage = () => {
 
                 {error && <Typography color="error" sx={{ mb: 2 }}>{error}</Typography>}
 
-                <Grid container spacing={2} alignItems="stretch">
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)', lg: 'repeat(2, 1fr)' }, gap: 2, alignItems: 'stretch' }}>
                     {filtered.map(g => {
                         const speciesName = (g.pet_species?.name || '').toLowerCase();
                         const isCat = speciesName.includes('mèo');
@@ -90,7 +90,7 @@ const PetGroupsPage = () => {
                         const emoji = isCat ? '🐱' : (isDog ? '🐶' : '🐾');
                         const bg = isCat ? '#FFF3E0' : (isDog ? '#E3F2FD' : '#F3E5F5');
                         return (
-                            <Grid item xs={12} md={6} lg={6} key={g.id}>
+                            <Box key={g.id}>
                                 <Card sx={{
                                     borderRadius: 4,
                                     height: '100%',
@@ -115,10 +115,10 @@ const PetGroupsPage = () => {
                                         <Box sx={{ flexGrow: 1 }} />
                                     </CardContent>
                                 </Card>
-                            </Grid>
+                            </Box>
                         );
                     })}
-                </Grid>
+                </Box>
             </Container>
 
             <Dialog open={petsDialogOpen} onClose={() => setPetsDialogOpen(false)} maxWidth="md" fullWidth>
@@ -133,14 +133,14 @@ const PetGroupsPage = () => {
                     ) : pets.length === 0 ? (
                         <Typography sx={{ color: COLORS.TEXT.SECONDARY, textAlign: 'center', py: 4 }}>Chưa có thú cưng nào trong nhóm này.</Typography>
                     ) : (
-                        <Grid container spacing={2} sx={{ mt: 1 }}>
+                        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' }, gap: 2, mt: 1 }}>
                             {pets.map(pet => {
                                 const speciesName = (pet.species?.name || '').toLowerCase();
                                 const isCat = speciesName.includes('mèo');
                                 const isDog = speciesName.includes('chó');
                                 const emoji = isCat ? '🐱' : (isDog ? '🐶' : '🐾');
                                 return (
-                                    <Grid item xs={12} sm={6} key={pet.id}>
+                                    <Box key={pet.id}>
                                         <Card sx={{ borderRadius: 3, height: '100%', overflow: 'hidden', boxShadow: 3 }}>
                                             {pet.image_url && (
                                                 <Box component="img" src={pet.image_url} alt={pet.name} sx={{ width: '100%', height: 180, objectFit: 'cover' }} />
@@ -170,10 +170,10 @@ const PetGroupsPage = () => {
                                                 )}
                                             </CardContent>
                                         </Card>
-                                    </Grid>
+                                    </Box>
                                 );
                             })}
-                        </Grid>
+                        </Box>
                     )}
                 </DialogContent>
                 <DialogActions>

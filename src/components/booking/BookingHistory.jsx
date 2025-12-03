@@ -12,9 +12,8 @@ import {
     Error as ErrorIcon, Pending
 } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
-import { customerApi } from '../../api/authApi';
-import { bookingApi } from '../../api/bookingApi';
 import { feedbackApi } from '../../api/feedbackApi';
+import { bookingApi } from '../../api/bookingApi';
 import Loading from '../loading/Loading';
 import FeedbackModal from './FeedbackModal';
 import AlertModal from '../modals/AlertModal';
@@ -55,14 +54,91 @@ const BookingHistory = ({ open, onClose }) => {
         try {
             setLoading(true);
             setError('');
-            const response = await bookingApi.getMyBookings();
-
-            if (response.success) {
-                setBookings(response.data);
-            } else {
-                setError('Không thể tải lịch sử đặt lịch');
+            
+            // Get current user from localStorage
+            const currentUserStr = localStorage.getItem('currentUser');
+            if (!currentUserStr) {
+                setError('Chưa đăng nhập');
+                setLoading(false);
+                return;
             }
+            
+            const currentUser = JSON.parse(currentUserStr);
+            const customerId = currentUser.id;
+            
+            if (!customerId) {
+                setError('Không tìm thấy thông tin khách hàng');
+                setLoading(false);
+                return;
+            }
+            
+            // Get auth token
+            const token = localStorage.getItem('authToken');
+            
+            // Call API to get bookings
+            const response = await fetch(
+                `https://petcafe-htc6dadbayh6h4dz.southeastasia-01.azurewebsites.net/api/customers/${customerId}/bookings`,
+                {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Authorization': token ? `Bearer ${token}` : ''
+                    }
+                }
+            );
+            
+            const rawText = await response.text();
+            let jsonData = null;
+            
+            try {
+                jsonData = JSON.parse(rawText);
+            } catch (e) {
+                console.error('Error parsing response:', e);
+                throw new Error('Phản hồi từ server không hợp lệ');
+            }
+            
+            if (!response.ok) {
+                const errorMsg = jsonData?.message || jsonData?.error || 'Không thể tải lịch sử đặt lịch';
+                throw new Error(errorMsg);
+            }
+            
+            // Parse response data
+            const bookingsData = jsonData?.data || jsonData || [];
+            
+            // Map API response to component format
+            const mappedBookings = Array.isArray(bookingsData) ? bookingsData.map(booking => {
+                // Map from API response format to component format
+                return {
+                    id: booking.id || booking.booking_id,
+                    service: {
+                        id: booking.service_id || booking.service?.id,
+                        name: booking.service_name || booking.service?.name || 'Dịch vụ không xác định',
+                        description: booking.service?.description,
+                        base_price: booking.service?.base_price || booking.price || 0
+                    },
+                    pet: booking.pet ? {
+                        id: booking.pet.id || booking.pet_id,
+                        name: booking.pet.name || booking.pet_name
+                    } : null,
+                    bookingDateTime: booking.booking_date || booking.bookingDateTime || booking.created_at,
+                    finalPrice: booking.final_amount || booking.total_amount || booking.price || 0,
+                    status: booking.status?.toLowerCase() || 'pending',
+                    notes: booking.notes || '',
+                    feedback: booking.feedback ? {
+                        overallRating: booking.feedback.overall_rating || booking.feedback.rating || 0,
+                        comment: booking.feedback.comment || booking.feedback.feedback_text || ''
+                    } : null,
+                    slot: booking.slot,
+                    payment_status: booking.payment_status,
+                    payment_method: booking.payment_method,
+                    // Keep original data for reference
+                    ...booking
+                };
+            }) : [];
+            
+            setBookings(mappedBookings);
         } catch (err) {
+            console.error('[BookingHistory] Error loading bookings:', err);
             setError(err.message || 'Có lỗi xảy ra khi tải dữ liệu');
         } finally {
             setLoading(false);
