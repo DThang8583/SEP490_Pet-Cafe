@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Box, Grid, Card, CardContent, Typography, TextField, Button, Stack, Chip, FormControlLabel, Checkbox, MenuItem, Select, InputLabel, FormControl, IconButton, Divider, Badge, Dialog, DialogTitle, DialogContent, DialogActions, Container, InputAdornment } from '@mui/material';
+import { Box, Card, CardContent, Typography, TextField, Button, Stack, Chip, FormControlLabel, Checkbox, MenuItem, Select, InputLabel, FormControl, IconButton, Divider, Badge, Dialog, DialogTitle, DialogContent, DialogActions, Container, InputAdornment } from '@mui/material';
 import { ShoppingCart, Add, Remove, Delete, Pets, LocalCafe, Fastfood, ShoppingBag } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 import { salesApi, authApi } from '../../api/authApi';
@@ -47,8 +47,9 @@ const SalesPage = () => {
                 });
                 if (!prodResp.ok) throw new Error('Không thể tải danh sách sản phẩm');
                 const prodJson = await prodResp.json();
+                // Chỉ filter is_deleted, không filter is_active để hiển thị tất cả sản phẩm (kể cả inactive)
                 const apiProducts = Array.isArray(prodJson?.data)
-                    ? prodJson.data.filter(p => p?.is_active && !p?.is_deleted)
+                    ? prodJson.data.filter(p => !p?.is_deleted)
                     : [];
                 setProducts(apiProducts);
                 // Load official product categories for filtering UI
@@ -83,61 +84,31 @@ const SalesPage = () => {
     }, [cart, cartInitialized]);
 
     const filtered = useMemo(() => {
-        const byText = products.filter(p => p.name.toLowerCase().includes(keyword.toLowerCase()));
+        const byText = products.filter(p => (p.name || '').toLowerCase().includes(keyword.toLowerCase()));
         if (category === 'all') return byText;
-        // If category is one of static types ('food' | 'drink')
-        if (category === 'food' || category === 'drink') {
-            return byText.filter(p => {
-                const catStr = typeof p.category === 'string'
-                    ? (p.category || '').toLowerCase()
-                    : (p.category?.name || '').toLowerCase();
-                return catStr === category;
-            });
-        }
-        // Otherwise, category is an official category id: match by id or fallback by name heuristic
+        
+        // Filter by category ID from API
         const selected = categories.find(c => c.id === category);
         if (!selected) return byText;
-        const catName = (selected.name || '').toLowerCase();
-        const fallbackType = catName.includes('uống') ? 'drink' : (catName.includes('ăn') ? 'food' : null);
+        
         return byText.filter(p => {
             const pid = p.category_id || p.category?.id;
-            if (pid && pid === selected.id) return true;
-            if (fallbackType) {
-                const catStr = typeof p.category === 'string'
-                    ? (p.category || '').toLowerCase()
-                    : (p.category?.name || '').toLowerCase();
-                return catStr === fallbackType;
-            }
-            return false;
+            return pid && pid === selected.id;
         });
-    }, [products, keyword, category]);
+    }, [products, keyword, category, categories]);
     const total = useMemo(() => cart.reduce((s, i) => s + i.price * i.quantity, 0), [cart]);
 
     const getProductImage = (p) => {
+        // Ưu tiên image_url từ API
         if (p?.image_url) return p.image_url;
+        // Thứ hai: thumbnails từ API
+        if (p?.thumbnails && Array.isArray(p.thumbnails) && p.thumbnails.length > 0) {
+            return p.thumbnails[0];
+        }
+        // Thứ ba: image field (nếu có)
         if (p?.image) return p.image;
-        const name = (p?.name || '').toLowerCase();
-        const cat = typeof p?.category === 'string'
-            ? (p?.category || '').toLowerCase()
-            : (p?.category?.name || '').toLowerCase();
-        // Drinks
-        if (name.includes('latte')) return 'https://images.unsplash.com/photo-1510591509098-f4fdc6d0ff04?w=800&auto=format&fit=crop';
-        if (name.includes('americano')) return 'https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=800&auto=format&fit=crop';
-        if (name.includes('cappuccino')) return 'https://images.unsplash.com/photo-1572442388796-11668a67e53d?w=800&auto=format&fit=crop';
-        if (name.includes('trà sữa') || name.includes('milk tea')) return 'https://images.unsplash.com/photo-1525385133512-2f3bdd039054?w=800&auto=format&fit=crop';
-        if (name.includes('trà đào') || name.includes('trà') && name.includes('đào')) return 'https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=800&auto=format&fit=crop';
-        if (name.includes('nước cam') || name.includes('cam')) return 'https://images.unsplash.com/photo-1600271886742-f049cd451bba?w=800&auto=format&fit=crop';
-        if (name.includes('coca') || name.includes('cola') || name.includes('soda')) return 'https://images.unsplash.com/photo-1558642452-9d2a7deb7f62?w=800&auto=format&fit=crop';
-        // Food (human)
-        if (name.includes('bánh mì')) return 'https://images.unsplash.com/photo-1626074353765-517a681e40be?w=800&auto=format&fit=crop';
-        if (name.includes('croissant')) return 'https://images.unsplash.com/photo-1555507036-ab1f4038808a?w=800&auto=format&fit=crop';
-        if (name.includes('sữa chua')) return 'https://images.unsplash.com/photo-1488477181946-6428a0291777?w=800&auto=format&fit=crop';
-        // Pet food
-        if (name.includes('pate') || name.includes('snack')) return 'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=800&auto=format&fit=crop';
-        if (cat === 'drink') return 'https://images.unsplash.com/photo-1511920170033-f8396924c348?w=800&auto=format&fit=crop';
-        if (cat === 'food') return 'https://images.unsplash.com/photo-1544025162-d76694265947?w=800&auto=format&fit=crop';
-        // Fallback paw image
-        return 'https://images.unsplash.com/photo-1518020382113-a7e8fc38eac9?w=800&auto=format&fit=crop';
+        // Không có hình ảnh - trả về null để hiển thị placeholder
+        return null;
     };
 
     const notifyCartChanged = (next) => {
@@ -206,23 +177,6 @@ const SalesPage = () => {
 
     const checkout = async () => {
         if (!cart.length) return;
-        const hasOnlyDrinks = cart.every(i => {
-            const prod = products.find(p => p.id === i.id);
-            if (!prod) return false;
-            const type = typeof prod.category === 'string'
-                ? (prod.category || '').toLowerCase()
-                : (prod.category?.name || '').toLowerCase();
-            if (type) return type === 'drink';
-            const pid = prod.category_id || prod.category?.id;
-            if (!pid) return false;
-            const cat = categories.find(c => c.id === pid);
-            const cname = (cat?.name || '').toLowerCase();
-            return cname.includes('uống');
-        });
-        if (!hasOnlyDrinks) {
-            alert('Nhân viên sales chỉ xác nhận đồ uống. Vui lòng chỉ chọn đồ uống.');
-            return;
-        }
         try {
             const res = await salesApi.createOrder({ items: cart, paymentMethod, paid: true, dineIn });
             // Navigate to checkout page with invoice info
@@ -233,7 +187,6 @@ const SalesPage = () => {
                 invoiceId: invoice?.id || '',
                 total: String(invoice?.total || 0),
                 method: paymentMethod,
-                // Per requirement: send product id as id for confirm
                 orderId: firstProductId || order?.id || ''
             }).toString();
             window.location.href = `/sales/checkout?${search}`;
@@ -261,15 +214,15 @@ const SalesPage = () => {
                 <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 3 }}>
                     <Stack direction="row" spacing={1} alignItems="center">
                         <Pets sx={{ color: COLORS.ERROR[500] }} />
-                        <Typography variant="h4" sx={{ fontWeight: 900, color: COLORS.ERROR[600] }}>Bán hàng thân thiện</Typography>
+                        <Typography variant="h4" sx={{ fontWeight: 700, fontSize: '2rem', color: COLORS.ERROR[600], letterSpacing: '-0.02em', lineHeight: 1.2 }}>Bán hàng thân thiện</Typography>
                     </Stack>
                     <Chip color="error" label="Sản phẩm hôm nay" sx={{ fontWeight: 700, borderRadius: 2 }} />
                 </Stack>
 
             {error && <Typography color="error" sx={{ mb: 2 }}>{error}</Typography>}
 
-            <Grid container spacing={3}>
-                <Grid item xs={12} md={8}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 1fr' }, gap: 3 }}>
+                <Box>
                     <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 2 }}>
                         <TextField fullWidth placeholder="Tìm đồ uống, đồ ăn..." value={keyword} onChange={(e) => setKeyword(e.target.value)} sx={{
                             '& .MuiOutlinedInput-root': {
@@ -286,10 +239,6 @@ const SalesPage = () => {
 
                     <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap' }}>
                         <Chip label="Tất cả" icon={<Pets />} variant={category === 'all' ? 'filled' : 'outlined'} color={category === 'all' ? 'error' : 'default'} onClick={() => setCategory('all')} clickable sx={{ borderRadius: 2 }} />
-                        {/* Static fallbacks for mock products */}
-                        <Chip label="Đồ ăn" icon={<Fastfood />} variant={category === 'food' ? 'filled' : 'outlined'} color={category === 'food' ? 'error' : 'default'} onClick={() => setCategory('food')} clickable sx={{ borderRadius: 2 }} />
-                        <Chip label="Đồ uống" icon={<LocalCafe />} variant={category === 'drink' ? 'filled' : 'outlined'} color={category === 'drink' ? 'error' : 'default'} onClick={() => setCategory('drink')} clickable sx={{ borderRadius: 2 }} />
-                        {/* Dynamic categories from official API */}
                         {categories.map(c => {
                             const name = (c.name || '').toLowerCase();
                             const isDrink = name.includes('uống') || name.includes('giải khát');
@@ -315,11 +264,26 @@ const SalesPage = () => {
                         {filtered.map((p) => (
                             <Box key={p.id} sx={{ height: '100%' }}>
                                 <Card sx={{ borderRadius: 4, height: '100%', overflow: 'hidden', boxShadow: 6, transition: 'transform 120ms ease, box-shadow 120ms ease', '&:hover': { transform: 'translateY(-2px)', boxShadow: 10 }, display: 'flex', flexDirection: 'column' }}>
-                                    <Box component="img" src={getProductImage(p)} alt={p.name} sx={{ width: '100%', height: 180, objectFit: 'cover', flexShrink: 0 }} />
+                                    <Box sx={{ width: '100%', height: 180, position: 'relative', flexShrink: 0, backgroundColor: COLORS.BACKGROUND.NEUTRAL }}>
+                                        {getProductImage(p) ? (
+                                            <Box component="img" src={getProductImage(p)} alt={p.name} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                        ) : (
+                                            <Box sx={{ 
+                                                width: '100%', 
+                                                height: '100%', 
+                                                display: 'flex', 
+                                                alignItems: 'center', 
+                                                justifyContent: 'center',
+                                                background: `linear-gradient(135deg, ${COLORS.ERROR[100]} 0%, ${COLORS.SECONDARY[100]} 100%)`
+                                            }}>
+                                                <Pets sx={{ fontSize: 64, color: COLORS.ERROR[400], opacity: 0.6 }} />
+                                            </Box>
+                                        )}
+                                    </Box>
                                     <CardContent sx={{ display: 'flex', flexDirection: 'column', flexGrow: 1 }}>
-                                        <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', minHeight: 48 }}>{p.name}</Typography>
-                                        <Typography sx={{ color: COLORS.TEXT.SECONDARY, mb: 1, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', minHeight: 40 }}>{p.description}</Typography>
-                                        <Typography sx={{ fontWeight: 800, color: COLORS.ERROR[600], mb: 1 }}>{p.price.toLocaleString('vi-VN')} ₫</Typography>
+                                    <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1.125rem', mb: 0.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', minHeight: 48, lineHeight: 1.4, letterSpacing: '-0.01em' }}>{p.name}</Typography>
+                                    <Typography sx={{ color: COLORS.TEXT.SECONDARY, fontSize: '0.9375rem', mb: 1, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', minHeight: 40, lineHeight: 1.5, fontWeight: 400 }}>{p.description}</Typography>
+                                    <Typography sx={{ fontWeight: 700, fontSize: '1.25rem', color: COLORS.ERROR[600], mb: 1, letterSpacing: '-0.01em' }}>{p.price.toLocaleString('vi-VN')} ₫</Typography>
                                         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }} sx={{ mb: 1 }}>
                                             <Button variant="contained" color="error" onClick={() => addToCart(p)} size="small" startIcon={<ShoppingBag />} sx={{ borderRadius: 2, alignSelf: 'flex-start' }}>
                                                 Thêm vào giỏ
@@ -334,9 +298,9 @@ const SalesPage = () => {
                             </Box>
                         ))}
                     </Box>
-                </Grid>
+                </Box>
                 {/* Cart sidebar removed; use dedicated CartPage */}
-            </Grid>
+            </Box>
 
             </Container>
 
