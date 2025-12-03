@@ -239,15 +239,17 @@ const serviceApi = {
                 throw new Error('Giá cơ bản không được âm');
             }
 
+            // Build payload according to API PUT /api/services/{id} spec
+            // Include all fields that are provided in updates
             const payload = {};
             if (updates.name !== undefined) payload.name = updates.name.trim();
             if (updates.description !== undefined) payload.description = updates.description.trim();
             if (updates.duration_minutes !== undefined) payload.duration_minutes = updates.duration_minutes;
             if (updates.base_price !== undefined) payload.base_price = updates.base_price;
-            if (updates.image_url !== undefined) payload.image_url = updates.image_url;
-            if (updates.thumbnails !== undefined) payload.thumbnails = updates.thumbnails;
+            if (updates.image_url !== undefined) payload.image_url = updates.image_url || '';
+            if (updates.thumbnails !== undefined) payload.thumbnails = Array.isArray(updates.thumbnails) ? updates.thumbnails : [];
             if (updates.task_id !== undefined) payload.task_id = updates.task_id;
-            if (updates.is_active !== undefined) payload.is_active = updates.is_active;
+            if (updates.is_active !== undefined) payload.is_active = Boolean(updates.is_active);
 
             console.log('[updateService] Request serviceId:', serviceId, 'payload:', payload);
 

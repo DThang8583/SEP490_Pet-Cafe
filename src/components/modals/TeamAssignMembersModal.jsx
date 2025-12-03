@@ -142,8 +142,8 @@ const TeamAssignMembersModal = ({
                                 onChange={(e) => setRoleFilter(e.target.value)}
                             >
                                 <MenuItem value="all">Tất cả vai trò</MenuItem>
-                                <MenuItem value="WORKING_STAFF">Working Staff</MenuItem>
-                                <MenuItem value="SALE_STAFF">Sale Staff</MenuItem>
+                                <MenuItem value="WORKING_STAFF">Nhân viên chăm sóc</MenuItem>
+                                <MenuItem value="SALE_STAFF">Nhân viên bán hàng</MenuItem>
                             </Select>
                         </FormControl>
                         <FormControl fullWidth>
@@ -215,7 +215,7 @@ const TeamAssignMembersModal = ({
                                             <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ mt: 0.5 }}>
                                                 {emp.sub_role && (
                                                     <Chip
-                                                        label={emp.sub_role === 'WORKING_STAFF' ? 'Working Staff' : (emp.sub_role === 'SALE_STAFF' ? 'Sale Staff' : emp.sub_role)}
+                                                        label={emp.sub_role === 'WORKING_STAFF' ? 'Nhân viên chăm sóc' : (emp.sub_role === 'SALE_STAFF' ? 'Nhân viên bán hàng' : (emp.sub_role === 'MANAGER' ? 'Quản lý' : emp.sub_role))}
                                                         size="small"
                                                         sx={{ bgcolor: alpha(COLORS.PRIMARY[100], 0.7), fontWeight: 600 }}
                                                     />

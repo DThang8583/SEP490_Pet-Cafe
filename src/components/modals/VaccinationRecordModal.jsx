@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, Stack, IconButton, Typography, alpha, Box } from '@mui/material';
-import { Close, CalendarToday } from '@mui/icons-material';
+import { Close, CalendarToday, Vaccines } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 
 const VaccinationRecordModal = ({
@@ -9,6 +9,8 @@ const VaccinationRecordModal = ({
     onSubmit,
     dailyTask,
     vaccinationSchedule,
+    vaccinationRecord = null, // For edit mode
+    isEditMode = false, // New prop to indicate edit mode
     isLoading = false
 }) => {
     const [formData, setFormData] = useState({
@@ -33,19 +35,33 @@ const VaccinationRecordModal = ({
 
     useEffect(() => {
         if (open && dailyTask && vaccinationSchedule) {
-            // Set default vaccination_date to today
+            if (vaccinationRecord && isEditMode) {
+                // Edit mode: load existing vaccination record data
+                const vaccinationDate = vaccinationRecord.vaccination_date ? new Date(vaccinationRecord.vaccination_date).toISOString().split('T')[0] : '';
+                const nextDueDate = vaccinationRecord.next_due_date ? new Date(vaccinationRecord.next_due_date).toISOString().split('T')[0] : '';
+
+                setFormData({
+                    vaccination_date: vaccinationDate,
+                    next_due_date: nextDueDate,
+                    veterinarian: vaccinationRecord.veterinarian || '',
+                    clinic_name: vaccinationRecord.clinic_name || '',
+                    batch_number: vaccinationRecord.batch_number || '',
+                    notes: vaccinationRecord.notes || ''
+                });
+            } else {
+                // Create mode: Set default vaccination_date to today
             const today = new Date();
             today.setHours(0, 0, 0, 0);
             const todayStr = today.toISOString().split('T')[0];
 
-            // Get frequency from vaccine_type (in months)
-            // Backend uses interval_months field
-            const frequencyInMonths = vaccinationSchedule.vaccine_type?.interval_months ||
-                vaccinationSchedule.vaccine_type?.frequency_in_months ||
-                12; // Default 12 months if not specified
+                // Get frequency from vaccine_type (in months)
+                // Backend uses interval_months field
+                const frequencyInMonths = vaccinationSchedule.vaccine_type?.interval_months ||
+                    vaccinationSchedule.vaccine_type?.frequency_in_months ||
+                    12; // Default 12 months if not specified
 
-            // Calculate next_due_date based on frequency
-            const nextDueStr = calculateNextDueDate(todayStr, frequencyInMonths);
+                // Calculate next_due_date based on frequency
+                const nextDueStr = calculateNextDueDate(todayStr, frequencyInMonths);
 
             setFormData({
                 vaccination_date: todayStr,
@@ -55,9 +71,10 @@ const VaccinationRecordModal = ({
                 batch_number: '',
                 notes: ''
             });
+            }
             setErrors({});
         }
-    }, [open, dailyTask, vaccinationSchedule]);
+    }, [open, dailyTask, vaccinationSchedule, vaccinationRecord, isEditMode, calculateNextDueDate]);
 
     // Auto-calculate next_due_date when vaccination_date changes
     useEffect(() => {
@@ -106,7 +123,8 @@ const VaccinationRecordModal = ({
         return Object.keys(newErrors).length === 0;
     };
 
-    const handleSubmit = () => {
+    const handleSubmit = (e) => {
+        e?.preventDefault(); // Prevent default form submission
         if (validate() && dailyTask && vaccinationSchedule) {
             onSubmit({
                 pet_id: vaccinationSchedule.pet_id || vaccinationSchedule.pet?.id,
@@ -123,6 +141,7 @@ const VaccinationRecordModal = ({
     };
 
     const handleClose = () => {
+        if (isLoading) return; // Prevent closing while loading
         setFormData({
             vaccination_date: '',
             next_due_date: '',
@@ -143,32 +162,41 @@ const VaccinationRecordModal = ({
             onClose={handleClose}
             maxWidth="sm"
             fullWidth
+            disableScrollLock
             PaperProps={{
                 sx: {
                     borderRadius: 3,
-                    boxShadow: `0 12px 40px ${alpha(COLORS.SHADOW.LIGHT, 0.25)}`
+                    boxShadow: `0 20px 60px ${alpha(COLORS.SHADOW.DARK, 0.3)}`
                 }
             }}
         >
-            <DialogTitle>
-                <Stack direction="row" justifyContent="space-between" alignItems="center">
-                    <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                        Tạo Hồ Sơ Tiêm Phòng
+            <Box
+                sx={{
+                    bgcolor: COLORS.SUCCESS[50],
+                    borderBottom: `3px solid ${COLORS.SUCCESS[500]}`
+            }}
+        >
+                <DialogTitle sx={{ fontWeight: 800, color: COLORS.SUCCESS[800], pb: 1, display: 'flex', alignItems: 'center', gap: 1, justifyContent: 'space-between' }}>
+                    <Stack direction="row" alignItems="center" gap={1}>
+                        <Vaccines />
+                        <Typography variant="h6" sx={{ fontWeight: 800 }}>
+                            {isEditMode ? '✏️ Chỉnh Sửa Hồ Sơ Tiêm Phòng' : '➕ Tạo Hồ Sơ Tiêm Phòng'}
                     </Typography>
+                    </Stack>
                     <IconButton
                         size="small"
                         onClick={handleClose}
                         sx={{
                             color: COLORS.TEXT.SECONDARY,
-                            '&:hover': { bgcolor: COLORS.BACKGROUND.NEUTRAL }
+                            '&:hover': { bgcolor: alpha(COLORS.SUCCESS[100], 0.5) }
                         }}
                     >
                         <Close />
                     </IconButton>
-                </Stack>
             </DialogTitle>
-            <DialogContent>
-                <Stack spacing={3} sx={{ mt: 1 }}>
+            </Box>
+            <DialogContent sx={{ pt: 3, pb: 2, px: 3 }}>
+                <Stack spacing={3}>
                     {/* Info Box */}
                     <Box
                         sx={{
@@ -189,7 +217,7 @@ const VaccinationRecordModal = ({
                         </Typography>
                         {(vaccinationSchedule.vaccine_type?.interval_months || vaccinationSchedule.vaccine_type?.frequency_in_months) && (
                             <Typography variant="body2" sx={{ color: COLORS.WARNING[700], fontWeight: 600 }}>
-                                Chu kỳ tiêm lại: {vaccinationSchedule.vaccine_type.interval_months || vaccinationSchedule.vaccine_type.frequency_in_months} tháng
+                                Lịch tiêm kế tiếp: {vaccinationSchedule.vaccine_type.interval_months || vaccinationSchedule.vaccine_type.frequency_in_months} tháng
                             </Typography>
                         )}
                         <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
@@ -221,15 +249,15 @@ const VaccinationRecordModal = ({
                         label="Ngày tiêm tiếp theo *"
                         type="date"
                         value={formData.next_due_date}
-                        onChange={(e) => setFormData({ ...formData, next_due_date: e.target.value })}
                         fullWidth
                         required
+                        disabled
                         error={Boolean(errors.next_due_date)}
                         helperText={
                             errors.next_due_date ||
                             ((vaccinationSchedule.vaccine_type?.interval_months || vaccinationSchedule.vaccine_type?.frequency_in_months)
                                 ? `Tự động tính: ${vaccinationSchedule.vaccine_type.interval_months || vaccinationSchedule.vaccine_type.frequency_in_months} tháng sau ngày tiêm`
-                                : 'Có thể chỉnh sửa nếu cần')
+                                : 'Tự động tính dựa trên ngày tiêm')
                         }
                         InputLabelProps={{ shrink: true }}
                         InputProps={{
@@ -255,13 +283,13 @@ const VaccinationRecordModal = ({
                         placeholder="Nhập tên phòng khám"
                     />
 
-                    {/* Batch Number */}
+                    {/* Vaccine Name */}
                     <TextField
-                        label="Số lô vaccine"
+                        label="Tên vaccine"
                         value={formData.batch_number}
                         onChange={(e) => setFormData({ ...formData, batch_number: e.target.value })}
                         fullWidth
-                        placeholder="Nhập số lô vaccine"
+                        placeholder="Nhập tên vaccine"
                     />
 
                     {/* Notes */}
@@ -291,22 +319,23 @@ const VaccinationRecordModal = ({
                     Hủy
                 </Button>
                 <Button
+                    type="button"
                     onClick={handleSubmit}
                     variant="contained"
-                    color="primary"
+                    color="success"
                     disabled={isLoading}
                     sx={{
                         borderRadius: 2,
                         textTransform: 'none',
                         fontWeight: 600,
                         minWidth: 120,
-                        boxShadow: `0 4px 12px ${alpha(COLORS.PRIMARY[500], 0.3)}`,
+                        boxShadow: `0 4px 12px ${alpha(COLORS.SUCCESS[500], 0.3)}`,
                         '&:hover': {
-                            boxShadow: `0 6px 16px ${alpha(COLORS.PRIMARY[500], 0.4)}`
+                            boxShadow: `0 6px 16px ${alpha(COLORS.SUCCESS[500], 0.4)}`
                         }
                     }}
                 >
-                    {isLoading ? 'Đang tạo...' : 'Tạo Hồ Sơ'}
+                    {isLoading ? (isEditMode ? 'Đang cập nhật...' : 'Đang tạo...') : (isEditMode ? 'Cập Nhật' : 'Tạo Hồ Sơ')}
                 </Button>
             </DialogActions>
         </Dialog>

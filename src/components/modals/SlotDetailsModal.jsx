@@ -1,9 +1,20 @@
-import { useState, useEffect } from 'react';
+import { useMemo, useCallback } from 'react';
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Box, Typography, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, IconButton, Stack, Paper, Tooltip, Alert, Divider } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import { Close as CloseIcon, Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, Info as InfoIcon } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 import { WEEKDAY_LABELS } from '../../api/slotApi';
+
+// Constants moved outside component for better performance
+const WEEKDAY_ORDER = {
+    'MONDAY': 0,
+    'TUESDAY': 1,
+    'WEDNESDAY': 2,
+    'THURSDAY': 3,
+    'FRIDAY': 4,
+    'SATURDAY': 5,
+    'SUNDAY': 6
+};
 
 const SlotDetailsModal = ({
     open,
@@ -16,56 +27,55 @@ const SlotDetailsModal = ({
     onRefresh,
     showCreateAction = false
 }) => {
-    const [taskSlots, setTaskSlots] = useState([]);
+    // Memoize filtered and sorted slots
+    const taskSlots = useMemo(() => {
+        if (!open || !taskData || !slots || !Array.isArray(slots)) return [];
 
-    useEffect(() => {
-        if (open && taskData && slots) {
-            // Filter slots for this task
-            const filtered = slots.filter(slot => slot.task_id === taskData.id);
+        // Filter slots for this task
+        const filtered = slots.filter(slot => slot.task_id === taskData.id);
 
-            // Sort by weekday order (Monday first)
-            const weekdayOrder = {
-                'MONDAY': 0,
-                'TUESDAY': 1,
-                'WEDNESDAY': 2,
-                'THURSDAY': 3,
-                'FRIDAY': 4,
-                'SATURDAY': 5,
-                'SUNDAY': 6
-            };
+        // Sort by weekday order (Monday first) and then by start_time
+        return [...filtered].sort((a, b) => {
+            const dayA = a.day_of_week || 'MONDAY';
+            const dayB = b.day_of_week || 'MONDAY';
+            const orderA = WEEKDAY_ORDER[dayA] ?? 999;
+            const orderB = WEEKDAY_ORDER[dayB] ?? 999;
 
-            filtered.sort((a, b) => {
-                const dayA = a.day_of_week || 'MONDAY';
-                const dayB = b.day_of_week || 'MONDAY';
-                const orderA = weekdayOrder[dayA] !== undefined ? weekdayOrder[dayA] : 999;
-                const orderB = weekdayOrder[dayB] !== undefined ? weekdayOrder[dayB] : 999;
-
-                if (orderA !== orderB) {
-                    return orderA - orderB;
-                }
-                return (a.start_time || '').localeCompare(b.start_time || '');
-            });
-
-            setTaskSlots(filtered);
-        }
+            if (orderA !== orderB) {
+                return orderA - orderB;
+            }
+            return (a.start_time || '').localeCompare(b.start_time || '');
+        });
     }, [open, taskData, slots]);
 
-    if (!taskData) return null;
+    // Memoize stats calculation
+    const stats = useMemo(() => {
+        const total = taskSlots.length;
+        let available = 0;
+        let unavailable = 0;
+        let booked = 0;
 
-    const stats = {
-        total: taskSlots.length,
-        available: taskSlots.filter(s => s.service_status === 'AVAILABLE').length,
-        unavailable: taskSlots.filter(s => s.service_status === 'UNAVAILABLE').length,
-        booked: taskSlots.filter(s => s.service_status === 'BOOKED').length
-    };
+        // Single pass through slots for better performance
+        for (const slot of taskSlots) {
+            const status = slot.service_status;
+            if (status === 'AVAILABLE') available++;
+            else if (status === 'UNAVAILABLE') unavailable++;
+            else if (status === 'BOOKED') booked++;
+        }
 
-    const getStatusChip = (status) => {
-        const statusMap = {
-            'AVAILABLE': { label: 'Có sẵn', color: COLORS.SUCCESS[700], bg: COLORS.SUCCESS[50] },
-            'UNAVAILABLE': { label: 'Không khả dụng', color: COLORS.WARNING[700], bg: COLORS.WARNING[50] },
-            'BOOKED': { label: 'Đã đặt', color: COLORS.INFO[700], bg: COLORS.INFO[50] },
-            'CANCELLED': { label: 'Đã hủy', color: COLORS.ERROR[700], bg: COLORS.ERROR[50] }
-        };
+        return { total, available, unavailable, booked };
+    }, [taskSlots]);
+
+    // Memoize status map
+    const statusMap = useMemo(() => ({
+        'AVAILABLE': { label: 'Có sẵn', color: COLORS.SUCCESS[700], bg: COLORS.SUCCESS[50] },
+        'UNAVAILABLE': { label: 'Không khả dụng', color: COLORS.WARNING[700], bg: COLORS.WARNING[50] },
+        'BOOKED': { label: 'Đã đặt', color: COLORS.INFO[700], bg: COLORS.INFO[50] },
+        'CANCELLED': { label: 'Đã hủy', color: COLORS.ERROR[700], bg: COLORS.ERROR[50] }
+    }), []);
+
+    // Memoize status chip component
+    const getStatusChip = useCallback((status) => {
         const config = statusMap[status] || statusMap['AVAILABLE'];
         return (
             <Chip
@@ -78,7 +88,31 @@ const SlotDetailsModal = ({
                 }}
             />
         );
-    };
+    }, [statusMap]);
+
+    // Memoize handlers
+    const handleCreateSlot = useCallback(() => {
+        onCreateSlot(taskData);
+        onClose();
+    }, [onCreateSlot, taskData, onClose]);
+
+    const handleEditSlot = useCallback((slot) => {
+        onEditSlot(slot);
+    }, [onEditSlot]);
+
+    const handleDeleteSlot = useCallback((slotId) => {
+        onDeleteSlot(slotId);
+    }, [onDeleteSlot]);
+
+    // Memoize price formatter
+    const formatPrice = useCallback((price) => {
+        return new Intl.NumberFormat('vi-VN', {
+            style: 'currency',
+            currency: 'VND'
+        }).format(price);
+    }, []);
+
+    if (!taskData) return null;
 
     return (
         <Dialog
@@ -169,15 +203,15 @@ const SlotDetailsModal = ({
                         <Button
                             variant="contained"
                             startIcon={<AddIcon />}
-                            onClick={() => {
-                                onCreateSlot(taskData);
-                                onClose();
-                            }}
+                            onClick={handleCreateSlot}
                             sx={{
                                 bgcolor: COLORS.SUCCESS[600],
                                 '&:hover': {
                                     bgcolor: COLORS.SUCCESS[700]
-                                }
+                                },
+                                borderRadius: 2,
+                                textTransform: 'none',
+                                fontWeight: 600
                             }}
                         >
                             Tạo Ca mới
@@ -283,10 +317,7 @@ const SlotDetailsModal = ({
                                             <TableCell align="right">
                                                 {slot.price && slot.price > 0 ? (
                                                     <Typography variant="body2" fontWeight={500} color={COLORS.SUCCESS[700]}>
-                                                        {new Intl.NumberFormat('vi-VN', {
-                                                            style: 'currency',
-                                                            currency: 'VND'
-                                                        }).format(slot.price)}
+                                                        {formatPrice(slot.price)}
                                                     </Typography>
                                                 ) : (
                                                     <Typography variant="body2" color="text.secondary">
@@ -320,7 +351,7 @@ const SlotDetailsModal = ({
                                                 <Tooltip title="Sửa">
                                                     <IconButton
                                                         size="small"
-                                                        onClick={() => onEditSlot(slot)}
+                                                        onClick={() => handleEditSlot(slot)}
                                                         sx={{
                                                             color: COLORS.PRIMARY[500],
                                                             '&:hover': {
@@ -334,7 +365,7 @@ const SlotDetailsModal = ({
                                                 <Tooltip title="Xóa">
                                                     <IconButton
                                                         size="small"
-                                                        onClick={() => onDeleteSlot(slot.id)}
+                                                        onClick={() => handleDeleteSlot(slot.id)}
                                                         sx={{
                                                             color: COLORS.ERROR[500],
                                                             '&:hover': {
@@ -356,7 +387,16 @@ const SlotDetailsModal = ({
             </DialogContent>
 
             <DialogActions sx={{ px: 3, py: 2, borderTop: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.1)}` }}>
-                <Button onClick={onClose} variant="outlined">
+                <Button
+                    onClick={onClose}
+                    variant="outlined"
+                    sx={{
+                        borderRadius: 2,
+                        textTransform: 'none',
+                        fontWeight: 600,
+                        minWidth: 100
+                    }}
+                >
                     Đóng
                 </Button>
             </DialogActions>

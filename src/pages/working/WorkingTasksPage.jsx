@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Box, Paper, Typography, Stack, TextField, MenuItem, Chip, Button, Table, TableHead, TableBody, TableRow, TableCell, TableContainer, alpha, Snackbar, Alert, Tabs, Tab, IconButton, Menu, ListItemIcon, ListItemText, Tooltip } from '@mui/material';
 import { Assignment, TaskAlt, ViewWeek, CalendarMonth, NavigateBefore, NavigateNext, CheckCircle, PlayArrow, Cancel, Block, RadioButtonUnchecked, MoreVert, Visibility, Add, SkipNext } from '@mui/icons-material';
 import workingStaffApi from '../../api/workingStaffApi';
@@ -7,8 +7,12 @@ import Loading from '../../components/loading/Loading';
 import { useLocation } from 'react-router-dom';
 import DailyTaskDetailsModal from '../../components/modals/DailyTaskDetailsModal';
 import VaccinationRecordModal from '../../components/modals/VaccinationRecordModal';
+import HealthRecordModal from '../../components/modals/HealthRecordModal';
+import AlertModal from '../../components/modals/AlertModal';
 import { TASK_PRIORITY } from '../../api/dailyTasksApi';
-import { createVaccinationRecord } from '../../api/vaccinationRecordsApi';
+import { createVaccinationRecord, getVaccinationRecordById, updateVaccinationRecord } from '../../api/vaccinationRecordsApi';
+import { createHealthRecord, getHealthRecordById, updateHealthRecord } from '../../api/healthRecordsApi';
+import { getPetHealthRecords } from '../../api/petsApi';
 import { updateVaccinationSchedule, getVaccinationScheduleById } from '../../api/vaccinationSchedulesApi';
 
 const getStatusDisplay = (status) => {
@@ -58,36 +62,30 @@ const getStatusDisplay = (status) => {
     }
 };
 
-// Format time from "07:17:34.2390000" to "07:17"
 const formatTime = (timeStr) => {
     if (!timeStr) return '—';
-    // Extract HH:mm from time string
     const match = timeStr.match(/^(\d{2}):(\d{2})/);
-    if (match) {
-        return `${match[1]}:${match[2]}`;
-    }
-    return timeStr.substring(0, 5); // Fallback
+    return match ? `${match[1]}:${match[2]}` : timeStr.substring(0, 5);
 };
 
-// Format completion date from ISO string to "DD/MM/YYYY HH:mm"
-const formatCompletionDate = (dateStr) => {
+const formatTaskDate = (dateStr) => {
     if (!dateStr) return '—';
-    try {
-        const d = new Date(dateStr);
-        if (isNaN(d.getTime())) return '—';
-        const day = String(d.getDate()).padStart(2, '0');
-        const month = String(d.getMonth() + 1).padStart(2, '0');
-        const year = d.getFullYear();
-        const hours = String(d.getHours()).padStart(2, '0');
-        const minutes = String(d.getMinutes()).padStart(2, '0');
-        return `${day}/${month}/${year} ${hours}:${minutes}`;
-    } catch (error) {
-        console.warn('Failed to format completion date:', dateStr, error);
-        return '—';
-    }
+    const d = new Date(dateStr);
+    if (Number.isNaN(d.getTime())) return '—';
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
 };
 
-// Priority display
+const getWeekdayLabel = (dateStr) => {
+    if (!dateStr) return '—';
+    const d = new Date(dateStr);
+    if (Number.isNaN(d.getTime())) return '—';
+    const weekdayNames = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+    return weekdayNames[d.getDay()];
+};
+
 const getPriorityDisplay = (priority) => {
     switch (priority) {
         case TASK_PRIORITY.URGENT:
@@ -107,10 +105,9 @@ const WorkingTasksPage = () => {
     const location = useLocation();
     const locationTeamId = location.state?.teamId;
     const [teams, setTeams] = useState([]);
-    const [selectedTeam, setSelectedTeam] = useState('');
-    const [viewMode, setViewMode] = useState('week'); // 'week' or 'month'
+    const [selectedTeam, setSelectedTeam] = useState('all');
+    const [viewMode, setViewMode] = useState('week');
     const [currentWeekStart, setCurrentWeekStart] = useState(() => {
-        // Get Monday of current week
         const today = new Date();
         const day = today.getDay();
         const diff = today.getDate() - day + (day === 0 ? -6 : 1);
@@ -126,20 +123,20 @@ const WorkingTasksPage = () => {
     const [tasks, setTasks] = useState([]);
     const [loading, setLoading] = useState(true);
     const [snackbar, setSnackbar] = useState(null);
-
-    // Menu state for MoreVert
     const [menuAnchor, setMenuAnchor] = useState(null);
     const [selectedTask, setSelectedTask] = useState(null);
-
-    // Detail modal state
     const [detailModalOpen, setDetailModalOpen] = useState(false);
-
-    // VaccinationRecord modal state
     const [vaccinationRecordModalOpen, setVaccinationRecordModalOpen] = useState(false);
     const [selectedVaccinationSchedule, setSelectedVaccinationSchedule] = useState(null);
     const [isCreatingRecord, setIsCreatingRecord] = useState(false);
+    const [selectedVaccinationRecord, setSelectedVaccinationRecord] = useState(null);
+    const [isEditingVaccinationRecord, setIsEditingVaccinationRecord] = useState(false);
+    const [healthRecordModalOpen, setHealthRecordModalOpen] = useState(false);
+    const [isCreatingHealthRecord, setIsCreatingHealthRecord] = useState(false);
+    const [selectedHealthRecord, setSelectedHealthRecord] = useState(null);
+    const [isEditingHealthRecord, setIsEditingHealthRecord] = useState(false);
+    const [alert, setAlert] = useState(null);
 
-    // Get current user profile (EXACTLY like WorkingAttendancePage line 92-100)
     const [profileData] = useState(() => {
         const p = workingStaffApi.getProfile();
         return {
@@ -160,9 +157,6 @@ const WorkingTasksPage = () => {
                     setTeams(data);
                     if (locationTeamId) {
                         setSelectedTeam(locationTeamId);
-                    } else if (data.length > 0) {
-                        // Default to first team, not 'all'
-                        setSelectedTeam(data[0].id);
                     }
                 }
             } catch (error) {
@@ -177,7 +171,6 @@ const WorkingTasksPage = () => {
         };
     }, [locationTeamId]);
 
-    // Helper function to get week start (Monday)
     const getWeekStart = (date) => {
         const d = new Date(date);
         const day = d.getDay();
@@ -187,7 +180,6 @@ const WorkingTasksPage = () => {
         return monday;
     };
 
-    // Calculate date range based on viewMode
     useEffect(() => {
         let fromDate, toDate;
 
@@ -197,7 +189,6 @@ const WorkingTasksPage = () => {
             toDate.setDate(toDate.getDate() + 6);
             toDate.setHours(23, 59, 59, 999);
         } else {
-            // Month
             fromDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1);
             toDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0);
             toDate.setHours(23, 59, 59, 999);
@@ -209,7 +200,6 @@ const WorkingTasksPage = () => {
         });
     }, [viewMode, currentWeekStart, currentMonth]);
 
-    // Navigation functions
     const goToPreviousWeek = () => {
         const newStart = new Date(currentWeekStart);
         newStart.setDate(newStart.getDate() - 7);
@@ -243,14 +233,12 @@ const WorkingTasksPage = () => {
         setCurrentMonth(new Date(today.getFullYear(), today.getMonth(), 1));
     };
 
-    // Get month name in Vietnamese
     const getMonthName = (date) => {
         const monthNames = ['Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6',
             'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'];
         return monthNames[date.getMonth()];
     };
 
-    // Get week number (ISO week number)
     const getWeekNumber = (date) => {
         const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
         const dayNum = d.getUTCDay() || 7;
@@ -259,7 +247,6 @@ const WorkingTasksPage = () => {
         return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
     };
 
-    // Format date range string
     const getDateRangeString = () => {
         if (!dateRange.fromDate || !dateRange.toDate) return '';
         const formatDate = (dateStr) => {
@@ -271,8 +258,8 @@ const WorkingTasksPage = () => {
 
     useEffect(() => {
         if (!dateRange.fromDate || !dateRange.toDate) return;
-        if (teams.length === 0) return; // Wait for teams to load
-        if (selectedTeam !== 'all' && !selectedTeam) return; // Wait for team selection
+        if (teams.length === 0) return;
+        if (selectedTeam !== 'all' && !selectedTeam) return;
 
         let mounted = true;
         const loadTasks = async () => {
@@ -281,22 +268,17 @@ const WorkingTasksPage = () => {
                 let allTasks = [];
 
                 if (selectedTeam === 'all') {
-                    // Load tasks for all teams that user belongs to (only user's teams)
                     if (teams.length === 0) {
                         if (mounted) setTasks([]);
                         return;
                     }
-                    // Get team IDs that user belongs to
                     const userTeamIds = teams.map(team => team.id);
-
-                    // Load tasks for each team using TeamId parameter
                     const teamTasksPromises = userTeamIds.map(teamId =>
                         workingStaffApi.getTeamDailyTasksInRange(teamId, dateRange.fromDate, dateRange.toDate)
                     );
                     const results = await Promise.allSettled(teamTasksPromises);
                     results.forEach((result, index) => {
                         if (result.status === 'fulfilled') {
-                            // Filter to ensure tasks belong to user's teams
                             const teamTasks = (result.value || []).filter(task => {
                                 const taskTeamId = task.team_id || task.team?.id;
                                 return userTeamIds.includes(taskTeamId);
@@ -307,7 +289,6 @@ const WorkingTasksPage = () => {
                         }
                     });
                 } else if (selectedTeam) {
-                    // Load tasks for selected team (must be one of user's teams)
                     const isUserTeam = teams.some(team => team.id === selectedTeam);
                     if (!isUserTeam) {
                         console.warn('Selected team is not one of user\'s teams');
@@ -315,19 +296,16 @@ const WorkingTasksPage = () => {
                         return;
                     }
                     const data = await workingStaffApi.getTeamDailyTasksInRange(selectedTeam, dateRange.fromDate, dateRange.toDate);
-                    // Filter to ensure tasks belong to selected team
                     allTasks = (data || []).filter(task => {
                         const taskTeamId = task.team_id || task.team?.id;
                         return taskTeamId === selectedTeam;
                     });
                 }
 
-                // Remove duplicates and sort by date and time
                 const uniqueTasks = Array.from(
                     new Map(allTasks.map(task => [task.id, task])).values()
                 );
 
-                // Auto-mark MISSED for tasks past their assigned date that are still SCHEDULED
                 const today = new Date();
                 today.setHours(0, 0, 0, 0);
 
@@ -350,7 +328,6 @@ const WorkingTasksPage = () => {
                     }
                 }
 
-                // Silently update MISSED status in background
                 if (tasksToUpdate.length > 0 && mounted) {
                     Promise.allSettled(
                         tasksToUpdate.map(({ taskId, status }) =>
@@ -359,13 +336,12 @@ const WorkingTasksPage = () => {
                     );
                 }
 
-                // Enrich tasks with vaccination_schedule details if they have vaccination_schedule_id
                 const enrichedTasks = await Promise.all(
                     tasksWithAutoMissed.map(async (task) => {
                         if (task.vaccination_schedule_id && task.status === 'COMPLETED') {
                             try {
                                 const schedule = await getVaccinationScheduleById(task.vaccination_schedule_id);
-                                return {
+                                const enrichedTask = {
                                     ...task,
                                     vaccination_schedule: {
                                         ...task.vaccination_schedule,
@@ -374,6 +350,36 @@ const WorkingTasksPage = () => {
                                         completed_date: schedule.completed_date
                                     }
                                 };
+
+                                const petId = schedule.pet_id || schedule.pet?.id;
+                                if (petId) {
+                                    try {
+                                        const healthRecordsResult = await getPetHealthRecords(petId, { page_index: 0, page_size: 100 });
+                                        const healthRecords = healthRecordsResult?.data || [];
+
+                                        if (task.assigned_date) {
+                                            const taskDate = new Date(task.assigned_date);
+                                            taskDate.setHours(0, 0, 0, 0);
+
+                                            const matchingHealthRecord = healthRecords.find(hr => {
+                                                if (!hr.check_date) return false;
+                                                const hrDate = new Date(hr.check_date);
+                                                hrDate.setHours(0, 0, 0, 0);
+                                                const diffDays = Math.abs((hrDate - taskDate) / (1000 * 60 * 60 * 24));
+                                                return diffDays <= 1;
+                                            });
+
+                                            if (matchingHealthRecord) {
+                                                enrichedTask.health_record_id = matchingHealthRecord.id;
+                                                enrichedTask.health_record = matchingHealthRecord;
+                                            }
+                                        }
+                                    } catch (error) {
+                                        console.warn('Failed to fetch health records for pet:', petId, error);
+                                    }
+                                }
+
+                                return enrichedTask;
                             } catch (error) {
                                 console.warn('Failed to fetch vaccination schedule for task:', task.id, error);
                                 return task;
@@ -411,7 +417,6 @@ const WorkingTasksPage = () => {
     }, [teams, selectedTeam]);
 
 
-    // Check if current user is leader of the team for a task by comparing email
     const isLeaderOfTaskTeam = useMemo(() => {
         return (task) => {
             if (!task || !profileData.email) return false;
@@ -436,18 +441,27 @@ const WorkingTasksPage = () => {
             const task = tasks.find(t => t.id === taskId);
             await workingStaffApi.updateDailyTaskStatus(taskId, status);
 
-            // If task is cancelled, missed, or skipped, cancel related vaccination schedule
             if ((status === 'CANCELLED' || status === 'MISSED' || status === 'SKIPPED') && task?.vaccination_schedule_id) {
                 try {
                     await updateVaccinationSchedule(task.vaccination_schedule_id, { status: 'CANCELLED' });
-                    console.log('✅ Vaccination schedule cancelled:', task.vaccination_schedule_id);
                 } catch (error) {
                     console.error('Failed to cancel vaccination schedule:', error);
-                    // Don't show error to user, just log it
                 }
             }
 
-            setTasks((prev) => prev.map((task) => (task.id === taskId ? { ...task, status } : task)));
+            setTasks((prev) => prev.map((task) => {
+                if (task.id === taskId) {
+                    const updatedTask = { ...task, status };
+                    if (status === 'COMPLETED' && !task.completion_date) {
+                        updatedTask.completion_date = new Date().toISOString();
+                    }
+                    if (status !== 'COMPLETED') {
+                        updatedTask.completion_date = null;
+                    }
+                    return updatedTask;
+                }
+                return task;
+            }));
             setSnackbar({ message: 'Cập nhật trạng thái thành công', severity: 'success' });
             setMenuAnchor(null);
             setSelectedTask(null);
@@ -457,37 +471,51 @@ const WorkingTasksPage = () => {
         }
     };
 
-    const handleOpenVaccinationRecordModal = async (task) => {
+    const handleOpenVaccinationRecordModal = async (task, isEdit = false) => {
         if (!task.vaccination_schedule_id) {
-            setSnackbar({ message: 'Không tìm thấy lịch tiêm liên quan', severity: 'error' });
+            setAlert({
+                open: true,
+                title: 'Lỗi',
+                message: 'Không tìm thấy lịch tiêm liên quan',
+                type: 'error'
+            });
             return;
         }
 
         try {
-            // Fetch vaccination schedule details
             const schedule = await getVaccinationScheduleById(task.vaccination_schedule_id);
-
-            // Double-check: If schedule already has a record_id or status is COMPLETED, prevent creation
-            if (schedule.record_id || schedule.status === 'COMPLETED') {
-                setSnackbar({
-                    message: 'Hồ sơ tiêm phòng cho lịch tiêm này đã được tạo rồi!',
-                    severity: 'warning'
-                });
-                // Update local task state to reflect this
-                setTasks((prev) => prev.map((t) =>
-                    t.id === task.id
-                        ? { ...t, vaccination_schedule: { ...t.vaccination_schedule, status: 'COMPLETED', record_id: schedule.record_id } }
-                        : t
-                ));
-                return;
-            }
 
             setSelectedVaccinationSchedule(schedule);
             setSelectedTask(task);
+            setIsEditingVaccinationRecord(isEdit);
+
+            if (isEdit && task.vaccination_schedule?.record_id) {
+                try {
+                    const vaccinationRecord = await getVaccinationRecordById(task.vaccination_schedule.record_id);
+                    setSelectedVaccinationRecord(vaccinationRecord);
+                } catch (error) {
+                    console.error('Failed to load vaccination record:', error);
+                    setAlert({
+                        open: true,
+                        title: 'Lỗi',
+                        message: 'Không thể tải thông tin hồ sơ tiêm phòng',
+                        type: 'error'
+                    });
+                    return;
+                }
+            } else {
+                setSelectedVaccinationRecord(null);
+            }
+
             setVaccinationRecordModalOpen(true);
         } catch (error) {
             console.error('Failed to load vaccination schedule:', error);
-            setSnackbar({ message: 'Không thể tải thông tin lịch tiêm', severity: 'error' });
+            setAlert({
+                open: true,
+                title: 'Lỗi',
+                message: 'Không thể tải thông tin lịch tiêm',
+                type: 'error'
+            });
         }
     };
 
@@ -497,13 +525,9 @@ const WorkingTasksPage = () => {
         setIsCreatingRecord(true);
 
         try {
-            // Try to create vaccination record
-            console.log('📝 Creating vaccination record...');
             const createResult = await createVaccinationRecord(recordData);
             const createdRecordId = createResult?.data?.id;
-            console.log('✅ Vaccination record created successfully, ID:', createdRecordId);
 
-            // Update task in local state
             setTasks((prev) => prev.map((task) =>
                 task.id === selectedTask.id
                     ? {
@@ -517,21 +541,22 @@ const WorkingTasksPage = () => {
                     : task
             ));
 
-            setSnackbar({ message: 'Tạo hồ sơ tiêm phòng thành công', severity: 'success' });
             setVaccinationRecordModalOpen(false);
             setSelectedVaccinationSchedule(null);
-            setSelectedTask(null);
 
-            // Reload tasks to ensure data is synced
-            console.log('🔄 Reloading tasks to sync data...');
+            setTimeout(() => {
+                setAlert({
+                    open: true,
+                    title: 'Thành công',
+                    message: 'Tạo hồ sơ tiêm phòng thành công!',
+                    type: 'success'
+                });
+                setSelectedTask(null);
+            }, 200);
+
             await loadTasks();
         } catch (error) {
-            // Check if this is a tracking conflict error FIRST
             if (error.isTrackingConflict) {
-                console.log('✅ Tracking conflict handled - record was created successfully');
-                console.log('📝 Backend returned 500 but data is in database');
-
-                // IMPORTANT: Update local state IMMEDIATELY to hide "Tạo Hồ Sơ" button
                 setTasks((prev) => prev.map((task) =>
                     task.id === selectedTask.id
                         ? {
@@ -539,36 +564,227 @@ const WorkingTasksPage = () => {
                             vaccination_schedule: {
                                 ...task.vaccination_schedule,
                                 status: 'COMPLETED',
-                                record_id: 'pending-sync' // Temporary ID until reload
+                                record_id: 'pending-sync'
                             }
                         }
                         : task
                 ));
 
-                // Close modal
                 setVaccinationRecordModalOpen(false);
                 setSelectedVaccinationSchedule(null);
-                setSelectedTask(null);
 
-                // Show success message (record is created, just tracking conflict in backend)
-                setSnackbar({
-                    message: 'Hồ sơ tiêm phòng đã được tạo thành công',
-                    severity: 'success'
-                });
+                setTimeout(() => {
+                    setAlert({
+                        open: true,
+                        title: 'Thành công',
+                        message: 'Hồ sơ tiêm phòng đã được tạo thành công!',
+                        type: 'success'
+                    });
+                    setSelectedTask(null);
+                }, 200);
 
-                // Reload tasks to get fresh data from database (with real record_id)
-                console.log('🔄 Reloading tasks to sync data...');
                 await loadTasks();
             } else {
-                // Other errors
                 const errorMessage = error.message === 'TRACKING_CONFLICT'
                     ? 'Có lỗi kỹ thuật. Vui lòng kiểm tra lại dữ liệu.'
                     : (error.message || 'Không thể tạo hồ sơ tiêm phòng');
 
-                setSnackbar({ message: errorMessage, severity: 'error' });
+                setAlert({
+                    open: true,
+                    title: 'Lỗi',
+                    message: errorMessage,
+                    type: 'error'
+                });
             }
         } finally {
             setIsCreatingRecord(false);
+        }
+    };
+
+    const handleUpdateVaccinationRecord = async (recordData) => {
+        if (!selectedTask || !selectedTask.vaccination_schedule?.record_id) return;
+
+        setIsCreatingRecord(true);
+
+        try {
+            const updateResult = await updateVaccinationRecord(selectedTask.vaccination_schedule.record_id, recordData);
+
+            setTasks((prev) => prev.map((task) =>
+                task.id === selectedTask.id
+                    ? {
+                        ...task,
+                        vaccination_schedule: {
+                            ...task.vaccination_schedule,
+                            vaccination_record: updateResult.data
+                        }
+                    }
+                    : task
+            ));
+
+            setVaccinationRecordModalOpen(false);
+            setSelectedVaccinationSchedule(null);
+            setSelectedVaccinationRecord(null);
+
+            setTimeout(() => {
+                setAlert({
+                    open: true,
+                    title: 'Thành công',
+                    message: 'Cập nhật hồ sơ tiêm phòng thành công!',
+                    type: 'success'
+                });
+                setSelectedTask(null);
+                setIsEditingVaccinationRecord(false);
+            }, 200);
+        } catch (error) {
+            console.error('Failed to update vaccination record:', error);
+            const errorMessage = error.message || 'Không thể cập nhật hồ sơ tiêm phòng';
+            setAlert({
+                open: true,
+                title: 'Lỗi',
+                message: errorMessage,
+                type: 'error'
+            });
+        } finally {
+            setIsCreatingRecord(false);
+        }
+    };
+
+    const handleOpenHealthRecordModal = async (task, isEdit = false) => {
+        if (!task.vaccination_schedule_id) {
+            setAlert({
+                open: true,
+                title: 'Lỗi',
+                message: 'Không tìm thấy lịch tiêm liên quan',
+                type: 'error'
+            });
+            return;
+        }
+
+        try {
+            const schedule = await getVaccinationScheduleById(task.vaccination_schedule_id);
+
+            setSelectedVaccinationSchedule(schedule);
+            setSelectedTask(task);
+            setIsEditingHealthRecord(isEdit);
+
+            if (isEdit && task.health_record_id) {
+                try {
+                    const healthRecord = await getHealthRecordById(task.health_record_id);
+                    setSelectedHealthRecord(healthRecord);
+                } catch (error) {
+                    console.error('Failed to load health record:', error);
+                    setAlert({
+                        open: true,
+                        title: 'Lỗi',
+                        message: 'Không thể tải thông tin hồ sơ sức khỏe',
+                        type: 'error'
+                    });
+                    return;
+                }
+            } else {
+                setSelectedHealthRecord(null);
+            }
+
+            setHealthRecordModalOpen(true);
+        } catch (error) {
+            console.error('Failed to load vaccination schedule:', error);
+            setAlert({
+                open: true,
+                title: 'Lỗi',
+                message: 'Không thể tải thông tin lịch tiêm',
+                type: 'error'
+            });
+        }
+    };
+
+    const handleUpdateHealthRecord = async (recordData) => {
+        if (!selectedTask || !selectedTask.health_record_id) return;
+
+        setIsCreatingHealthRecord(true);
+
+        try {
+            const updateResult = await updateHealthRecord(selectedTask.health_record_id, recordData);
+
+            setTasks((prev) => prev.map((task) =>
+                task.id === selectedTask.id
+                    ? {
+                        ...task,
+                        health_record: updateResult.data
+                    }
+                    : task
+            ));
+
+            setHealthRecordModalOpen(false);
+            setSelectedVaccinationSchedule(null);
+            setSelectedHealthRecord(null);
+            setIsEditingHealthRecord(false);
+
+            setTimeout(() => {
+                setAlert({
+                    open: true,
+                    title: 'Thành công',
+                    message: 'Cập nhật hồ sơ sức khỏe thành công!',
+                    type: 'success'
+                });
+                setSelectedTask(null);
+            }, 200);
+        } catch (error) {
+            console.error('Failed to update health record:', error);
+            const errorMessage = error.message || 'Không thể cập nhật hồ sơ sức khỏe';
+            setAlert({
+                open: true,
+                title: 'Lỗi',
+                message: errorMessage,
+                type: 'error'
+            });
+        } finally {
+            setIsCreatingHealthRecord(false);
+        }
+    };
+
+    const handleCreateHealthRecord = async (recordData) => {
+        if (!selectedTask || !selectedVaccinationSchedule) return;
+
+        setIsCreatingHealthRecord(true);
+
+        try {
+            const createResult = await createHealthRecord(recordData);
+            const createdRecordId = createResult?.data?.id;
+
+            setTasks((prev) => prev.map((task) =>
+                task.id === selectedTask.id
+                    ? {
+                        ...task,
+                        health_record_id: createdRecordId,
+                        health_record: createResult.data
+                    }
+                    : task
+            ));
+
+            setHealthRecordModalOpen(false);
+            setSelectedVaccinationSchedule(null);
+            setSelectedHealthRecord(null);
+
+            setTimeout(() => {
+                setAlert({
+                    open: true,
+                    title: 'Thành công',
+                    message: 'Tạo hồ sơ sức khỏe thành công!',
+                    type: 'success'
+                });
+                setSelectedTask(null);
+            }, 200);
+        } catch (error) {
+            console.error('Failed to create health record:', error);
+            const errorMessage = error.message || 'Không thể tạo hồ sơ sức khỏe';
+            setAlert({
+                open: true,
+                title: 'Lỗi',
+                message: errorMessage,
+                type: 'error'
+            });
+        } finally {
+            setIsCreatingHealthRecord(false);
         }
     };
 
@@ -579,12 +795,10 @@ const WorkingTasksPage = () => {
 
     const handleCloseMenu = () => {
         setMenuAnchor(null);
-        // Don't clear selectedTask here, it will be cleared when modal closes
     };
 
     const handleViewDetails = () => {
-        setMenuAnchor(null); // Close menu first
-        // Use setTimeout to ensure menu closes before opening modal
+        setMenuAnchor(null);
         setTimeout(() => {
             setDetailModalOpen(true);
         }, 100);
@@ -592,7 +806,7 @@ const WorkingTasksPage = () => {
 
     const handleCloseDetailModal = () => {
         setDetailModalOpen(false);
-        setSelectedTask(null); // Clear selectedTask when modal closes
+        setSelectedTask(null);
     };
 
     if (loading) {
@@ -791,16 +1005,17 @@ const WorkingTasksPage = () => {
                                             Nhóm
                                         </TableCell>
                                     )}
-                                    {viewMode === 'month' && (
-                                        <TableCell sx={{ fontWeight: 700, color: COLORS.TEXT.PRIMARY, py: 2 }}>
-                                            Ngày
-                                        </TableCell>
-                                    )}
                                     <TableCell sx={{ fontWeight: 700, color: COLORS.TEXT.PRIMARY, py: 2 }}>
                                         Nhiệm vụ
                                     </TableCell>
                                     <TableCell sx={{ fontWeight: 700, color: COLORS.TEXT.PRIMARY, py: 2 }}>
                                         Độ ưu tiên
+                                    </TableCell>
+                                    <TableCell sx={{ fontWeight: 700, color: COLORS.TEXT.PRIMARY, py: 2 }}>
+                                        Ngày
+                                    </TableCell>
+                                    <TableCell sx={{ fontWeight: 700, color: COLORS.TEXT.PRIMARY, py: 2 }}>
+                                        Thứ
                                     </TableCell>
                                     <TableCell sx={{ fontWeight: 700, color: COLORS.TEXT.PRIMARY, py: 2 }}>
                                         Thời gian
@@ -810,9 +1025,6 @@ const WorkingTasksPage = () => {
                                     </TableCell>
                                     <TableCell sx={{ fontWeight: 700, color: COLORS.TEXT.PRIMARY, py: 2 }}>
                                         Trạng thái
-                                    </TableCell>
-                                    <TableCell sx={{ fontWeight: 700, color: COLORS.TEXT.PRIMARY, py: 2 }}>
-                                        Thời gian hoàn thành
                                     </TableCell>
                                     <TableCell align="right" sx={{ fontWeight: 700, color: COLORS.TEXT.PRIMARY, py: 2 }}>
                                         Hành động
@@ -825,8 +1037,7 @@ const WorkingTasksPage = () => {
                                         <TableCell
                                             colSpan={
                                                 (selectedTeam === 'all' ? 1 : 0) +
-                                                (viewMode === 'month' ? 1 : 0) +
-                                                7
+                                                8
                                             }
                                             align="center"
                                             sx={{
@@ -848,11 +1059,8 @@ const WorkingTasksPage = () => {
                                     tasks.map((task, index) => {
                                         const taskTeam = teams.find(t => t.id === task.team_id);
                                         const statusDisplay = getStatusDisplay(task.status);
-                                        const formatTaskDate = (dateStr) => {
-                                            if (!dateStr) return '—';
-                                            const d = new Date(dateStr);
-                                            return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
-                                        };
+                                        const taskDateLabel = formatTaskDate(task.assigned_date);
+                                        const taskWeekdayLabel = getWeekdayLabel(task.assigned_date);
                                         return (
                                             <TableRow
                                                 key={task.id}
@@ -868,13 +1076,6 @@ const WorkingTasksPage = () => {
                                                     <TableCell sx={{ py: 2.5 }}>
                                                         <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.TEXT.PRIMARY }}>
                                                             {taskTeam?.name || 'N/A'}
-                                                        </Typography>
-                                                    </TableCell>
-                                                )}
-                                                {viewMode === 'month' && (
-                                                    <TableCell sx={{ py: 2.5 }}>
-                                                        <Typography variant="body2" sx={{ color: COLORS.TEXT.PRIMARY }}>
-                                                            {formatTaskDate(task.assigned_date)}
                                                         </Typography>
                                                     </TableCell>
                                                 )}
@@ -909,6 +1110,16 @@ const WorkingTasksPage = () => {
                                                     })()}
                                                 </TableCell>
                                                 <TableCell sx={{ py: 2.5 }}>
+                                                    <Typography variant="body2" sx={{ color: COLORS.TEXT.PRIMARY }}>
+                                                        {taskDateLabel}
+                                                    </Typography>
+                                                </TableCell>
+                                                <TableCell sx={{ py: 2.5 }}>
+                                                    <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
+                                                        {taskWeekdayLabel}
+                                                    </Typography>
+                                                </TableCell>
+                                                <TableCell sx={{ py: 2.5 }}>
                                                     <Typography variant="body2" sx={{ color: COLORS.TEXT.PRIMARY, fontFamily: 'monospace' }}>
                                                         {formatTime(task.start_time)} - {formatTime(task.end_time)}
                                                     </Typography>
@@ -916,11 +1127,6 @@ const WorkingTasksPage = () => {
                                                 <TableCell sx={{ py: 2.5 }}>
                                                     <Typography variant="body2" sx={{ color: task.area?.name ? COLORS.TEXT.PRIMARY : COLORS.TEXT.SECONDARY }}>
                                                         {task.area?.name || '—'}
-                                                    </Typography>
-                                                </TableCell>
-                                                <TableCell sx={{ py: 2.5 }}>
-                                                    <Typography variant="body2" sx={{ color: task.completion_date ? COLORS.TEXT.PRIMARY : COLORS.TEXT.SECONDARY }}>
-                                                        {formatCompletionDate(task.completion_date)}
                                                     </Typography>
                                                 </TableCell>
                                                 <TableCell sx={{ py: 2.5 }}>
@@ -937,38 +1143,106 @@ const WorkingTasksPage = () => {
                                                 </TableCell>
                                                 <TableCell align="right" sx={{ py: 2.5 }}>
                                                     <Stack direction="row" spacing={1} alignItems="center" justifyContent="flex-end">
-                                                        {/* Show "Tạo VaccinationRecord" button for completed tasks with vaccination_schedule_id */}
                                                         {(() => {
                                                             const canUpdate = isLeaderOfTaskTeam(task);
                                                             const isCompleted = task.status === 'COMPLETED';
                                                             const hasVaccinationSchedule = task.vaccination_schedule_id;
-                                                            // Check if schedule is not completed AND doesn't have a record_id yet
-                                                            // This prevents duplicate record creation
-                                                            const scheduleNotCompleted = !task.vaccination_schedule ||
-                                                                (task.vaccination_schedule.status !== 'COMPLETED' &&
-                                                                    !task.vaccination_schedule.record_id);
-
-                                                            if (canUpdate && isCompleted && hasVaccinationSchedule && scheduleNotCompleted) {
+                                                            if (canUpdate && isCompleted && hasVaccinationSchedule) {
+                                                                const hasHealthRecord = task.health_record_id || task.health_record;
+                                                                const hasVaccinationRecord = task.vaccination_schedule?.record_id &&
+                                                                    task.vaccination_schedule.record_id !== null &&
+                                                                    task.vaccination_schedule.record_id !== undefined &&
+                                                                    task.vaccination_schedule.record_id !== '' &&
+                                                                    task.vaccination_schedule.record_id !== 'pending-sync';
                                                                 return (
-                                                                    <Tooltip title="Tạo hồ sơ tiêm phòng" arrow placement="top">
-                                                                        <Button
-                                                                            size="small"
-                                                                            variant="contained"
-                                                                            color="success"
-                                                                            startIcon={<Add fontSize="small" />}
-                                                                            onClick={() => handleOpenVaccinationRecordModal(task)}
-                                                                            sx={{
-                                                                                textTransform: 'none',
-                                                                                fontWeight: 600,
-                                                                                fontSize: '0.75rem',
-                                                                                px: 2,
-                                                                                py: 0.75,
-                                                                                borderRadius: 2
-                                                                            }}
-                                                                        >
-                                                                            Tạo Hồ Sơ
-                                                                        </Button>
-                                                                    </Tooltip>
+                                                                    <>
+                                                                        {hasVaccinationRecord ? (
+                                                                            <Tooltip title="Xem hoặc chỉnh sửa hồ sơ tiêm phòng" arrow placement="top">
+                                                                                <Button
+                                                                                    size="small"
+                                                                                    variant="outlined"
+                                                                                    color="success"
+                                                                                    startIcon={<Visibility fontSize="small" />}
+                                                                                    onClick={() => handleOpenVaccinationRecordModal(task, true)}
+                                                                                    sx={{
+                                                                                        textTransform: 'none',
+                                                                                        fontWeight: 600,
+                                                                                        fontSize: '0.75rem',
+                                                                                        px: 2,
+                                                                                        py: 0.75,
+                                                                                        borderRadius: 2,
+                                                                                        whiteSpace: 'nowrap'
+                                                                                    }}
+                                                                                >
+                                                                                    Xem Chi Tiết
+                                                                                </Button>
+                                                                            </Tooltip>
+                                                                        ) : (
+                                                                            <Tooltip title="Tạo hồ sơ tiêm phòng" arrow placement="top">
+                                                                                <Button
+                                                                                    size="small"
+                                                                                    variant="contained"
+                                                                                    color="success"
+                                                                                    startIcon={<Add fontSize="small" />}
+                                                                                    onClick={() => handleOpenVaccinationRecordModal(task, false)}
+                                                                                    sx={{
+                                                                                        textTransform: 'none',
+                                                                                        fontWeight: 600,
+                                                                                        fontSize: '0.75rem',
+                                                                                        px: 2,
+                                                                                        py: 0.75,
+                                                                                        borderRadius: 2,
+                                                                                        whiteSpace: 'nowrap'
+                                                                                    }}
+                                                                                >
+                                                                                    Tạo Hồ Sơ Tiêm Phòng
+                                                                                </Button>
+                                                                            </Tooltip>
+                                                                        )}
+                                                                        {hasHealthRecord ? (
+                                                                            <Tooltip title="Xem hoặc chỉnh sửa hồ sơ sức khỏe" arrow placement="top">
+                                                                                <Button
+                                                                                    size="small"
+                                                                                    variant="outlined"
+                                                                                    color="info"
+                                                                                    startIcon={<Visibility fontSize="small" />}
+                                                                                    onClick={() => handleOpenHealthRecordModal(task, true)}
+                                                                                    sx={{
+                                                                                        textTransform: 'none',
+                                                                                        fontWeight: 600,
+                                                                                        fontSize: '0.75rem',
+                                                                                        px: 2,
+                                                                                        py: 0.75,
+                                                                                        borderRadius: 2,
+                                                                                        whiteSpace: 'nowrap'
+                                                                                    }}
+                                                                                >
+                                                                                    Xem Chi Tiết
+                                                                                </Button>
+                                                                            </Tooltip>
+                                                                        ) : (
+                                                                            <Tooltip title="Tạo hồ sơ sức khỏe" arrow placement="top">
+                                                                                <Button
+                                                                                    size="small"
+                                                                                    variant="contained"
+                                                                                    color="info"
+                                                                                    startIcon={<Add fontSize="small" />}
+                                                                                    onClick={() => handleOpenHealthRecordModal(task, false)}
+                                                                                    sx={{
+                                                                                        textTransform: 'none',
+                                                                                        fontWeight: 600,
+                                                                                        fontSize: '0.75rem',
+                                                                                        px: 2,
+                                                                                        py: 0.75,
+                                                                                        borderRadius: 2,
+                                                                                        whiteSpace: 'nowrap'
+                                                                                    }}
+                                                                                >
+                                                                                    Tạo Hồ Sơ Sức Khỏe
+                                                                                </Button>
+                                                                            </Tooltip>
+                                                                        )}
+                                                                    </>
                                                                 );
                                                             }
                                                             return null;
@@ -998,7 +1272,6 @@ const WorkingTasksPage = () => {
                 </Paper>
             </Stack>
 
-            {/* MoreVert Menu */}
             <Menu
                 anchorEl={menuAnchor}
                 open={Boolean(menuAnchor)}
@@ -1012,11 +1285,21 @@ const WorkingTasksPage = () => {
                     horizontal: 'right'
                 }}
             >
-                <MenuItem onClick={handleViewDetails}>
+                <MenuItem
+                    onClick={handleViewDetails}
+                    sx={{
+                        '&:hover': {
+                            bgcolor: alpha(COLORS.INFO[50], 0.5)
+                        }
+                    }}
+                >
                     <ListItemIcon>
-                        <Visibility fontSize="small" />
+                        <Visibility fontSize="small" sx={{ color: COLORS.INFO[600] }} />
                     </ListItemIcon>
-                    <ListItemText>Xem chi tiết</ListItemText>
+                    <ListItemText
+                        primary="Xem chi tiết"
+                        primaryTypographyProps={{ sx: { color: COLORS.INFO[700], fontWeight: 500 } }}
+                    />
                 </MenuItem>
                 {selectedTask && (() => {
                     const canUpdate = isLeaderOfTaskTeam(selectedTask);
@@ -1029,37 +1312,77 @@ const WorkingTasksPage = () => {
                     if (taskStatus === 'SCHEDULED') {
                         return (
                             <>
-                                <MenuItem onClick={() => {
-                                    handleUpdateStatus(selectedTask.id, 'IN_PROGRESS');
-                                }}>
+                                <MenuItem
+                                    onClick={() => {
+                                        handleUpdateStatus(selectedTask.id, 'IN_PROGRESS');
+                                    }}
+                                    sx={{
+                                        '&:hover': {
+                                            bgcolor: alpha(COLORS.INFO[50], 0.5)
+                                        }
+                                    }}
+                                >
                                     <ListItemIcon>
-                                        <PlayArrow fontSize="small" />
+                                        <PlayArrow fontSize="small" sx={{ color: COLORS.INFO[600] }} />
                                     </ListItemIcon>
-                                    <ListItemText>Bắt đầu</ListItemText>
+                                    <ListItemText
+                                        primary="Bắt đầu"
+                                        primaryTypographyProps={{ sx: { color: COLORS.INFO[700], fontWeight: 500 } }}
+                                    />
                                 </MenuItem>
-                                <MenuItem onClick={() => {
-                                    handleUpdateStatus(selectedTask.id, 'COMPLETED');
-                                }}>
+                                <MenuItem
+                                    onClick={() => {
+                                        handleUpdateStatus(selectedTask.id, 'COMPLETED');
+                                    }}
+                                    sx={{
+                                        '&:hover': {
+                                            bgcolor: alpha(COLORS.SUCCESS[50], 0.5)
+                                        }
+                                    }}
+                                >
                                     <ListItemIcon>
-                                        <CheckCircle fontSize="small" />
+                                        <CheckCircle fontSize="small" sx={{ color: COLORS.SUCCESS[600] }} />
                                     </ListItemIcon>
-                                    <ListItemText>Hoàn thành</ListItemText>
+                                    <ListItemText
+                                        primary="Hoàn thành"
+                                        primaryTypographyProps={{ sx: { color: COLORS.SUCCESS[700], fontWeight: 500 } }}
+                                    />
                                 </MenuItem>
-                                <MenuItem onClick={() => {
-                                    handleUpdateStatus(selectedTask.id, 'CANCELLED');
-                                }}>
+                                <MenuItem
+                                    onClick={() => {
+                                        handleUpdateStatus(selectedTask.id, 'CANCELLED');
+                                    }}
+                                    sx={{
+                                        '&:hover': {
+                                            bgcolor: alpha(COLORS.ERROR[50], 0.5)
+                                        }
+                                    }}
+                                >
                                     <ListItemIcon>
-                                        <Cancel fontSize="small" />
+                                        <Cancel fontSize="small" sx={{ color: COLORS.ERROR[600] }} />
                                     </ListItemIcon>
-                                    <ListItemText>Hủy</ListItemText>
+                                    <ListItemText
+                                        primary="Hủy"
+                                        primaryTypographyProps={{ sx: { color: COLORS.ERROR[700], fontWeight: 500 } }}
+                                    />
                                 </MenuItem>
-                                <MenuItem onClick={() => {
-                                    handleUpdateStatus(selectedTask.id, 'SKIPPED');
-                                }}>
+                                <MenuItem
+                                    onClick={() => {
+                                        handleUpdateStatus(selectedTask.id, 'SKIPPED');
+                                    }}
+                                    sx={{
+                                        '&:hover': {
+                                            bgcolor: alpha(COLORS.WARNING[50], 0.5)
+                                        }
+                                    }}
+                                >
                                     <ListItemIcon>
-                                        <SkipNext fontSize="small" />
+                                        <SkipNext fontSize="small" sx={{ color: COLORS.WARNING[600] }} />
                                     </ListItemIcon>
-                                    <ListItemText>Bỏ qua</ListItemText>
+                                    <ListItemText
+                                        primary="Bỏ qua"
+                                        primaryTypographyProps={{ sx: { color: COLORS.WARNING[700], fontWeight: 500 } }}
+                                    />
                                 </MenuItem>
                             </>
                         );
@@ -1068,29 +1391,59 @@ const WorkingTasksPage = () => {
                     if (taskStatus === 'IN_PROGRESS') {
                         return (
                             <>
-                                <MenuItem onClick={() => {
-                                    handleUpdateStatus(selectedTask.id, 'COMPLETED');
-                                }}>
+                                <MenuItem
+                                    onClick={() => {
+                                        handleUpdateStatus(selectedTask.id, 'COMPLETED');
+                                    }}
+                                    sx={{
+                                        '&:hover': {
+                                            bgcolor: alpha(COLORS.SUCCESS[50], 0.5)
+                                        }
+                                    }}
+                                >
                                     <ListItemIcon>
-                                        <CheckCircle fontSize="small" />
+                                        <CheckCircle fontSize="small" sx={{ color: COLORS.SUCCESS[600] }} />
                                     </ListItemIcon>
-                                    <ListItemText>Hoàn thành</ListItemText>
+                                    <ListItemText
+                                        primary="Hoàn thành"
+                                        primaryTypographyProps={{ sx: { color: COLORS.SUCCESS[700], fontWeight: 500 } }}
+                                    />
                                 </MenuItem>
-                                <MenuItem onClick={() => {
-                                    handleUpdateStatus(selectedTask.id, 'CANCELLED');
-                                }}>
+                                <MenuItem
+                                    onClick={() => {
+                                        handleUpdateStatus(selectedTask.id, 'CANCELLED');
+                                    }}
+                                    sx={{
+                                        '&:hover': {
+                                            bgcolor: alpha(COLORS.ERROR[50], 0.5)
+                                        }
+                                    }}
+                                >
                                     <ListItemIcon>
-                                        <Cancel fontSize="small" />
+                                        <Cancel fontSize="small" sx={{ color: COLORS.ERROR[600] }} />
                                     </ListItemIcon>
-                                    <ListItemText>Hủy</ListItemText>
+                                    <ListItemText
+                                        primary="Hủy"
+                                        primaryTypographyProps={{ sx: { color: COLORS.ERROR[700], fontWeight: 500 } }}
+                                    />
                                 </MenuItem>
-                                <MenuItem onClick={() => {
-                                    handleUpdateStatus(selectedTask.id, 'SKIPPED');
-                                }}>
+                                <MenuItem
+                                    onClick={() => {
+                                        handleUpdateStatus(selectedTask.id, 'SKIPPED');
+                                    }}
+                                    sx={{
+                                        '&:hover': {
+                                            bgcolor: alpha(COLORS.WARNING[50], 0.5)
+                                        }
+                                    }}
+                                >
                                     <ListItemIcon>
-                                        <SkipNext fontSize="small" />
+                                        <SkipNext fontSize="small" sx={{ color: COLORS.WARNING[600] }} />
                                     </ListItemIcon>
-                                    <ListItemText>Bỏ qua</ListItemText>
+                                    <ListItemText
+                                        primary="Bỏ qua"
+                                        primaryTypographyProps={{ sx: { color: COLORS.WARNING[700], fontWeight: 500 } }}
+                                    />
                                 </MenuItem>
                             </>
                         );
@@ -1100,7 +1453,6 @@ const WorkingTasksPage = () => {
                 })()}
             </Menu>
 
-            {/* Daily Task Details Modal */}
             {selectedTask && (
                 <DailyTaskDetailsModal
                     open={detailModalOpen}
@@ -1109,18 +1461,50 @@ const WorkingTasksPage = () => {
                 />
             )}
 
-            {/* VaccinationRecord Modal */}
             {selectedTask && selectedVaccinationSchedule && (
                 <VaccinationRecordModal
                     open={vaccinationRecordModalOpen}
                     onClose={() => {
                         setVaccinationRecordModalOpen(false);
                         setSelectedVaccinationSchedule(null);
+                        setSelectedVaccinationRecord(null);
+                        setIsEditingVaccinationRecord(false);
                     }}
-                    onSubmit={handleCreateVaccinationRecord}
+                    onSubmit={isEditingVaccinationRecord ? handleUpdateVaccinationRecord : handleCreateVaccinationRecord}
                     dailyTask={selectedTask}
                     vaccinationSchedule={selectedVaccinationSchedule}
+                    vaccinationRecord={selectedVaccinationRecord}
+                    isEditMode={isEditingVaccinationRecord}
                     isLoading={isCreatingRecord}
+                />
+            )}
+
+            {selectedTask && selectedVaccinationSchedule && (
+                <HealthRecordModal
+                    open={healthRecordModalOpen}
+                    onClose={() => {
+                        setHealthRecordModalOpen(false);
+                        setSelectedVaccinationSchedule(null);
+                        setSelectedTask(null);
+                        setSelectedHealthRecord(null);
+                        setIsEditingHealthRecord(false);
+                    }}
+                    onSubmit={isEditingHealthRecord ? handleUpdateHealthRecord : handleCreateHealthRecord}
+                    dailyTask={selectedTask}
+                    vaccinationSchedule={selectedVaccinationSchedule}
+                    healthRecord={selectedHealthRecord}
+                    isEditMode={isEditingHealthRecord}
+                    isLoading={isCreatingHealthRecord}
+                />
+            )}
+
+            {alert && (
+                <AlertModal
+                    isOpen={alert.open}
+                    onClose={() => setAlert(null)}
+                    title={alert.title}
+                    message={alert.message}
+                    type={alert.type}
                 />
             )}
 

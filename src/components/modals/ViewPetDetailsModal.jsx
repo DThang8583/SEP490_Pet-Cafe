@@ -26,6 +26,46 @@ const ViewPetDetailsModal = ({
         return br ? br.name : '—';
     };
 
+    // Get health status info (label and colors) - synchronized with PetsTab
+    const getHealthStatusInfo = (healthStatus) => {
+        const status = (healthStatus || 'HEALTHY').toUpperCase();
+
+        const statusMap = {
+            // Khỏe mạnh – xanh lá
+            'HEALTHY': {
+                label: 'Khỏe mạnh',
+                color: COLORS.SUCCESS,
+                bg: COLORS.SUCCESS[100]
+            },
+            // Ốm – đỏ
+            'SICK': {
+                label: 'Ốm',
+                color: COLORS.ERROR,
+                bg: COLORS.ERROR[100]
+            },
+            // Đang hồi phục – cam (WARNING)
+            'RECOVERING': {
+                label: 'Đang hồi phục',
+                color: COLORS.WARNING,
+                bg: COLORS.WARNING[100]
+            },
+            // Đang theo dõi – xanh dương (INFO)
+            'UNDER_OBSERVATION': {
+                label: 'Đang theo dõi',
+                color: COLORS.INFO,
+                bg: COLORS.INFO[100]
+            },
+            // Cách ly – xám (SECONDARY)
+            'QUARANTINE': {
+                label: 'Cách ly',
+                color: COLORS.SECONDARY,
+                bg: COLORS.SECONDARY[100]
+            }
+        };
+
+        return statusMap[status] || statusMap['HEALTHY'];
+    };
+
     if (!pet) return null;
 
     return (
@@ -372,9 +412,6 @@ const ViewPetDetailsModal = ({
                                                                     </Typography>
                                                                     <Stack spacing={0.5}>
                                                                         <Typography variant="body2">
-                                                                            <strong>Ngày hẹn:</strong> {vaccination.schedule.scheduled_date ? new Date(vaccination.schedule.scheduled_date).toLocaleDateString('vi-VN') : '—'}
-                                                                        </Typography>
-                                                                        <Typography variant="body2">
                                                                             <strong>Trạng thái:</strong>{' '}
                                                                             <Chip
                                                                                 label={vaccination.schedule.status === 'COMPLETED' ? 'Đã hoàn thành' : vaccination.schedule.status}
@@ -481,16 +518,21 @@ const ViewPetDetailsModal = ({
                                                                 <Typography variant="h6" sx={{ fontWeight: 700, color: COLORS.INFO[700] }}>
                                                                     Lần khám {index + 1}
                                                                 </Typography>
-                                                                <Chip
-                                                                    label={healthRecord.health_status === 'Healthy' ? 'Khỏe mạnh' : healthRecord.health_status}
-                                                                    size="small"
-                                                                    sx={{
-                                                                        bgcolor: healthRecord.health_status === 'Healthy' ? alpha(COLORS.SUCCESS[500], 0.1) : alpha(COLORS.WARNING[500], 0.1),
-                                                                        color: healthRecord.health_status === 'Healthy' ? COLORS.SUCCESS[700] : COLORS.WARNING[700],
-                                                                        fontWeight: 600,
-                                                                        fontSize: '0.7rem'
-                                                                    }}
-                                                                />
+                                                                {(() => {
+                                                                    const statusInfo = getHealthStatusInfo(healthRecord.health_status);
+                                                                    return (
+                                                                        <Chip
+                                                                            label={statusInfo.label}
+                                                                            size="small"
+                                                                            sx={{
+                                                                                bgcolor: alpha(statusInfo.color[600], 0.2),
+                                                                                color: statusInfo.color[700],
+                                                                                fontWeight: 600,
+                                                                                fontSize: '0.7rem'
+                                                                            }}
+                                                                        />
+                                                                    );
+                                                                })()}
                                                             </Stack>
                                                         </Box>
 

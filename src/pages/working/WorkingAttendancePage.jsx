@@ -401,34 +401,34 @@ const WorkingAttendancePage = () => {
                         if (isTeamLeader) {
                             dayMembers = allMembers.map((member) => {
                                 const existingRecord = deferredAttendance.find((schedule) => {
-                                    const scheduleTeamId = schedule.team_member?.team_id || schedule.team_id;
-                                    const scheduleShiftId = schedule.work_shift_id || schedule.work_shift?.id;
-                                    const scheduleDate = schedule.date ? new Date(schedule.date).toISOString().split('T')[0] : null;
-                                    const scheduleEmployeeId = schedule.employee_id || schedule.employee?.id || schedule.team_member?.employee_id;
-                                    const scheduleAccountId = schedule.employee?.account_id;
+                                const scheduleTeamId = schedule.team_member?.team_id || schedule.team_id;
+                                const scheduleShiftId = schedule.work_shift_id || schedule.work_shift?.id;
+                                const scheduleDate = schedule.date ? new Date(schedule.date).toISOString().split('T')[0] : null;
+                                const scheduleEmployeeId = schedule.employee_id || schedule.employee?.id || schedule.team_member?.employee_id;
+                                const scheduleAccountId = schedule.employee?.account_id;
 
-                                    return (
-                                        scheduleTeamId === team.id &&
-                                        scheduleShiftId === shift.id &&
-                                        scheduleDate === dateStr &&
-                                        (scheduleEmployeeId === member.id ||
-                                            scheduleAccountId === member.account_id ||
-                                            scheduleEmployeeId === member.account_id)
-                                    );
-                                });
+                                return (
+                                    scheduleTeamId === team.id &&
+                                    scheduleShiftId === shift.id &&
+                                    scheduleDate === dateStr &&
+                                    (scheduleEmployeeId === member.id ||
+                                        scheduleAccountId === member.account_id ||
+                                        scheduleEmployeeId === member.account_id)
+                                );
+                            });
 
                                 const teamMemberId = member.team_member_id ||
                                     existingRecord?.team_member_id ||
-                                    existingRecord?.team_member?.id ||
-                                    null;
+                                existingRecord?.team_member?.id ||
+                                null;
 
-                                return {
-                                    member,
-                                    date: dateStr,
-                                    schedule: existingRecord || null,
-                                    teamMemberId
-                                };
-                            });
+                            return {
+                                member,
+                                date: dateStr,
+                                schedule: existingRecord || null,
+                                teamMemberId
+                            };
+                        });
                         } else {
                             dayMembers = deferredAttendance
                                 .filter((schedule) => {
@@ -462,11 +462,11 @@ const WorkingAttendancePage = () => {
                                 });
                         }
 
-                        shiftDays.push({
+                            shiftDays.push({
                             dayKey: dayKey,
                             dates: [dateForThisDay],
-                            members: dayMembers
-                        });
+                                members: dayMembers
+                            });
                     });
                 } else {
                     workingDays.forEach((dayKey) => {
@@ -477,44 +477,44 @@ const WorkingAttendancePage = () => {
                         let dayMembers;
 
                         if (isTeamLeader) {
-                            const seenKeys = new Set();
+                        const seenKeys = new Set();
                             dayMembers = dates.map((date) => {
-                                const dateStr = date.toISOString().split('T')[0];
-                                return allMembers.map((member) => {
-                                    const memberKey = `${member.id || member.account_id}-${dateStr}`;
-                                    if (seenKeys.has(memberKey)) {
-                                        return null;
-                                    }
-                                    seenKeys.add(memberKey);
+                            const dateStr = date.toISOString().split('T')[0];
+                            return allMembers.map((member) => {
+                                const memberKey = `${member.id || member.account_id}-${dateStr}`;
+                                if (seenKeys.has(memberKey)) {
+                                    return null;
+                                }
+                                seenKeys.add(memberKey);
 
-                                    const existingRecord = attendance.find((schedule) => {
-                                        const scheduleTeamId = schedule.team_member?.team_id || schedule.team_id;
-                                        const scheduleShiftId = schedule.work_shift_id || schedule.work_shift?.id;
-                                        const scheduleDate = schedule.date ? new Date(schedule.date).toISOString().split('T')[0] : null;
-                                        const scheduleEmployeeId = schedule.employee_id || schedule.employee?.id || schedule.team_member?.employee_id;
-                                        const scheduleAccountId = schedule.employee?.account_id;
-                                        return (
-                                            scheduleTeamId === team.id &&
-                                            scheduleShiftId === shift.id &&
-                                            scheduleDate === dateStr &&
-                                            (scheduleEmployeeId === member.id ||
-                                                scheduleAccountId === member.account_id ||
-                                                scheduleEmployeeId === member.account_id)
-                                        );
-                                    });
+                                const existingRecord = attendance.find((schedule) => {
+                                    const scheduleTeamId = schedule.team_member?.team_id || schedule.team_id;
+                                    const scheduleShiftId = schedule.work_shift_id || schedule.work_shift?.id;
+                                    const scheduleDate = schedule.date ? new Date(schedule.date).toISOString().split('T')[0] : null;
+                                    const scheduleEmployeeId = schedule.employee_id || schedule.employee?.id || schedule.team_member?.employee_id;
+                                    const scheduleAccountId = schedule.employee?.account_id;
+                                    return (
+                                        scheduleTeamId === team.id &&
+                                        scheduleShiftId === shift.id &&
+                                        scheduleDate === dateStr &&
+                                        (scheduleEmployeeId === member.id ||
+                                            scheduleAccountId === member.account_id ||
+                                            scheduleEmployeeId === member.account_id)
+                                    );
+                                });
 
                                     const teamMemberId = member.team_member_id ||
                                         existingRecord?.team_member_id ||
-                                        existingRecord?.team_member?.id ||
-                                        null;
+                                    existingRecord?.team_member?.id ||
+                                    null;
 
-                                    return {
-                                        member,
-                                        date: dateStr,
-                                        schedule: existingRecord || null,
-                                        teamMemberId
-                                    };
-                                });
+                                return {
+                                    member,
+                                    date: dateStr,
+                                    schedule: existingRecord || null,
+                                    teamMemberId
+                                };
+                            });
                             }).flat().filter(Boolean);
                         } else {
                             dayMembers = deferredAttendance
@@ -703,12 +703,12 @@ const WorkingAttendancePage = () => {
         const recordId = dailyScheduleId || teamMemberId;
 
         if (!recordId) {
-            setSnackbar({
+                setSnackbar({
                 message: 'Không tìm thấy thông tin điểm danh để ghi chú. Vui lòng thử lại.',
-                severity: 'error'
-            });
-            return;
-        }
+                    severity: 'error'
+                });
+                return;
+            }
 
         const key = `${teamId}-${shiftId}-${dayKey}`;
         const existingChanges = pendingChanges[key] || [];
@@ -777,10 +777,10 @@ const WorkingAttendancePage = () => {
             const teamIds = teams.map(team => team.id).filter(Boolean);
             if (teamIds.length > 0) {
                 const updatedSchedules = await fetchSchedulesForTeams(teamIds, {
-                    page_index: 0,
-                    page_size: 1000,
-                    FromDate: dateRange.fromDate,
-                    ToDate: dateRange.toDate
+                page_index: 0,
+                page_size: 1000,
+                FromDate: dateRange.fromDate,
+                ToDate: dateRange.toDate
                 });
                 setAttendance(updatedSchedules);
             }
@@ -812,7 +812,7 @@ const WorkingAttendancePage = () => {
                 const updated = { ...prev };
                 delete updated[key];
                 return updated;
-            });
+                });
 
             setSnackbar({
                 message: 'Đã hủy các thay đổi chưa lưu. Đang tải lại dữ liệu...',
@@ -832,10 +832,10 @@ const WorkingAttendancePage = () => {
             }
         } catch (error) {
             console.error('[Clear Changes] Error:', error);
-            setSnackbar({
+                        setSnackbar({
                 message: 'Không thể tải lại dữ liệu. Vui lòng làm mới trang.',
                 severity: 'error'
-            });
+                        });
         } finally {
             setLoading(false);
         }
@@ -857,7 +857,7 @@ const WorkingAttendancePage = () => {
                 delete updated[key];
             }
             return updated;
-        });
+                    });
 
         // Cập nhật cờ hasUnsavedChanges cho key đó
         setHasUnsavedChanges(prev => {
@@ -949,25 +949,25 @@ const WorkingAttendancePage = () => {
                     return item;
                 })
             );
-        }
+            }
 
         setSnackbar({
             message: 'Đã cập nhật ghi chú. Nhấn "Lưu" để gửi lên hệ thống.',
             severity: 'info'
         });
-        setAttendanceDialog(null);
+            setAttendanceDialog(null);
     };
 
     const handleMonthChange = (delta) => {
         if (selectedMonth + delta < 0) {
             startTransition(() => {
-                setSelectedMonth(11);
-                setSelectedYear(selectedYear - 1);
+            setSelectedMonth(11);
+            setSelectedYear(selectedYear - 1);
             });
         } else if (selectedMonth + delta > 11) {
             startTransition(() => {
-                setSelectedMonth(0);
-                setSelectedYear(selectedYear + 1);
+            setSelectedMonth(0);
+            setSelectedYear(selectedYear + 1);
             });
         } else {
             const nextMonth = selectedMonth + delta;
@@ -1523,137 +1523,137 @@ const WorkingAttendancePage = () => {
                                                                                 </Typography>
                                                                             ) : (
                                                                                 <>
-                                                                                    <TableContainer
-                                                                                        component={Paper}
-                                                                                        sx={{
-                                                                                            borderRadius: 2,
-                                                                                            border: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.2)}`,
-                                                                                            boxShadow: `0 4px 16px ${alpha(COLORS.SHADOW.LIGHT, 0.08)}`,
-                                                                                            overflowX: 'auto',
-                                                                                            overflowY: 'hidden',
-                                                                                            bgcolor: 'white'
-                                                                                        }}
-                                                                                    >
-                                                                                        <Table size="medium" stickyHeader>
-                                                                                            <TableHead>
-                                                                                                <TableRow>
-                                                                                                    <TableCell sx={{
-                                                                                                        fontWeight: 800,
-                                                                                                        bgcolor: COLORS.ERROR[50],
-                                                                                                        py: 2.5,
-                                                                                                        borderBottom: `2px solid ${COLORS.ERROR[200]}`,
-                                                                                                        fontSize: '0.875rem',
-                                                                                                        color: COLORS.ERROR[700]
-                                                                                                    }}>
-                                                                                                        Thành viên
-                                                                                                    </TableCell>
-                                                                                                    <TableCell sx={{
-                                                                                                        fontWeight: 800,
-                                                                                                        bgcolor: COLORS.ERROR[50],
-                                                                                                        py: 2.5,
-                                                                                                        borderBottom: `2px solid ${COLORS.ERROR[200]}`,
-                                                                                                        fontSize: '0.875rem',
-                                                                                                        color: COLORS.ERROR[700]
-                                                                                                    }}>
-                                                                                                        Ngày làm việc
-                                                                                                    </TableCell>
-                                                                                                    <TableCell sx={{
-                                                                                                        fontWeight: 800,
-                                                                                                        bgcolor: COLORS.ERROR[50],
-                                                                                                        py: 2.5,
-                                                                                                        borderBottom: `2px solid ${COLORS.ERROR[200]}`,
-                                                                                                        fontSize: '0.875rem',
-                                                                                                        color: COLORS.ERROR[700]
-                                                                                                    }}>
-                                                                                                        Ghi chú
-                                                                                                    </TableCell>
-                                                                                                    <TableCell align="center" sx={{
-                                                                                                        fontWeight: 800,
-                                                                                                        bgcolor: COLORS.ERROR[50],
-                                                                                                        py: 2.5,
-                                                                                                        borderBottom: `2px solid ${COLORS.ERROR[200]}`,
-                                                                                                        fontSize: '0.875rem',
-                                                                                                        color: COLORS.ERROR[700],
-                                                                                                        minWidth: 500
-                                                                                                    }}>
-                                                                                                        Trạng thái điểm danh
-                                                                                                    </TableCell>
-                                                                                                </TableRow>
-                                                                                            </TableHead>
-                                                                                            <TableBody>
-                                                                                                {displayData.map((item, idx) => {
-                                                                                                    const isMemberView = item.member !== undefined;
-                                                                                                    const member = isMemberView ? item.member : (item.employee || item.team_member?.employee || {});
-                                                                                                    const schedule = isMemberView ? item.schedule : item;
-                                                                                                    const dateStr = isMemberView ? item.date : (schedule?.date || '');
+                                                                                <TableContainer
+                                                                                    component={Paper}
+                                                                                    sx={{
+                                                                                        borderRadius: 2,
+                                                                                        border: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.2)}`,
+                                                                                        boxShadow: `0 4px 16px ${alpha(COLORS.SHADOW.LIGHT, 0.08)}`,
+                                                                                        overflowX: 'auto',
+                                                                                        overflowY: 'hidden',
+                                                                                        bgcolor: 'white'
+                                                                                    }}
+                                                                                >
+                                                                                    <Table size="medium" stickyHeader>
+                                                                                        <TableHead>
+                                                                                            <TableRow>
+                                                                                                <TableCell sx={{
+                                                                                                    fontWeight: 800,
+                                                                                                    bgcolor: COLORS.ERROR[50],
+                                                                                                    py: 2.5,
+                                                                                                    borderBottom: `2px solid ${COLORS.ERROR[200]}`,
+                                                                                                    fontSize: '0.875rem',
+                                                                                                    color: COLORS.ERROR[700]
+                                                                                                }}>
+                                                                                                    Thành viên
+                                                                                                </TableCell>
+                                                                                                <TableCell sx={{
+                                                                                                    fontWeight: 800,
+                                                                                                    bgcolor: COLORS.ERROR[50],
+                                                                                                    py: 2.5,
+                                                                                                    borderBottom: `2px solid ${COLORS.ERROR[200]}`,
+                                                                                                    fontSize: '0.875rem',
+                                                                                                    color: COLORS.ERROR[700]
+                                                                                                }}>
+                                                                                                    Ngày làm việc
+                                                                                                </TableCell>
+                                                                                                <TableCell sx={{
+                                                                                                    fontWeight: 800,
+                                                                                                    bgcolor: COLORS.ERROR[50],
+                                                                                                    py: 2.5,
+                                                                                                    borderBottom: `2px solid ${COLORS.ERROR[200]}`,
+                                                                                                    fontSize: '0.875rem',
+                                                                                                    color: COLORS.ERROR[700]
+                                                                                                }}>
+                                                                                                    Ghi chú
+                                                                                                </TableCell>
+                                                                                                <TableCell align="center" sx={{
+                                                                                                    fontWeight: 800,
+                                                                                                    bgcolor: COLORS.ERROR[50],
+                                                                                                    py: 2.5,
+                                                                                                    borderBottom: `2px solid ${COLORS.ERROR[200]}`,
+                                                                                                    fontSize: '0.875rem',
+                                                                                                    color: COLORS.ERROR[700],
+                                                                                                    minWidth: 500
+                                                                                                }}>
+                                                                                                    Trạng thái điểm danh
+                                                                                                </TableCell>
+                                                                                            </TableRow>
+                                                                                        </TableHead>
+                                                                                        <TableBody>
+                                                                                            {displayData.map((item, idx) => {
+                                                                                                const isMemberView = item.member !== undefined;
+                                                                                                const member = isMemberView ? item.member : (item.employee || item.team_member?.employee || {});
+                                                                                                const schedule = isMemberView ? item.schedule : item;
+                                                                                                const dateStr = isMemberView ? item.date : (schedule?.date || '');
 
                                                                                                     const key = `${team.id}-${shift.id}-${dayKey}`;
                                                                                                     const recordId = schedule?.id || item.teamMemberId;
                                                                                                     const pendingChange = pendingChanges[key]?.find(c => c.recordId === recordId);
                                                                                                     const currentStatus = pendingChange?.status || schedule?.status || 'PENDING';
 
-                                                                                                    const memberData = isMemberView
-                                                                                                        ? item
-                                                                                                        : {
-                                                                                                            member,
-                                                                                                            date: dateStr,
-                                                                                                            schedule,
-                                                                                                            teamMemberId: schedule?.team_member_id ||
-                                                                                                                schedule?.team_member?.id ||
-                                                                                                                member.team_member_id ||
-                                                                                                                null
-                                                                                                        };
+                                                                                                const memberData = isMemberView
+                                                                                                    ? item
+                                                                                                    : {
+                                                                                                        member,
+                                                                                                        date: dateStr,
+                                                                                                        schedule,
+                                                                                                        teamMemberId: schedule?.team_member_id ||
+                                                                                                            schedule?.team_member?.id ||
+                                                                                                            member.team_member_id ||
+                                                                                                            null
+                                                                                                    };
 
-                                                                                                    return (
-                                                                                                        <TableRow
-                                                                                                            key={isMemberView ? `${member.id}-${dateStr}-${idx}` : (schedule?.id || idx)}
-                                                                                                            hover
-                                                                                                            sx={{
-                                                                                                                '&:hover': {
-                                                                                                                    bgcolor: alpha(COLORS.PRIMARY[50], 0.3)
-                                                                                                                }
-                                                                                                            }}
-                                                                                                        >
-                                                                                                            <TableCell sx={{ py: 2 }}>
-                                                                                                                <Stack direction="row" spacing={2} alignItems="center">
-                                                                                                                    <Avatar
-                                                                                                                        src={member.avatar_url}
-                                                                                                                        sx={{
-                                                                                                                            width: 44,
-                                                                                                                            height: 44,
-                                                                                                                            border: `2px solid ${alpha(COLORS.BORDER.DEFAULT, 0.2)}`
-                                                                                                                        }}
-                                                                                                                    >
-                                                                                                                        {member.full_name?.charAt(0) || '?'}
-                                                                                                                    </Avatar>
-                                                                                                                    <Box>
-                                                                                                                        <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
-                                                                                                                            <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                                                                                                                                {member.full_name || 'N/A'}
-                                                                                                                            </Typography>
-                                                                                                                            {isMemberView && member.isLeader && (
-                                                                                                                                <Chip
-                                                                                                                                    label="Leader"
-                                                                                                                                    size="small"
-                                                                                                                                    color="error"
-                                                                                                                                    sx={{ height: 22, fontSize: '0.7rem', fontWeight: 700 }}
-                                                                                                                                />
-                                                                                                                            )}
-                                                                                                                        </Stack>
-                                                                                                                        {member.sub_role && (
-                                                                                                                            <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, fontWeight: 500 }}>
-                                                                                                                                {member.sub_role}
-                                                                                                                            </Typography>
+                                                                                                return (
+                                                                                                    <TableRow
+                                                                                                        key={isMemberView ? `${member.id}-${dateStr}-${idx}` : (schedule?.id || idx)}
+                                                                                                        hover
+                                                                                                        sx={{
+                                                                                                            '&:hover': {
+                                                                                                                bgcolor: alpha(COLORS.PRIMARY[50], 0.3)
+                                                                                                            }
+                                                                                                        }}
+                                                                                                    >
+                                                                                                        <TableCell sx={{ py: 2 }}>
+                                                                                                            <Stack direction="row" spacing={2} alignItems="center">
+                                                                                                                <Avatar
+                                                                                                                    src={member.avatar_url}
+                                                                                                                    sx={{
+                                                                                                                        width: 44,
+                                                                                                                        height: 44,
+                                                                                                                        border: `2px solid ${alpha(COLORS.BORDER.DEFAULT, 0.2)}`
+                                                                                                                    }}
+                                                                                                                >
+                                                                                                                    {member.full_name?.charAt(0) || '?'}
+                                                                                                                </Avatar>
+                                                                                                                <Box>
+                                                                                                                    <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
+                                                                                                                        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                                                                                                                            {member.full_name || 'N/A'}
+                                                                                                                        </Typography>
+                                                                                                                        {isMemberView && member.isLeader && (
+                                                                                                                            <Chip
+                                                                                                                                label="Leader"
+                                                                                                                                size="small"
+                                                                                                                                color="error"
+                                                                                                                                sx={{ height: 22, fontSize: '0.7rem', fontWeight: 700 }}
+                                                                                                                            />
                                                                                                                         )}
-                                                                                                                    </Box>
-                                                                                                                </Stack>
-                                                                                                            </TableCell>
-                                                                                                            <TableCell sx={{ py: 2 }}>
-                                                                                                                <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                                                                                                                    {formatDate(dateStr)}
-                                                                                                                </Typography>
-                                                                                                            </TableCell>
-                                                                                                            <TableCell sx={{ py: 2 }}>
+                                                                                                                    </Stack>
+                                                                                                                    {member.sub_role && (
+                                                                                                                        <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, fontWeight: 500 }}>
+                                                                                                                            {member.sub_role}
+                                                                                                                        </Typography>
+                                                                                                                    )}
+                                                                                                                </Box>
+                                                                                                            </Stack>
+                                                                                                        </TableCell>
+                                                                                                        <TableCell sx={{ py: 2 }}>
+                                                                                                            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                                                                                                {formatDate(dateStr)}
+                                                                                                            </Typography>
+                                                                                                        </TableCell>
+                                                                                                        <TableCell sx={{ py: 2 }}>
                                                                                                                 <Tooltip
                                                                                                                     title={
                                                                                                                         isTeamLeader
@@ -1663,8 +1663,8 @@ const WorkingAttendancePage = () => {
                                                                                                                     placement="top"
                                                                                                                     arrow
                                                                                                                 >
-                                                                                                                    <Typography
-                                                                                                                        variant="body2"
+                                                                                                            <Typography
+                                                                                                                variant="body2"
                                                                                                                         onClick={
                                                                                                                             isTeamLeader
                                                                                                                                 ? () =>
@@ -1678,48 +1678,48 @@ const WorkingAttendancePage = () => {
                                                                                                                                     )
                                                                                                                                 : undefined
                                                                                                                         }
-                                                                                                                        sx={{
-                                                                                                                            color: schedule?.notes ? COLORS.TEXT.PRIMARY : COLORS.TEXT.SECONDARY,
-                                                                                                                            fontStyle: schedule?.notes ? 'normal' : 'italic',
-                                                                                                                            maxWidth: 300,
-                                                                                                                            overflow: 'hidden',
-                                                                                                                            textOverflow: 'ellipsis',
-                                                                                                                            whiteSpace: 'nowrap',
+                                                                                                                sx={{
+                                                                                                                    color: schedule?.notes ? COLORS.TEXT.PRIMARY : COLORS.TEXT.SECONDARY,
+                                                                                                                    fontStyle: schedule?.notes ? 'normal' : 'italic',
+                                                                                                                    maxWidth: 300,
+                                                                                                                    overflow: 'hidden',
+                                                                                                                    textOverflow: 'ellipsis',
+                                                                                                                    whiteSpace: 'nowrap',
                                                                                                                             fontWeight: schedule?.notes ? 500 : 400,
                                                                                                                             cursor: isTeamLeader ? 'pointer' : 'default',
                                                                                                                             textDecoration: isTeamLeader ? 'underline dotted' : 'none'
-                                                                                                                        }}
-                                                                                                                    >
+                                                                                                                }}
+                                                                                                            >
                                                                                                                         {schedule?.notes || (isTeamLeader ? 'Thêm ghi chú' : '—')}
-                                                                                                                    </Typography>
+                                                                                                            </Typography>
                                                                                                                 </Tooltip>
-                                                                                                            </TableCell>
-                                                                                                            <TableCell align="center" sx={{ py: 2.5 }}>
+                                                                                                        </TableCell>
+                                                                                                        <TableCell align="center" sx={{ py: 2.5 }}>
                                                                                                                 {isTeamLeader ? (
-                                                                                                                    currentStatus === 'PENDING' ? (
-                                                                                                                        <Stack direction="row" spacing={1.5} alignItems="center" justifyContent="center" flexWrap="wrap" sx={{ gap: 1 }}>
-                                                                                                                            <Chip
-                                                                                                                                icon={STATUS_OPTIONS.find((opt) => opt.value === currentStatus)?.icon}
-                                                                                                                                label={STATUS_OPTIONS.find((opt) => opt.value === currentStatus)?.label || currentStatus}
-                                                                                                                                sx={{
-                                                                                                                                    bgcolor: STATUS_COLORS[currentStatus]?.bg || COLORS.GRAY[100],
-                                                                                                                                    color: STATUS_COLORS[currentStatus]?.color || COLORS.GRAY[700],
-                                                                                                                                    fontWeight: 700,
-                                                                                                                                    height: 36,
-                                                                                                                                    fontSize: '0.875rem',
-                                                                                                                                    border: `2px solid ${alpha(STATUS_COLORS[currentStatus]?.color || COLORS.GRAY[700], 0.3)}`
-                                                                                                                                }}
-                                                                                                                                size="medium"
-                                                                                                                            />
-                                                                                                                            {STATUS_OPTIONS.filter(option =>
-                                                                                                                                option.value !== 'PENDING'
-                                                                                                                            ).map((option) => (
-                                                                                                                                <Tooltip key={option.value} title={`Đánh dấu: ${option.label}`} arrow placement="top">
-                                                                                                                                    <Button
-                                                                                                                                        variant="outlined"
-                                                                                                                                        color={option.color}
-                                                                                                                                        size="small"
-                                                                                                                                        startIcon={option.icon}
+                                                                                                                currentStatus === 'PENDING' ? (
+                                                                                                                    <Stack direction="row" spacing={1.5} alignItems="center" justifyContent="center" flexWrap="wrap" sx={{ gap: 1 }}>
+                                                                                                                        <Chip
+                                                                                                                            icon={STATUS_OPTIONS.find((opt) => opt.value === currentStatus)?.icon}
+                                                                                                                            label={STATUS_OPTIONS.find((opt) => opt.value === currentStatus)?.label || currentStatus}
+                                                                                                                            sx={{
+                                                                                                                                bgcolor: STATUS_COLORS[currentStatus]?.bg || COLORS.GRAY[100],
+                                                                                                                                color: STATUS_COLORS[currentStatus]?.color || COLORS.GRAY[700],
+                                                                                                                                fontWeight: 700,
+                                                                                                                                height: 36,
+                                                                                                                                fontSize: '0.875rem',
+                                                                                                                                border: `2px solid ${alpha(STATUS_COLORS[currentStatus]?.color || COLORS.GRAY[700], 0.3)}`
+                                                                                                                            }}
+                                                                                                                            size="medium"
+                                                                                                                        />
+                                                                                                                        {STATUS_OPTIONS.filter(option =>
+                                                                                                                            option.value !== 'PENDING'
+                                                                                                                        ).map((option) => (
+                                                                                                                            <Tooltip key={option.value} title={`Đánh dấu: ${option.label}`} arrow placement="top">
+                                                                                                                                <Button
+                                                                                                                                    variant="outlined"
+                                                                                                                                    color={option.color}
+                                                                                                                                    size="small"
+                                                                                                                                    startIcon={option.icon}
                                                                                                                                         onClick={() => handleStatusClick(
                                                                                                                                             memberData || { member, date: dateStr, schedule },
                                                                                                                                             option.value,
@@ -1729,45 +1729,45 @@ const WorkingAttendancePage = () => {
                                                                                                                                             dayKey,
                                                                                                                                             isTeamLeader
                                                                                                                                         )}
-                                                                                                                                        sx={{
-                                                                                                                                            borderRadius: 2,
-                                                                                                                                            minWidth: 110,
-                                                                                                                                            textTransform: 'none',
-                                                                                                                                            fontWeight: 600,
-                                                                                                                                            px: 2,
-                                                                                                                                            py: 0.75,
-                                                                                                                                            fontSize: '0.8rem',
+                                                                                                                                    sx={{
+                                                                                                                                        borderRadius: 2,
+                                                                                                                                        minWidth: 110,
+                                                                                                                                        textTransform: 'none',
+                                                                                                                                        fontWeight: 600,
+                                                                                                                                        px: 2,
+                                                                                                                                        py: 0.75,
+                                                                                                                                        fontSize: '0.8rem',
+                                                                                                                                        borderWidth: 2,
+                                                                                                                                        '&:hover': {
                                                                                                                                             borderWidth: 2,
-                                                                                                                                            '&:hover': {
-                                                                                                                                                borderWidth: 2,
-                                                                                                                                                boxShadow: `0 4px 12px ${alpha(COLORS[option.color.toUpperCase()]?.[500] || COLORS.PRIMARY[500], 0.25)}`,
-                                                                                                                                                transform: 'translateY(-2px)',
-                                                                                                                                                bgcolor: alpha(COLORS[option.color.toUpperCase()]?.[50] || COLORS.PRIMARY[50], 0.5)
-                                                                                                                                            },
-                                                                                                                                            transition: 'all 0.2s'
-                                                                                                                                        }}
-                                                                                                                                    >
-                                                                                                                                        {option.label}
-                                                                                                                                    </Button>
-                                                                                                                                </Tooltip>
-                                                                                                                            ))}
-                                                                                                                        </Stack>
-                                                                                                                    ) : (
+                                                                                                                                            boxShadow: `0 4px 12px ${alpha(COLORS[option.color.toUpperCase()]?.[500] || COLORS.PRIMARY[500], 0.25)}`,
+                                                                                                                                            transform: 'translateY(-2px)',
+                                                                                                                                            bgcolor: alpha(COLORS[option.color.toUpperCase()]?.[50] || COLORS.PRIMARY[50], 0.5)
+                                                                                                                                        },
+                                                                                                                                        transition: 'all 0.2s'
+                                                                                                                                    }}
+                                                                                                                                >
+                                                                                                                                    {option.label}
+                                                                                                                                </Button>
+                                                                                                                            </Tooltip>
+                                                                                                                        ))}
+                                                                                                                    </Stack>
+                                                                                                                ) : (
                                                                                                                         <Stack direction="row" spacing={1.5} justifyContent="center" alignItems="center">
-                                                                                                                            <Chip
-                                                                                                                                icon={STATUS_OPTIONS.find((opt) => opt.value === currentStatus)?.icon}
-                                                                                                                                label={STATUS_OPTIONS.find((opt) => opt.value === currentStatus)?.label || currentStatus}
-                                                                                                                                sx={{
-                                                                                                                                    bgcolor: STATUS_COLORS[currentStatus]?.bg || COLORS.GRAY[100],
-                                                                                                                                    color: STATUS_COLORS[currentStatus]?.color || COLORS.GRAY[700],
-                                                                                                                                    fontWeight: 700,
-                                                                                                                                    height: 36,
-                                                                                                                                    fontSize: '0.875rem',
-                                                                                                                                    border: `2px solid ${alpha(STATUS_COLORS[currentStatus]?.color || COLORS.GRAY[700], 0.3)}`,
-                                                                                                                                    boxShadow: `0 2px 8px ${alpha(STATUS_COLORS[currentStatus]?.color || COLORS.GRAY[700], 0.15)}`
-                                                                                                                                }}
-                                                                                                                                size="medium"
-                                                                                                                            />
+                                                                                                                    <Chip
+                                                                                                                        icon={STATUS_OPTIONS.find((opt) => opt.value === currentStatus)?.icon}
+                                                                                                                        label={STATUS_OPTIONS.find((opt) => opt.value === currentStatus)?.label || currentStatus}
+                                                                                                                        sx={{
+                                                                                                                            bgcolor: STATUS_COLORS[currentStatus]?.bg || COLORS.GRAY[100],
+                                                                                                                            color: STATUS_COLORS[currentStatus]?.color || COLORS.GRAY[700],
+                                                                                                                            fontWeight: 700,
+                                                                                                                            height: 36,
+                                                                                                                            fontSize: '0.875rem',
+                                                                                                                            border: `2px solid ${alpha(STATUS_COLORS[currentStatus]?.color || COLORS.GRAY[700], 0.3)}`,
+                                                                                                                            boxShadow: `0 2px 8px ${alpha(STATUS_COLORS[currentStatus]?.color || COLORS.GRAY[700], 0.15)}`
+                                                                                                                        }}
+                                                                                                                        size="medium"
+                                                                                                                    />
                                                                                                                             {pendingChange && (
                                                                                                                                 <Button
                                                                                                                                     variant="outlined"
@@ -1789,28 +1789,28 @@ const WorkingAttendancePage = () => {
                                                                                                                                 </Button>
                                                                                                                             )}
                                                                                                                         </Stack>
-                                                                                                                    )
-                                                                                                                ) : (
-                                                                                                                    <Chip
-                                                                                                                        icon={STATUS_OPTIONS.find((opt) => opt.value === currentStatus)?.icon}
-                                                                                                                        label={STATUS_OPTIONS.find((opt) => opt.value === currentStatus)?.label || currentStatus}
-                                                                                                                        sx={{
-                                                                                                                            bgcolor: STATUS_COLORS[currentStatus]?.bg || COLORS.GRAY[100],
-                                                                                                                            color: STATUS_COLORS[currentStatus]?.color || COLORS.GRAY[700],
-                                                                                                                            fontWeight: 700,
-                                                                                                                            height: 36,
-                                                                                                                            fontSize: '0.875rem',
-                                                                                                                            border: `2px solid ${alpha(STATUS_COLORS[currentStatus]?.color || COLORS.GRAY[700], 0.3)}`
-                                                                                                                        }}
-                                                                                                                        size="medium"
-                                                                                                                    />
-                                                                                                                )}
-                                                                                                            </TableCell>
-                                                                                                        </TableRow>
-                                                                                                    );
-                                                                                                })}
-                                                                                            </TableBody>
-                                                                                        </Table>
+                                                                                                                )
+                                                                                                            ) : (
+                                                                                                                <Chip
+                                                                                                                    icon={STATUS_OPTIONS.find((opt) => opt.value === currentStatus)?.icon}
+                                                                                                                    label={STATUS_OPTIONS.find((opt) => opt.value === currentStatus)?.label || currentStatus}
+                                                                                                                    sx={{
+                                                                                                                        bgcolor: STATUS_COLORS[currentStatus]?.bg || COLORS.GRAY[100],
+                                                                                                                        color: STATUS_COLORS[currentStatus]?.color || COLORS.GRAY[700],
+                                                                                                                        fontWeight: 700,
+                                                                                                                        height: 36,
+                                                                                                                        fontSize: '0.875rem',
+                                                                                                                        border: `2px solid ${alpha(STATUS_COLORS[currentStatus]?.color || COLORS.GRAY[700], 0.3)}`
+                                                                                                                    }}
+                                                                                                                    size="medium"
+                                                                                                                />
+                                                                                                            )}
+                                                                                                        </TableCell>
+                                                                                                    </TableRow>
+                                                                                                );
+                                                                                            })}
+                                                                                        </TableBody>
+                                                                                    </Table>
 
                                                                                         {/* Bulk Save Controls */}
                                                                                         {isTeamLeader && (() => {
@@ -1883,7 +1883,7 @@ const WorkingAttendancePage = () => {
                                                                                                 </Box>
                                                                                             ) : null;
                                                                                         })()}
-                                                                                    </TableContainer>
+                                                                                </TableContainer>
                                                                                 </>
                                                                             )}
                                                                         </Box>
