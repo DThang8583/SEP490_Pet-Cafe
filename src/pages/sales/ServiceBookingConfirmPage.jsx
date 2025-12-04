@@ -273,11 +273,6 @@ const ServiceBookingConfirmPage = () => {
                 </Box>
                 <Stack direction="column" spacing={0.5} alignItems="flex-end">
                     <Chip
-                        label={orderData.status === 'PAID' ? 'Đã thanh toán' : orderData.status === 'PENDING' ? 'Chờ thanh toán' : orderData.status === 'EXPIRED' ? 'Hết hạn' : orderData.status}
-                        color={orderData.status === 'PAID' ? 'success' : orderData.status === 'PENDING' ? 'warning' : orderData.status === 'EXPIRED' ? 'default' : 'default'}
-                        sx={{ fontWeight: 700, fontSize: '0.85rem' }}
-                    />
-                    <Chip
                         label={orderData.payment_status === 'PAID' ? 'Đã thanh toán' : orderData.payment_status === 'PENDING' ? 'Chờ thanh toán' : orderData.payment_status === 'EXPIRED' ? 'Hết hạn' : orderData.payment_status || '—'}
                         color={orderData.payment_status === 'PAID' ? 'success' : orderData.payment_status === 'PENDING' ? 'warning' : orderData.payment_status === 'EXPIRED' ? 'default' : 'default'}
                         size="small"
