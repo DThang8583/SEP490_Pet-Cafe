@@ -3,7 +3,7 @@ import { Box, Container, Card, CardContent, Typography, TextField, Chip, Button,
 import { COLORS } from '../../constants/colors';
 import { useNavigate } from 'react-router-dom';
 
-const API_URL = 'https://petcafe-htc6dadbayh6h4dz.southeastasia-01.azurewebsites.net/api/pet-groups?order_by=%7B%22order_column%22%3A%22string%22%2C%22order_dir%22%3A%22string%22%7D';
+const API_URL = 'https://petcafes.azurewebsites.net/api/pet-groups?order_by=%7B%22order_column%22%3A%22string%22%2C%22order_dir%22%3A%22string%22%7D';
 
 const PetGroupsPage = () => {
     const navigate = useNavigate();
@@ -36,7 +36,7 @@ const PetGroupsPage = () => {
         setPetsDialogOpen(true);
         setLoadingPets(true);
         try {
-            const resp = await fetch('https://petcafe-htc6dadbayh6h4dz.southeastasia-01.azurewebsites.net/api/pets?page=0&limit=999');
+            const resp = await fetch('https://petcafes.azurewebsites.net/api/pets?page=0&limit=999');
             const json = await resp.json();
             const allPets = Array.isArray(json?.data) ? json.data : [];
             const targetSpeciesId = group?.pet_species_id;

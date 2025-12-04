@@ -25,7 +25,7 @@ const ServiceSalesPage = () => {
                 const role = authApi.getUserRole();
                 if (role !== 'sales_staff' && role !== 'manager') throw new Error('Không có quyền');
                 // Official services API
-                const resp = await fetch('https://petcafe-htc6dadbayh6h4dz.southeastasia-01.azurewebsites.net/api/services');
+                const resp = await fetch('https://petcafes.azurewebsites.net/api/services');
                 if (!resp.ok) {
                     const errorText = await resp.text();
                     console.error('[ServiceSalesPage] Lỗi khi tải dịch vụ:', {

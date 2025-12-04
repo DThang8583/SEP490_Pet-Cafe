@@ -3,7 +3,7 @@ import { Box, Container, Typography, Grid, Card, CardContent, CardMedia, Stack, 
 import { Search, Pets, LocalCafe, Fastfood, Cake } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 
-const API_URL = 'https://petcafe-htc6dadbayh6h4dz.southeastasia-01.azurewebsites.net/api/product-categories';
+const API_URL = 'https://petcafes.azurewebsites.net/api/product-categories';
 
 const formatPrice = (v) => v.toLocaleString('vi-VN') + 'đ';
 

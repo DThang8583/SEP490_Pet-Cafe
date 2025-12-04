@@ -42,7 +42,7 @@ const CheckoutPage = () => {
                                         console.log('[Checkout][confirm] method: PUT');
                                         console.log('[Checkout][confirm] body:', confirmBody);
                                         console.log('[Checkout][confirm] hasToken:', !!token);
-                                        const resp = await fetch(`https://petcafe-htc6dadbayh6h4dz.southeastasia-01.azurewebsites.net/api/orders/${effectiveOrderId}/confirm`, {
+                                        const resp = await fetch(`https://petcafes.azurewebsites.net/api/orders/${effectiveOrderId}/confirm`, {
                                             method: 'PUT',
                                             headers: {
                                                 'Authorization': token ? `Bearer ${token}` : '',

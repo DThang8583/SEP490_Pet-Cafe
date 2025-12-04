@@ -4,7 +4,7 @@
 import userApi from './userApi.js';
 
 // External Auth API endpoint
-const OFFICIAL_AUTH_URL = 'https://petcafe-htc6dadbayh6h4dz.southeastasia-01.azurewebsites.net/api/auths';
+const OFFICIAL_AUTH_URL = 'https://petcafes.azurewebsites.net/api/auths';
 
 const mapExternalRole = (account) => {
     const upperRole = (account?.role || '').toUpperCase();

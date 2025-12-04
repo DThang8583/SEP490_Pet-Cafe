@@ -36,7 +36,7 @@ const ProductSalesConfirmPage = () => {
                 const token = localStorage.getItem('authToken');
                 
                 // Bước 1: Lấy danh sách orders
-                const res = await fetch('https://petcafe-htc6dadbayh6h4dz.southeastasia-01.azurewebsites.net/api/orders?limit=99', {
+                const res = await fetch('https://petcafes.azurewebsites.net/api/orders?limit=99', {
                     headers: {
                         'Authorization': token ? `Bearer ${token}` : '',
                         'Accept': 'application/json'
@@ -75,7 +75,7 @@ const ProductSalesConfirmPage = () => {
                 // Bước 2: Gọi API chi tiết cho từng order để lấy thông tin đầy đủ
                 const productOrdersPromises = productOrderIds.map(async (orderId) => {
                     try {
-                        const detailRes = await fetch(`https://petcafe-htc6dadbayh6h4dz.southeastasia-01.azurewebsites.net/api/orders/${orderId}`, {
+                        const detailRes = await fetch(`https://petcafes.azurewebsites.net/api/orders/${orderId}`, {
                             headers: {
                                 'Authorization': token ? `Bearer ${token}` : '',
                                 'Accept': 'application/json'

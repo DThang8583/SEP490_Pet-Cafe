@@ -123,7 +123,7 @@ const BookingPage = () => {
             // Load available services from API
             console.log('Loading services...');
             const token = localStorage.getItem('authToken');
-            const response = await fetch('https://petcafe-htc6dadbayh6h4dz.southeastasia-01.azurewebsites.net/api/services', {
+            const response = await fetch('https://petcafes.azurewebsites.net/api/services', {
                 headers: {
                     'Authorization': token ? `Bearer ${token}` : '',
                     'Accept': 'application/json'
