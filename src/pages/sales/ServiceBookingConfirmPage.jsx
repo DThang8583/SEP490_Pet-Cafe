@@ -12,7 +12,12 @@ import {
     Chip,
     Divider,
     alpha,
-    Container
+    Container,
+    Select,
+    MenuItem,
+    FormControl,
+    InputLabel,
+    TextField
 } from '@mui/material';
 import {
     CheckCircle,
@@ -26,8 +31,11 @@ import {
     LocationOn,
     ShoppingCart,
     Payment,
-    Receipt
+    Receipt,
+    FilterList,
+    Search
 } from '@mui/icons-material';
+import { InputAdornment } from '@mui/material';
 import { COLORS } from '../../constants/colors';
 import { formatPrice } from '../../utils/formatPrice';
 
@@ -35,13 +43,43 @@ const ServiceBookingConfirmPage = () => {
     const navigate = useNavigate();
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [paymentMethod, setPaymentMethod] = useState(''); // '' = all, 'AT_COUNTER', 'ONLINE'
+    const [minPrice, setMinPrice] = useState(''); // Minimum price (input value)
+    const [maxPrice, setMaxPrice] = useState(''); // Maximum price (input value)
+    const [appliedMinPrice, setAppliedMinPrice] = useState(''); // Applied filter value
+    const [appliedMaxPrice, setAppliedMaxPrice] = useState(''); // Applied filter value
+    const [pageSize, setPageSize] = useState(99);
 
     useEffect(() => {
         const fetchOrders = async () => {
             try {
                 setLoading(true);
                 const token = localStorage.getItem('authToken');
-                const res = await fetch('https://petcafes.azurewebsites.net/api/orders?limit=99', {
+                
+                // Build query parameters
+                const params = new URLSearchParams();
+                params.append('type', 'CUSTOMER');
+                params.append('limit', pageSize.toString());
+                
+                if (paymentMethod) {
+                    params.append('PaymentMethod', paymentMethod);
+                }
+                
+                // Filter theo giá
+                if (appliedMinPrice && !isNaN(parseFloat(appliedMinPrice))) {
+                    params.append('MinPrice', parseFloat(appliedMinPrice).toString());
+                }
+                
+                if (appliedMaxPrice && !isNaN(parseFloat(appliedMaxPrice))) {
+                    params.append('MaxPrice', parseFloat(appliedMaxPrice).toString());
+                }
+                
+                const queryString = params.toString();
+                const url = `https://petcafes.azurewebsites.net/api/orders${queryString ? `?${queryString}` : ''}`;
+                
+                console.log('[ServiceBookingConfirm] Fetching orders with params:', queryString);
+                
+                const res = await fetch(url, {
                     headers: {
                         'Authorization': token ? `Bearer ${token}` : '',
                         'Accept': 'application/json'
@@ -112,7 +150,7 @@ const ServiceBookingConfirmPage = () => {
                             payment_status: order.payment_status || order.status || 'PENDING',
                             status: order.status || 'PENDING',
                             type: order.type || 'EMPLOYEE',
-                            order_date: order.order_date || order.created_at,
+                            order_date: order.service_order?.order_date || order.order_date || order.created_at,
                             created_at: order.created_at,
                             employee: order.employee,
                             services: services.length > 0 ? services : [
@@ -148,7 +186,14 @@ const ServiceBookingConfirmPage = () => {
                     services_count: o.services?.length || 0
                 })));
 
-                setOrders(serviceOrders);
+                // Sắp xếp theo order_date (mới nhất lên đầu)
+                const sortedOrders = serviceOrders.sort((a, b) => {
+                    const dateA = new Date(a.order_date || a.created_at || 0);
+                    const dateB = new Date(b.order_date || b.created_at || 0);
+                    return dateB - dateA; // Mới nhất lên đầu
+                });
+
+                setOrders(sortedOrders);
             } catch (err) {
                 console.error('[ServiceBookingConfirm] Fetch error:', err);
                 alert('Không thể tải danh sách đơn hàng: ' + (err.message || 'Lỗi không xác định'));
@@ -159,7 +204,252 @@ const ServiceBookingConfirmPage = () => {
         };
 
         fetchOrders();
-    }, []);
+    }, [paymentMethod, appliedMinPrice, appliedMaxPrice, pageSize]);
+    
+    // Hàm để áp dụng bộ lọc (chỉ search khi click nút)
+    const handleApplyFilters = () => {
+        setAppliedMinPrice(minPrice);
+        setAppliedMaxPrice(maxPrice);
+    };
+
+    // Hàm để nhóm orders theo ngày
+    const groupOrdersByDate = (orders) => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        
+        const groups = {
+            today: [],
+            yesterday: [],
+            other: []
+        };
+
+        orders.forEach(order => {
+            const orderDate = new Date(order.order_date || order.created_at);
+            const orderDateOnly = new Date(orderDate);
+            orderDateOnly.setHours(0, 0, 0, 0);
+            
+            if (orderDateOnly.getTime() === today.getTime()) {
+                groups.today.push(order);
+            } else if (orderDateOnly.getTime() === yesterday.getTime()) {
+                groups.yesterday.push(order);
+            } else {
+                groups.other.push(order);
+            }
+        });
+
+        return groups;
+    };
+
+    // Hàm render order card
+    const renderOrderCard = (orderData) => (
+        <CardContent sx={{ p: { xs: 2.5, sm: 3, md: 3.5 }, flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+            {/* Order Header */}
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2.5, pb: 2, borderBottom: `2px solid ${alpha(COLORS.ERROR[100], 0.5)}` }}>
+                <Box>
+                    <Typography variant="h6" sx={{
+                        fontWeight: 900,
+                        color: COLORS.ERROR[600],
+                        mb: 0.5
+                    }}>
+                        Đơn hàng #{orderData.id}
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY }}>
+                        {orderData.order_date && new Date(orderData.order_date).toLocaleDateString('vi-VN', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        })}
+                    </Typography>
+                </Box>
+                <Stack direction="column" spacing={0.5} alignItems="flex-end">
+                    <Chip
+                        label={orderData.status === 'PAID' ? 'Đã thanh toán' : orderData.status === 'PENDING' ? 'Chờ thanh toán' : orderData.status === 'EXPIRED' ? 'Hết hạn' : orderData.status}
+                        color={orderData.status === 'PAID' ? 'success' : orderData.status === 'PENDING' ? 'warning' : orderData.status === 'EXPIRED' ? 'default' : 'default'}
+                        sx={{ fontWeight: 700, fontSize: '0.85rem' }}
+                    />
+                    <Chip
+                        label={orderData.payment_status === 'PAID' ? 'Đã thanh toán' : orderData.payment_status === 'PENDING' ? 'Chờ thanh toán' : orderData.payment_status === 'EXPIRED' ? 'Hết hạn' : orderData.payment_status || '—'}
+                        color={orderData.payment_status === 'PAID' ? 'success' : orderData.payment_status === 'PENDING' ? 'warning' : orderData.payment_status === 'EXPIRED' ? 'default' : 'default'}
+                        size="small"
+                        sx={{ fontWeight: 600, fontSize: '0.75rem' }}
+                    />
+                </Stack>
+            </Box>
+
+            {/* Services List */}
+            {orderData.services && orderData.services.length > 0 && (
+                <Box sx={{ mb: 2.5, flexGrow: 1 }}>
+                    <Typography variant="subtitle2" sx={{
+                        fontWeight: 700,
+                        color: COLORS.ERROR[600],
+                        mb: 1.5,
+                        fontSize: '0.95rem',
+                        textTransform: 'uppercase',
+                        letterSpacing: 0.5
+                    }}>
+                        Dịch vụ đã đặt
+                    </Typography>
+                    <Stack spacing={1.5}>
+                        {orderData.services.map((service, index) => (
+                            <Paper
+                                key={index}
+                                sx={{
+                                    p: 2,
+                                    borderRadius: 2.5,
+                                    backgroundColor: alpha(COLORS.ERROR[50], 0.4),
+                                    border: `1px solid ${alpha(COLORS.ERROR[200], 0.6)}`,
+                                    transition: 'all 0.2s ease',
+                                    '&:hover': {
+                                        backgroundColor: alpha(COLORS.ERROR[50], 0.6),
+                                        borderColor: COLORS.ERROR[300]
+                                    }
+                                }}
+                            >
+                                <Stack spacing={1.5}>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                        <Typography variant="subtitle1" sx={{
+                                            fontWeight: 800,
+                                            color: COLORS.TEXT.PRIMARY,
+                                            flex: 1
+                                        }}>
+                                            {service.service_name || service.name || `Dịch vụ ${index + 1}`}
+                                        </Typography>
+                                        {service.price && (
+                                            <Typography variant="h6" sx={{
+                                                color: COLORS.ERROR[600],
+                                                fontWeight: 800,
+                                                ml: 2
+                                            }}>
+                                                {formatPrice(service.price)}
+                                            </Typography>
+                                        )}
+                                    </Box>
+                                    
+                                    {service.booking_date && (
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                            <CalendarToday sx={{ fontSize: 16, color: COLORS.ERROR[500] }} />
+                                            <Typography variant="body2" sx={{ fontWeight: 500, color: COLORS.TEXT.SECONDARY }}>
+                                                {(() => {
+                                                    const dateStr = service.booking_date;
+                                                    if (!dateStr) return '';
+                                                    if (dateStr.includes('T')) {
+                                                        const date = new Date(dateStr);
+                                                        return date.toLocaleDateString('vi-VN', {
+                                                            weekday: 'long',
+                                                            year: 'numeric',
+                                                            month: 'long',
+                                                            day: 'numeric',
+                                                            hour: '2-digit',
+                                                            minute: '2-digit'
+                                                        });
+                                                    } else {
+                                                        const [year, month, day] = dateStr.split('-').map(Number);
+                                                        const date = new Date(year, month - 1, day);
+                                                        return date.toLocaleDateString('vi-VN', {
+                                                            weekday: 'long',
+                                                            year: 'numeric',
+                                                            month: 'long',
+                                                            day: 'numeric'
+                                                        });
+                                                    }
+                                                })()}
+                                            </Typography>
+                                        </Box>
+                                    )}
+
+                                    {service.notes && (
+                                        <Box sx={{ display: 'flex', alignItems: 'start', gap: 1, mt: 0.5 }}>
+                                            <Note sx={{ fontSize: 16, color: COLORS.ERROR[500], mt: 0.25 }} />
+                                            <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, fontSize: '0.875rem' }}>
+                                                {service.notes}
+                                            </Typography>
+                                        </Box>
+                                    )}
+                                </Stack>
+                            </Paper>
+                        ))}
+                    </Stack>
+                </Box>
+            )}
+
+            <Divider sx={{ my: 2.5 }} />
+
+            {/* Customer Information - Compact */}
+            <Box sx={{ mb: 2.5 }}>
+                <Typography variant="subtitle2" sx={{
+                    fontWeight: 700,
+                    color: COLORS.ERROR[600],
+                    mb: 1.5,
+                    fontSize: '0.95rem',
+                    textTransform: 'uppercase',
+                    letterSpacing: 0.5
+                }}>
+                    Thông tin khách hàng
+                </Typography>
+                <Stack spacing={1}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <Person sx={{ fontSize: 18, color: COLORS.ERROR[500] }} />
+                        <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.TEXT.PRIMARY }}>
+                            {orderData.customerInfo?.full_name || 'Không có'}
+                        </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                        <Phone sx={{ fontSize: 18, color: COLORS.ERROR[500] }} />
+                        <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
+                            {orderData.customerInfo?.phone || 'Không có'}
+                        </Typography>
+                    </Box>
+                    {orderData.customerInfo?.address && (
+                        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
+                            <LocationOn sx={{ fontSize: 18, color: COLORS.ERROR[500], mt: 0.25 }} />
+                            <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, flex: 1 }}>
+                                {orderData.customerInfo.address}
+                            </Typography>
+                        </Box>
+                    )}
+                </Stack>
+            </Box>
+
+            <Divider sx={{ my: 2.5 }} />
+
+            {/* Payment & Total - Bottom Section */}
+            <Box sx={{ mt: 'auto', pt: 2 }}>
+                {orderData.payment_method && (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
+                        <Payment sx={{ fontSize: 18, color: COLORS.ERROR[500] }} />
+                        <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.TEXT.PRIMARY }}>
+                            {orderData.payment_method === 'AT_COUNTER' ? '💵 Thanh toán tại quầy' : '🏦 Chuyển khoản'}
+                        </Typography>
+                    </Box>
+                )}
+                
+                {orderData.total && (
+                    <Paper sx={{
+                        p: 2,
+                        borderRadius: 2.5,
+                        backgroundColor: alpha(COLORS.ERROR[50], 0.6),
+                        border: `2px solid ${COLORS.ERROR[300]}`
+                    }}>
+                        <Stack direction="row" alignItems="center" justifyContent="space-between">
+                            <Typography variant="subtitle1" sx={{ fontWeight: 800, color: COLORS.ERROR[600] }}>
+                                Tổng cộng
+                            </Typography>
+                            <Typography variant="h6" sx={{ fontWeight: 900, color: COLORS.ERROR[600] }}>
+                                {formatPrice(orderData.total)}
+                            </Typography>
+                        </Stack>
+                    </Paper>
+                )}
+            </Box>
+        </CardContent>
+    );
+
+    const groupedOrders = groupOrdersByDate(orders);
 
     if (loading) {
         return (
@@ -209,6 +499,122 @@ const ServiceBookingConfirmPage = () => {
                         )}
                     </Stack>
 
+                    {/* Filters */}
+                    <Card sx={{
+                        mb: 3,
+                        borderRadius: 3,
+                        boxShadow: 4,
+                        border: `1px solid ${COLORS.BORDER.LIGHT}`,
+                        backgroundColor: COLORS.BACKGROUND.PAPER
+                    }}>
+                        <CardContent sx={{ p: 2.5 }}>
+                            <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 2 }}>
+                                <FilterList sx={{ fontSize: 20, color: COLORS.ERROR[500] }} />
+                                <Typography variant="h6" sx={{ fontWeight: 700, color: COLORS.ERROR[600] }}>
+                                    Bộ lọc
+                                </Typography>
+                            </Stack>
+                            <Box
+                                component="form"
+                                onSubmit={(e) => {
+                                    e.preventDefault();
+                                    return false;
+                                }}
+                                noValidate
+                            >
+                                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                                    <FormControl fullWidth sx={{ minWidth: 200 }}>
+                                        <InputLabel>Phương thức thanh toán</InputLabel>
+                                        <Select
+                                            value={paymentMethod}
+                                            label="Phương thức thanh toán"
+                                            onChange={(e) => setPaymentMethod(e.target.value)}
+                                        >
+                                            <MenuItem value="">Tất cả</MenuItem>
+                                            <MenuItem value="AT_COUNTER">💵 Tiền mặt</MenuItem>
+                                            <MenuItem value="ONLINE">🏦 Mã QR (Online)</MenuItem>
+                                        </Select>
+                                    </FormControl>
+                                    <TextField
+                                        fullWidth
+                                        label="Giá tối thiểu (VNĐ)"
+                                        type="number"
+                                        value={minPrice}
+                                        onChange={(e) => {
+                                            setMinPrice(e.target.value);
+                                        }}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                            }
+                                        }}
+                                        InputLabelProps={{
+                                            shrink: true,
+                                        }}
+                                        InputProps={{
+                                            startAdornment: (
+                                                <InputAdornment position="start">
+                                                    <Typography sx={{ color: COLORS.ERROR[500], fontWeight: 600 }}>₫</Typography>
+                                                </InputAdornment>
+                                            ),
+                                        }}
+                                        placeholder="Nhập giá tối thiểu"
+                                        sx={{ minWidth: 200 }}
+                                    />
+                                    <TextField
+                                        fullWidth
+                                        label="Giá tối đa (VNĐ)"
+                                        type="number"
+                                        value={maxPrice}
+                                        onChange={(e) => {
+                                            setMaxPrice(e.target.value);
+                                        }}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                handleApplyFilters();
+                                            }
+                                        }}
+                                        InputLabelProps={{
+                                            shrink: true,
+                                        }}
+                                        InputProps={{
+                                            startAdornment: (
+                                                <InputAdornment position="start">
+                                                    <Typography sx={{ color: COLORS.ERROR[500], fontWeight: 600 }}>₫</Typography>
+                                                </InputAdornment>
+                                            ),
+                                        }}
+                                        placeholder="Nhập giá tối đa"
+                                        sx={{ minWidth: 200 }}
+                                    />
+                                    <Button
+                                        variant="contained"
+                                        color="error"
+                                        startIcon={<Search />}
+                                        onClick={handleApplyFilters}
+                                        sx={{
+                                            minWidth: { xs: '100%', sm: 150 },
+                                            py: 1.5,
+                                            borderRadius: 3,
+                                            fontWeight: 700,
+                                            textTransform: 'none',
+                                            fontSize: '1rem',
+                                            boxShadow: 4,
+                                            '&:hover': {
+                                                boxShadow: 6
+                                            }
+                                        }}
+                                    >
+                                        Tìm kiếm
+                                    </Button>
+                                </Stack>
+                            </Box>
+                        </CardContent>
+                    </Card>
+
                     {/* Orders List */}
                     {orders.length === 0 ? (
                         <Card sx={{
@@ -231,211 +637,111 @@ const ServiceBookingConfirmPage = () => {
                             </CardContent>
                         </Card>
                     ) : (
-                        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: 'repeat(2, 1fr)' }, gap: 3 }}>
-                            {orders.map((orderData, orderIndex) => (
-                                <Card key={orderData.id || orderIndex} sx={{
-                                    borderRadius: 3,
-                                    boxShadow: 6,
-                                    border: `1px solid ${COLORS.BORDER.LIGHT}`,
-                                    backgroundColor: COLORS.BACKGROUND.PAPER
-                                }}>
-                                    <CardContent sx={{ p: { xs: 2.5, sm: 3, md: 3.5 }, flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
-                                        {/* Order Header */}
-                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2.5, pb: 2, borderBottom: `2px solid ${alpha(COLORS.ERROR[100], 0.5)}` }}>
-                                            <Box>
-                                                <Typography variant="h6" sx={{
-                                                    fontWeight: 900,
-                                                    color: COLORS.ERROR[600],
-                                                    mb: 0.5
-                                                }}>
-                                                    Đơn hàng #{orderData.id}
-                                                </Typography>
-                                                <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY }}>
-                                                    {orderData.created_at && new Date(orderData.created_at).toLocaleDateString('vi-VN', {
-                                                        day: '2-digit',
-                                                        month: '2-digit',
-                                                        year: 'numeric',
-                                                        hour: '2-digit',
-                                                        minute: '2-digit'
-                                                    })}
-                                                </Typography>
-                                            </Box>
-                                            <Chip
-                                                label={orderData.status === 'PAID' ? 'Đã thanh toán' : orderData.status === 'PENDING' ? 'Chờ thanh toán' : orderData.status === 'EXPIRED' ? 'Hết hạn' : orderData.status}
-                                                color={orderData.status === 'PAID' ? 'success' : orderData.status === 'PENDING' ? 'warning' : orderData.status === 'EXPIRED' ? 'default' : 'default'}
-                                                sx={{ fontWeight: 700, fontSize: '0.85rem' }}
-                                            />
-                                        </Box>
-
-                                        {/* Services List */}
-                                        {orderData.services && orderData.services.length > 0 && (
-                                            <Box sx={{ mb: 2.5, flexGrow: 1 }}>
-                                                <Typography variant="subtitle2" sx={{
-                                                    fontWeight: 700,
-                                                    color: COLORS.ERROR[600],
-                                                    mb: 1.5,
-                                                    fontSize: '0.95rem',
-                                                    textTransform: 'uppercase',
-                                                    letterSpacing: 0.5
-                                                }}>
-                                                    Dịch vụ đã đặt
-                                                </Typography>
-                                                <Stack spacing={1.5}>
-                                                    {orderData.services.map((service, index) => (
-                                                        <Paper
-                                                            key={index}
-                                                            sx={{
-                                                                p: 2,
-                                                                borderRadius: 2.5,
-                                                                backgroundColor: alpha(COLORS.ERROR[50], 0.4),
-                                                                border: `1px solid ${alpha(COLORS.ERROR[200], 0.6)}`,
-                                                                transition: 'all 0.2s ease',
-                                                                '&:hover': {
-                                                                    backgroundColor: alpha(COLORS.ERROR[50], 0.6),
-                                                                    borderColor: COLORS.ERROR[300]
-                                                                }
-                                                            }}
-                                                        >
-                                                            <Stack spacing={1.5}>
-                                                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                                                    <Typography variant="subtitle1" sx={{
-                                                                        fontWeight: 800,
-                                                                        color: COLORS.TEXT.PRIMARY,
-                                                                        flex: 1
-                                                                    }}>
-                                                                        {service.service_name || service.name || `Dịch vụ ${index + 1}`}
-                                                                    </Typography>
-                                                                    {service.price && (
-                                                                        <Typography variant="h6" sx={{
-                                                                            color: COLORS.ERROR[600],
-                                                                            fontWeight: 800,
-                                                                            ml: 2
-                                                                        }}>
-                                                                            {formatPrice(service.price)}
-                                                                        </Typography>
-                                                                    )}
-                                                                </Box>
-                                                                
-                                                                {service.booking_date && (
-                                                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                                        <CalendarToday sx={{ fontSize: 16, color: COLORS.ERROR[500] }} />
-                                                                        <Typography variant="body2" sx={{ fontWeight: 500, color: COLORS.TEXT.SECONDARY }}>
-                                                                            {(() => {
-                                                                                const dateStr = service.booking_date;
-                                                                                if (!dateStr) return '';
-                                                                                if (dateStr.includes('T')) {
-                                                                                    const date = new Date(dateStr);
-                                                                                    return date.toLocaleDateString('vi-VN', {
-                                                                                        weekday: 'long',
-                                                                                        year: 'numeric',
-                                                                                        month: 'long',
-                                                                                        day: 'numeric',
-                                                                                        hour: '2-digit',
-                                                                                        minute: '2-digit'
-                                                                                    });
-                                                                                } else {
-                                                                                    const [year, month, day] = dateStr.split('-').map(Number);
-                                                                                    const date = new Date(year, month - 1, day);
-                                                                                    return date.toLocaleDateString('vi-VN', {
-                                                                                        weekday: 'long',
-                                                                                        year: 'numeric',
-                                                                                        month: 'long',
-                                                                                        day: 'numeric'
-                                                                                    });
-                                                                                }
-                                                                            })()}
-                                                                        </Typography>
-                                                                    </Box>
-                                                                )}
-
-                                                                {service.notes && (
-                                                                    <Box sx={{ display: 'flex', alignItems: 'start', gap: 1, mt: 0.5 }}>
-                                                                        <Note sx={{ fontSize: 16, color: COLORS.ERROR[500], mt: 0.25 }} />
-                                                                        <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, fontSize: '0.875rem' }}>
-                                                                            {service.notes}
-                                                                        </Typography>
-                                                                    </Box>
-                                                                )}
-                                                            </Stack>
-                                                        </Paper>
-                                                    ))}
-                                                </Stack>
-                                            </Box>
-                                        )}
-
-                                        <Divider sx={{ my: 2.5 }} />
-
-                                        {/* Customer Information - Compact */}
-                                        <Box sx={{ mb: 2.5 }}>
-                                            <Typography variant="subtitle2" sx={{
-                                                fontWeight: 700,
-                                                color: COLORS.ERROR[600],
-                                                mb: 1.5,
-                                                fontSize: '0.95rem',
-                                                textTransform: 'uppercase',
-                                                letterSpacing: 0.5
+                        <Stack spacing={4}>
+                            {/* Hôm nay */}
+                            {groupedOrders.today.length > 0 && (
+                                <Box>
+                                    <Typography variant="h5" sx={{ 
+                                        fontWeight: 800, 
+                                        color: COLORS.ERROR[600], 
+                                        mb: 2,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 1
+                                    }}>
+                                        <CalendarToday sx={{ fontSize: 28 }} />
+                                        Hôm nay ({groupedOrders.today.length} đơn)
+                                    </Typography>
+                                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: 'repeat(2, 1fr)' }, gap: 3 }}>
+                                        {groupedOrders.today.map((orderData, orderIndex) => (
+                                            <Card key={orderData.id || orderIndex} sx={{
+                                                borderRadius: 3,
+                                                boxShadow: 6,
+                                                border: `1px solid ${COLORS.BORDER.LIGHT}`,
+                                                backgroundColor: COLORS.BACKGROUND.PAPER
                                             }}>
-                                                Thông tin khách hàng
-                                            </Typography>
-                                            <Stack spacing={1}>
-                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                                    <Person sx={{ fontSize: 18, color: COLORS.ERROR[500] }} />
-                                                    <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.TEXT.PRIMARY }}>
-                                                        {orderData.customerInfo?.full_name || 'Không có'}
-                                                    </Typography>
-                                                </Box>
-                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                                    <Phone sx={{ fontSize: 18, color: COLORS.ERROR[500] }} />
-                                                    <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
-                                                        {orderData.customerInfo?.phone || 'Không có'}
-                                                    </Typography>
-                                                </Box>
-                                                {orderData.customerInfo?.address && (
-                                                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
-                                                        <LocationOn sx={{ fontSize: 18, color: COLORS.ERROR[500], mt: 0.25 }} />
-                                                        <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, flex: 1 }}>
-                                                            {orderData.customerInfo.address}
-                                                        </Typography>
-                                                    </Box>
-                                                )}
-                                            </Stack>
-                                        </Box>
+                                                {renderOrderCard(orderData)}
+                                            </Card>
+                                        ))}
+                                    </Box>
+                                </Box>
+                            )}
 
-                                        <Divider sx={{ my: 2.5 }} />
+                            {/* Hôm qua */}
+                            {groupedOrders.yesterday.length > 0 && (
+                                <Box>
+                                    <Typography variant="h5" sx={{ 
+                                        fontWeight: 800, 
+                                        color: COLORS.ERROR[600], 
+                                        mb: 2,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: 1
+                                    }}>
+                                        <CalendarToday sx={{ fontSize: 28 }} />
+                                        Hôm qua ({groupedOrders.yesterday.length} đơn)
+                                    </Typography>
+                                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: 'repeat(2, 1fr)' }, gap: 3 }}>
+                                        {groupedOrders.yesterday.map((orderData, orderIndex) => (
+                                            <Card key={orderData.id || orderIndex} sx={{
+                                                borderRadius: 3,
+                                                boxShadow: 6,
+                                                border: `1px solid ${COLORS.BORDER.LIGHT}`,
+                                                backgroundColor: COLORS.BACKGROUND.PAPER
+                                            }}>
+                                                {renderOrderCard(orderData)}
+                                            </Card>
+                                        ))}
+                                    </Box>
+                                </Box>
+                            )}
 
-                                        {/* Payment & Total - Bottom Section */}
-                                        <Box sx={{ mt: 'auto', pt: 2 }}>
-                                            {orderData.payment_method && (
-                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
-                                                    <Payment sx={{ fontSize: 18, color: COLORS.ERROR[500] }} />
-                                                    <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.TEXT.PRIMARY }}>
-                                                        {orderData.payment_method === 'AT_COUNTER' ? '💵 Thanh toán tại quầy' : '🏦 Chuyển khoản'}
-                                                    </Typography>
-                                                </Box>
-                                            )}
-                                            
-                                            {orderData.total && (
-                                                <Paper sx={{
-                                                    p: 2,
-                                                    borderRadius: 2.5,
-                                                    backgroundColor: alpha(COLORS.ERROR[50], 0.6),
-                                                    border: `2px solid ${COLORS.ERROR[300]}`
+                            {/* Các ngày khác - nhóm theo ngày */}
+                            {groupedOrders.other.length > 0 && (() => {
+                                // Nhóm các đơn khác theo ngày
+                                const otherByDate = {};
+                                groupedOrders.other.forEach(order => {
+                                    const orderDate = new Date(order.order_date || order.created_at);
+                                    const dateKey = orderDate.toLocaleDateString('vi-VN', {
+                                        year: 'numeric',
+                                        month: 'long',
+                                        day: 'numeric'
+                                    });
+                                    if (!otherByDate[dateKey]) {
+                                        otherByDate[dateKey] = [];
+                                    }
+                                    otherByDate[dateKey].push(order);
+                                });
+
+                                return Object.keys(otherByDate).map(dateKey => (
+                                    <Box key={dateKey}>
+                                        <Typography variant="h5" sx={{ 
+                                            fontWeight: 800, 
+                                            color: COLORS.ERROR[600], 
+                                            mb: 2,
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: 1
+                                        }}>
+                                            <CalendarToday sx={{ fontSize: 28 }} />
+                                            {dateKey} ({otherByDate[dateKey].length} đơn)
+                                        </Typography>
+                                        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: 'repeat(2, 1fr)' }, gap: 3 }}>
+                                            {otherByDate[dateKey].map((orderData, orderIndex) => (
+                                                <Card key={orderData.id || orderIndex} sx={{
+                                                    borderRadius: 3,
+                                                    boxShadow: 6,
+                                                    border: `1px solid ${COLORS.BORDER.LIGHT}`,
+                                                    backgroundColor: COLORS.BACKGROUND.PAPER
                                                 }}>
-                                                    <Stack direction="row" alignItems="center" justifyContent="space-between">
-                                                        <Typography variant="subtitle1" sx={{ fontWeight: 800, color: COLORS.ERROR[600] }}>
-                                                            Tổng cộng
-                                                        </Typography>
-                                                        <Typography variant="h6" sx={{ fontWeight: 900, color: COLORS.ERROR[600] }}>
-                                                            {formatPrice(orderData.total)}
-                                                        </Typography>
-                                                    </Stack>
-                                                </Paper>
-                                            )}
+                                                    {renderOrderCard(orderData)}
+                                                </Card>
+                                            ))}
                                         </Box>
-                                    </CardContent>
-                                </Card>
-                            ))}
-                        </Box>
+                                    </Box>
+                                ));
+                            })()}
+                        </Stack>
                     )}
 
                     {/* Actions */}
