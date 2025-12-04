@@ -12,7 +12,6 @@ const BookingCartPage = () => {
     const navigate = useNavigate();
     const [items, setItems] = useState([]);
     const [initialized, setInitialized] = useState(false);
-    const [paymentMethod, setPaymentMethod] = useState('cash'); // 'cash' | 'bank_transfer'
     const [isDeleting, setIsDeleting] = useState(false);
 
     useEffect(() => {
@@ -58,7 +57,7 @@ const BookingCartPage = () => {
                 return { success: false, message: 'Chưa đăng nhập' };
             }
 
-            const response = await fetch('https://petcafe-htc6dadbayh6h4dz.southeastasia-01.azurewebsites.net/api/carts', {
+            const response = await fetch('https://petcafes.azurewebsites.net/api/carts', {
                 method: 'DELETE',
                 headers: {
                     'Accept': 'application/json',
@@ -247,12 +246,8 @@ const BookingCartPage = () => {
                 };
             });
 
-            // Map payment method
-            const paymentMethodMap = {
-                'cash': 'AT_COUNTER',
-                'bank_transfer': 'ONLINE'
-            };
-            const mappedPaymentMethod = paymentMethodMap[paymentMethod] || 'AT_COUNTER';
+            // Chỉ hỗ trợ thanh toán online bằng mã QR
+            const mappedPaymentMethod = 'ONLINE';
 
             const payload = {
                 full_name: customerInfo.full_name.trim(),
@@ -260,13 +255,13 @@ const BookingCartPage = () => {
                 phone: customerInfo.phone.trim(),
                 notes: (customerInfo.notes || '').trim(),
                 services: services,
-                payment_method: mappedPaymentMethod || 'AT_COUNTER'
+                payment_method: mappedPaymentMethod
             };
 
             const token = localStorage.getItem('authToken');
             console.log('[BookingCart][checkout] payload:', payload);
 
-            const resp = await fetch('https://petcafe-htc6dadbayh6h4dz.southeastasia-01.azurewebsites.net/api/orders', {
+            const resp = await fetch('https://petcafes.azurewebsites.net/api/orders', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -298,7 +293,7 @@ const BookingCartPage = () => {
             const orderId = orderData?.id || '';
             const serviceOrderId = orderData?.service_order?.id || '';
             const orderNumber = orderData?.order_number || '';
-            
+
             // Prepare order data for confirmation
             const confirmationData = {
                 id: orderId,
@@ -327,14 +322,34 @@ const BookingCartPage = () => {
             // Save order data to localStorage for confirmation page
             localStorage.setItem('last_booking_order', JSON.stringify(confirmationData));
 
-            // Success - clear cart and navigate
+            // Xử lý URL thanh toán từ PayOS
+            const checkoutUrl =
+                orderData?.payment_info?.checkout_url ||
+                (() => {
+                    try {
+                        if (orderData?.payment_data_json) {
+                            const paymentJson = JSON.parse(orderData.payment_data_json);
+                            return paymentJson?.CheckoutUrl || paymentJson?.checkout_url || null;
+                        }
+                    } catch (err) {
+                        console.warn('[BookingCart][checkout] Cannot parse payment_data_json:', err);
+                    }
+                    return null;
+                })();
+
+            // Clear cart local trước khi chuyển sang trang thanh toán
             setItems([]);
             localStorage.removeItem('booking_cart');
             window.dispatchEvent(new Event('bookingCartUpdated'));
-            
-            // Show success message and navigate
-            alert('Đặt dịch vụ thành công!');
-            navigate('/booking');
+
+            if (checkoutUrl && mappedPaymentMethod === 'ONLINE') {
+                // Chuyển hướng sang trang thanh toán QR của bên thứ 3
+                window.location.href = checkoutUrl;
+            } else {
+                // Fallback nếu không có checkout_url
+                alert('Đặt dịch vụ thành công!');
+                navigate('/booking');
+            }
         } catch (e) {
             console.error('[BookingCart][checkout] error:', e);
             alert(e.message || 'Lỗi tạo đơn hàng');
@@ -694,25 +709,23 @@ const BookingCartPage = () => {
                                     💳 Thanh toán
                                 </Typography>
                                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="stretch">
-                                    <Button
-                                        variant="outlined"
-                                        onClick={() => setPaymentMethod(prev => prev === 'cash' ? 'bank_transfer' : 'cash')}
+                                    <Paper
+                                        elevation={0}
                                         sx={{
                                             flex: 1,
-                                            py: 2,
+                                            p: 2,
                                             borderRadius: 3,
-                                            fontWeight: 600,
-                                            textTransform: 'none',
-                                            borderColor: paymentMethod === 'cash' ? COLORS.SUCCESS[500] : COLORS.INFO[500],
-                                            color: paymentMethod === 'cash' ? COLORS.SUCCESS[700] : COLORS.INFO[700],
-                                            '&:hover': {
-                                                borderColor: paymentMethod === 'cash' ? COLORS.SUCCESS[600] : COLORS.INFO[600],
-                                                backgroundColor: paymentMethod === 'cash' ? alpha(COLORS.SUCCESS[50], 0.8) : alpha(COLORS.INFO[50], 0.8)
-                                            }
+                                            border: `1px solid ${alpha(COLORS.INFO[300], 0.8)}`,
+                                            backgroundColor: alpha(COLORS.INFO[50], 0.6)
                                         }}
                                     >
-                                        {paymentMethod === 'cash' ? '💵 Tiền mặt' : '🏦 Chuyển khoản'}
-                                    </Button>
+                                        <Typography variant="subtitle1" sx={{ fontWeight: 700, color: COLORS.INFO[800], mb: 0.5 }}>
+                                            🏦 Thanh toán bằng mã QR
+                                        </Typography>
+                                        <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
+                                            Sau khi bấm <strong>“Đặt dịch vụ”</strong>, bạn sẽ được chuyển sang trang thanh toán QR của PayOS để hoàn tất giao dịch.
+                                        </Typography>
+                                    </Paper>
                                     <Button
                                         variant="outlined"
                                         onClick={clearCart}

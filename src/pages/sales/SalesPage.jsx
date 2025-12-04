@@ -39,7 +39,7 @@ const SalesPage = () => {
                 if (role !== 'sales_staff' && role !== 'manager') throw new Error('Không có quyền');
                 // Fetch official products from backend API with auth token
                 const token = localStorage.getItem('authToken');
-                const prodResp = await fetch('https://petcafe-htc6dadbayh6h4dz.southeastasia-01.azurewebsites.net/api/products?order_by=%7B%22order_column%22%3A%22string%22%2C%22order_dir%22%3A%22string%22%7D', {
+                const prodResp = await fetch('https://petcafes.azurewebsites.net/api/products?order_by=%7B%22order_column%22%3A%22string%22%2C%22order_dir%22%3A%22string%22%7D', {
                     headers: {
                         'Authorization': token ? `Bearer ${token}` : '',
                         'Accept': 'application/json'
@@ -55,7 +55,7 @@ const SalesPage = () => {
                 // Load official product categories for filtering UI
                 try {
                     const token2 = localStorage.getItem('authToken');
-                    const resp = await fetch('https://petcafe-htc6dadbayh6h4dz.southeastasia-01.azurewebsites.net/api/product-categories', {
+                    const resp = await fetch('https://petcafes.azurewebsites.net/api/product-categories', {
                         headers: {
                             'Authorization': token2 ? `Bearer ${token2}` : '',
                             'Accept': 'application/json'

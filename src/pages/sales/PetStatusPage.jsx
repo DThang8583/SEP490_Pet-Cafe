@@ -3,7 +3,7 @@ import { Box, Container, Card, CardContent, Typography, Stack, TextField, Button
 import { COLORS } from '../../constants/colors';
 import { useNavigate } from 'react-router-dom';
 
-const API_URL = 'https://petcafe-htc6dadbayh6h4dz.southeastasia-01.azurewebsites.net/api/pet-groups?order_by=%7B%22order_column%22%3A%22string%22%2C%22order_dir%22%3A%22string%22%7D';
+const API_URL = 'https://petcafes.azurewebsites.net/api/pet-groups?order_by=%7B%22order_column%22%3A%22string%22%2C%22order_dir%22%3A%22string%22%7D';
 
 const PetStatusPage = () => {
     const navigate = useNavigate();

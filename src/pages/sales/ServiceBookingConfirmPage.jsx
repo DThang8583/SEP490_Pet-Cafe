@@ -41,7 +41,7 @@ const ServiceBookingConfirmPage = () => {
             try {
                 setLoading(true);
                 const token = localStorage.getItem('authToken');
-                const res = await fetch('https://petcafe-htc6dadbayh6h4dz.southeastasia-01.azurewebsites.net/api/orders?limit=99', {
+                const res = await fetch('https://petcafes.azurewebsites.net/api/orders?limit=99', {
                     headers: {
                         'Authorization': token ? `Bearer ${token}` : '',
                         'Accept': 'application/json'

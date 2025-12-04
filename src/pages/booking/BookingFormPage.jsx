@@ -95,7 +95,7 @@ const BookingFormPage = () => {
     const loadServiceFromApi = async (serviceId) => {
         try {
             const token = localStorage.getItem('authToken');
-            const response = await fetch(`https://petcafe-htc6dadbayh6h4dz.southeastasia-01.azurewebsites.net/api/services/${serviceId}`, {
+            const response = await fetch(`https://petcafes.azurewebsites.net/api/services/${serviceId}`, {
                 headers: {
                     'Authorization': token ? `Bearer ${token}` : '',
                     'Accept': 'application/json'

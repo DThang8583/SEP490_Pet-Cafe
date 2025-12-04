@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { CheckCircle, Person, People, AccessTime, Event } from '@mui/icons-material';
 import { authApi } from '../../api/authApi';
 
-const TEAMS_API_URL = 'https://petcafe-htc6dadbayh6h4dz.southeastasia-01.azurewebsites.net/api/teams';
+const TEAMS_API_URL = 'https://petcafes.azurewebsites.net/api/teams';
 
 const AttendancePage = () => {
     const navigate = useNavigate();

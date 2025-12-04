@@ -77,7 +77,7 @@ const BookingHistory = ({ open, onClose }) => {
             
             // Call API to get bookings
             const response = await fetch(
-                `https://petcafe-htc6dadbayh6h4dz.southeastasia-01.azurewebsites.net/api/customers/${customerId}/bookings`,
+                `https://petcafes.azurewebsites.net/api/customers/${customerId}/bookings`,
                 {
                     method: 'GET',
                     headers: {

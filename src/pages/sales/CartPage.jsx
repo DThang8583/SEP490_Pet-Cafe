@@ -58,7 +58,7 @@ const CartPage = () => {
             const getBookingDateForSlot = async (slotId) => {
                 try {
                     const token = localStorage.getItem('authToken');
-                    const resp = await fetch(`https://petcafe-htc6dadbayh6h4dz.southeastasia-01.azurewebsites.net/api/slots/${slotId}`, {
+                    const resp = await fetch(`https://petcafes.azurewebsites.net/api/slots/${slotId}`, {
                         headers: {
                             'Authorization': token ? `Bearer ${token}` : '',
                             'Accept': 'application/json'
@@ -165,7 +165,7 @@ const CartPage = () => {
             console.log('[Cart][checkout] paymentMethod:', paymentMethod);
             console.log('[Cart][checkout] payload:', payload);
             console.log('[Cart][checkout] hasToken:', !!token);
-            const resp = await fetch('https://petcafe-htc6dadbayh6h4dz.southeastasia-01.azurewebsites.net/api/orders', {
+            const resp = await fetch('https://petcafes.azurewebsites.net/api/orders', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
