@@ -50,10 +50,9 @@ const ProductSalesConfirmPage = () => {
                 setLoading(true);
                 const token = localStorage.getItem('authToken');
                 
-                // Build query parameters
+                // Build query parameters - Lấy toàn bộ orders (không filter theo type)
                 const params = new URLSearchParams();
-                params.append('type', 'CUSTOMER');
-                params.append('limit', pageSize.toString());
+                params.append('limit', '99'); // Always use limit 99
                 
                 if (paymentMethod) {
                     params.append('PaymentMethod', paymentMethod);
@@ -71,9 +70,9 @@ const ProductSalesConfirmPage = () => {
                 const queryString = params.toString();
                 const url = `https://petcafes.azurewebsites.net/api/orders${queryString ? `?${queryString}` : ''}`;
                 
-                console.log('[ProductSalesConfirm] Fetching orders with params:', queryString);
+                console.log('[ProductSalesConfirm] Fetching orders from:', url);
                 
-                // Bước 1: Lấy danh sách orders
+                // Gọi API
                 const res = await fetch(url, {
                     headers: {
                         'Authorization': token ? `Bearer ${token}` : '',
@@ -88,9 +87,13 @@ const ProductSalesConfirmPage = () => {
                 const json = await res.json();
 
                 // Console.log toàn bộ dữ liệu từ API
+                console.log('[ProductSalesConfirm] ===== API Response from https://petcafes.azurewebsites.net/api/orders =====');
                 console.log('[ProductSalesConfirm] Full API Response:', json);
+                console.log('[ProductSalesConfirm] Response JSON stringified:', JSON.stringify(json, null, 2));
                 console.log('[ProductSalesConfirm] Total orders from API:', json?.data?.length || 0);
                 console.log('[ProductSalesConfirm] All orders data:', json?.data);
+                console.log('[ProductSalesConfirm] Pagination:', json?.pagination);
+                console.log('[ProductSalesConfirm] ===== End API Response =====');
 
                 if (!json?.data || !Array.isArray(json.data)) {
                     console.warn('[ProductSalesConfirm] No data in response');
@@ -98,92 +101,119 @@ const ProductSalesConfirmPage = () => {
                     return;
                 }
 
-                // Lọc chỉ lấy product orders (không filter theo status nữa để có thể filter theo payment_status)
-                const productOrderIds = json.data
-                    .filter(order => 
-                        order.product_order !== null && 
-                        order.product_order !== undefined
-                    )
-                    .map(order => order.id);
+                // Filter chỉ lấy các orders có product_order (đơn hàng sản phẩm)
+                const productOrders = json.data.filter(order => 
+                    order.product_order !== null && 
+                    order.product_order !== undefined
+                );
 
-                console.log('[ProductSalesConfirm] Product order IDs:', productOrderIds);
+                console.log('[ProductSalesConfirm] Total orders from API:', json.data.length);
+                console.log('[ProductSalesConfirm] Product orders count:', productOrders.length);
 
-                // Bước 2: Gọi API chi tiết cho từng order để lấy thông tin đầy đủ
-                const productOrdersPromises = productOrderIds.map(async (orderId) => {
-                    try {
-                        const detailRes = await fetch(`https://petcafes.azurewebsites.net/api/orders/${orderId}`, {
-                            headers: {
-                                'Authorization': token ? `Bearer ${token}` : '',
-                                'Accept': 'application/json'
-                            }
-                        });
-
-                        if (!detailRes.ok) {
-                            console.warn(`[ProductSalesConfirm] Failed to fetch order ${orderId}`);
-                            return null;
-                        }
-
-                        const orderDetail = await detailRes.json();
-                        console.log(`[ProductSalesConfirm] Order ${orderId} detail:`, orderDetail);
-
-                        // Map products từ product_order.order_details
-                        const products = [];
-                        if (orderDetail?.product_order?.order_details && Array.isArray(orderDetail.product_order.order_details)) {
-                            orderDetail.product_order.order_details.forEach((detail) => {
-                                products.push({
-                                    product_name: detail.product?.name || 'Sản phẩm',
-                                    price: detail.unit_price || detail.product?.price || 0,
-                                    quantity: detail.quantity || 1,
-                                    subtotal: detail.total_price || (detail.unit_price || 0) * (detail.quantity || 1),
-                                    notes: detail.notes || '',
-                                    image: detail.product?.image_url || detail.product?.thumbnails?.[0] || null,
-                                    description: detail.product?.description || '',
-                                    is_for_feeding: detail.is_for_feeding || false
-                                });
+                // Map chỉ các đơn hàng sản phẩm
+                const allOrders = productOrders.map(order => {
+                    const productOrder = order.product_order;
+                    
+                    // Xử lý products từ product_order.order_details
+                    const products = [];
+                    if (productOrder?.order_details && Array.isArray(productOrder.order_details)) {
+                        productOrder.order_details.forEach((detail) => {
+                            products.push({
+                                product_name: detail.product?.name || 'Sản phẩm',
+                                price: detail.unit_price || detail.product?.price || 0,
+                                quantity: detail.quantity || 1,
+                                subtotal: detail.total_price || (detail.unit_price || 0) * (detail.quantity || 1),
+                                notes: detail.notes || '',
+                                image: detail.product?.image_url || detail.product?.thumbnails?.[0] || null,
+                                description: detail.product?.description || '',
+                                is_for_feeding: detail.is_for_feeding || false
                             });
-                        }
-
-                        // Map payment method
-                        let paymentMethod = orderDetail.payment_method || 'AT_COUNTER';
-                        if (paymentMethod === 'CASH') {
-                            paymentMethod = 'AT_COUNTER';
-                        }
-
-                        return {
-                            id: orderDetail.order_number || orderDetail.id,
-                            total: orderDetail.final_amount || 0,
-                            payment_method: paymentMethod,
-                            payment_status: orderDetail.payment_status || orderDetail.status || 'PENDING',
-                            status: orderDetail.status || 'PENDING',
-                            type: orderDetail.type || 'EMPLOYEE',
-                            order_date: orderDetail.product_order?.order_date || orderDetail.order_date || orderDetail.created_at,
-                            created_at: orderDetail.created_at,
-                            employee: orderDetail.employee,
-                            products: products
-                        };
-                    } catch (err) {
-                        console.error(`[ProductSalesConfirm] Error fetching order ${orderId}:`, err);
-                        return null;
+                        });
                     }
+
+                    // Map payment method
+                    let paymentMethod = order.payment_method || 'AT_COUNTER';
+                    if (paymentMethod === 'CASH') {
+                        paymentMethod = 'AT_COUNTER';
+                    }
+
+                    // Xác định order_date ưu tiên từ product_order
+                    const orderDate = productOrder?.order_date || 
+                                     productOrder?.created_at || 
+                                     order.order_date || 
+                                     order.created_at;
+
+                    // Xác định status ưu tiên từ product_order
+                    const orderStatus = productOrder?.status || order.status || 'PENDING';
+
+                    // Lấy tất cả thông tin từ API
+                    return {
+                        // Thông tin cơ bản
+                        id: order.id,
+                        order_number: order.order_number,
+                        customer_id: order.customer_id,
+                        employee_id: order.employee_id,
+                        full_name: order.full_name || '',
+                        address: order.address || '',
+                        phone: order.phone || '',
+                        
+                        // Thông tin tài chính
+                        total_amount: productOrder?.total_amount || order.total_amount || 0,
+                        discount_amount: productOrder?.discount_amount || order.discount_amount || 0,
+                        final_amount: productOrder?.final_amount || order.final_amount || 0,
+                        total: productOrder?.final_amount || order.final_amount || 0,
+                        
+                        // Thông tin thanh toán
+                        payment_method: paymentMethod,
+                        payment_status: order.payment_status || 'PENDING',
+                        payment_data_json: order.payment_data_json,
+                        payment_info: order.payment_info,
+                        
+                        // Thông tin trạng thái
+                        status: orderStatus,
+                        type: order.type || 'CUSTOMER',
+                        
+                        // Thông tin ngày tháng
+                        order_date: orderDate,
+                        created_at: productOrder?.created_at || order.created_at,
+                        updated_at: productOrder?.updated_at || order.updated_at,
+                        
+                        // Thông tin liên quan
+                        employee: order.employee,
+                        customer: order.customer,
+                        notes: productOrder?.notes || order.notes || '',
+                        
+                        // Thông tin product_order
+                        product_order: productOrder,
+                        product_order_id: productOrder?.id,
+                        product_order_status: productOrder?.status,
+                        products: products,
+                        is_product_order: true,
+                        
+                        // Thông tin khác
+                        transactions: order.transactions || [],
+                        is_deleted: order.is_deleted || false
+                    };
                 });
 
-                // Chờ tất cả các promise hoàn thành
-                const productOrders = (await Promise.all(productOrdersPromises)).filter(order => order !== null);
-
-                // Console.log kết quả sau khi fetch chi tiết
-                console.log('[ProductSalesConfirm] Product orders count:', productOrders.length);
-                console.log('[ProductSalesConfirm] All product orders:', productOrders);
-                console.log('[ProductSalesConfirm] Product orders details:', productOrders.map(o => ({
+                // Console.log kết quả đã map
+                console.log('[ProductSalesConfirm] Mapped product orders count:', allOrders.length);
+                console.log('[ProductSalesConfirm] All mapped product orders:', allOrders);
+                console.log('[ProductSalesConfirm] Product orders details:', allOrders.map(o => ({
                     id: o.id,
-                    order_number: o.id,
+                    order_number: o.order_number,
+                    full_name: o.full_name,
                     status: o.status,
                     payment_status: o.payment_status,
+                    payment_method: o.payment_method,
                     total: o.total,
+                    final_amount: o.final_amount,
+                    is_product_order: o.is_product_order,
                     products_count: o.products?.length || 0
                 })));
 
                 // Sắp xếp theo order_date (mới nhất lên đầu)
-                const sortedOrders = productOrders.sort((a, b) => {
+                const sortedOrders = allOrders.sort((a, b) => {
                     const dateA = new Date(a.order_date || a.created_at || 0);
                     const dateB = new Date(b.order_date || b.created_at || 0);
                     return dateB - dateA; // Mới nhất lên đầu
@@ -250,9 +280,24 @@ const ProductSalesConfirmPage = () => {
                         color: COLORS.ERROR[600],
                         mb: 0.5
                     }}>
-                        Đơn hàng #{orderData.id}
+                        Đơn hàng #{orderData.order_number || orderData.id}
                     </Typography>
-                    <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY }}>
+                    {orderData.full_name && (
+                        <Typography variant="body2" sx={{ color: COLORS.TEXT.PRIMARY, fontWeight: 600, mb: 0.5 }}>
+                            👤 {orderData.full_name}
+                        </Typography>
+                    )}
+                    {orderData.phone && (
+                        <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, display: 'block' }}>
+                            📞 {orderData.phone}
+                        </Typography>
+                    )}
+                    {orderData.address && (
+                        <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, display: 'block' }}>
+                            📍 {orderData.address}
+                        </Typography>
+                    )}
+                    <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, display: 'block', mt: 0.5 }}>
                         {orderData.order_date && new Date(orderData.order_date).toLocaleDateString('vi-VN', {
                             day: '2-digit',
                             month: '2-digit',
@@ -274,6 +319,9 @@ const ProductSalesConfirmPage = () => {
                         size="small"
                         sx={{ fontWeight: 600, fontSize: '0.75rem' }}
                     />
+                    {orderData.is_product_order && (
+                        <Chip label="Sản phẩm" size="small" color="error" sx={{ mt: 0.5, fontSize: '0.7rem' }} />
+                    )}
                 </Stack>
             </Box>
 
@@ -340,6 +388,15 @@ const ProductSalesConfirmPage = () => {
                             </Paper>
                         ))}
                     </Stack>
+                </Box>
+            )}
+
+            {/* Notes */}
+            {orderData.notes && (
+                <Box sx={{ mb: 2 }}>
+                    <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, fontStyle: 'italic' }}>
+                        📝 Ghi chú: {orderData.notes}
+                    </Typography>
                 </Box>
             )}
 
