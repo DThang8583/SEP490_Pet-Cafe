@@ -91,7 +91,7 @@ const Navbar = () => {
         { label: 'Dashboard', icon: <Dashboard />, path: '/sales/dashboard' },
         { label: 'Bán hàng', icon: <ShoppingCart />, path: '/sales/sales' },
         { label: 'Bán dịch vụ', icon: <DesignServices />, path: '/sales/services' },
-        { label: 'Xác nhận dịch vụ', icon: <CheckCircle />, path: '/sales/service-booking-confirm' },
+        { label: 'Dịch vụ đã đặt', icon: <CheckCircle />, path: '/sales/service-booking-confirm' },
         { label: 'Tổng số đồ ăn đã bán', icon: <Fastfood />, path: '/sales/product-sales-confirm' },
         { label: 'Điểm danh', icon: <ChecklistRtl />, path: '/sales/attendance' },
         { label: 'Tài khoản', icon: <AccountCircle />, path: '/profile' }

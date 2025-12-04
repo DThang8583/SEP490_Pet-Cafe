@@ -56,9 +56,8 @@ const ServiceBookingConfirmPage = () => {
                 setLoading(true);
                 const token = localStorage.getItem('authToken');
                 
-                // Build query parameters
+                // Build query parameters - Lấy toàn bộ orders (không filter theo type)
                 const params = new URLSearchParams();
-                params.append('type', 'CUSTOMER');
                 params.append('limit', pageSize.toString());
                 
                 if (paymentMethod) {
@@ -171,10 +170,16 @@ const ServiceBookingConfirmPage = () => {
                         };
                     });
 
+                // Filter ẩn các hóa đơn "Chờ thanh toán" (PENDING)
+                const filteredOrders = serviceOrders.filter(order => 
+                    order.payment_status !== 'PENDING'
+                );
+
                 // Console.log kết quả sau khi filter và map
-                console.log('[ServiceBookingConfirm] Service orders count:', serviceOrders.length);
-                console.log('[ServiceBookingConfirm] All service orders:', serviceOrders);
-                console.log('[ServiceBookingConfirm] Service orders details:', serviceOrders.map(o => ({
+                console.log('[ServiceBookingConfirm] Service orders count (before filter):', serviceOrders.length);
+                console.log('[ServiceBookingConfirm] Service orders count (after filter PENDING):', filteredOrders.length);
+                console.log('[ServiceBookingConfirm] All service orders:', filteredOrders);
+                console.log('[ServiceBookingConfirm] Service orders details:', filteredOrders.map(o => ({
                     id: o.id,
                     order_number: o.id,
                     status: o.status,
@@ -187,7 +192,7 @@ const ServiceBookingConfirmPage = () => {
                 })));
 
                 // Sắp xếp theo order_date (mới nhất lên đầu)
-                const sortedOrders = serviceOrders.sort((a, b) => {
+                const sortedOrders = filteredOrders.sort((a, b) => {
                     const dateA = new Date(a.order_date || a.created_at || 0);
                     const dateB = new Date(b.order_date || b.created_at || 0);
                     return dateB - dateA; // Mới nhất lên đầu
@@ -379,43 +384,52 @@ const ServiceBookingConfirmPage = () => {
 
             <Divider sx={{ my: 2.5 }} />
 
-            {/* Customer Information - Compact */}
-            <Box sx={{ mb: 2.5 }}>
-                <Typography variant="subtitle2" sx={{
-                    fontWeight: 700,
-                    color: COLORS.ERROR[600],
-                    mb: 1.5,
-                    fontSize: '0.95rem',
-                    textTransform: 'uppercase',
-                    letterSpacing: 0.5
-                }}>
-                    Thông tin khách hàng
-                </Typography>
-                <Stack spacing={1}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                        <Person sx={{ fontSize: 18, color: COLORS.ERROR[500] }} />
-                        <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.TEXT.PRIMARY }}>
-                            {orderData.customerInfo?.full_name || 'Không có'}
+            {/* Customer Information - Compact - Chỉ hiển thị nếu có thông tin */}
+            {(orderData.customerInfo?.full_name || 
+              orderData.customerInfo?.phone || 
+              orderData.customerInfo?.address) && (
+                <>
+                    <Box sx={{ mb: 2.5 }}>
+                        <Typography variant="subtitle2" sx={{
+                            fontWeight: 700,
+                            color: COLORS.ERROR[600],
+                            mb: 1.5,
+                            fontSize: '0.95rem',
+                            textTransform: 'uppercase',
+                            letterSpacing: 0.5
+                        }}>
+                            Thông tin khách hàng
                         </Typography>
+                        <Stack spacing={1}>
+                            {orderData.customerInfo?.full_name && (
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                    <Person sx={{ fontSize: 18, color: COLORS.ERROR[500] }} />
+                                    <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.TEXT.PRIMARY }}>
+                                        {orderData.customerInfo.full_name}
+                                    </Typography>
+                                </Box>
+                            )}
+                            {orderData.customerInfo?.phone && (
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                    <Phone sx={{ fontSize: 18, color: COLORS.ERROR[500] }} />
+                                    <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
+                                        {orderData.customerInfo.phone}
+                                    </Typography>
+                                </Box>
+                            )}
+                            {orderData.customerInfo?.address && (
+                                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
+                                    <LocationOn sx={{ fontSize: 18, color: COLORS.ERROR[500], mt: 0.25 }} />
+                                    <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, flex: 1 }}>
+                                        {orderData.customerInfo.address}
+                                    </Typography>
+                                </Box>
+                            )}
+                        </Stack>
                     </Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                        <Phone sx={{ fontSize: 18, color: COLORS.ERROR[500] }} />
-                        <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
-                            {orderData.customerInfo?.phone || 'Không có'}
-                        </Typography>
-                    </Box>
-                    {orderData.customerInfo?.address && (
-                        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
-                            <LocationOn sx={{ fontSize: 18, color: COLORS.ERROR[500], mt: 0.25 }} />
-                            <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, flex: 1 }}>
-                                {orderData.customerInfo.address}
-                            </Typography>
-                        </Box>
-                    )}
-                </Stack>
-            </Box>
-
-            <Divider sx={{ my: 2.5 }} />
+                    <Divider sx={{ my: 2.5 }} />
+                </>
+            )}
 
             {/* Payment & Total - Bottom Section */}
             <Box sx={{ mt: 'auto', pt: 2 }}>
