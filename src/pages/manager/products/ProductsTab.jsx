@@ -267,7 +267,7 @@ const ProductsTab = () => {
             setAlert({
                 open: true,
                 title: 'Thành công',
-                message: response.message || 'Cập nhật số lượng tồn kho thành công!',
+                message: response.message || 'Cập nhật số lượng bán trong ngày thành công!',
                 type: 'success'
             });
             setEditingQuantityId(null);
@@ -490,7 +490,7 @@ const ProductsTab = () => {
                             InputLabelProps={{ shrink: true }}
                         />
                     </Stack>
-                    {/* Tồn kho từ/đến - right edge of "Tồn kho đến" aligned with right edge of "Loại đối tượng" */}
+                    {/* Số lượng bán trong ngày từ/đến - right edge of "Số lượng bán trong ngày đến" aligned with right edge of "Loại đối tượng" */}
                     <Stack
                         direction="row"
                         spacing={1}
@@ -502,7 +502,7 @@ const ProductsTab = () => {
                         <TextField
                             size="small"
                             type="number"
-                            label="Tồn kho từ"
+                            label="Số lượng bán trong ngày từ"
                             value={minStockQuantity}
                             onChange={(e) => setMinStockQuantity(e.target.value)}
                             sx={{ flex: 1 }}
@@ -511,7 +511,7 @@ const ProductsTab = () => {
                         <TextField
                             size="small"
                             type="number"
-                            label="Tồn kho đến"
+                            label="Số lượng bán trong ngày đến"
                             value={maxStockQuantity}
                             onChange={(e) => setMaxStockQuantity(e.target.value)}
                             sx={{ flex: 1 }}
@@ -540,7 +540,7 @@ const ProductsTab = () => {
                             <TableCell sx={{ fontWeight: 800, display: { xs: 'none', md: 'table-cell' } }}>Mô tả</TableCell>
                             <TableCell sx={{ fontWeight: 800 }} align="right">Giá bán</TableCell>
                             <TableCell sx={{ fontWeight: 800, display: { xs: 'none', lg: 'table-cell' } }} align="right">Giá vốn</TableCell>
-                            <TableCell sx={{ fontWeight: 800 }} align="right">Tồn kho</TableCell>
+                            <TableCell sx={{ fontWeight: 800 }} align="center">Số lượng bán trong ngày</TableCell>
                             <TableCell sx={{ fontWeight: 800 }} align="right">Mức tối thiểu</TableCell>
                             <TableCell sx={{ fontWeight: 800 }}>Trạng thái</TableCell>
                             <TableCell align="right" sx={{ fontWeight: 800 }}>Thao tác</TableCell>
@@ -591,9 +591,9 @@ const ProductsTab = () => {
                                 <TableCell align="right" sx={{ fontWeight: 700, display: { xs: 'none', lg: 'table-cell' } }}>
                                     {typeof product.cost === 'number' ? formatPrice(product.cost) : '—'}
                                 </TableCell>
-                                <TableCell align="right" sx={{ fontWeight: 700 }}>
+                                <TableCell align="center" sx={{ fontWeight: 700 }}>
                                     {editingQuantityId === product.id ? (
-                                        <Stack direction="row" spacing={0.5} alignItems="center" justifyContent="flex-end">
+                                        <Stack direction="row" spacing={0.5} alignItems="center" justifyContent="center">
                                             <TextField
                                                 size="small"
                                                 type="number"
@@ -615,7 +615,7 @@ const ProductsTab = () => {
                                             </IconButton>
                                         </Stack>
                                     ) : (
-                                        <Stack direction="row" spacing={0.5} alignItems="center" justifyContent="flex-end">
+                                        <Stack direction="row" spacing={0.5} alignItems="center" justifyContent="center">
                                             <Typography variant="body2" sx={{ fontWeight: 700 }}>
                                                 {typeof product.stock_quantity === 'number' ? product.stock_quantity : '—'}
                                             </Typography>

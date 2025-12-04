@@ -468,9 +468,9 @@ export const ProductsSection = ({ productsData }) => {
                         icon: <Inventory2 fontSize="medium" />
                     },
                     {
-                        label: 'Giá trị tồn kho',
+                        label: 'Giá trị tổng sản phẩm',
                         value: formatCurrency(productsData.total_inventory_value || 0),
-                        caption: 'Tổng giá trị hàng tồn kho hiện tại',
+                        caption: 'Tổng giá trị sản phẩm hiện tại',
                         color: COLORS.INFO[500],
                         icon: <Insights fontSize="medium" />
                     },
@@ -482,7 +482,7 @@ export const ProductsSection = ({ productsData }) => {
                         icon: <TrendingDown fontSize="medium" />
                     },
                     {
-                        label: 'Sản phẩm lâu bán',
+                        label: 'Sản phẩm bán chậm',
                         value: formatNumber(productsData.no_sales_products?.length || 0),
                         caption: 'Chưa ghi nhận doanh thu',
                         color: COLORS.PRIMARY[500],
