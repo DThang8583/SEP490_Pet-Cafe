@@ -64,12 +64,12 @@ const RegisterPage = () => {
                 fullName: formData.fullName,
                 email: formData.email,
                 password: formData.password,
-                phone: formData.phone || ''
+                re_password: formData.confirmPassword
             });
 
             if (response.success) {
                 console.log('Registration successful:', response.user);
-                navigate('/');
+                navigate('/login');
             }
         } catch (err) {
             setError(err.message || 'Đăng ký thất bại');

@@ -14,6 +14,8 @@ import BookingFormPage from "./pages/booking/BookingFormPage";
 import BookingCartPage from "./pages/booking/BookingCartPage";
 import BookingPaymentSuccessPage from "./pages/booking/BookingPaymentSuccessPage";
 import BookingPaymentFailedPage from "./pages/booking/BookingPaymentFailedPage";
+import PetsListPage from "./pages/pets/PetsListPage";
+import PopularServicesPage from "./pages/services/PopularServicesPage";
 import managerRoutes from "./routes/managerRoutes";
 import salesRoutes from "./routes/salesRoutes";
 import workingRoutes from "./routes/workingRoutes";
@@ -38,6 +40,8 @@ function App() {
           <Route path="/booking/cart" element={<BookingCartPage />} />
           <Route path="/booking/payment-success" element={<BookingPaymentSuccessPage />} />
           <Route path="/booking/payment-failed" element={<BookingPaymentFailedPage />} />
+          <Route path="/pets" element={<PetsListPage />} />
+          <Route path="/popular-services" element={<PopularServicesPage />} />
           <Route path="/areas" element={<AreasPage />} />
           <Route path="/profile" element={<ProfilePage />} />
           {managerRoutes}

@@ -92,16 +92,39 @@ export const authApi = {
     // Register function (Customer only)
     async register(userData) {
         try {
-            const response = await userApi.auth.register(userData);
+            // Call official API endpoint
+            const response = await fetch('https://petcafes.azurewebsites.net/api/customers', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    full_name: userData.fullName,
+                    email: userData.email,
+                    password: userData.password,
+                    re_password: userData.re_password || userData.confirmPassword
+                })
+            });
 
-            if (response.success) {
-                // Auto-login after successful registration
-                localStorage.setItem('authToken', `mock-token-${response.user.id}`);
-                localStorage.setItem('userRole', response.user.role);
-                localStorage.setItem('loginTime', new Date().toISOString());
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                const errorMessage = errorData?.detail || errorData?.message || 'Đăng ký thất bại';
+                throw new Error(errorMessage);
             }
 
-            return response;
+            const data = await response.json();
+            
+            // Return success response
+            return {
+                success: true,
+                user: {
+                    id: data?.id || data?.customer_id,
+                    email: userData.email,
+                    name: userData.fullName,
+                    role: 'customer'
+                },
+                message: 'Đăng ký thành công'
+            };
         } catch (error) {
             console.error('Register error:', error);
             throw error;
