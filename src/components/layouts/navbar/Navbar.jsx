@@ -87,15 +87,24 @@ const Navbar = () => {
         { label: 'Tài khoản', icon: <AccountCircle />, path: '/profile' }
     ]), []);
 
-    const salesItems = useMemo(() => ([
-        { label: 'Dashboard', icon: <Dashboard />, path: '/sales/dashboard' },
-        { label: 'Bán hàng', icon: <ShoppingCart />, path: '/sales/sales' },
-        { label: 'Bán dịch vụ', icon: <DesignServices />, path: '/sales/services' },
-        { label: 'Dịch vụ đã đặt', icon: <CheckCircle />, path: '/sales/service-booking-confirm' },
-        { label: 'Tổng số đồ ăn đã bán', icon: <Fastfood />, path: '/sales/product-sales-confirm' },
-        { label: 'Điểm danh', icon: <ChecklistRtl />, path: '/sales/attendance' },
-        { label: 'Tài khoản', icon: <AccountCircle />, path: '/profile' }
-    ]), []);
+    const salesItems = useMemo(() => {
+        const items = [
+            { label: 'Dashboard', icon: <Dashboard />, path: '/sales/dashboard' },
+            { label: 'Bán hàng', icon: <ShoppingCart />, path: '/sales/sales' },
+            { label: 'Bán dịch vụ', icon: <DesignServices />, path: '/sales/services' },
+            { label: 'Dịch vụ đã đặt', icon: <CheckCircle />, path: '/sales/service-booking-confirm' },
+            { label: 'Tổng số đồ ăn đã bán', icon: <Fastfood />, path: '/sales/product-sales-confirm' },
+        ];
+        
+        // Chỉ hiển thị "Điểm danh" nếu user là leader
+        if (isLeader) {
+            items.push({ label: 'Điểm danh', icon: <ChecklistRtl />, path: '/sales/attendance' });
+        }
+        
+        items.push({ label: 'Tài khoản', icon: <AccountCircle />, path: '/profile' });
+        
+        return items;
+    }, [isLeader]);
 
     const workingItems = useMemo(() => ([
         { label: 'Tổng quan', icon: <Dashboard />, path: '/staff/dashboard' },
