@@ -646,14 +646,14 @@ export const InventorySection = ({ inventoryStats }) => {
                         icon: <Inventory2 fontSize="medium" />
                     },
                     {
-                        label: 'Giá trị tồn kho',
+                        label: 'Giá trị tổng sản phẩm',
                         value: formatCurrency(inventoryStats.total_inventory_value || 0),
-                        caption: 'Tổng giá trị tài sản tồn kho',
+                        caption: 'Tổng giá trị sản phẩm',
                         color: COLORS.INFO[500],
                         icon: <AttachMoney fontSize="medium" />
                     },
                     {
-                        label: 'Sản phẩm tồn kho lâu',
+                        label: 'Sản phẩm bán chậm',
                         value: formatNumber(inventoryStats.long_stock_products?.length || 0),
                         caption: 'Cần ưu tiên xử lý hoặc khuyến mãi',
                         color: COLORS.ERROR[500],

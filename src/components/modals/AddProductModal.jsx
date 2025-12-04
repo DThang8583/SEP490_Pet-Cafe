@@ -90,8 +90,8 @@ const AddProductModal = ({ open, onClose, onSave, editingProduct = null }) => {
                 if (value && (isNaN(value) || parseFloat(value) < 0)) return 'Giá vốn phải là số không âm';
                 break;
             case 'stock_quantity':
-                if (!value) return 'Tồn kho là bắt buộc';
-                if (isNaN(value) || parseInt(value) < 0) return 'Tồn kho phải là số nguyên không âm';
+                if (!value) return 'Số lượng bán trong ngày là bắt buộc';
+                if (isNaN(value) || parseInt(value) < 0) return 'Số lượng bán trong ngày phải là số nguyên không âm';
                 break;
             case 'min_stock_level':
                 if (!value) return 'Mức tối thiểu là bắt buộc';
@@ -319,7 +319,7 @@ const AddProductModal = ({ open, onClose, onSave, editingProduct = null }) => {
                                 color: COLORS.WARNING[700]
                             }}
                         >
-                            Giá cả & Tồn kho
+                            Giá cả & Số lượng bán
                         </Typography>
                         <Box sx={{ display: 'flex', gap: 2 }}>
                             <Box sx={{ flex: 1 }}>
@@ -374,7 +374,7 @@ const AddProductModal = ({ open, onClose, onSave, editingProduct = null }) => {
                                 <TextField
                                     fullWidth
                                     size="medium"
-                                    label="Tồn kho *"
+                                    label="Số lượng bán trong ngày *"
                                     type="number"
                                     value={formData.stock_quantity}
                                     onChange={(e) => handleChange('stock_quantity', e.target.value)}
@@ -493,7 +493,7 @@ const AddProductModal = ({ open, onClose, onSave, editingProduct = null }) => {
                                 label="Đối tượng"
                             >
                                 <MenuItem value="false">Khách hàng</MenuItem>
-                                <MenuItem value="true">Pet</MenuItem>
+                                <MenuItem value="true">Thú cưng</MenuItem>
                             </Select>
                         </FormControl>
                     </Box>
