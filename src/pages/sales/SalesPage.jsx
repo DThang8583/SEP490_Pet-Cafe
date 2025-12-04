@@ -221,46 +221,92 @@ const SalesPage = () => {
 
             {error && <Typography color="error" sx={{ mb: 2 }}>{error}</Typography>}
 
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 1fr' }, gap: 3 }}>
-                <Box>
-                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 2 }}>
-                        <TextField fullWidth placeholder="Tìm đồ uống, đồ ăn..." value={keyword} onChange={(e) => setKeyword(e.target.value)} sx={{
+            <Box sx={{ width: '100%', maxWidth: '100%' }}>
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 3, alignItems: 'center' }}>
+                    <TextField 
+                        fullWidth 
+                        placeholder="Tìm đồ uống, đồ ăn..." 
+                        value={keyword} 
+                        onChange={(e) => setKeyword(e.target.value)} 
+                        sx={{
                             '& .MuiOutlinedInput-root': {
                                 borderRadius: 3,
                                 backgroundColor: 'rgba(255,255,255,0.9)'
-                            }
-                        }} />
-                        <Badge color="error" badgeContent={cart.length} showZero>
-                            <Button startIcon={<ShoppingCart />} variant="contained" color="error" sx={{ height: 56, borderRadius: 3, boxShadow: 3 }} onClick={() => navigate('/sales/cart')}>
-                                Giỏ hàng
-                            </Button>
-                        </Badge>
-                    </Stack>
+                            },
+                            maxWidth: { xs: '100%', sm: '600px' }
+                        }} 
+                    />
+                    <Badge color="error" badgeContent={cart.length} showZero>
+                        <Button 
+                            startIcon={<ShoppingCart />} 
+                            variant="contained" 
+                            color="error" 
+                            sx={{ 
+                                height: 56, 
+                                borderRadius: 3, 
+                                boxShadow: 3,
+                                minWidth: { xs: '100%', sm: '160px' }
+                            }} 
+                            onClick={() => navigate('/sales/cart')}
+                        >
+                            GIỎ HÀNG
+                        </Button>
+                    </Badge>
+                </Stack>
 
-                    <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap' }}>
-                        <Chip label="Tất cả" icon={<Pets />} variant={category === 'all' ? 'filled' : 'outlined'} color={category === 'all' ? 'error' : 'default'} onClick={() => setCategory('all')} clickable sx={{ borderRadius: 2 }} />
-                        {categories.map(c => {
-                            const name = (c.name || '').toLowerCase();
-                            const isDrink = name.includes('uống') || name.includes('giải khát');
-                            const isFood = name.includes('ăn');
-                            const icon = isDrink ? <LocalCafe /> : (isFood ? <Fastfood /> : <Pets />);
-                            return (
-                                <Chip key={c.id} label={c.name} icon={icon} variant={category === c.id ? 'filled' : 'outlined'} color={category === c.id ? 'error' : 'default'} onClick={() => setCategory(c.id)} clickable sx={{ borderRadius: 2 }} />
-                            );
-                        })}
-                    </Stack>
+                <Stack 
+                    direction="row" 
+                    spacing={1} 
+                    sx={{ 
+                        mb: 3, 
+                        flexWrap: 'wrap',
+                        justifyContent: { xs: 'flex-start', sm: 'center' },
+                        gap: 1
+                    }}
+                >
+                    <Chip 
+                        label="Tất cả" 
+                        icon={<Pets />} 
+                        variant={category === 'all' ? 'filled' : 'outlined'} 
+                        color={category === 'all' ? 'error' : 'default'} 
+                        onClick={() => setCategory('all')} 
+                        clickable 
+                        sx={{ borderRadius: 2 }} 
+                    />
+                    {categories.map(c => {
+                        const name = (c.name || '').toLowerCase();
+                        const isDrink = name.includes('uống') || name.includes('giải khát');
+                        const isFood = name.includes('ăn');
+                        const icon = isDrink ? <LocalCafe /> : (isFood ? <Fastfood /> : <Pets />);
+                        return (
+                            <Chip 
+                                key={c.id} 
+                                label={c.name} 
+                                icon={icon} 
+                                variant={category === c.id ? 'filled' : 'outlined'} 
+                                color={category === c.id ? 'error' : 'default'} 
+                                onClick={() => setCategory(c.id)} 
+                                clickable 
+                                sx={{ borderRadius: 2 }} 
+                            />
+                        );
+                    })}
+                </Stack>
 
-                    <Box sx={{
-                        display: 'grid',
-                        gap: 2,
-                        gridTemplateColumns: {
-                            xs: 'repeat(1, 1fr)',
-                            sm: 'repeat(2, 1fr)',
-                            md: 'repeat(4, 1fr)',
-                            lg: 'repeat(4, 1fr)',
-                            xl: 'repeat(4, 1fr)'
-                        }
-                    }}>
+                <Box sx={{
+                    display: 'grid',
+                    gap: 3,
+                    gridTemplateColumns: {
+                        xs: 'repeat(1, 1fr)',
+                        sm: 'repeat(2, 1fr)',
+                        md: 'repeat(3, 1fr)',
+                        lg: 'repeat(4, 1fr)',
+                        xl: 'repeat(5, 1fr)'
+                    },
+                    justifyContent: 'center',
+                    width: '100%',
+                    mx: 'auto'
+                }}>
                         {filtered.map((p) => (
                             <Box key={p.id} sx={{ height: '100%' }}>
                                 <Card sx={{ borderRadius: 4, height: '100%', overflow: 'hidden', boxShadow: 6, transition: 'transform 120ms ease, box-shadow 120ms ease', '&:hover': { transform: 'translateY(-2px)', boxShadow: 10 }, display: 'flex', flexDirection: 'column' }}>
@@ -297,9 +343,7 @@ const SalesPage = () => {
                                 </Card>
                             </Box>
                         ))}
-                    </Box>
                 </Box>
-                {/* Cart sidebar removed; use dedicated CartPage */}
             </Box>
 
             </Container>
