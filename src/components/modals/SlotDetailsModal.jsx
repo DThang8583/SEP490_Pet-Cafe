@@ -31,21 +31,21 @@ const SlotDetailsModal = ({
     const taskSlots = useMemo(() => {
         if (!open || !taskData || !slots || !Array.isArray(slots)) return [];
 
-        // Filter slots for this task
-        const filtered = slots.filter(slot => slot.task_id === taskData.id);
+            // Filter slots for this task
+            const filtered = slots.filter(slot => slot.task_id === taskData.id);
 
         // Sort by weekday order (Monday first) and then by start_time
         return [...filtered].sort((a, b) => {
-            const dayA = a.day_of_week || 'MONDAY';
-            const dayB = b.day_of_week || 'MONDAY';
+                const dayA = a.day_of_week || 'MONDAY';
+                const dayB = b.day_of_week || 'MONDAY';
             const orderA = WEEKDAY_ORDER[dayA] ?? 999;
             const orderB = WEEKDAY_ORDER[dayB] ?? 999;
 
-            if (orderA !== orderB) {
-                return orderA - orderB;
-            }
-            return (a.start_time || '').localeCompare(b.start_time || '');
-        });
+                if (orderA !== orderB) {
+                    return orderA - orderB;
+                }
+                return (a.start_time || '').localeCompare(b.start_time || '');
+            });
     }, [open, taskData, slots]);
 
     // Memoize stats calculation
@@ -53,25 +53,27 @@ const SlotDetailsModal = ({
         const total = taskSlots.length;
         let available = 0;
         let unavailable = 0;
-        let booked = 0;
+        let maintenance = 0;
+        let cancelled = 0;
 
         // Single pass through slots for better performance
         for (const slot of taskSlots) {
             const status = slot.service_status;
             if (status === 'AVAILABLE') available++;
             else if (status === 'UNAVAILABLE') unavailable++;
-            else if (status === 'BOOKED') booked++;
+            else if (status === 'MAINTENANCE') maintenance++;
+            else if (status === 'CANCELLED') cancelled++;
         }
 
-        return { total, available, unavailable, booked };
+        return { total, available, unavailable, maintenance, cancelled };
     }, [taskSlots]);
 
     // Memoize status map
     const statusMap = useMemo(() => ({
-        'AVAILABLE': { label: 'Có sẵn', color: COLORS.SUCCESS[700], bg: COLORS.SUCCESS[50] },
-        'UNAVAILABLE': { label: 'Không khả dụng', color: COLORS.WARNING[700], bg: COLORS.WARNING[50] },
-        'BOOKED': { label: 'Đã đặt', color: COLORS.INFO[700], bg: COLORS.INFO[50] },
-        'CANCELLED': { label: 'Đã hủy', color: COLORS.ERROR[700], bg: COLORS.ERROR[50] }
+            'AVAILABLE': { label: 'Có sẵn', color: COLORS.SUCCESS[700], bg: COLORS.SUCCESS[50] },
+            'UNAVAILABLE': { label: 'Không khả dụng', color: COLORS.WARNING[700], bg: COLORS.WARNING[50] },
+        'MAINTENANCE': { label: 'Bảo trì', color: COLORS.INFO[700], bg: COLORS.INFO[50] },
+            'CANCELLED': { label: 'Đã hủy', color: COLORS.ERROR[700], bg: COLORS.ERROR[50] }
     }), []);
 
     // Memoize status chip component
@@ -189,10 +191,10 @@ const SlotDetailsModal = ({
                         border: `1px solid ${COLORS.INFO[200]}`
                     }}>
                         <Typography variant="h4" fontWeight={700} color={COLORS.INFO[700]}>
-                            {stats.booked}
+                            {stats.maintenance}
                         </Typography>
                         <Typography variant="body2" color="text.secondary">
-                            Đã đặt
+                            Bảo trì
                         </Typography>
                     </Paper>
                 </Stack>

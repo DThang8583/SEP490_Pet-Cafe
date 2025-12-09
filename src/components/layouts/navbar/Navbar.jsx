@@ -95,14 +95,14 @@ const Navbar = () => {
             { label: 'Dịch vụ đã đặt', icon: <CheckCircle />, path: '/sales/service-booking-confirm' },
             { label: 'Tổng số đồ ăn đã bán', icon: <Fastfood />, path: '/sales/product-sales-confirm' },
         ];
-        
+
         // Chỉ hiển thị "Điểm danh" nếu user là leader
         if (isLeader) {
             items.push({ label: 'Điểm danh', icon: <ChecklistRtl />, path: '/sales/attendance' });
         }
-        
+
         items.push({ label: 'Tài khoản', icon: <AccountCircle />, path: '/profile' });
-        
+
         return items;
     }, [isLeader]);
 
@@ -111,7 +111,6 @@ const Navbar = () => {
         { label: 'Lịch & nhóm', icon: <Groups />, path: '/staff/teams' },
         { label: 'Nhiệm vụ hằng ngày', icon: <Assignment />, path: '/staff/daily-tasks' },
         { label: 'Điểm danh', icon: <ChecklistRtl />, path: '/staff/attendance' },
-        { label: 'Tiêm phòng', icon: <Vaccines />, path: '/staff/vaccination-records' },
         { label: 'Xem Booking', icon: <ReceiptLong />, path: '/staff/bookings' },
         { label: 'Đơn xin nghỉ phép', icon: <Description />, path: '/staff/leave-request' }
     ]), []);

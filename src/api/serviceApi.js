@@ -268,14 +268,25 @@ const serviceApi = {
 
     /**
      * Delete a service
-     * @param {string} serviceId
+     * @param {string} serviceId - UUID of the service to delete
      * @returns {Promise<Object>}
      */
     async deleteService(serviceId) {
         try {
+            // Validation
+            if (!serviceId || typeof serviceId !== 'string' || !serviceId.trim()) {
+                throw new Error('Service ID là bắt buộc và phải là UUID hợp lệ');
+            }
+
+            // Basic UUID format validation (8-4-4-4-12 hex characters)
+            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+            if (!uuidRegex.test(serviceId.trim())) {
+                throw new Error('Service ID phải là UUID hợp lệ');
+            }
+
             console.log('[deleteService] Request serviceId:', serviceId);
 
-            const response = await apiClient.delete(`/services/${serviceId}`, {
+            const response = await apiClient.delete(`/services/${serviceId.trim()}`, {
                 timeout: 30000
             });
 
@@ -283,11 +294,36 @@ const serviceApi = {
 
             return {
                 success: true,
-                message: 'Xóa dịch vụ thành công'
+                message: 'Xóa dịch vụ thành công',
+                data: response.data
             };
         } catch (error) {
             console.error('[deleteService] Error:', error);
-            throw new Error(error.response?.data?.error || error.message || 'Không thể xóa dịch vụ');
+
+            // Handle specific error cases
+            if (error.response) {
+                const status = error.response.status;
+                const errorMessage = error.response?.data?.error || error.response?.data?.message;
+
+                if (status === 404) {
+                    throw new Error('Không tìm thấy dịch vụ cần xóa');
+                } else if (status === 403) {
+                    throw new Error('Bạn không có quyền xóa dịch vụ này');
+                } else if (status === 400) {
+                    throw new Error(errorMessage || 'Dữ liệu không hợp lệ');
+                } else if (status >= 500) {
+                    throw new Error('Lỗi máy chủ. Vui lòng thử lại sau');
+                }
+
+                throw new Error(errorMessage || 'Không thể xóa dịch vụ');
+            }
+
+            // Handle network errors or other errors
+            if (error.message && error.message.includes('UUID')) {
+                throw error; // Re-throw validation errors
+            }
+
+            throw new Error(error.message || 'Không thể xóa dịch vụ');
         }
     },
 

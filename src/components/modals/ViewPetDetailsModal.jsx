@@ -261,26 +261,9 @@ const ViewPetDetailsModal = ({
                                                             <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
                                                                 <Vaccines sx={{ color: COLORS.SUCCESS[700], fontSize: 24 }} />
                                                                 <Typography variant="h6" sx={{ fontWeight: 700, color: COLORS.SUCCESS[700] }}>
-                                                                    {vaccination.vaccine_type?.name || 'Vaccine'}
+                                                                    {vaccination.name || 'Vaccine'}
                                                                 </Typography>
-                                                                {vaccination.vaccine_type?.is_required && (
-                                                                    <Chip
-                                                                        label="Bắt buộc"
-                                                                        size="small"
-                                                                        sx={{
-                                                                            bgcolor: alpha(COLORS.ERROR[500], 0.1),
-                                                                            color: COLORS.ERROR[700],
-                                                                            fontWeight: 600,
-                                                                            fontSize: '0.7rem'
-                                                                        }}
-                                                                    />
-                                                                )}
                                                             </Stack>
-                                                            {vaccination.vaccine_type?.description && (
-                                                                <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, ml: 4 }}>
-                                                                    {vaccination.vaccine_type.description}
-                                                                </Typography>
-                                                            )}
                                                         </Box>
 
                                                         <Divider />
@@ -352,7 +335,7 @@ const ViewPetDetailsModal = ({
                                                                     <Inventory sx={{ fontSize: 18, color: COLORS.INFO[600], mt: 0.5, flexShrink: 0 }} />
                                                                     <Box sx={{ flex: 1, minWidth: 0 }}>
                                                                         <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, display: 'block' }}>
-                                                                            Lô vaccine
+                                                                            Tên vaccine
                                                                         </Typography>
                                                                         <Typography variant="body2" sx={{ fontWeight: 600, wordBreak: 'break-word' }}>
                                                                             {vaccination.batch_number || '—'}
@@ -360,21 +343,6 @@ const ViewPetDetailsModal = ({
                                                                     </Box>
                                                                 </Stack>
                                                             </Grid>
-                                                            {vaccination.vaccine_type?.interval_months && (
-                                                                <Grid item xs={12} sm={6}>
-                                                                    <Stack direction="row" spacing={1} alignItems="flex-start">
-                                                                        <Event sx={{ fontSize: 18, color: COLORS.SUCCESS[600], mt: 0.5, flexShrink: 0 }} />
-                                                                        <Box sx={{ flex: 1, minWidth: 0 }}>
-                                                                            <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, display: 'block' }}>
-                                                                                Chu kỳ tiêm lại
-                                                                            </Typography>
-                                                                            <Typography variant="body2" sx={{ fontWeight: 600, wordBreak: 'break-word' }}>
-                                                                                {vaccination.vaccine_type.interval_months} tháng
-                                                                            </Typography>
-                                                                        </Box>
-                                                                    </Stack>
-                                                                </Grid>
-                                                            )}
                                                         </Grid>
 
                                                         {/* Notes */}

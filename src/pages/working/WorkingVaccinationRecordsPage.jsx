@@ -4,7 +4,6 @@ import { Vaccines, Add, Edit, Pets, Search } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 import { getAllVaccinationRecords, createVaccinationRecord, updateVaccinationRecord } from '../../api/vaccinationRecordsApi';
 import { getAllPets } from '../../api/petsApi';
-import { getAllVaccineTypes } from '../../api/vaccineTypesApi';
 import { getAllVaccinationSchedules } from '../../api/vaccinationSchedulesApi';
 import { getAllSpecies } from '../../api/petSpeciesApi';
 import VaccinationRecordModal from '../../components/modals/VaccinationRecordModal';
@@ -32,7 +31,6 @@ const formatDateTime = (dateString) => {
 const WorkingVaccinationRecordsPage = () => {
     const [records, setRecords] = useState([]);
     const [pets, setPets] = useState([]);
-    const [vaccineTypes, setVaccineTypes] = useState([]);
     const [schedules, setSchedules] = useState([]);
     const [species, setSpecies] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -53,9 +51,8 @@ const WorkingVaccinationRecordsPage = () => {
 
                 // TEMPORARY FIX: Backend doesn't have GET /vaccination-records endpoint (405 error)
                 // Load vaccination records from schedules instead
-                const [petsRes, vaccineTypesRes, schedulesRes, speciesRes] = await Promise.allSettled([
+                const [petsRes, schedulesRes, speciesRes] = await Promise.allSettled([
                     getAllPets({ page_index: 0, page_size: 1000 }),
-                    getAllVaccineTypes({ page_index: 0, page_size: 1000 }),
                     getAllVaccinationSchedules({ page_index: 0, page_size: 1000 }),
                     getAllSpecies({ page_index: 0, page_size: 1000 })
                 ]);
@@ -70,8 +67,7 @@ const WorkingVaccinationRecordsPage = () => {
                             vaccination_schedule_id: schedule.id,
                             pet_id: schedule.pet_id,
                             pet: schedule.pet,
-                            vaccine_type_id: schedule.vaccine_type_id,
-                            vaccine_type: schedule.vaccine_type,
+                            name: schedule.name || '—',
                             vaccination_date: schedule.completed_date || schedule.scheduled_date,
                             veterinarian: schedule.veterinarian || '—',
                             clinic_name: 'Pet Cafe',
@@ -83,7 +79,6 @@ const WorkingVaccinationRecordsPage = () => {
 
                     setRecords(recordsFromSchedules);
                     setPets(petsRes.status === 'fulfilled' ? (petsRes.value.data || []) : []);
-                    setVaccineTypes(vaccineTypesRes.status === 'fulfilled' ? (vaccineTypesRes.value.data || []) : []);
                     setSchedules(schedulesData);
                     setSpecies(speciesRes.status === 'fulfilled' ? (speciesRes.value.data || []) : []);
 
@@ -110,7 +105,7 @@ const WorkingVaccinationRecordsPage = () => {
             const term = searchTerm.toLowerCase();
             filtered = filtered.filter(record => {
                 const petName = record.pet?.name || '';
-                const vaccineName = record.vaccine_type?.name || '';
+                const vaccineName = record.name || '';
                 const veterinarian = record.veterinarian || '';
                 const clinicName = record.clinic_name || '';
                 return (
@@ -135,10 +130,9 @@ const WorkingVaccinationRecordsPage = () => {
         return pet?.name || 'N/A';
     };
 
-    // Get vaccine type name helper
-    const getVaccineTypeName = (vaccineTypeId) => {
-        const vaccineType = vaccineTypes.find(vt => vt.id === vaccineTypeId);
-        return vaccineType?.name || 'N/A';
+    // Get vaccine name helper
+    const getVaccineName = (record) => {
+        return record.name || 'N/A';
     };
 
     // Handle open dialog for create
@@ -355,7 +349,7 @@ const WorkingVaccinationRecordsPage = () => {
                                         </TableCell>
                                         <TableCell>
                                             <Typography variant="body2">
-                                                {getVaccineTypeName(record.vaccine_type_id)}
+                                                {getVaccineName(record)}
                                             </Typography>
                                         </TableCell>
                                         <TableCell>
@@ -406,15 +400,13 @@ const WorkingVaccinationRecordsPage = () => {
 
                 {/* Vaccination Record Modal */}
                 <VaccinationRecordModal
-                    isOpen={dialogOpen}
+                    open={dialogOpen}
                     onClose={handleCloseDialog}
                     onSubmit={handleSubmit}
-                    editMode={editMode}
-                    initialData={currentRecord}
-                    pets={pets}
-                    vaccineTypes={vaccineTypes}
-                    schedules={schedules}
-                    species={species}
+                    isEditMode={editMode}
+                    vaccinationRecord={currentRecord}
+                    dailyTask={null}
+                    vaccinationSchedule={currentRecord ? schedules.find(s => s.id === currentRecord.vaccination_schedule_id) : null}
                     isLoading={isSubmitting}
                 />
 

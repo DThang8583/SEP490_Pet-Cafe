@@ -196,11 +196,6 @@ const HealthRecordModal = ({
                         <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
                             Thú cưng: {vaccinationSchedule.pet?.name || vaccinationSchedule.pet_id || 'N/A'}
                         </Typography>
-                        {vaccinationSchedule.vaccine_type?.name && (
-                            <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
-                                Vaccine đã tiêm: {vaccinationSchedule.vaccine_type.name}
-                            </Typography>
-                        )}
                     </Box>
 
                     {/* Check Date */}
@@ -213,6 +208,21 @@ const HealthRecordModal = ({
                         required
                         error={Boolean(errors.check_date)}
                         helperText={errors.check_date}
+                        InputLabelProps={{ shrink: true }}
+                        InputProps={{
+                            startAdornment: <CalendarToday sx={{ mr: 1, color: COLORS.TEXT.SECONDARY }} />
+                        }}
+                    />
+
+                    {/* Next Check Date */}
+                    <TextField
+                        label="Ngày kiểm tra tiếp theo"
+                        type="date"
+                        value={formData.next_check_date}
+                        onChange={(e) => setFormData({ ...formData, next_check_date: e.target.value })}
+                        fullWidth
+                        error={Boolean(errors.next_check_date)}
+                        helperText={errors.next_check_date}
                         InputLabelProps={{ shrink: true }}
                         InputProps={{
                             startAdornment: <CalendarToday sx={{ mr: 1, color: COLORS.TEXT.SECONDARY }} />
@@ -296,21 +306,6 @@ const HealthRecordModal = ({
                         onChange={(e) => setFormData({ ...formData, veterinarian: e.target.value })}
                         fullWidth
                         placeholder="Nhập tên bác sĩ thú y"
-                    />
-
-                    {/* Next Check Date */}
-                    <TextField
-                        label="Ngày kiểm tra tiếp theo"
-                        type="date"
-                        value={formData.next_check_date}
-                        onChange={(e) => setFormData({ ...formData, next_check_date: e.target.value })}
-                        fullWidth
-                        error={Boolean(errors.next_check_date)}
-                        helperText={errors.next_check_date}
-                        InputLabelProps={{ shrink: true }}
-                        InputProps={{
-                            startAdornment: <CalendarToday sx={{ mr: 1, color: COLORS.TEXT.SECONDARY }} />
-                        }}
                     />
 
                     {/* Notes */}

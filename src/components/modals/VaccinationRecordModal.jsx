@@ -16,6 +16,7 @@ const VaccinationRecordModal = ({
     const [formData, setFormData] = useState({
         vaccination_date: '',
         next_due_date: '',
+        name: '',
         veterinarian: '',
         clinic_name: '',
         batch_number: '',
@@ -23,15 +24,6 @@ const VaccinationRecordModal = ({
     });
 
     const [errors, setErrors] = useState({});
-
-    // Calculate next_due_date based on vaccination_date and vaccine frequency
-    const calculateNextDueDate = useCallback((vaccinationDate, frequencyInMonths) => {
-        if (!vaccinationDate || !frequencyInMonths) return '';
-
-        const date = new Date(vaccinationDate);
-        date.setMonth(date.getMonth() + frequencyInMonths);
-        return date.toISOString().split('T')[0];
-    }, []);
 
     useEffect(() => {
         if (open && dailyTask && vaccinationSchedule) {
@@ -43,61 +35,47 @@ const VaccinationRecordModal = ({
                 setFormData({
                     vaccination_date: vaccinationDate,
                     next_due_date: nextDueDate,
+                    name: vaccinationRecord.name || '',
                     veterinarian: vaccinationRecord.veterinarian || '',
                     clinic_name: vaccinationRecord.clinic_name || '',
                     batch_number: vaccinationRecord.batch_number || '',
                     notes: vaccinationRecord.notes || ''
                 });
             } else {
-                // Create mode: Set default vaccination_date to today
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            const todayStr = today.toISOString().split('T')[0];
+                // Create mode: Set default vaccination_date from scheduled_date
+                // WORKAROUND: Backend stores time as "fake UTC" representing local Vietnam time
+                // So we extract date directly from the string without timezone conversion
+                let defaultVaccinationDate = '';
+                if (vaccinationSchedule.scheduled_date) {
+                    const isoString = vaccinationSchedule.scheduled_date;
+                    const match = isoString.match(/^(\d{4}-\d{2}-\d{2})/);
+                    if (match) {
+                        defaultVaccinationDate = match[1]; // YYYY-MM-DD
+                    }
+                }
 
-                // Get frequency from vaccine_type (in months)
-                // Backend uses interval_months field
-                const frequencyInMonths = vaccinationSchedule.vaccine_type?.interval_months ||
-                    vaccinationSchedule.vaccine_type?.frequency_in_months ||
-                    12; // Default 12 months if not specified
+                // If no scheduled_date, fallback to today
+                if (!defaultVaccinationDate) {
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    defaultVaccinationDate = today.toISOString().split('T')[0];
+                }
 
-                // Calculate next_due_date based on frequency
-                const nextDueStr = calculateNextDueDate(todayStr, frequencyInMonths);
-
-            setFormData({
-                vaccination_date: todayStr,
-                next_due_date: nextDueStr,
-                veterinarian: '',
-                clinic_name: '',
-                batch_number: '',
-                notes: ''
-            });
+                // Set empty next_due_date - user must input manually
+                setFormData({
+                    vaccination_date: defaultVaccinationDate,
+                    next_due_date: '',
+                    name: '',
+                    veterinarian: '',
+                    clinic_name: '',
+                    batch_number: '',
+                    notes: ''
+                });
             }
             setErrors({});
         }
-    }, [open, dailyTask, vaccinationSchedule, vaccinationRecord, isEditMode, calculateNextDueDate]);
+    }, [open, dailyTask, vaccinationSchedule, vaccinationRecord, isEditMode]);
 
-    // Auto-calculate next_due_date when vaccination_date changes
-    useEffect(() => {
-        const frequencyInMonths = vaccinationSchedule?.vaccine_type?.interval_months ||
-            vaccinationSchedule?.vaccine_type?.frequency_in_months;
-
-        if (formData.vaccination_date && frequencyInMonths) {
-            const calculatedNextDue = calculateNextDueDate(formData.vaccination_date, frequencyInMonths);
-
-            // Only update if different to avoid infinite loop
-            if (calculatedNextDue && calculatedNextDue !== formData.next_due_date) {
-                setFormData(prev => {
-                    // Double-check to prevent loop
-                    if (prev.next_due_date === calculatedNextDue) return prev;
-                    return {
-                        ...prev,
-                        next_due_date: calculatedNextDue
-                    };
-                });
-            }
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [formData.vaccination_date, vaccinationSchedule?.vaccine_type?.interval_months, vaccinationSchedule?.vaccine_type?.frequency_in_months]);
 
     const validate = () => {
         const newErrors = {};
@@ -128,9 +106,9 @@ const VaccinationRecordModal = ({
         if (validate() && dailyTask && vaccinationSchedule) {
             onSubmit({
                 pet_id: vaccinationSchedule.pet_id || vaccinationSchedule.pet?.id,
-                vaccine_type_id: vaccinationSchedule.vaccine_type_id || vaccinationSchedule.vaccine_type?.id,
                 vaccination_date: formData.vaccination_date,
                 next_due_date: formData.next_due_date,
+                name: formData.name.trim(),
                 veterinarian: formData.veterinarian.trim(),
                 clinic_name: formData.clinic_name.trim(),
                 batch_number: formData.batch_number.trim(),
@@ -145,6 +123,7 @@ const VaccinationRecordModal = ({
         setFormData({
             vaccination_date: '',
             next_due_date: '',
+            name: '',
             veterinarian: '',
             clinic_name: '',
             batch_number: '',
@@ -174,14 +153,14 @@ const VaccinationRecordModal = ({
                 sx={{
                     bgcolor: COLORS.SUCCESS[50],
                     borderBottom: `3px solid ${COLORS.SUCCESS[500]}`
-            }}
-        >
+                }}
+            >
                 <DialogTitle sx={{ fontWeight: 800, color: COLORS.SUCCESS[800], pb: 1, display: 'flex', alignItems: 'center', gap: 1, justifyContent: 'space-between' }}>
                     <Stack direction="row" alignItems="center" gap={1}>
                         <Vaccines />
                         <Typography variant="h6" sx={{ fontWeight: 800 }}>
                             {isEditMode ? '✏️ Chỉnh Sửa Hồ Sơ Tiêm Phòng' : '➕ Tạo Hồ Sơ Tiêm Phòng'}
-                    </Typography>
+                        </Typography>
                     </Stack>
                     <IconButton
                         size="small"
@@ -193,7 +172,7 @@ const VaccinationRecordModal = ({
                     >
                         <Close />
                     </IconButton>
-            </DialogTitle>
+                </DialogTitle>
             </Box>
             <DialogContent sx={{ pt: 3, pb: 2, px: 3 }}>
                 <Stack spacing={3}>
@@ -213,15 +192,16 @@ const VaccinationRecordModal = ({
                             Thú cưng: {vaccinationSchedule.pet?.name || vaccinationSchedule.pet_id || 'N/A'}
                         </Typography>
                         <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
-                            Loại vaccine: {vaccinationSchedule.vaccine_type?.name || vaccinationSchedule.vaccine_type_id || 'N/A'}
-                        </Typography>
-                        {(vaccinationSchedule.vaccine_type?.interval_months || vaccinationSchedule.vaccine_type?.frequency_in_months) && (
-                            <Typography variant="body2" sx={{ color: COLORS.WARNING[700], fontWeight: 600 }}>
-                                Lịch tiêm kế tiếp: {vaccinationSchedule.vaccine_type.interval_months || vaccinationSchedule.vaccine_type.frequency_in_months} tháng
-                            </Typography>
-                        )}
-                        <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
-                            Ngày dự kiến: {vaccinationSchedule.scheduled_date ? new Date(vaccinationSchedule.scheduled_date).toLocaleDateString('vi-VN') : 'N/A'}
+                            Ngày dự kiến: {(() => {
+                                if (!vaccinationSchedule.scheduled_date) return 'N/A';
+                                // Extract date directly from ISO string to avoid timezone conversion
+                                const match = vaccinationSchedule.scheduled_date.match(/^(\d{4})-(\d{2})-(\d{2})/);
+                                if (match) {
+                                    const [, year, month, day] = match;
+                                    return `${day}/${month}/${year}`;
+                                }
+                                return 'N/A';
+                            })()}
                         </Typography>
                     </Box>
 
@@ -249,20 +229,25 @@ const VaccinationRecordModal = ({
                         label="Ngày tiêm tiếp theo *"
                         type="date"
                         value={formData.next_due_date}
+                        onChange={(e) => setFormData({ ...formData, next_due_date: e.target.value })}
                         fullWidth
                         required
-                        disabled
                         error={Boolean(errors.next_due_date)}
-                        helperText={
-                            errors.next_due_date ||
-                            ((vaccinationSchedule.vaccine_type?.interval_months || vaccinationSchedule.vaccine_type?.frequency_in_months)
-                                ? `Tự động tính: ${vaccinationSchedule.vaccine_type.interval_months || vaccinationSchedule.vaccine_type.frequency_in_months} tháng sau ngày tiêm`
-                                : 'Tự động tính dựa trên ngày tiêm')
-                        }
+                        helperText={errors.next_due_date}
                         InputLabelProps={{ shrink: true }}
                         InputProps={{
                             startAdornment: <CalendarToday sx={{ mr: 1, color: COLORS.TEXT.SECONDARY }} />
                         }}
+                    />
+
+                    {/* Name */}
+                    <TextField
+                        label="Tên vaccine *"
+                        value={formData.name}
+                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        fullWidth
+                        required
+                        placeholder="Nhập tên vaccine"
                     />
 
                     {/* Veterinarian */}
@@ -283,7 +268,7 @@ const VaccinationRecordModal = ({
                         placeholder="Nhập tên phòng khám"
                     />
 
-                    {/* Vaccine Name */}
+                    {/* Batch Number (Tên vaccine) */}
                     <TextField
                         label="Tên vaccine"
                         value={formData.batch_number}

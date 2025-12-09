@@ -126,32 +126,25 @@ export const getVaccinationScheduleById = async (scheduleId) => {
 
 /**
  * Create new vaccination schedule using official API
- * @param {Object} scheduleData - { pet_id, vaccine_type_id, scheduled_date, notes, team_id }
+ * @param {Object} scheduleData - { pet_id, scheduled_date, notes, team_id }
  * @returns {Promise<Object>} Created vaccination schedule
  */
 export const createVaccinationSchedule = async (scheduleData) => {
     try {
-        const { pet_id, vaccine_type_id, scheduled_date, notes, team_id } = scheduleData;
+        const { pet_id, scheduled_date, notes, team_id } = scheduleData;
 
         if (!pet_id) {
             throw new Error('Thú cưng là bắt buộc');
         }
-        if (!vaccine_type_id) {
-            throw new Error('Loại vaccine là bắt buộc');
-        }
         if (!scheduled_date) {
             throw new Error('Ngày tiêm dự kiến là bắt buộc');
-        }
-        if (!team_id) {
-            throw new Error('Nhóm là bắt buộc');
         }
 
         const requestData = {
             pet_id,
-            vaccine_type_id,
             scheduled_date,
             notes: notes?.trim() || '',
-            team_id
+            team_id: team_id || null
         };
 
         const response = await apiClient.post('/vaccination-schedules', requestData, { timeout: 10000 });
@@ -170,26 +163,22 @@ export const createVaccinationSchedule = async (scheduleData) => {
 /**
  * Update vaccination schedule using official API
  * @param {string} scheduleId
- * @param {Object} scheduleData - { pet_id, vaccine_type_id, scheduled_date, notes, team_id, status }
+ * @param {Object} scheduleData - { pet_id, scheduled_date, notes, team_id, status }
  * @returns {Promise<Object>} Updated vaccination schedule
  */
 export const updateVaccinationSchedule = async (scheduleId, scheduleData) => {
     try {
         // Validate required fields
-            if (!scheduleData.pet_id) {
-                throw new Error('Thú cưng là bắt buộc');
+        if (!scheduleData.pet_id) {
+            throw new Error('Thú cưng là bắt buộc');
         }
-            if (!scheduleData.vaccine_type_id) {
-                throw new Error('Loại vaccine là bắt buộc');
+        if (!scheduleData.scheduled_date) {
+            throw new Error('Ngày tiêm dự kiến là bắt buộc');
         }
-            if (!scheduleData.scheduled_date) {
-                throw new Error('Ngày tiêm dự kiến là bắt buộc');
-            }
 
-        // Build request body according to API spec: all fields are required
+        // Build request body according to API spec
         const requestData = {
             pet_id: scheduleData.pet_id,
-            vaccine_type_id: scheduleData.vaccine_type_id,
             scheduled_date: scheduleData.scheduled_date,
             notes: scheduleData.notes?.trim() || '',
             team_id: scheduleData.team_id || null,
