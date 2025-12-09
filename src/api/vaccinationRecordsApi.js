@@ -113,7 +113,7 @@ export const getVaccinationRecordById = async (recordId) => {
 
 /**
  * Create new vaccination record using official API
- * @param {Object} recordData - { pet_id, vaccine_type_id, vaccination_date, next_due_date, veterinarian, clinic_name, batch_number, notes, schedule_id }
+ * @param {Object} recordData - { pet_id, vaccination_date, next_due_date, name, veterinarian, clinic_name, batch_number, notes, schedule_id }
  * @returns {Promise<Object>} Created vaccination record
  */
 export const createVaccinationRecord = async (recordData) => {
@@ -123,9 +123,9 @@ export const createVaccinationRecord = async (recordData) => {
     try {
         const {
             pet_id,
-            vaccine_type_id,
             vaccination_date,
             next_due_date,
+            name,
             veterinarian,
             clinic_name,
             batch_number,
@@ -136,9 +136,6 @@ export const createVaccinationRecord = async (recordData) => {
         if (!pet_id) {
             throw new Error('Thú cưng là bắt buộc');
         }
-        if (!vaccine_type_id) {
-            throw new Error('Loại vaccine là bắt buộc');
-        }
         if (!vaccination_date) {
             throw new Error('Ngày tiêm là bắt buộc');
         }
@@ -148,9 +145,9 @@ export const createVaccinationRecord = async (recordData) => {
 
         const requestData = {
             pet_id,
-            vaccine_type_id,
             vaccination_date: new Date(vaccination_date).toISOString(),
             next_due_date: new Date(next_due_date).toISOString(),
+            name: name?.trim() || '',
             veterinarian: veterinarian?.trim() || '',
             clinic_name: clinic_name?.trim() || '',
             batch_number: batch_number?.trim() || '',
@@ -190,7 +187,7 @@ export const createVaccinationRecord = async (recordData) => {
 /**
  * Update vaccination record using official API
  * @param {string} recordId
- * @param {Object} recordData - { pet_id?, vaccine_type_id?, vaccination_date?, next_due_date?, veterinarian?, clinic_name?, batch_number?, notes?, schedule_id? }
+ * @param {Object} recordData - { pet_id?, vaccination_date?, next_due_date?, name?, veterinarian?, clinic_name?, batch_number?, notes?, schedule_id? }
  * @returns {Promise<Object>} Updated vaccination record
  */
 export const updateVaccinationRecord = async (recordId, recordData) => {
@@ -202,13 +199,6 @@ export const updateVaccinationRecord = async (recordId, recordData) => {
                 throw new Error('Thú cưng là bắt buộc');
             }
             requestData.pet_id = recordData.pet_id;
-        }
-
-        if (recordData.vaccine_type_id !== undefined) {
-            if (!recordData.vaccine_type_id) {
-                throw new Error('Loại vaccine là bắt buộc');
-            }
-            requestData.vaccine_type_id = recordData.vaccine_type_id;
         }
 
         if (recordData.vaccination_date !== undefined) {
@@ -223,6 +213,10 @@ export const updateVaccinationRecord = async (recordId, recordData) => {
                 throw new Error('Ngày tiêm tiếp theo là bắt buộc');
             }
             requestData.next_due_date = new Date(recordData.next_due_date).toISOString();
+        }
+
+        if (recordData.name !== undefined) {
+            requestData.name = recordData.name?.trim() || '';
         }
 
         if (recordData.veterinarian !== undefined) {

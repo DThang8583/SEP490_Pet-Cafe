@@ -2,7 +2,7 @@ import React from 'react';
 import { Typography, Stack, Chip, alpha, Box } from '@mui/material';
 import { People, TaskAlt, TrendingDown, Groups, PersonAdd, Insights, EventAvailable, Inventory2, AttachMoney } from '@mui/icons-material';
 import { COLORS } from '../../../constants/colors';
-import { SectionContainer, SummaryGrid, CardSection, EmptyState, formatCurrency, formatNumber, formatMonthLabel, formatDateTime, SimpleBarChart, StackedBarChart } from './DashboardUtils';
+import { SectionContainer, SummaryGrid, CardSection, EmptyState, formatCurrency, formatNumber, formatMonthLabel, formatDateTime, SimpleBarChart, StackedBarChart, PieChartComponent, LineChartComponent } from './DashboardUtils';
 
 // ========== PETS SECTION ==========
 export const PetsSection = ({ petsData }) => {
@@ -42,14 +42,78 @@ export const PetsSection = ({ petsData }) => {
                 hasData={Boolean(petsData.pets_by_species?.length)}
                 emptyMessage="Chưa có dữ liệu phân loại theo loài."
             >
-                <SimpleBarChart
+                <PieChartComponent
                     data={petsData.pets_by_species}
                     dataKey="count"
-                    xAxisKey="species_name"
-                    fill={COLORS.SECONDARY[500]}
+                    nameKey="species_name"
+                    colors={[COLORS.SECONDARY[500], COLORS.SUCCESS[500], COLORS.INFO[500], COLORS.WARNING[500]]}
+                />
+            </CardSection>
+
+            <CardSection
+                title="Thú cưng theo giống"
+                color={COLORS.INFO[600]}
+                hasData={Boolean(petsData.pets_by_breed?.length)}
+                emptyMessage="Chưa có dữ liệu phân loại theo giống."
+            >
+                <SimpleBarChart
+                    data={petsData.pets_by_breed}
+                    dataKey="count"
+                    xAxisKey="breed_name"
+                    fill={COLORS.INFO[500]}
                     name="Số lượng"
                     xAxisAngle={-45}
+                    xAxisHeight={100}
                 />
+            </CardSection>
+
+            <CardSection
+                title="Thú cưng theo nhóm tuổi"
+                color={COLORS.WARNING[600]}
+                hasData={Boolean(petsData.pets_by_age_group?.length)}
+                emptyMessage="Chưa có dữ liệu phân loại theo nhóm tuổi."
+            >
+                <SimpleBarChart
+                    data={petsData.pets_by_age_group}
+                    dataKey="count"
+                    xAxisKey="age_group"
+                    fill={COLORS.WARNING[500]}
+                    name="Số lượng"
+                />
+            </CardSection>
+
+            <CardSection
+                title="Thú cưng theo giới tính"
+                color={COLORS.PRIMARY[600]}
+                hasData={Boolean(petsData.pets_by_gender?.length)}
+                emptyMessage="Chưa có dữ liệu phân loại theo giới tính."
+            >
+                <Stack spacing={1.5}>
+                    {petsData.pets_by_gender?.map((item, index) => (
+                        <Stack
+                            key={index}
+                            direction="row"
+                            alignItems="center"
+                            justifyContent="space-between"
+                            sx={{
+                                px: 2,
+                                py: 1.5,
+                                borderRadius: 2,
+                                background: alpha(COLORS.PRIMARY[100], 0.35)
+                            }}
+                        >
+                            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                {item.gender === 'Male' ? 'Đực' : item.gender === 'Female' ? 'Cái' : item.gender || 'Không xác định'}
+                            </Typography>
+                            <Chip
+                                label={formatNumber(item.count || 0)}
+                                size="small"
+                                sx={{ fontWeight: 600 }}
+                                color="primary"
+                            />
+                        </Stack>
+                    ))}
+                </Stack>
             </CardSection>
 
             <CardSection
@@ -58,15 +122,16 @@ export const PetsSection = ({ petsData }) => {
                 hasData={Boolean(petsData.pet_arrivals_by_month?.length)}
                 emptyMessage="Chưa có dữ liệu thú cưng nhập mới."
             >
-                <SimpleBarChart
+                <LineChartComponent
                     data={petsData.pet_arrivals_by_month?.map((item) => ({
                         ...item,
                         label: formatMonthLabel(item.month)
                     }))}
                     dataKey="count"
                     xAxisKey="label"
-                    fill={COLORS.SECONDARY[500]}
                     name="Số lượng"
+                    stroke={COLORS.SECONDARY[500]}
+                    showArea={true}
                 />
             </CardSection>
         </SectionContainer>
@@ -111,15 +176,16 @@ export const PetsHealthSection = ({ petsHealthData }) => {
                 hasData={Boolean(petsHealthData.health_checks_by_month?.length)}
                 emptyMessage="Chưa có dữ liệu khám sức khỏe theo tháng."
             >
-                <SimpleBarChart
+                <LineChartComponent
                     data={petsHealthData.health_checks_by_month?.map((item) => ({
                         ...item,
                         label: formatMonthLabel(item.month)
                     }))}
                     dataKey="count"
                     xAxisKey="label"
-                    fill={COLORS.SUCCESS[500]}
                     name="Số lượt khám"
+                    stroke={COLORS.SUCCESS[500]}
+                    showArea={true}
                 />
             </CardSection>
 
@@ -141,9 +207,6 @@ export const PetsHealthSection = ({ petsHealthData }) => {
                             <Stack spacing={0.5}>
                                 <Typography variant="body2" sx={{ fontWeight: 600 }}>
                                     {item.pet_name || '—'}
-                                </Typography>
-                                <Typography variant="body2" color="text.secondary">
-                                    {item.vaccine_type_name || '—'}
                                 </Typography>
                             </Stack>
                             <Chip
@@ -233,13 +296,13 @@ export const SlotsSection = ({ slotsData }) => {
     if (!slotsData) return null;
 
     return (
-        <SectionContainer title="Thống kê Slot" color={COLORS.SECONDARY[600]}>
+        <SectionContainer title="Thống kê Ca" color={COLORS.SECONDARY[600]}>
             <SummaryGrid
                 items={[
                     {
-                        label: 'Tỷ lệ sử dụng slot',
+                        label: 'Tỷ lệ sử dụng CaCa',
                         value: `${(slotsData.utilization_rate ?? 0).toFixed(1)}%`,
-                        caption: 'Hiệu suất phân bổ slot hiện tại',
+                        caption: 'Hiệu suất phân bổ ca hiện tại',
                         color: COLORS.SECONDARY[500],
                         icon: <Insights fontSize="medium" />
                     }
@@ -247,7 +310,7 @@ export const SlotsSection = ({ slotsData }) => {
             />
 
             <CardSection
-                title="Tình trạng slot theo ngày"
+                title="Tình trạng Ca theo ngày"
                 color={COLORS.SECONDARY[600]}
                 hasData={Boolean(slotsData.slot_availability_by_day?.length)}
                 emptyMessage="Chưa có dữ liệu lịch sử slot theo ngày."
@@ -265,6 +328,59 @@ export const SlotsSection = ({ slotsData }) => {
                     ]}
                 />
             </CardSection>
+
+            <CardSection
+                title="Ca theo khu vực"
+                color={COLORS.INFO[600]}
+                hasData={Boolean(slotsData.slot_by_area?.length)}
+                emptyMessage="Chưa có dữ liệu ca theo khu vực."
+            >
+                <Stack spacing={1.5}>
+                    {slotsData.slot_by_area?.map((item, index) => (
+                        <Stack
+                            key={index}
+                            direction="row"
+                            alignItems="center"
+                            justifyContent="space-between"
+                            sx={{
+                                px: 2,
+                                py: 1.5,
+                                borderRadius: 2,
+                                background: alpha(COLORS.INFO[100], 0.35)
+                            }}
+                        >
+                            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                {item.area_name || 'Không xác định'}
+                            </Typography>
+                            <Chip
+                                label={`${formatNumber(item.slot_count || 0)} ca`}
+                                size="small"
+                                sx={{ fontWeight: 600 }}
+                                color="info"
+                            />
+                        </Stack>
+                    ))}
+                </Stack>
+            </CardSection>
+
+            {slotsData.slot_by_time_slot && slotsData.slot_by_time_slot.length > 0 && (
+                <CardSection
+                    title="Slot theo khung giờ"
+                    color={COLORS.WARNING[600]}
+                    hasData={Boolean(slotsData.slot_by_time_slot?.length)}
+                    emptyMessage="Chưa có dữ liệu slot theo khung giờ."
+                >
+                    <SimpleBarChart
+                        data={slotsData.slot_by_time_slot}
+                        dataKey="slot_count"
+                        xAxisKey="time_slot"
+                        fill={COLORS.WARNING[500]}
+                        name="Số lượng slot"
+                        xAxisAngle={-45}
+                        xAxisHeight={100}
+                    />
+                </CardSection>
+            )}
         </SectionContainer>
     );
 };
@@ -300,14 +416,58 @@ export const FeedbacksSection = ({ feedbacksData }) => {
                 hasData={Boolean(feedbacksData.rating_distribution?.length)}
                 emptyMessage="Chưa có dữ liệu phân bố điểm đánh giá."
             >
-                <SimpleBarChart
-                    data={feedbacksData.rating_distribution}
+                <PieChartComponent
+                    data={feedbacksData.rating_distribution?.map(item => ({
+                        ...item,
+                        name: `${item.rating} sao`
+                    }))}
                     dataKey="count"
-                    xAxisKey="rating"
-                    fill={COLORS.WARNING[500]}
-                    name="Số lượng"
-                    xAxisHeight={60}
+                    nameKey="name"
+                    colors={[COLORS.ERROR[500], COLORS.WARNING[500], COLORS.INFO[500], COLORS.SUCCESS[500], COLORS.PRIMARY[500]]}
                 />
+            </CardSection>
+
+            <CardSection
+                title="Top dịch vụ được đánh giá cao"
+                color={COLORS.SUCCESS[600]}
+                hasData={Boolean(feedbacksData.top_rated_services?.length)}
+                emptyMessage="Chưa có dữ liệu top dịch vụ được đánh giá cao."
+            >
+                <Stack spacing={1.5}>
+                    {feedbacksData.top_rated_services?.map((item, index) => (
+                        <Stack
+                            key={index}
+                            direction="row"
+                            alignItems="center"
+                            justifyContent="space-between"
+                            sx={{
+                                px: 2,
+                                py: 1.5,
+                                borderRadius: 2,
+                                background: alpha(COLORS.SUCCESS[100], 0.35)
+                            }}
+                        >
+                            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                {item.service_name || 'Không xác định'}
+                            </Typography>
+                            <Stack direction="row" spacing={1} alignItems="center">
+                                {item.average_rating && (
+                                    <Chip
+                                        label={`${item.average_rating.toFixed(1)} ⭐`}
+                                        size="small"
+                                        sx={{ fontWeight: 600 }}
+                                        color="success"
+                                    />
+                                )}
+                                {item.rating_count !== undefined && (
+                                    <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.SUCCESS[700] }}>
+                                        ({formatNumber(item.rating_count)} đánh giá)
+                                    </Typography>
+                                )}
+                            </Stack>
+                        </Stack>
+                    ))}
+                </Stack>
             </CardSection>
         </SectionContainer>
     );
@@ -353,21 +513,67 @@ export const EmployeesSection = ({ employeesData }) => {
             />
 
             <CardSection
+                title="Nhân viên theo vai trò"
+                color={COLORS.INFO[600]}
+                hasData={Boolean(employeesData.employees_by_sub_role?.length)}
+                emptyMessage="Chưa có dữ liệu nhân viên theo vai trò."
+            >
+                <Stack spacing={1.5}>
+                    {employeesData.employees_by_sub_role?.map((item, index) => {
+                        // Việt hóa vai trò
+                        const roleLabel = item.sub_role === 'WORKING_STAFF'
+                            ? 'Nhân viên chăm sóc'
+                            : item.sub_role === 'SALE_STAFF'
+                                ? 'Nhân viên bán hàng'
+                                : item.sub_role === 'MANAGER'
+                                    ? 'Quản lý'
+                                    : item.sub_role?.trim() || 'Không xác định';
+
+                        return (
+                            <Stack
+                                key={index}
+                                direction="row"
+                                alignItems="center"
+                                justifyContent="space-between"
+                                sx={{
+                                    px: 2,
+                                    py: 1.5,
+                                    borderRadius: 2,
+                                    background: alpha(COLORS.INFO[100], 0.35)
+                                }}
+                            >
+                                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                    {roleLabel}
+                                </Typography>
+                                <Chip
+                                    label={formatNumber(item.count || 0)}
+                                    size="small"
+                                    sx={{ fontWeight: 600 }}
+                                    color="info"
+                                />
+                            </Stack>
+                        );
+                    })}
+                </Stack>
+            </CardSection>
+
+            <CardSection
                 title="Nhân viên mới theo tháng"
                 color={COLORS.PRIMARY[600]}
                 hasData={Boolean(employeesData.new_employees_by_month?.length)}
                 emptyMessage="Chưa có dữ liệu nhân viên mới theo tháng."
             >
-                <SimpleBarChart
+                <LineChartComponent
                     data={employeesData.new_employees_by_month?.map(item => ({
                         ...item,
                         month: formatMonthLabel(item.month)
                     }))}
                     dataKey="count"
                     xAxisKey="month"
-                    fill={COLORS.PRIMARY[500]}
                     name="Số lượng nhân viên mới"
+                    stroke={COLORS.PRIMARY[500]}
                     xAxisAngle={-45}
+                    showArea={true}
                 />
             </CardSection>
         </SectionContainer>
@@ -419,13 +625,16 @@ export const TeamsSection = ({ teamsData }) => {
                 hasData={Boolean(teamsData.teams_by_status?.length)}
                 emptyMessage="Chưa có dữ liệu phân bố đội nhóm theo trạng thái."
             >
-                <SimpleBarChart
-                    data={teamsData.teams_by_status}
+                <PieChartComponent
+                    data={teamsData.teams_by_status?.map(item => ({
+                        ...item,
+                        name: item.status === 'ACTIVE' ? 'Hoạt động'
+                            : item.status === 'INACTIVE' ? 'Không hoạt động'
+                                : item.status || 'Không xác định'
+                    }))}
                     dataKey="count"
-                    xAxisKey="status"
-                    fill={COLORS.SECONDARY[500]}
-                    name="Số lượng"
-                    xAxisAngle={-45}
+                    nameKey="name"
+                    colors={[COLORS.SUCCESS[500], COLORS.ERROR[500], COLORS.WARNING[500]]}
                 />
             </CardSection>
         </SectionContainer>
@@ -455,6 +664,23 @@ export const EmployeesPerformanceSection = ({ employeesPerformanceData }) => {
                             dataKey="completion_count"
                             xAxisKey="employee_name"
                             fill={COLORS.SUCCESS[500]}
+                            name="Số lượng hoàn thành"
+                            xAxisAngle={-45}
+                            xAxisHeight={100}
+                        />
+                    </CardSection>
+
+                    <CardSection
+                        title="Hoàn thành task theo nhân viên"
+                        color={COLORS.INFO[600]}
+                        hasData={Boolean(employeesPerformanceData.employee_task_completions?.length)}
+                        emptyMessage="Chưa có dữ liệu hoàn thành task."
+                    >
+                        <SimpleBarChart
+                            data={employeesPerformanceData.employee_task_completions}
+                            dataKey="completion_count"
+                            xAxisKey="employee_name"
+                            fill={COLORS.INFO[500]}
                             name="Số lượng hoàn thành"
                             xAxisAngle={-45}
                             xAxisHeight={100}
@@ -500,12 +726,12 @@ export const DailyTasksSection = ({ dailyTasksData }) => {
     if (!dailyTasksData) return null;
 
     return (
-        <SectionContainer title="Thống kê Task Hàng ngày" color={COLORS.WARNING[600]}>
+        <SectionContainer title="Thống kê Nhiệm vụ hàng ngày" color={COLORS.WARNING[600]}>
             <CardSection
-                title="Task hàng ngày theo chu kỳ"
+                title="Nhiệm vụ hàng ngày theo chu kỳ"
                 color={COLORS.WARNING[600]}
                 hasData={Boolean(dailyTasksData.daily_tasks_by_period?.length)}
-                emptyMessage="Chưa có dữ liệu task hàng ngày theo chu kỳ."
+                emptyMessage="Chưa có dữ liệu nhiệm vụ hàng ngày theo chu kỳ."
             >
                 <StackedBarChart
                     data={dailyTasksData.daily_tasks_by_period?.map(item => ({
@@ -519,6 +745,88 @@ export const DailyTasksSection = ({ dailyTasksData }) => {
                         { dataKey: 'pending', fill: COLORS.WARNING[500], name: 'Đang chờ', stackId: 'a' }
                     ]}
                 />
+            </CardSection>
+
+            <CardSection
+                title="Nhiệm vụ hàng ngày theo trạng thái"
+                color={COLORS.INFO[600]}
+                hasData={Boolean(dailyTasksData.daily_tasks_by_status?.length)}
+                emptyMessage="Chưa có dữ liệu nhiệm vụ hàng ngày theo trạng thái."
+            >
+                <PieChartComponent
+                    data={dailyTasksData.daily_tasks_by_status?.map(item => ({
+                        ...item,
+                        name: item.status === 'COMPLETED'
+                            ? 'Đã hoàn thành'
+                            : item.status === 'SCHEDULED'
+                                ? 'Đã lên lịch'
+                                : item.status === 'IN_PROGRESS'
+                                    ? 'Đang xử lý'
+                                    : item.status === 'CANCELLED'
+                                        ? 'Đã hủy'
+                                        : item.status || 'Không xác định'
+                    }))}
+                    dataKey="count"
+                    nameKey="name"
+                    colors={[COLORS.SUCCESS[500], COLORS.INFO[500], COLORS.WARNING[500], COLORS.ERROR[500]]}
+                />
+            </CardSection>
+
+            <CardSection
+                title="Nhiệm vụ hàng ngày theo nhóm"
+                color={COLORS.PRIMARY[600]}
+                hasData={Boolean(dailyTasksData.daily_tasks_by_team?.length)}
+                emptyMessage="Chưa có dữ liệu nhiệm vụ hàng ngày theo nhóm."
+            >
+                <SimpleBarChart
+                    data={dailyTasksData.daily_tasks_by_team}
+                    dataKey="task_count"
+                    xAxisKey="team_name"
+                    fill={COLORS.PRIMARY[500]}
+                    name="Số lượng task"
+                    xAxisAngle={-45}
+                    xAxisHeight={100}
+                />
+            </CardSection>
+
+            <CardSection
+                title="Nhiệm vụ quá hạn"
+                color={COLORS.ERROR[600]}
+                hasData={Boolean(dailyTasksData.overdue_tasks?.length)}
+                emptyMessage="Không có nhiệm vụ quá hạn."
+            >
+                <Stack spacing={1.5}>
+                    {dailyTasksData.overdue_tasks?.map((item, index) => (
+                        <Stack
+                            key={index}
+                            direction="row"
+                            alignItems="center"
+                            justifyContent="space-between"
+                            sx={{
+                                px: 2,
+                                py: 1.5,
+                                borderRadius: 2,
+                                background: alpha(COLORS.ERROR[100], 0.35)
+                            }}
+                        >
+                            <Stack spacing={0.5}>
+                                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                    {item.task_title || 'Không xác định'}
+                                </Typography>
+                                <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY }}>
+                                    Hạn: {item.due_date ? new Date(item.due_date).toLocaleDateString('vi-VN') : '—'} ·
+                                    Quá hạn: {formatNumber(item.days_overdue || 0)} ngày
+                                </Typography>
+                            </Stack>
+                            <Chip
+                                label={`${formatNumber(item.days_overdue || 0)} ngày`}
+                                size="small"
+                                sx={{ fontWeight: 600 }}
+                                color="error"
+                            />
+                        </Stack>
+                    ))}
+                </Stack>
             </CardSection>
         </SectionContainer>
     );
@@ -597,13 +905,6 @@ export const CustomersSection = ({ customersStats }) => {
                         caption: 'Đã dừng tương tác, cần kích hoạt lại',
                         color: COLORS.ERROR[500],
                         icon: <TrendingDown fontSize="medium" />
-                    },
-                    {
-                        label: 'Tổng điểm thưởng',
-                        value: formatNumber(customersStats.total_loyalty_points || 0),
-                        caption: 'Điểm tích lũy của khách hàng',
-                        color: COLORS.WARNING[500],
-                        icon: <Insights fontSize="medium" />
                     }
                 ]}
             />
@@ -614,17 +915,93 @@ export const CustomersSection = ({ customersStats }) => {
                 hasData={Boolean(customersStats.new_customers_by_period?.length)}
                 emptyMessage="Chưa có dữ liệu khách hàng mới theo chu kỳ."
             >
-                <SimpleBarChart
+                <LineChartComponent
                     data={customersStats.new_customers_by_period?.map(item => ({
                         ...item,
                         period: formatMonthLabel(item.period)
                     }))}
                     dataKey="count"
                     xAxisKey="period"
-                    fill={COLORS.PRIMARY[500]}
                     name="Số lượng khách mới"
+                    stroke={COLORS.PRIMARY[500]}
                     xAxisAngle={-45}
+                    showArea={true}
                 />
+            </CardSection>
+
+            <CardSection
+                title="Top khách hàng theo số lượng đơn"
+                color={COLORS.SUCCESS[600]}
+                hasData={Boolean(customersStats.top_customers_by_order_count?.length)}
+                emptyMessage="Chưa có dữ liệu top khách hàng theo số lượng đơn."
+            >
+                <Stack spacing={1.5}>
+                    {customersStats.top_customers_by_order_count?.map((item, index) => (
+                        <Stack
+                            key={index}
+                            direction="row"
+                            alignItems="center"
+                            justifyContent="space-between"
+                            sx={{
+                                px: 2,
+                                py: 1.5,
+                                borderRadius: 2,
+                                background: alpha(COLORS.SUCCESS[100], 0.35)
+                            }}
+                        >
+                            <Stack spacing={0.5}>
+                                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                    {item.customer_name || 'Không xác định'}
+                                </Typography>
+                                <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY }}>
+                                    {formatNumber(item.order_count || 0)} đơn · {formatCurrency(item.total_revenue || 0)}
+                                </Typography>
+                            </Stack>
+                            <Chip
+                                label={`${formatNumber(item.order_count || 0)} đơn`}
+                                size="small"
+                                sx={{ fontWeight: 600 }}
+                                color="success"
+                            />
+                        </Stack>
+                    ))}
+                </Stack>
+            </CardSection>
+
+            <CardSection
+                title="Top khách hàng theo doanh thu"
+                color={COLORS.WARNING[600]}
+                hasData={Boolean(customersStats.top_customers_by_revenue?.length)}
+                emptyMessage="Chưa có dữ liệu top khách hàng theo doanh thu."
+            >
+                <Stack spacing={1.5}>
+                    {customersStats.top_customers_by_revenue?.map((item, index) => (
+                        <Stack
+                            key={index}
+                            direction="row"
+                            alignItems="center"
+                            justifyContent="space-between"
+                            sx={{
+                                px: 2,
+                                py: 1.5,
+                                borderRadius: 2,
+                                background: alpha(COLORS.WARNING[100], 0.35)
+                            }}
+                        >
+                            <Stack spacing={0.5}>
+                                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                    {item.customer_name || 'Không xác định'}
+                                </Typography>
+                                <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY }}>
+                                    {formatNumber(item.order_count || 0)} đơn · {formatCurrency(item.total_revenue || 0)}
+                                </Typography>
+                            </Stack>
+                            <Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.WARNING[700] }}>
+                                {formatCurrency(item.total_revenue || 0)}
+                            </Typography>
+                        </Stack>
+                    ))}
+                </Stack>
             </CardSection>
         </SectionContainer>
     );
@@ -653,6 +1030,13 @@ export const InventorySection = ({ inventoryStats }) => {
                         icon: <AttachMoney fontSize="medium" />
                     },
                     {
+                        label: 'Sản phẩm sắp hết',
+                        value: formatNumber(inventoryStats.low_stock_products?.length || 0),
+                        caption: 'Cần bổ sung kho ngay',
+                        color: COLORS.WARNING[500],
+                        icon: <TrendingDown fontSize="medium" />
+                    },
+                    {
                         label: 'Sản phẩm bán chậm',
                         value: formatNumber(inventoryStats.long_stock_products?.length || 0),
                         caption: 'Cần ưu tiên xử lý hoặc khuyến mãi',
@@ -661,6 +1045,40 @@ export const InventorySection = ({ inventoryStats }) => {
                     }
                 ]}
             />
+
+            <CardSection
+                title="Sản phẩm sắp hết"
+                color={COLORS.WARNING[600]}
+                hasData={Boolean(inventoryStats.low_stock_products?.length)}
+                emptyMessage="Tất cả sản phẩm đều đủ tồn kho."
+            >
+                <Stack spacing={1.5}>
+                    {inventoryStats.low_stock_products?.map((item, index) => (
+                        <Stack
+                            key={index}
+                            direction="row"
+                            alignItems="center"
+                            justifyContent="space-between"
+                            sx={{ px: 2, py: 1.5, borderRadius: 2, background: alpha(COLORS.WARNING[100], 0.35) }}
+                        >
+                            <Box>
+                                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                                    {item.product_name || 'Không xác định'}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                    Tồn kho: {formatNumber(item.stock_quantity || 0)}
+                                </Typography>
+                            </Box>
+                            <Chip
+                                label={`Tồn kho: ${formatNumber(item.stock_quantity || 0)}`}
+                                size="small"
+                                sx={{ fontWeight: 600 }}
+                                color="warning"
+                            />
+                        </Stack>
+                    ))}
+                </Stack>
+            </CardSection>
 
             <CardSection
                 title="Sản phẩm tồn kho lâu"
@@ -682,7 +1100,7 @@ export const InventorySection = ({ inventoryStats }) => {
                                     {item.product_name || 'Không xác định'}
                                 </Typography>
                                 <Typography variant="caption" color="text.secondary">
-                                    Tồn kho: {formatNumber(item.stock_quantity || 0)} · Ngày trong kho: {formatNumber(item.days_in_stock || 0)}
+                                    Số lượng bán trong ngày: {formatNumber(item.stock_quantity || 0)} · Mức tối thiểu: {formatNumber(item.days_in_stock || 0)}
                                 </Typography>
                             </Box>
                             <Chip

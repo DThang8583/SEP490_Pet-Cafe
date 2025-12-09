@@ -456,13 +456,15 @@ const ServicesPage = () => {
                     type: 'success'
                 });
             }
-            await Promise.all([loadAllServices(), loadServices()]);
+            // Reload services and slots to reflect any backend changes
+            await Promise.all([loadAllServices(), loadServices(), loadSlots()]);
             setServiceFormOpen(false);
             setEditingService(null); // Clear editing service after submit
+            setSelectedTask(null); // Clear selected task after submit
         } catch (error) {
             throw error;
         }
-    }, [editingService, loadAllServices, loadServices]);
+    }, [editingService, loadAllServices, loadServices, loadSlots]);
 
     const handleToggleStatus = useCallback(async (service) => {
         // Nếu service đang active, hiển thị confirm modal trước khi inactive
@@ -534,13 +536,16 @@ const ServicesPage = () => {
     const handleConfirmDelete = useCallback(async () => {
         if (!deleteTarget) return;
 
+        const serviceId = deleteTarget.id;
+        const serviceName = deleteTarget.name;
+
         try {
-            await serviceApi.deleteService(deleteTarget.id);
+            await serviceApi.deleteService(serviceId);
             await Promise.all([loadAllServices(), loadServices()]);
             setAlert({
                 open: true,
                 title: 'Thành công',
-                message: 'Xóa service thành công!',
+                message: `Xóa dịch vụ "${serviceName}" thành công!`,
                 type: 'success'
             });
             setConfirmDeleteOpen(false);
@@ -549,11 +554,12 @@ const ServicesPage = () => {
             setAlert({
                 open: true,
                 title: 'Lỗi',
-                message: error.message || 'Có lỗi xảy ra khi xóa',
+                message: error.message || 'Có lỗi xảy ra khi xóa dịch vụ',
                 type: 'error'
             });
+            // Don't close modal on error so user can retry
         }
-    }, [loadAllServices, loadServices]);
+    }, [deleteTarget, loadAllServices, loadServices]);
 
     const handleViewSlots = useCallback((service) => {
         // Find task for this service
@@ -1334,26 +1340,31 @@ const ServicesPage = () => {
                 </MenuItem>
                 <MenuItem
                     onClick={() => {
-                        if (menuService && !menuService.is_active) {
-                            handleDeleteService(menuService);
+                        if (menuService) {
+                            // Only allow delete if service is not active
+                            if (menuService.is_active === false || menuService.is_active === 0) {
+                                handleDeleteService(menuService);
+                            }
                         }
                         setServiceMenuAnchor(null);
                         setMenuService(null);
                     }}
-                    disabled={menuService?.is_active === true}
+                    disabled={menuService?.is_active === true || menuService?.is_active === 1}
                 >
                     <ListItemIcon>
                         <DeleteIcon
                             fontSize="small"
                             sx={{
-                                color: menuService?.is_active
+                                color: (menuService?.is_active === true || menuService?.is_active === 1)
                                     ? COLORS.GRAY[400]
                                     : COLORS.ERROR[600]
                             }}
                         />
                     </ListItemIcon>
                     <ListItemText>
-                        {menuService?.is_active ? "Phải vô hiệu hóa trước khi xóa" : "Xóa"}
+                        {(menuService?.is_active === true || menuService?.is_active === 1)
+                            ? "Phải vô hiệu hóa trước khi xóa"
+                            : "Xóa"}
                     </ListItemText>
                 </MenuItem>
             </Menu>

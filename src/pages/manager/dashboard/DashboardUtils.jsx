@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Typography, Stack, Paper, Card, CardContent, alpha } from '@mui/material';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ComposedChart, PieChart, Pie, Cell, LineChart, Line, AreaChart, Area } from 'recharts';
 import { COLORS } from '../../../constants/colors';
 
 // ========== CONSTANTS ==========
@@ -258,4 +258,101 @@ export const StackedBarChart = ({
         </ComposedChart>
     </ResponsiveContainer>
 );
+
+export const PieChartComponent = ({
+    data,
+    dataKey = 'count',
+    nameKey = 'name',
+    colors = [COLORS.PRIMARY[500], COLORS.SUCCESS[500], COLORS.WARNING[500], COLORS.ERROR[500], COLORS.INFO[500], COLORS.SECONDARY[500]],
+    formatter = formatNumber,
+    height = DEFAULT_CHART_HEIGHT
+}) => {
+    const renderLabel = (entry) => {
+        const total = data.reduce((sum, item) => sum + (item[dataKey] || 0), 0);
+        if (total === 0) return '';
+        const percent = ((entry[dataKey] / total) * 100).toFixed(1);
+        const label = entry[nameKey] || entry.name || entry.status || entry.priority || entry.gender || entry.sub_role || 'N/A';
+        return `${label}: ${percent}%`;
+    };
+
+    // Transform data to include name for legend
+    const transformedData = data.map(item => ({
+        ...item,
+        name: item[nameKey] || item.name || item.status || item.priority || item.gender || item.sub_role || item.species_name || 'N/A'
+    }));
+
+    return (
+        <ResponsiveContainer width="100%" height={height}>
+            <PieChart>
+                <Pie
+                    data={transformedData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={renderLabel}
+                    outerRadius={120}
+                    fill="#8884d8"
+                    dataKey={dataKey}
+                    nameKey="name"
+                >
+                    {transformedData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
+                    ))}
+                </Pie>
+                <Tooltip formatter={formatter} contentStyle={DEFAULT_TOOLTIP_STYLE} />
+                <Legend />
+            </PieChart>
+        </ResponsiveContainer>
+    );
+};
+
+export const LineChartComponent = ({
+    data,
+    dataKey,
+    xAxisKey,
+    name,
+    stroke = COLORS.PRIMARY[500],
+    formatter = formatNumber,
+    xAxisAngle = 0,
+    xAxisHeight = DEFAULT_X_AXIS_HEIGHT,
+    yAxisFormatter,
+    height = DEFAULT_CHART_HEIGHT,
+    showArea = false
+}) => {
+    const ChartComponent = showArea ? AreaChart : LineChart;
+    const DataComponent = showArea ? Area : Line;
+
+    return (
+        <ResponsiveContainer width="100%" height={height}>
+            <ChartComponent data={data} margin={DEFAULT_CHART_MARGIN}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis
+                    dataKey={xAxisKey}
+                    tick={{ fontSize: DEFAULT_TICK_FONT_SIZE }}
+                    angle={xAxisAngle}
+                    textAnchor={xAxisAngle !== 0 ? 'end' : 'middle'}
+                    height={xAxisHeight}
+                />
+                <YAxis
+                    tick={{ fontSize: DEFAULT_TICK_FONT_SIZE }}
+                    tickFormatter={yAxisFormatter}
+                />
+                <Tooltip
+                    formatter={formatter}
+                    contentStyle={DEFAULT_TOOLTIP_STYLE}
+                />
+                <Legend />
+                <DataComponent
+                    type="monotone"
+                    dataKey={dataKey}
+                    stroke={stroke}
+                    fill={showArea ? stroke : 'none'}
+                    fillOpacity={showArea ? 0.3 : 1}
+                    name={name}
+                    strokeWidth={2}
+                />
+            </ChartComponent>
+        </ResponsiveContainer>
+    );
+};
 

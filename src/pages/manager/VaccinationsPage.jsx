@@ -7,11 +7,9 @@ import AlertModal from '../../components/modals/AlertModal';
 import ConfirmModal from '../../components/modals/ConfirmModal';
 import Pagination from '../../components/common/Pagination';
 import VaccinationCalendar from '../../components/vaccination/VaccinationCalendar';
-import VaccineTypesTab from './VaccineTypesTab';
 import VaccinationScheduleModal from '../../components/modals/VaccinationScheduleModal';
 import { vaccinationApi } from '../../api/vaccinationApi';
 import vaccinationSchedulesApi from '../../api/vaccinationSchedulesApi';
-import vaccineTypesApi from '../../api/vaccineTypesApi';
 import petsApi from '../../api/petsApi';
 import petSpeciesApi from '../../api/petSpeciesApi';
 import petBreedsApi from '../../api/petBreedsApi';
@@ -27,7 +25,6 @@ const VaccinationsPage = () => {
     const [pets, setPets] = useState([]);
     const [species, setSpecies] = useState([]);
     const [breeds, setBreeds] = useState([]);
-    const [vaccineTypes, setVaccineTypes] = useState([]);
     const [teams, setTeams] = useState([]);
 
     // Helper function to format scheduled_date without timezone conversion
@@ -99,7 +96,6 @@ const VaccinationsPage = () => {
     // Search and filters for vaccination schedules
     const [searchQuery, setSearchQuery] = useState('');
     const [filterPetId, setFilterPetId] = useState('');
-    const [filterVaccineType, setFilterVaccineType] = useState('');
     const [filterFromDate, setFilterFromDate] = useState('');
     const [filterToDate, setFilterToDate] = useState('');
     const [filterStatus, setFilterStatus] = useState('');
@@ -118,26 +114,23 @@ const VaccinationsPage = () => {
         try {
             setIsLoading(true);
 
-            // Load pets, species, breeds, vaccine types, teams data (only if not already loaded)
-            if (pets.length === 0 || species.length === 0 || vaccineTypes.length === 0 || teams.length === 0) {
-                const [petsRes, speciesRes, breedsRes, vaccineTypesRes, teamsRes] = await Promise.allSettled([
+            // Load pets, species, breeds, teams data (only if not already loaded)
+            if (pets.length === 0 || species.length === 0 || teams.length === 0) {
+                const [petsRes, speciesRes, breedsRes, teamsRes] = await Promise.allSettled([
                     petsApi.getAllPets({ page: 0, limit: 1000 }),
                     petSpeciesApi.getAllSpecies({ page: 0, limit: 1000 }),
                     petBreedsApi.getAllBreeds({ page: 0, limit: 1000 }),
-                    vaccineTypesApi.getAllVaccineTypes({ page: 0, limit: 1000 }),
                     teamApi.getTeams({ page_index: 0, page_size: 1000 })
                 ]);
 
                 const petsData = petsRes.status === 'fulfilled' ? (petsRes.value?.data || []) : [];
                 const speciesData = speciesRes.status === 'fulfilled' ? (speciesRes.value?.data || []) : [];
                 const breedsData = breedsRes.status === 'fulfilled' ? (breedsRes.value?.data || []) : [];
-                const vaccineTypesData = vaccineTypesRes.status === 'fulfilled' ? (vaccineTypesRes.value?.data || []) : [];
                 const teamsData = teamsRes.status === 'fulfilled' ? (teamsRes.value?.data || []) : [];
 
                 setPets(petsData);
                 setSpecies(speciesData);
                 setBreeds(breedsData);
-                setVaccineTypes(vaccineTypesData);
                 setTeams(teamsData);
             }
 
@@ -221,44 +214,29 @@ const VaccinationsPage = () => {
             loadSchedulesOnly();
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [searchQuery, filterPetId, filterVaccineType, filterStatus]);
-
-    // Reload vaccine types - can be called from child components
-    const reloadVaccineTypes = async () => {
-        try {
-            const vaccineTypesRes = await vaccineTypesApi.getAllVaccineTypes({ page_size: 1000 });
-            const vaccineTypesData = vaccineTypesRes?.data || [];
-            setVaccineTypes(vaccineTypesData);
-            console.log('🔄 Reloaded vaccine types:', vaccineTypesData.length);
-        } catch (error) {
-            console.error('Error reloading vaccine types:', error);
-        }
-    };
+    }, [searchQuery, filterPetId, filterStatus]);
 
     // Load all vaccination data (stats, schedules, records) - only on initial load
     const loadAllVaccinationData = async () => {
         try {
             setIsLoading(true);
 
-            // Load pets, species, breeds, vaccine types, teams data
-            const [petsRes, speciesRes, breedsRes, vaccineTypesRes, teamsRes] = await Promise.allSettled([
+            // Load pets, species, breeds, teams data
+            const [petsRes, speciesRes, breedsRes, teamsRes] = await Promise.allSettled([
                 petsApi.getAllPets({ page: 0, limit: 1000 }),
                 petSpeciesApi.getAllSpecies({ page: 0, limit: 1000 }),
                 petBreedsApi.getAllBreeds({ page: 0, limit: 1000 }),
-                vaccineTypesApi.getAllVaccineTypes({ page: 0, limit: 1000 }),
                 teamApi.getTeams({ page_index: 0, page_size: 1000 })
             ]);
 
             const petsData = petsRes.status === 'fulfilled' ? (petsRes.value?.data || []) : [];
             const speciesData = speciesRes.status === 'fulfilled' ? (speciesRes.value?.data || []) : [];
             const breedsData = breedsRes.status === 'fulfilled' ? (breedsRes.value?.data || []) : [];
-            const vaccineTypesData = vaccineTypesRes.status === 'fulfilled' ? (vaccineTypesRes.value?.data || []) : [];
             const teamsData = teamsRes.status === 'fulfilled' ? (teamsRes.value?.data || []) : [];
 
             setPets(petsData);
             setSpecies(speciesData);
             setBreeds(breedsData);
-            setVaccineTypes(vaccineTypesData);
             setTeams(teamsData);
 
             // Load all vaccination data (stats, schedules, records)
@@ -386,8 +364,6 @@ const VaccinationsPage = () => {
                 setCurrentSchedule(schedule);
             }
         } else {
-            // When creating new schedule, reload vaccine types to ensure latest data
-            await reloadVaccineTypes();
             setCurrentSchedule(null);
         }
         setScheduleEditMode(!!schedule);
@@ -446,7 +422,6 @@ const VaccinationsPage = () => {
             // Prepare schedule data according to API specification
             const scheduleData = {
                 pet_id: formData.pet_id,
-                vaccine_type_id: formData.vaccine_type_id,
                 scheduled_date: formData.scheduled_date, // Already in ISO format from modal
                 notes: formData.notes || '',
                 team_id: formData.team_id || null // API accepts team_id, send null if empty
@@ -457,7 +432,6 @@ const VaccinationsPage = () => {
                 // Update existing schedule - include all fields that can be updated
                 const updateData = {
                     pet_id: scheduleData.pet_id,
-                    vaccine_type_id: scheduleData.vaccine_type_id,
                     scheduled_date: scheduleData.scheduled_date,
                     notes: scheduleData.notes,
                     team_id: scheduleData.team_id,
@@ -518,10 +492,8 @@ const VaccinationsPage = () => {
             const searchLower = searchQuery.toLowerCase();
             filtered = filtered.filter(item => {
                 const petName = item.pet?.name?.toLowerCase() || '';
-                const vaccineName = item.vaccine_type?.name?.toLowerCase() || '';
                 const notes = item.notes?.toLowerCase() || '';
                 return petName.includes(searchLower) ||
-                    vaccineName.includes(searchLower) ||
                     notes.includes(searchLower);
             });
         }
@@ -531,16 +503,6 @@ const VaccinationsPage = () => {
             filtered = filtered.filter(item => {
                 const itemPetId = item.pet_id || item.pet?.id;
                 return itemPetId === filterPetId;
-            });
-        }
-
-        // Filter by vaccine type
-        if (filterVaccineType) {
-            filtered = filtered.filter(item => {
-                const itemVaccineTypeId = item.vaccine_type_id || item.vaccine_type?.id;
-                const itemIdStr = String(itemVaccineTypeId || '');
-                const filterIdStr = String(filterVaccineType || '');
-                return itemIdStr === filterIdStr && itemIdStr !== '';
             });
         }
 
@@ -588,12 +550,11 @@ const VaccinationsPage = () => {
             .map(({ timeDiff, ...item }) => item);
 
         // Debug: Log filtered results
-        if (filterPetId || filterVaccineType || filterStatus || filterFromDate || filterToDate || searchQuery) {
+        if (filterPetId || filterStatus || filterFromDate || filterToDate || searchQuery) {
             console.log('🔍 Filtered vaccination schedules:', {
                 total: sorted.length,
                 filters: {
                     petId: filterPetId,
-                    vaccineType: filterVaccineType,
                     status: filterStatus,
                     fromDate: filterFromDate,
                     toDate: filterToDate,
@@ -603,7 +564,7 @@ const VaccinationsPage = () => {
         }
 
         return sorted;
-    }, [allUpcomingVaccinations, searchQuery, filterPetId, filterVaccineType, filterStatus, filterFromDate, filterToDate]);
+    }, [allUpcomingVaccinations, searchQuery, filterPetId, filterStatus, filterFromDate, filterToDate]);
 
     // Paginated data for upcoming vaccinations
     const paginatedUpcomingVaccinations = useMemo(() => {
@@ -754,14 +715,6 @@ const VaccinationsPage = () => {
                             cursor: 'pointer'
                         },
                         {
-                            label: 'Tổng loại vaccine',
-                            value: vaccinationStats?.total_vaccine_types || 0,
-                            color: COLORS.PRIMARY[500],
-                            valueColor: COLORS.PRIMARY[700],
-                            onClick: () => setCurrentTab(2),
-                            cursor: 'pointer'
-                        },
-                        {
                             label: 'Tổng hồ sơ',
                             value: vaccinationRecords.length,
                             color: COLORS.INFO[500],
@@ -866,11 +819,6 @@ const VaccinationsPage = () => {
                             iconPosition="start"
                             label={`Lịch tiêm sắp tới (${filteredUpcomingVaccinations.length})`}
                         />
-                        <Tab
-                            icon={<Vaccines />}
-                            iconPosition="start"
-                            label="Quản lý Vaccines"
-                        />
                     </Tabs>
                 </Paper>
 
@@ -955,31 +903,6 @@ const VaccinationsPage = () => {
                                 </Select>
                             </FormControl>
 
-                            <FormControl size="small" sx={{ minWidth: 250 }}>
-                                <InputLabel shrink>Loại vaccine</InputLabel>
-                                <Select
-                                    value={filterVaccineType}
-                                    onChange={(e) => setFilterVaccineType(e.target.value)}
-                                    label="Loại vaccine"
-                                    displayEmpty
-                                    renderValue={(selected) => {
-                                        if (!selected || selected === '') {
-                                            return 'Tất cả';
-                                        }
-                                        const vaccineType = vaccineTypes.find(vt => vt.id === selected);
-                                        return vaccineType ? vaccineType.name : '';
-                                    }}
-                                >
-                                    <MenuItem value="">
-                                        <em>Tất cả</em>
-                                    </MenuItem>
-                                    {vaccineTypes.map(vt => (
-                                        <MenuItem key={vt.id} value={vt.id}>
-                                            {vt.name}
-                                        </MenuItem>
-                                    ))}
-                                </Select>
-                            </FormControl>
 
                             <Button
                                 variant="contained"
@@ -1106,7 +1029,6 @@ const VaccinationsPage = () => {
                                         <TableHead>
                                             <TableRow>
                                                 <TableCell sx={{ fontWeight: 800 }}>Thú cưng</TableCell>
-                                                <TableCell sx={{ fontWeight: 800 }}>Vaccine</TableCell>
                                                 <TableCell sx={{ fontWeight: 800 }}>Ngày tiêm dự kiến</TableCell>
                                                 <TableCell sx={{ fontWeight: 800, display: { xs: 'none', lg: 'table-cell' } }}>Ngày hoàn thành</TableCell>
                                                 <TableCell sx={{ fontWeight: 800, display: { xs: 'none', md: 'table-cell' } }}>Ghi chú</TableCell>
@@ -1136,11 +1058,6 @@ const VaccinationsPage = () => {
                                                             </Avatar>
                                                             <Typography sx={{ fontWeight: 600 }}>{item.pet?.name || '—'}</Typography>
                                                         </Stack>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                                                            {item.vaccine_type?.name || '—'}
-                                                        </Typography>
                                                     </TableCell>
                                                     <TableCell>
                                                         <Typography variant="body2">
@@ -1231,10 +1148,6 @@ const VaccinationsPage = () => {
                     </Paper>
                 )}
 
-                {/* Tab Content: Vaccine Types Management */}
-                {currentTab === 2 && (
-                    <VaccineTypesTab species={species} onVaccineTypeChange={reloadVaccineTypes} />
-                )}
             </Box>
 
             {/* Detail Dialog */}
@@ -1477,40 +1390,6 @@ const VaccinationsPage = () => {
                                 </Stack>
                                 <Divider sx={{ mb: 2 }} />
                                 <Stack spacing={1.5}>
-                                    <Stack direction="row" spacing={2}>
-                                        <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, width: '160px', flexShrink: 0 }}>
-                                            Tên vaccine
-                                        </Typography>
-                                        <Typography variant="h6" sx={{ fontWeight: 700, color: COLORS.SUCCESS[700], lineHeight: 1.3 }}>
-                                            {selectedItem.vaccine_type?.name || '—'}
-                                        </Typography>
-                                    </Stack>
-                                    <Stack direction="row" spacing={2}>
-                                        <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, width: '160px', flexShrink: 0 }}>
-                                            Mức độ quan trọng
-                                        </Typography>
-                                        <Typography variant="body1" sx={{ fontWeight: 600, lineHeight: 1.5 }}>
-                                            {selectedItem.vaccine_type?.is_required ? 'Bắt buộc' : 'Không bắt buộc'}
-                                        </Typography>
-                                    </Stack>
-                                    {selectedItem.vaccine_type?.interval_months && (
-                                        <Stack direction="row" spacing={2}>
-                                            <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, width: '160px', flexShrink: 0 }}>
-                                                Chu kỳ tiêm lại
-                                            </Typography>
-                                            <Typography variant="body1" sx={{ fontWeight: 600, lineHeight: 1.5 }}>
-                                                {selectedItem.vaccine_type.interval_months} tháng
-                                            </Typography>
-                                        </Stack>
-                                    )}
-                                    <Stack direction="row" spacing={2}>
-                                        <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, width: '160px', flexShrink: 0 }}>
-                                            Mô tả vaccine
-                                        </Typography>
-                                        <Typography variant="body2" sx={{ color: COLORS.TEXT.PRIMARY, lineHeight: 1.6, flex: 1 }}>
-                                            {selectedItem.vaccine_type?.description || 'Không có mô tả'}
-                                        </Typography>
-                                    </Stack>
                                 </Stack>
                             </Paper>
 
@@ -1713,7 +1592,6 @@ const VaccinationsPage = () => {
                 editMode={scheduleEditMode}
                 initialData={currentSchedule}
                 pets={pets}
-                vaccineTypes={vaccineTypes}
                 species={species}
                 teams={teams}
                 isLoading={isLoading}
@@ -1728,7 +1606,7 @@ const VaccinationsPage = () => {
                 }}
                 onConfirm={confirmDeleteSchedule}
                 title="Xóa lịch tiêm"
-                message={`Bạn có chắc chắn muốn xóa lịch tiêm cho "${scheduleToDelete?.pet?.name || '—'}" - "${scheduleToDelete?.vaccine_type?.name || '—'}"? Hành động này không thể hoàn tác.`}
+                message={`Bạn có chắc chắn muốn xóa lịch tiêm cho "${scheduleToDelete?.pet?.name || '—'}"? Hành động này không thể hoàn tác.`}
                 confirmText="Xóa"
                 cancelText="Hủy"
                 type="error"

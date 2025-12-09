@@ -529,7 +529,7 @@ const VaccinationCalendar = ({ upcomingVaccinations }) => {
                                                         mb: 0.75
                                                     }}
                                                 >
-                                                    {vaccination.vaccine_type?.name}
+                                                    {vaccination.name || 'Vaccine'}
                                                 </Typography>
                                                 {vaccination.vaccine_type?.is_required && (
                                                     <Chip

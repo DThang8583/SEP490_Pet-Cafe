@@ -95,7 +95,7 @@ const TasksPage = () => {
             total: slots.length,
             available: slots.filter(s => s.service_status === 'AVAILABLE').length,
             unavailable: slots.filter(s => s.service_status === 'UNAVAILABLE').length,
-            booked: slots.filter(s => s.service_status === 'BOOKED').length,
+            maintenance: slots.filter(s => s.service_status === 'MAINTENANCE').length,
             cancelled: slots.filter(s => s.service_status === 'CANCELLED').length
         };
 

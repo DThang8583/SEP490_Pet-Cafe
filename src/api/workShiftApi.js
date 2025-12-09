@@ -150,6 +150,18 @@ export const createWorkShift = async (shiftData) => {
             message: 'Tạo ca làm việc thành công'
         };
     } catch (error) {
+        // Extract error message from response
+        if (error.response?.data) {
+            const errorData = error.response.data;
+            if (errorData.message) {
+                throw new Error(Array.isArray(errorData.message) ? errorData.message.join('. ') : errorData.message);
+            }
+            if (errorData.error) {
+                const errorMsg = Array.isArray(errorData.error) ? errorData.error.join('. ') : errorData.error;
+                throw new Error(errorMsg);
+            }
+        }
+
         throw error;
     }
 };

@@ -11,14 +11,12 @@ const VaccinationScheduleModal = ({
     editMode = false,
     initialData = null,
     pets = [],
-    vaccineTypes = [],
     species = [],
     teams = [],
     isLoading = false
 }) => {
     const [formData, setFormData] = useState({
         species_id: '',
-        vaccine_type_id: '',
         pet_id: '',
         scheduled_date: '',
         scheduled_time: '09:00', // Default time 9:00 AM to match backend
@@ -116,7 +114,6 @@ const VaccinationScheduleModal = ({
 
                 setFormData({
                     species_id: speciesId,
-                    vaccine_type_id: initialData.vaccine_type_id || '',
                     pet_id: initialData.pet_id || '',
                     scheduled_date: dateOnly,
                     scheduled_time: timeOnly,
@@ -128,7 +125,6 @@ const VaccinationScheduleModal = ({
             } else {
                 setFormData({
                     species_id: '',
-                    vaccine_type_id: '',
                     pet_id: '',
                     scheduled_date: '',
                     scheduled_time: '09:00',
@@ -148,10 +144,6 @@ const VaccinationScheduleModal = ({
             newErrors.species_id = 'Vui lòng chọn loài';
         }
 
-        if (!formData.vaccine_type_id) {
-            newErrors.vaccine_type_id = 'Vui lòng chọn loại vaccine';
-        }
-
         if (!formData.pet_id) {
             newErrors.pet_id = 'Vui lòng chọn thú cưng';
         }
@@ -162,10 +154,6 @@ const VaccinationScheduleModal = ({
 
         if (!formData.scheduled_time) {
             newErrors.scheduled_time = 'Vui lòng chọn giờ tiêm';
-        }
-
-        if (!formData.team_id) {
-            newErrors.team_id = 'Vui lòng chọn nhóm';
         }
 
         setErrors(newErrors);
@@ -179,18 +167,17 @@ const VaccinationScheduleModal = ({
         // So we send local time AS IF it were UTC (with Z suffix)
         const scheduledDateTime = formData.scheduled_date && formData.scheduled_time
             ? `${formData.scheduled_date}T${formData.scheduled_time}:00Z`
-                : '';
+            : '';
 
-            onSubmit({
-                ...formData,
-                scheduled_date: scheduledDateTime
-            });
+        onSubmit({
+            ...formData,
+            scheduled_date: scheduledDateTime
+        });
     }, [formData, onSubmit, validate]);
 
     const handleClose = useCallback(() => {
         setFormData({
             species_id: '',
-            vaccine_type_id: '',
             pet_id: '',
             scheduled_date: '',
             scheduled_time: '09:00',
@@ -224,32 +211,11 @@ const VaccinationScheduleModal = ({
         return new Map(pets.map(pet => [pet.id, pet.name]));
     }, [pets]);
 
-    const vaccineTypeNameMap = useMemo(() => {
-        if (!Array.isArray(vaccineTypes)) return new Map();
-        return new Map(vaccineTypes.map(vt => [vt.id, vt.name]));
-    }, [vaccineTypes]);
-
-    // Get pet / vaccine names
+    // Get pet name
     const getPetName = useCallback((petId) => {
         if (!petId) return '';
         return petNameMap.get(petId) || '';
     }, [petNameMap]);
-
-    const getVaccineTypeName = useCallback((vaccineTypeId) => {
-        if (!vaccineTypeId) return '';
-        return vaccineTypeNameMap.get(vaccineTypeId) || '';
-    }, [vaccineTypeNameMap]);
-
-    // Get available vaccine types for selected species
-    const availableVaccineTypes = useMemo(() => {
-        if (!formData.species_id) {
-            return [];
-        }
-        return vaccineTypes.filter(vt => {
-            const vtSpeciesId = vt.species_id || vt.species?.id;
-            return vtSpeciesId === formData.species_id;
-        });
-    }, [formData.species_id, vaccineTypes]);
 
     // Get available pets for selected species
     const availablePets = useMemo(() => {
@@ -373,11 +339,10 @@ const VaccinationScheduleModal = ({
                                 value={formData.species_id}
                                 onChange={(e) => {
                                     const newSpeciesId = e.target.value;
-                                    // Reset vaccine_type_id and pet_id when species changes
+                                    // Reset pet_id when species changes
                                     setFormData(prev => ({
                                         ...prev,
                                         species_id: newSpeciesId,
-                                        vaccine_type_id: '',
                                         pet_id: ''
                                     }));
                                 }}
@@ -396,52 +361,6 @@ const VaccinationScheduleModal = ({
                             ) : (
                                 <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, mt: 0.5, ml: 1.5 }}>
                                     Có {species.length} loài
-                                </Typography>
-                            )}
-                        </FormControl>
-
-                        {/* Vaccine Type Selection */}
-                        <FormControl
-                            fullWidth
-                            required
-                            error={Boolean(errors.vaccine_type_id)}
-                            disabled={!formData.species_id}
-                        >
-                            <InputLabel>Loại vaccine</InputLabel>
-                            <Select
-                                value={formData.vaccine_type_id}
-                                onChange={(e) => setFormData(prev => ({ ...prev, vaccine_type_id: e.target.value }))}
-                                label="Loại vaccine"
-                                disabled={!formData.species_id}
-                            >
-                                {availableVaccineTypes.length > 0 ? (
-                                    availableVaccineTypes.map(vt => (
-                                        <MenuItem key={vt.id} value={vt.id}>
-                                            <Stack spacing={0.5}>
-                                                <Typography>{vt.name}</Typography>
-                                                {vt.description && (
-                                                    <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY }}>
-                                                        {vt.description.substring(0, 60)}...
-                                                    </Typography>
-                                                )}
-                                            </Stack>
-                                        </MenuItem>
-                                    ))
-                                ) : (
-                                    <MenuItem disabled>
-                                        <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
-                                            {formData.species_id ? 'Không có vaccine phù hợp với loài này' : 'Vui lòng chọn loài trước'}
-                                        </Typography>
-                                    </MenuItem>
-                                )}
-                            </Select>
-                            {errors.vaccine_type_id ? (
-                                <Typography variant="caption" sx={{ color: COLORS.ERROR[600], mt: 0.5, ml: 1.5 }}>
-                                    {errors.vaccine_type_id}
-                                </Typography>
-                            ) : formData.species_id && (
-                                <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, mt: 0.5, ml: 1.5 }}>
-                                    Tìm thấy {availableVaccineTypes.length} loại vaccine (Tổng: {vaccineTypes.length})
                                 </Typography>
                             )}
                         </FormControl>
@@ -598,12 +517,12 @@ const VaccinationScheduleModal = ({
                                     {filteredTeams
                                         .filter(team => team.__matchesSchedule)
                                         .map(team => (
-                                        <MenuItem key={team.id} value={team.id}>
+                                            <MenuItem key={team.id} value={team.id}>
                                                 <Typography variant="body2" sx={{ fontWeight: 500 }}>
                                                     {team.name}
                                                 </Typography>
-                                        </MenuItem>
-                                    ))}
+                                            </MenuItem>
+                                        ))}
                                 </Select>
                                 {errors.team_id && (
                                     <Typography variant="caption" sx={{ color: COLORS.ERROR[600], mt: 0.5, ml: 1.5 }}>
@@ -644,7 +563,7 @@ const VaccinationScheduleModal = ({
                         />
 
                         {/* Preview Info */}
-                        {formData.pet_id && formData.vaccine_type_id && formData.scheduled_date && (
+                        {formData.pet_id && formData.scheduled_date && (
                             <Box
                                 sx={{
                                     p: 2,
@@ -659,9 +578,6 @@ const VaccinationScheduleModal = ({
                                 <Stack spacing={0.5}>
                                     <Typography variant="body2">
                                         <strong>Đối tượng:</strong> {getPetName(formData.pet_id)}
-                                    </Typography>
-                                    <Typography variant="body2">
-                                        <strong>Vaccine:</strong> {getVaccineTypeName(formData.vaccine_type_id)}
                                     </Typography>
                                     <Typography variant="body2">
                                         <strong>Ngày:</strong>{' '}

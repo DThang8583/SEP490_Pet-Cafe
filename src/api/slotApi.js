@@ -26,7 +26,7 @@ export const WEEKDAY_LABELS = {
 export const SLOT_STATUS = {
     AVAILABLE: 'AVAILABLE',
     UNAVAILABLE: 'UNAVAILABLE',
-    BOOKED: 'BOOKED',
+    MAINTENANCE: 'MAINTENANCE',
     CANCELLED: 'CANCELLED'
 };
 
@@ -276,6 +276,30 @@ const slotApi = {
     async updateSlot(slotId, updates) {
         if (!slotId) throw new Error('Slot ID là bắt buộc');
 
+        // Validate service_status if provided
+        // service_status should always be provided in edit mode, but handle null/undefined gracefully
+        let validServiceStatus = null;
+        if (updates.service_status !== undefined && updates.service_status !== null && updates.service_status !== '') {
+            const statusValue = String(updates.service_status).trim().toUpperCase();
+            const validStatuses = [
+                SLOT_STATUS.AVAILABLE,
+                SLOT_STATUS.UNAVAILABLE,
+                SLOT_STATUS.MAINTENANCE,
+                SLOT_STATUS.CANCELLED
+            ];
+
+            if (validStatuses.includes(statusValue)) {
+                validServiceStatus = statusValue;
+            } else {
+                // If service_status is provided but invalid, throw error
+                throw new Error(`Trạng thái không hợp lệ: "${updates.service_status}". Giá trị hợp lệ: AVAILABLE, UNAVAILABLE, MAINTENANCE, CANCELLED`);
+            }
+        } else if (updates.service_status === null || updates.service_status === '') {
+            // If service_status is explicitly null or empty string, don't include it in payload
+            // Backend should preserve existing value
+            validServiceStatus = null;
+        }
+
         // Build payload according to official API PUT specification
         // All fields from the API spec should be included
         const payload = {
@@ -292,7 +316,7 @@ const slotApi = {
             specific_date: updates.specific_date || null,
             day_of_week: updates.day_of_week || null,
             price: updates.price ?? 0,
-            service_status: updates.service_status || null,
+            service_status: validServiceStatus,
             is_update_related_data: updates.is_update_related_data !== undefined ? updates.is_update_related_data : true
         };
 
@@ -304,6 +328,13 @@ const slotApi = {
         } catch (error) {
             console.error('[updateSlot] Error:', error);
             if (error.response?.status === 404) throw new Error('Không tìm thấy slot');
+
+            // Check if error is about service_status validation
+            const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message;
+            if (errorMessage && errorMessage.includes('ServiceStatus') || errorMessage.includes('service_status')) {
+                throw new Error(`Trạng thái không hợp lệ. Giá trị hợp lệ: AVAILABLE, UNAVAILABLE, MAINTENANCE, CANCELLED`);
+            }
+
             throw new Error(extractErrorMessage(error, 'Không thể cập nhật slot'));
         }
     },

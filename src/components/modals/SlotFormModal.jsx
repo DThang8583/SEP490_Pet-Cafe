@@ -11,7 +11,7 @@ import AlertModal from '../modals/AlertModal';
 const SLOT_STATUS = {
     AVAILABLE: 'AVAILABLE',
     UNAVAILABLE: 'UNAVAILABLE',
-    BOOKED: 'BOOKED',
+    MAINTENANCE: 'MAINTENANCE',
     CANCELLED: 'CANCELLED'
 };
 
@@ -286,6 +286,37 @@ const SlotFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, 
             if (mode === 'edit' && initialData) {
                 // Edit mode: load existing slot data
                 // Convert HH:mm:ss to HH:mm for time input display
+
+                // Log initial data from API for debugging
+                console.log('[SlotFormModal] Loading slot data for edit:', {
+                    slotId: initialData.id,
+                    service_status: initialData.service_status,
+                    service_status_type: typeof initialData.service_status,
+                    allData: initialData
+                });
+
+                // Normalize and validate service_status from API
+                let normalizedServiceStatus = SLOT_STATUS.UNAVAILABLE; // Default fallback
+                if (initialData.service_status) {
+                    const statusValue = String(initialData.service_status).trim().toUpperCase();
+                    const validStatuses = [
+                        SLOT_STATUS.AVAILABLE,
+                        SLOT_STATUS.UNAVAILABLE,
+                        SLOT_STATUS.MAINTENANCE,
+                        SLOT_STATUS.CANCELLED
+                    ];
+
+                    if (validStatuses.includes(statusValue)) {
+                        normalizedServiceStatus = statusValue;
+                        console.log(`[SlotFormModal] Valid service_status from API: "${initialData.service_status}" -> normalized to "${normalizedServiceStatus}"`);
+                    } else {
+                        // Log warning if invalid status from API
+                        console.warn(`[SlotFormModal] Invalid service_status from API: "${initialData.service_status}". Using default: UNAVAILABLE`);
+                    }
+                } else {
+                    console.log(`[SlotFormModal] No service_status in API data. Using default: UNAVAILABLE`);
+                }
+
                 setFormData({
                     task_id: initialData.task_id || '',
                     area_id: initialData.area_id || '',
@@ -299,7 +330,7 @@ const SlotFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, 
                     day_of_week: initialData.day_of_week || '',
                     specific_date: initialData.specific_date || '',
                     price: initialData.price ?? 0,
-                    service_status: initialData.service_status || SLOT_STATUS.UNAVAILABLE
+                    service_status: normalizedServiceStatus
                 });
             } else if (mode === 'create' && taskData) {
                 // Create mode: auto-fill task_id
@@ -595,7 +626,41 @@ const SlotFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, 
                 if (taskData && taskData.is_public) {
                     submitData.price = parseFloat(formData.price) || 0;
                 }
-                submitData.service_status = formData.service_status;
+
+                // Validate and set service_status - must be one of the valid values
+                // In edit mode, service_status is required and must always be sent
+                const validStatuses = [
+                    SLOT_STATUS.AVAILABLE,
+                    SLOT_STATUS.UNAVAILABLE,
+                    SLOT_STATUS.MAINTENANCE,
+                    SLOT_STATUS.CANCELLED
+                ];
+
+                // Normalize service_status value (uppercase, trim)
+                const normalizedStatus = formData.service_status
+                    ? String(formData.service_status).trim().toUpperCase()
+                    : null;
+
+                if (normalizedStatus && validStatuses.includes(normalizedStatus)) {
+                    submitData.service_status = normalizedStatus;
+                } else if (normalizedStatus) {
+                    // If service_status is provided but invalid, throw error
+                    throw new Error(`Trạng thái không hợp lệ: "${formData.service_status}". Giá trị hợp lệ: AVAILABLE, UNAVAILABLE, MAINTENANCE, CANCELLED`);
+                } else {
+                    // If service_status is not provided or empty, use the value from initialData if available
+                    // Otherwise fallback to UNAVAILABLE
+                    if (initialData && initialData.service_status) {
+                        const initialStatus = String(initialData.service_status).trim().toUpperCase();
+                        if (validStatuses.includes(initialStatus)) {
+                            submitData.service_status = initialStatus;
+                        } else {
+                            submitData.service_status = SLOT_STATUS.UNAVAILABLE;
+                        }
+                    } else {
+                        submitData.service_status = SLOT_STATUS.UNAVAILABLE;
+                    }
+                }
+
                 // Add is_update_related_data (default to true)
                 submitData.is_update_related_data = true;
             }
@@ -627,7 +692,7 @@ const SlotFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, 
         } finally {
             setLoading(false);
         }
-    }, [validateForm, formData, formatTimeForAPI, mode, taskData, onSubmit, resetForm, onClose]);
+    }, [validateForm, formData, formatTimeForAPI, mode, taskData, initialData, onSubmit, resetForm, onClose]);
 
     const handleClose = useCallback(() => {
         if (loading) return;
@@ -1084,29 +1149,38 @@ const SlotFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, 
                     {/* Service Status - Only for Edit Mode */}
                     {mode === 'edit' && (
                         <FormControl fullWidth required error={!!errors.service_status}>
-                            <InputLabel>Trạng thái Ca</InputLabel>
+                            <InputLabel>Trạng thái Ca *</InputLabel>
                             <Select
                                 value={formData.service_status}
                                 onChange={(e) => handleChange('service_status', e.target.value)}
-                                label="Trạng thái Ca"
+                                label="Trạng thái Ca *"
+                                sx={{
+                                    '& .MuiOutlinedInput-root': {
+                                        borderRadius: 2
+                                    }
+                                }}
                             >
                                 <MenuItem value={SLOT_STATUS.AVAILABLE}>
                                     <Typography variant="body2">Có sẵn</Typography>
                                 </MenuItem>
                                 <MenuItem value={SLOT_STATUS.UNAVAILABLE}>
-                                    <Typography variant="body2">Không có sẵn</Typography>
+                                    <Typography variant="body2">Không khả dụng</Typography>
                                 </MenuItem>
-                                <MenuItem value={SLOT_STATUS.BOOKED}>
-                                    <Typography variant="body2">Đã đặt</Typography>
+                                <MenuItem value={SLOT_STATUS.MAINTENANCE}>
+                                    <Typography variant="body2">Bảo trì</Typography>
                                 </MenuItem>
                                 <MenuItem value={SLOT_STATUS.CANCELLED}>
                                     <Typography variant="body2">Đã hủy</Typography>
                                 </MenuItem>
                             </Select>
-                            {errors.service_status && (
-                                <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 2 }}>
+                            {errors.service_status ? (
+                                <FormHelperText error sx={{ ml: 0, mt: 0.5 }}>
                                     {errors.service_status}
-                                </Typography>
+                                </FormHelperText>
+                            ) : (
+                                <FormHelperText sx={{ ml: 0, mt: 0.5 }}>
+                                    Chọn trạng thái hiện tại của ca làm việc
+                                </FormHelperText>
                             )}
                         </FormControl>
                     )}
