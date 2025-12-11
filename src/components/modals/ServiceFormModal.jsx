@@ -105,11 +105,11 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
             if (prev.length + files.length > 5) {
                 setErrors(prevErrors => ({
                     ...prevErrors,
-                images: 'Chỉ được tải tối đa 5 ảnh'
-            }));
-            event.target.value = '';
+                    images: 'Chỉ được tải tối đa 5 ảnh'
+                }));
+                event.target.value = '';
                 return prev;
-        }
+            }
             return prev;
         });
 
@@ -185,7 +185,7 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
         setImagePreviews(prev => {
             const newPreviews = prev.filter((_, i) => i !== index);
 
-        // Update formData: first image is main, rest are thumbnails
+            // Update formData: first image is main, rest are thumbnails
             setFormData(formDataPrev => ({
                 ...formDataPrev,
                 image_url: newPreviews[0] || '',
@@ -269,8 +269,8 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
 
     const handleClose = useCallback(() => {
         if (loading) return;
-            resetForm();
-            onClose();
+        resetForm();
+        onClose();
     }, [loading, resetForm, onClose]);
 
     // Memoize computed values for performance
@@ -322,7 +322,7 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
                     <Stack direction="row" spacing={1} alignItems="center">
                         {mode === 'edit' ? <LocalOffer /> : <ImageIcon />}
                         <Typography variant="h6" component="span">
-                    {mode === 'edit' ? '✏️ Chỉnh sửa Dịch vụ' : '➕ Tạo Dịch vụ từ Nhiệm vụ'}
+                            {mode === 'edit' ? '✏️ Chỉnh sửa Dịch vụ' : '➕ Tạo Dịch vụ từ Nhiệm vụ'}
                         </Typography>
                     </Stack>
                     <IconButton
@@ -736,11 +736,9 @@ const ServiceFormModal = ({ open, onClose, onSubmit, taskData, initialData = nul
                             <br />
                             {mode === 'create' ? (
                                 <>
-                            • Dịch vụ sẽ được tạo với trạng thái <strong>Không hoạt động</strong> mặc định
-                            <br />
-                            • Bạn có thể kích hoạt dịch vụ sau khi tạo xong
-                            <br />
-                                    • 1 Nhiệm vụ chỉ có thể tạo 1 Dịch vụ (quan hệ 1-1)
+                                    • Dịch vụ sẽ được tạo với trạng thái <strong>Không hoạt động</strong> mặc định
+                                    <br />
+                                    • Bạn có thể kích hoạt dịch vụ sau khi tạo xong
                                 </>
                             ) : formData.is_active ? (
                                 <>

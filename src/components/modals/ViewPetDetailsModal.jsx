@@ -261,7 +261,7 @@ const ViewPetDetailsModal = ({
                                                             <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
                                                                 <Vaccines sx={{ color: COLORS.SUCCESS[700], fontSize: 24 }} />
                                                                 <Typography variant="h6" sx={{ fontWeight: 700, color: COLORS.SUCCESS[700] }}>
-                                                                    {vaccination.name || 'Vaccine'}
+                                                                    Hồ sơ tiêm phòng
                                                                 </Typography>
                                                             </Stack>
                                                         </Box>
@@ -338,7 +338,7 @@ const ViewPetDetailsModal = ({
                                                                             Tên vaccine
                                                                         </Typography>
                                                                         <Typography variant="body2" sx={{ fontWeight: 600, wordBreak: 'break-word' }}>
-                                                                            {vaccination.batch_number || '—'}
+                                                                            {vaccination.name || '—'}
                                                                         </Typography>
                                                                     </Box>
                                                                 </Stack>

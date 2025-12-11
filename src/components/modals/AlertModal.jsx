@@ -89,6 +89,9 @@ const AlertModal = ({
             onClose={(event, reason) => handleKeyDown(event, reason)}
             maxWidth="sm"
             fullWidth
+            sx={{
+                zIndex: 1400 // Đảm bảo AlertModal hiển thị trên các Dialog khác (MUI Dialog mặc định là 1300)
+            }}
             PaperProps={{
                 sx: {
                     borderRadius: 6,
@@ -96,14 +99,15 @@ const AlertModal = ({
                     overflow: 'visible',
                     position: 'relative',
                     m: 2,
-                    maxWidth: '28rem'
+                    maxWidth: '28rem',
+                    pointerEvents: 'auto',
+                    zIndex: 1401 // Đảm bảo Paper có z-index cao hơn backdrop
                 }
             }}
             BackdropProps={{
                 sx: {
-                    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-                    backdropFilter: 'blur(8px)',
-                    WebkitBackdropFilter: 'blur(8px)'
+                    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+                    zIndex: 1399 // Backdrop phải thấp hơn Dialog một chút
                 }
             }}
         >

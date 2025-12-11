@@ -107,7 +107,7 @@ const DashboardPage = () => {
                 {/* Header */}
                 <Box sx={{ mb: 3 }}>
                     <Typography variant="h5" sx={{ fontWeight: 900, color: COLORS.PRIMARY[600] }}>
-                        Dashboard
+                        Tổng quan
                     </Typography>
                 </Box>
 
