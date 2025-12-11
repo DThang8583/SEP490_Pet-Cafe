@@ -237,23 +237,6 @@ const TaskTemplateFormModal = ({ open, onClose, onSubmit, initialData = null, mo
                             )}
                         </FormControl>
 
-                        <FormControl fullWidth>
-                            <InputLabel>Dịch vụ (Tùy chọn)</InputLabel>
-                            <Select
-                                value={formData.service_id}
-                                onChange={(e) => handleChange('service_id', e.target.value)}
-                                label="Dịch vụ (Tùy chọn)"
-                            >
-                                <MenuItem value="">
-                                    <em>Không liên quan</em>
-                                </MenuItem>
-                                {services.map(service => (
-                                    <MenuItem key={service.id} value={service.id}>
-                                        {service.name}
-                                    </MenuItem>
-                                ))}
-                            </Select>
-                        </FormControl>
                     </Stack>
 
                     {/* Priority & Estimated Hours */}
@@ -345,21 +328,6 @@ const TaskTemplateFormModal = ({ open, onClose, onSubmit, initialData = null, mo
 
                     {/* Image URL field removed - not in official API POST /api/tasks specification */}
 
-                    {/* Info box */}
-                    <Box
-                        sx={{
-                            p: 2,
-                            bgcolor: 'info.lighter',
-                            borderRadius: 1,
-                            border: '1px dashed',
-                            borderColor: 'info.main'
-                        }}
-                    >
-                        <Typography variant="body2" color="info.dark">
-                            💡 <strong>Lưu ý:</strong> Nhiệm vụ công khai sẽ xuất hiện trong trải nghiệm đặt dịch vụ của khách hàng.
-                            Hãy đảm bảo mô tả rõ ràng và thời gian ước tính phù hợp để hỗ trợ việc sắp ca.
-                        </Typography>
-                    </Box>
                 </Stack>
             </DialogContent>
 

@@ -435,6 +435,7 @@ const TasksPage = () => {
 
                 let successCount = 0;
                 let failCount = 0;
+                const errorMessages = []; // Lưu lại các thông báo lỗi cụ thể
 
                 for (const slotData of slotsArray) {
                     try {
@@ -443,6 +444,9 @@ const TasksPage = () => {
                     } catch (error) {
                         console.error('Error creating slot:', error);
                         failCount++;
+                        // Lưu lại thông báo lỗi từ backend
+                        const errorMsg = error.message || error.response?.data?.message || 'Không thể tạo ca';
+                        errorMessages.push(errorMsg);
                     }
                 }
 
@@ -450,7 +454,7 @@ const TasksPage = () => {
                 await new Promise(resolve => setTimeout(resolve, 500));
                 await loadSlots();
 
-                // Show result message
+                // Show result message với chi tiết lỗi
                 if (failCount === 0) {
                     setAlert({
                         open: true,
@@ -458,13 +462,32 @@ const TasksPage = () => {
                         message: `Tạo thành công ${successCount} ca!`,
                         type: 'success'
                     });
+                } else if (successCount === 0) {
+                    // Tất cả slot đều thất bại - throw error để SlotFormModal có thể hiển thị alertModal
+                    const errorDetails = errorMessages.length > 0
+                        ? errorMessages.join('\n\n')
+                        : 'Không thể tạo ca. Vui lòng kiểm tra lại thông tin.';
+                    setAlert({
+                        open: true,
+                        title: 'Lỗi',
+                        message: `Không thể tạo ca. Chi tiết lỗi:\n\n${errorDetails}`,
+                        type: 'error'
+                    });
+                    // Throw error để SlotFormModal có thể catch và hiển thị alertModal
+                    throw new Error(errorDetails);
                 } else {
+                    // Một số slot thành công, một số thất bại - throw error để SlotFormModal có thể hiển thị alertModal
+                    const errorDetails = errorMessages.length > 0
+                        ? `\n\nChi tiết lỗi:\n${errorMessages.join('\n')}`
+                        : '';
                     setAlert({
                         open: true,
                         title: 'Cảnh báo',
-                        message: `Tạo thành công ${successCount} ca, thất bại ${failCount} ca`,
+                        message: `Tạo thành công ${successCount} ca, thất bại ${failCount} ca.${errorDetails}`,
                         type: 'warning'
                     });
+                    // Throw error để SlotFormModal có thể catch và hiển thị alertModal
+                    throw new Error(`Tạo thành công ${successCount} ca, thất bại ${failCount} ca.${errorDetails}`);
                 }
             }
 
@@ -474,6 +497,13 @@ const TasksPage = () => {
             setEditingSlot(null);
             setSlotFormMode('create');
         } catch (error) {
+            // Xử lý lỗi ngoài vòng lặp (nếu có)
+            setAlert({
+                open: true,
+                title: 'Lỗi',
+                message: error.message || 'Có lỗi xảy ra khi tạo ca. Vui lòng thử lại.',
+                type: 'error'
+            });
             throw error;
         }
     };

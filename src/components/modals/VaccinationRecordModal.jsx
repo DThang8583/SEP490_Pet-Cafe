@@ -19,7 +19,6 @@ const VaccinationRecordModal = ({
         name: '',
         veterinarian: '',
         clinic_name: '',
-        batch_number: '',
         notes: ''
     });
 
@@ -38,7 +37,6 @@ const VaccinationRecordModal = ({
                     name: vaccinationRecord.name || '',
                     veterinarian: vaccinationRecord.veterinarian || '',
                     clinic_name: vaccinationRecord.clinic_name || '',
-                    batch_number: vaccinationRecord.batch_number || '',
                     notes: vaccinationRecord.notes || ''
                 });
             } else {
@@ -68,7 +66,6 @@ const VaccinationRecordModal = ({
                     name: '',
                     veterinarian: '',
                     clinic_name: '',
-                    batch_number: '',
                     notes: ''
                 });
             }
@@ -104,15 +101,22 @@ const VaccinationRecordModal = ({
     const handleSubmit = (e) => {
         e?.preventDefault(); // Prevent default form submission
         if (validate() && dailyTask && vaccinationSchedule) {
+            // Format dates to ISO datetime strings (API expects ISO datetime, not just date)
+            const formatDateToISO = (dateString) => {
+                if (!dateString) return null;
+                // Convert YYYY-MM-DD to ISO datetime string (YYYY-MM-DDTHH:mm:ss.sssZ)
+                // Use midnight UTC for the date
+                return new Date(dateString + 'T00:00:00.000Z').toISOString();
+            };
+
             onSubmit({
                 pet_id: vaccinationSchedule.pet_id || vaccinationSchedule.pet?.id,
-                vaccination_date: formData.vaccination_date,
-                next_due_date: formData.next_due_date,
-                name: formData.name.trim(),
-                veterinarian: formData.veterinarian.trim(),
-                clinic_name: formData.clinic_name.trim(),
-                batch_number: formData.batch_number.trim(),
-                notes: formData.notes.trim(),
+                vaccination_date: formatDateToISO(formData.vaccination_date),
+                next_due_date: formatDateToISO(formData.next_due_date),
+                name: formData.name.trim() || '',
+                veterinarian: formData.veterinarian.trim() || '',
+                clinic_name: formData.clinic_name.trim() || '',
+                notes: formData.notes.trim() || '',
                 schedule_id: vaccinationSchedule.id
             });
         }
@@ -126,7 +130,6 @@ const VaccinationRecordModal = ({
             name: '',
             veterinarian: '',
             clinic_name: '',
-            batch_number: '',
             notes: ''
         });
         setErrors({});
@@ -192,7 +195,7 @@ const VaccinationRecordModal = ({
                             Thú cưng: {vaccinationSchedule.pet?.name || vaccinationSchedule.pet_id || 'N/A'}
                         </Typography>
                         <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
-                            Ngày dự kiến: {(() => {
+                            Ngày tiêm dự kiến: {(() => {
                                 if (!vaccinationSchedule.scheduled_date) return 'N/A';
                                 // Extract date directly from ISO string to avoid timezone conversion
                                 const match = vaccinationSchedule.scheduled_date.match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -266,15 +269,6 @@ const VaccinationRecordModal = ({
                         onChange={(e) => setFormData({ ...formData, clinic_name: e.target.value })}
                         fullWidth
                         placeholder="Nhập tên phòng khám"
-                    />
-
-                    {/* Batch Number (Tên vaccine) */}
-                    <TextField
-                        label="Tên vaccine"
-                        value={formData.batch_number}
-                        onChange={(e) => setFormData({ ...formData, batch_number: e.target.value })}
-                        fullWidth
-                        placeholder="Nhập tên vaccine"
                     />
 
                     {/* Notes */}

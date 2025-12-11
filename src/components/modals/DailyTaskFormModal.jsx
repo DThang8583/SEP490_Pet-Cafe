@@ -15,7 +15,9 @@ const DailyTaskFormModal = ({ open, onClose, onSubmit, teams = [], tasks = [], s
         status: 'SCHEDULED',
         assigned_date: new Date().toISOString().split('T')[0],
         start_time: '08:00',
-        end_time: '17:00'
+        end_time: '17:00',
+        description: '',
+        notes: ''
     });
     const [loading, setLoading] = useState(false);
     const [errors, setErrors] = useState({});
@@ -32,7 +34,9 @@ const DailyTaskFormModal = ({ open, onClose, onSubmit, teams = [], tasks = [], s
                 status: 'SCHEDULED',
                 assigned_date: new Date().toISOString().split('T')[0],
                 start_time: '08:00',
-                end_time: '17:00'
+                end_time: '17:00',
+                description: '',
+                notes: ''
             });
             setErrors({});
         }
@@ -87,7 +91,35 @@ const DailyTaskFormModal = ({ open, onClose, onSubmit, teams = [], tasks = [], s
 
         setLoading(true);
         try {
-            await onSubmit(formData);
+            // Format assigned_date to ISO datetime string (combine date + start_time)
+            const formatAssignedDate = () => {
+                if (!formData.assigned_date) return null;
+
+                // Combine date and start_time to create ISO datetime
+                const dateStr = formData.assigned_date; // YYYY-MM-DD
+                const timeStr = formData.start_time || '00:00'; // HH:mm
+
+                // Create ISO datetime string: YYYY-MM-DDTHH:mm:ss.sssZ
+                const dateTimeStr = `${dateStr}T${timeStr}:00.000Z`;
+                return dateTimeStr;
+            };
+
+            // Prepare data according to API spec
+            const submitData = {
+                team_id: formData.team_id || null,
+                task_id: formData.task_id || null,
+                slot_id: formData.slot_id || null,
+                status: formData.status || 'SCHEDULED',
+                assigned_date: formatAssignedDate(),
+                start_time: formData.start_time || '',
+                end_time: formData.end_time || '',
+                title: formData.title || '',
+                priority: formData.priority || 'MEDIUM',
+                description: formData.description || '',
+                notes: formData.notes || ''
+            };
+
+            await onSubmit(submitData);
             handleClose();
         } catch (error) {
             console.error('Error creating daily task:', error);
@@ -302,6 +334,32 @@ const DailyTaskFormModal = ({ open, onClose, onSubmit, teams = [], tasks = [], s
                             InputLabelProps={{ shrink: true }}
                         />
                     </Stack>
+
+                    {/* Row 5: Description */}
+                    <TextField
+                        fullWidth
+                        multiline
+                        rows={3}
+                        label="Mô tả"
+                        value={formData.description}
+                        onChange={(e) => handleChange('description', e.target.value)}
+                        disabled={loading}
+                        placeholder="Nhập mô tả chi tiết về nhiệm vụ này..."
+                        helperText="Mô tả chi tiết về nhiệm vụ cần thực hiện"
+                    />
+
+                    {/* Row 6: Notes */}
+                    <TextField
+                        fullWidth
+                        multiline
+                        rows={2}
+                        label="Ghi chú"
+                        value={formData.notes}
+                        onChange={(e) => handleChange('notes', e.target.value)}
+                        disabled={loading}
+                        placeholder="Nhập ghi chú bổ sung (nếu có)..."
+                        helperText="Ghi chú bổ sung hoặc lưu ý đặc biệt"
+                    />
                 </Stack>
 
                 <Box sx={{

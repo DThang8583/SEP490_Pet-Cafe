@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState, useCallback, useTransition, useDeferredValue } from 'react';
-import { Box, Typography, Paper, Chip, Stack, IconButton, Button, Grid, Card, CardContent, TextField, Menu, MenuItem, ListItemIcon, ListItemText, Divider } from '@mui/material';
+import { Box, Typography, Paper, Chip, Stack, IconButton, Button, Grid, Card, CardContent, TextField, Menu, MenuItem, ListItemIcon, ListItemText, Divider, Tooltip } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import { COLORS } from '../../constants/colors';
 import Loading from '../../components/loading/Loading';
@@ -1400,8 +1400,8 @@ const WorkShiftPage = () => {
                         }}
                     >
                         <Grid container spacing={2}>
-                            {newTeams.map((team) => (
-                                <Grid item xs={12} sm={6} md={4} lg={3} key={team.id}>
+                            {newTeams.map((team) => {
+                                const card = (
                                     <Card
                                         sx={{
                                             width: '100%',
@@ -1470,15 +1470,58 @@ const WorkShiftPage = () => {
                                                     <MoreVert sx={{ fontSize: 16 }} />
                                                 </IconButton>
                                             </Stack>
-
-                                            {/* Description */}
-                                            {team.description && (
-                                                <Box sx={{ mb: 1.5 }}>
-                                                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem', lineHeight: 1.4 }}>
-                                                        {team.description}
+                                            <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 1.5 }}>
+                                                <Box sx={{ flex: 1 }}>
+                                                    <Typography variant="subtitle2" fontWeight={700} color={COLORS.WARNING[700]} sx={{ mb: 0.5 }}>
+                                                        {team.name}
                                                     </Typography>
+                                                    <Stack direction="row" spacing={0.5} alignItems="center" flexWrap="wrap" sx={{ gap: 0.5 }}>
+                                                        {(() => {
+                                                            const statusMeta = getStatusLabel(team.status);
+                                                            return (
+                                                                <Chip
+                                                                    label={statusMeta.text}
+                                                                    size="small"
+                                                                    sx={{
+                                                                        height: 18,
+                                                                        fontSize: '0.6rem',
+                                                                        bgcolor: statusMeta.bg,
+                                                                        color: statusMeta.color
+                                                                    }}
+                                                                />
+                                                            );
+                                                        })()}
+                                                        {(() => {
+                                                            const activeMeta = getActiveLabel(team.is_active);
+                                                            return (
+                                                                <Chip
+                                                                    label={activeMeta.text}
+                                                                    size="small"
+                                                                    sx={{
+                                                                        height: 18,
+                                                                        fontSize: '0.6rem',
+                                                                        bgcolor: activeMeta.bg,
+                                                                        color: activeMeta.color
+                                                                    }}
+                                                                />
+                                                            );
+                                                        })()}
+                                                    </Stack>
                                                 </Box>
-                                            )}
+                                                <IconButton
+                                                    size="small"
+                                                    onClick={(e) => handleTeamMenuOpen(e, team)}
+                                                    sx={{
+                                                        p: 0.5,
+                                                        '&:hover': {
+                                                            bgcolor: alpha(COLORS.WARNING[500], 0.1)
+                                                        }
+                                                    }}
+                                                >
+                                                    <MoreVert sx={{ fontSize: 16 }} />
+                                                </IconButton>
+                                            </Stack>
+
 
                                             {/* Leader */}
                                             {team.leader && (
@@ -1608,8 +1651,41 @@ const WorkShiftPage = () => {
                                             </Box>
                                         </CardContent>
                                     </Card>
-                                </Grid>
-                            ))}
+                                );
+
+                                return (
+                                    <Grid item xs={12} sm={6} md={4} lg={3} key={team.id}>
+                                        {team.description ? (
+                                            <Tooltip
+                                                title={team.description}
+                                                arrow
+                                                placement="top"
+                                                componentsProps={{
+                                                    tooltip: {
+                                                        sx: {
+                                                            maxWidth: 300,
+                                                            bgcolor: alpha(COLORS.GRAY[900], 0.95),
+                                                            fontSize: '0.75rem',
+                                                            lineHeight: 1.5,
+                                                            p: 1.5,
+                                                            borderRadius: 2
+                                                        }
+                                                    },
+                                                    arrow: {
+                                                        sx: {
+                                                            color: alpha(COLORS.GRAY[900], 0.95)
+                                                        }
+                                                    }
+                                                }}
+                                            >
+                                                {card}
+                                            </Tooltip>
+                                        ) : (
+                                            card
+                                        )}
+                                    </Grid>
+                                );
+                            })}
                         </Grid>
                     </Paper>
                 </Box>
@@ -1778,8 +1854,8 @@ const WorkShiftPage = () => {
                                                             </Box>
                                                         ) : (
                                                             <Grid container spacing={2} sx={{ alignItems: 'stretch' }}>
-                                                                {shiftTeams.map((team) => (
-                                                                    <Grid item xs={12} sm={6} md={3} lg={3} key={team.id} sx={{ display: 'flex' }}>
+                                                                {shiftTeams.map((team) => {
+                                                                    const card = (
                                                                         <Card
                                                                             sx={{
                                                                                 width: '100%',
@@ -1863,14 +1939,6 @@ const WorkShiftPage = () => {
                                                                                     </Stack>
                                                                                 </Stack>
 
-                                                                                {/* Description */}
-                                                                                {team.description && (
-                                                                                    <Box sx={{ mb: 1.5 }}>
-                                                                                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem', lineHeight: 1.4 }}>
-                                                                                            {team.description}
-                                                                                        </Typography>
-                                                                                    </Box>
-                                                                                )}
 
                                                                                 {/* Work Types */}
                                                                                 {team.team_work_types && team.team_work_types.length > 0 && (
@@ -1988,8 +2056,41 @@ const WorkShiftPage = () => {
                                                                                 </Box>
                                                                             </CardContent>
                                                                         </Card>
-                                                                    </Grid>
-                                                                ))}
+                                                                    );
+
+                                                                    return (
+                                                                        <Grid item xs={12} sm={6} md={3} lg={3} key={team.id} sx={{ display: 'flex' }}>
+                                                                            {team.description ? (
+                                                                                <Tooltip
+                                                                                    title={team.description}
+                                                                                    arrow
+                                                                                    placement="top"
+                                                                                    componentsProps={{
+                                                                                        tooltip: {
+                                                                                            sx: {
+                                                                                                maxWidth: 300,
+                                                                                                bgcolor: alpha(COLORS.GRAY[900], 0.95),
+                                                                                                fontSize: '0.75rem',
+                                                                                                lineHeight: 1.5,
+                                                                                                p: 1.5,
+                                                                                                borderRadius: 2
+                                                                                            }
+                                                                                        },
+                                                                                        arrow: {
+                                                                                            sx: {
+                                                                                                color: alpha(COLORS.GRAY[900], 0.95)
+                                                                                            }
+                                                                                        }
+                                                                                    }}
+                                                                                >
+                                                                                    {card}
+                                                                                </Tooltip>
+                                                                            ) : (
+                                                                                card
+                                                                            )}
+                                                                        </Grid>
+                                                                    );
+                                                                })}
                                                             </Grid>
                                                         );
                                                     })()}

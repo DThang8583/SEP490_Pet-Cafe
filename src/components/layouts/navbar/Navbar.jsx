@@ -74,7 +74,7 @@ const Navbar = () => {
     const isActive = (path) => location.pathname === path;
 
     const managerItems = useMemo(() => ([
-        { label: 'Dashboard', icon: <Dashboard />, path: '/manager/dashboard' },
+        { label: 'Tổng quan', icon: <Dashboard />, path: '/manager/dashboard' },
         { label: 'Thú cưng', icon: <Pets />, path: '/manager/pets' },
         { label: 'Tiêm phòng', icon: <Vaccines />, path: '/manager/vaccinations' },
         { label: 'Khu vực', icon: <LocationOn />, path: '/manager/areas' },

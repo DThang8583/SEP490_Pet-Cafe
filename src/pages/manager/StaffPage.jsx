@@ -570,8 +570,8 @@ const StaffPage = () => {
                     >
                         {[
                             { label: 'Tổng nhân viên', value: stats.total, color: COLORS.PRIMARY[500], valueColor: COLORS.PRIMARY[700] },
-                            { label: 'Sale Staff', value: stats.saleStaff, color: COLORS.INFO[500], valueColor: COLORS.INFO[700] },
-                            { label: 'Working Staff', value: stats.workingStaff, color: COLORS.WARNING[500], valueColor: COLORS.WARNING[700] },
+                            { label: 'Nhân viên bán hàng', value: stats.saleStaff, color: COLORS.INFO[500], valueColor: COLORS.INFO[700] },
+                            { label: 'Nhân viên chăm sóc', value: stats.workingStaff, color: COLORS.WARNING[500], valueColor: COLORS.WARNING[700] },
                             { label: 'Hoạt động', value: stats.active, color: COLORS.SUCCESS[500], valueColor: COLORS.SUCCESS[700] },
                             { label: 'Không hoạt động', value: stats.inactive, color: COLORS.ERROR[500], valueColor: COLORS.ERROR[700] }
                         ].map((stat, index) => {
