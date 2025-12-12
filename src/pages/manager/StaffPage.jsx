@@ -427,8 +427,6 @@ const StaffPage = () => {
             'password': 'password',
             'avatarurl': 'avatar_url',
             'avatar_url': 'avatar_url',
-            'areaid': 'area_id',
-            'area_id': 'area_id',
             'skills': 'skills'
         };
         return mapping[apiFieldName] || apiFieldName;
@@ -442,7 +440,7 @@ const StaffPage = () => {
 
             if (editMode) {
                 // Update existing staff
-                const response = await employeeApi.updateEmployee(selectedStaff.id, {
+                const updateData = {
                     full_name: staffData.full_name,
                     email: staffData.email,
                     phone: staffData.phone,
@@ -450,11 +448,16 @@ const StaffPage = () => {
                     salary: parseFloat(staffData.salary),
                     sub_role: staffData.sub_role,
                     skills: staffData.skills || [],
-                    area_id: staffData.area_id || null,
                     avatar_url: staffData.avatar_url || selectedStaff.avatar_url || '',
-                    password: staffData.password || undefined,
                     is_active: staffData.is_active !== undefined ? Boolean(staffData.is_active) : true
-                });
+                };
+
+                // Only include password fields if password is provided
+                if (staffData.password && staffData.password.trim()) {
+                    updateData.new_password = staffData.password;
+                }
+
+                const response = await employeeApi.updateEmployee(selectedStaff.id, updateData);
 
                 if (response.success) {
                     // Reload current page and stats
@@ -484,7 +487,6 @@ const StaffPage = () => {
                     salary: parseFloat(staffData.salary),
                     sub_role: staffData.sub_role,
                     skills: staffData.skills || [],
-                    area_id: staffData.area_id || null,
                     avatar_url: staffData.avatar_url || '',
                     password: staffData.password
                 });
