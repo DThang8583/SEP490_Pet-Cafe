@@ -1631,7 +1631,7 @@ const WorkShiftPage = () => {
                                         ) : (
                                             card
                                         )}
-                                    </Grid>
+                                </Grid>
                                 );
                             })}
                         </Grid>
@@ -2036,7 +2036,7 @@ const WorkShiftPage = () => {
                                                                             ) : (
                                                                                 card
                                                                             )}
-                                                                        </Grid>
+                                                                    </Grid>
                                                                     );
                                                                 })}
                                                             </Grid>

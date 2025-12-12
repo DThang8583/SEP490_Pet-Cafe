@@ -287,11 +287,20 @@ const AreasPage = () => {
             if (formModal.mode === 'create') {
                 await areasApi.createArea(formData);
 
+                // Close modal first
+                handleCloseFormModal();
+
+                // Set alert immediately (before reload to ensure it shows)
                 setAlert({
                     open: true,
                     title: 'Thành công',
                     message: 'Tạo khu vực mới thành công!',
                     type: 'success'
+                });
+
+                // Reload data from API to get the latest information (don't block on this)
+                loadData().catch(err => {
+                    console.error('Error reloading data after create:', err);
                 });
             } else {
                 // Validate area and areaId
@@ -302,18 +311,22 @@ const AreasPage = () => {
                 const areaId = formModal.area.id;
                 await areasApi.updateArea(areaId, formData);
 
+                // Close modal first
+                handleCloseFormModal();
+
+                // Set alert immediately (before reload to ensure it shows)
                 setAlert({
                     open: true,
                     title: 'Thành công',
                     message: 'Cập nhật khu vực thành công!',
                     type: 'success'
                 });
+
+                // Reload data from API to get the latest information (don't block on this)
+                loadData().catch(err => {
+                    console.error('Error reloading data after update:', err);
+                });
             }
-
-            handleCloseFormModal();
-
-            // Reload data from API to get the latest information
-            await loadData();
         } catch (error) {
             console.error('Error saving area:', error);
             setAlert({
