@@ -1470,58 +1470,6 @@ const WorkShiftPage = () => {
                                                     <MoreVert sx={{ fontSize: 16 }} />
                                                 </IconButton>
                                             </Stack>
-                                            <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 1.5 }}>
-                                                <Box sx={{ flex: 1 }}>
-                                                    <Typography variant="subtitle2" fontWeight={700} color={COLORS.WARNING[700]} sx={{ mb: 0.5 }}>
-                                                        {team.name}
-                                                    </Typography>
-                                                    <Stack direction="row" spacing={0.5} alignItems="center" flexWrap="wrap" sx={{ gap: 0.5 }}>
-                                                        {(() => {
-                                                            const statusMeta = getStatusLabel(team.status);
-                                                            return (
-                                                                <Chip
-                                                                    label={statusMeta.text}
-                                                                    size="small"
-                                                                    sx={{
-                                                                        height: 18,
-                                                                        fontSize: '0.6rem',
-                                                                        bgcolor: statusMeta.bg,
-                                                                        color: statusMeta.color
-                                                                    }}
-                                                                />
-                                                            );
-                                                        })()}
-                                                        {(() => {
-                                                            const activeMeta = getActiveLabel(team.is_active);
-                                                            return (
-                                                                <Chip
-                                                                    label={activeMeta.text}
-                                                                    size="small"
-                                                                    sx={{
-                                                                        height: 18,
-                                                                        fontSize: '0.6rem',
-                                                                        bgcolor: activeMeta.bg,
-                                                                        color: activeMeta.color
-                                                                    }}
-                                                                />
-                                                            );
-                                                        })()}
-                                                    </Stack>
-                                                </Box>
-                                                <IconButton
-                                                    size="small"
-                                                    onClick={(e) => handleTeamMenuOpen(e, team)}
-                                                    sx={{
-                                                        p: 0.5,
-                                                        '&:hover': {
-                                                            bgcolor: alpha(COLORS.WARNING[500], 0.1)
-                                                        }
-                                                    }}
-                                                >
-                                                    <MoreVert sx={{ fontSize: 16 }} />
-                                                </IconButton>
-                                            </Stack>
-
 
                                             {/* Leader */}
                                             {team.leader && (

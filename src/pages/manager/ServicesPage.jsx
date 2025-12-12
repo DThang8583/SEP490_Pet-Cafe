@@ -1253,7 +1253,7 @@ const ServicesPage = () => {
                 onClose={() => setConfirmDeleteOpen(false)}
                 onConfirm={handleConfirmDelete}
                 title="Xóa Dịch vụ?"
-                message={`Bạn có chắc chắn muốn xóa dịch vụ "${deleteTarget?.name}"?`}
+                message={`Bạn có chắc chắn muốn xóa dịch vụ "${deleteTarget?.name || 'này'}"?`}
                 confirmText="Xóa"
                 type="error"
             />
@@ -1266,7 +1266,7 @@ const ServicesPage = () => {
                 }}
                 onConfirm={confirmDisableService}
                 title="Vô hiệu hóa Dịch vụ?"
-                message={`Bạn có chắc chắn muốn vô hiệu hóa dịch vụ "${disableTarget?.name}"? Dịch vụ sẽ không còn khả dụng cho khách hàng đặt lịch.`}
+                message={`Bạn có chắc chắn muốn vô hiệu hóa dịch vụ "${disableTarget?.name || 'này'}"? Dịch vụ sẽ không còn khả dụng cho khách hàng đặt lịch.`}
                 confirmText="Vô hiệu hóa"
                 type="warning"
             />
@@ -1279,7 +1279,7 @@ const ServicesPage = () => {
                 }}
                 onConfirm={confirmEnableService}
                 title="Kích hoạt Dịch vụ?"
-                message={`Bạn có chắc chắn muốn kích hoạt dịch vụ "${enableTarget?.name}"? Dịch vụ sẽ có sẵn cho khách hàng đặt lịch.`}
+                message={`Bạn có chắc chắn muốn kích hoạt dịch vụ "${enableTarget?.name || 'này'}"? Dịch vụ sẽ có sẵn cho khách hàng đặt lịch.`}
                 confirmText="Kích hoạt"
                 type="success"
             />
