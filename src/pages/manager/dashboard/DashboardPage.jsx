@@ -94,11 +94,7 @@ const DashboardPage = () => {
     }, []);
 
     if (isLoading) {
-        return (
-            <Box sx={{ background: COLORS.BACKGROUND.NEUTRAL, minHeight: '100vh', width: '100%' }}>
-                <Loading fullScreen={false} variant="cafe" size="large" message="Đang tải dữ liệu thống kê..." />
-            </Box>
-        );
+        return <Loading fullScreen variant="cafe" size="large" message="Đang tải dữ liệu thống kê..." />;
     }
 
     return (

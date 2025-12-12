@@ -589,6 +589,8 @@ const TasksPage = () => {
                 await taskTemplateApi.deleteTaskTemplate(deleteTarget.data.id);
                 await loadAllTaskTemplates();
                 await loadTaskList();
+                setConfirmDeleteOpen(false);
+                setDeleteTarget(null);
                 setAlert({
                     open: true,
                     title: 'Thành công',
@@ -598,6 +600,8 @@ const TasksPage = () => {
             } else if (deleteTarget.type === 'slot') {
                 await slotApi.deleteSlot(deleteTarget.data.id);
                 await loadSlots();
+                setConfirmDeleteOpen(false);
+                setDeleteTarget(null);
                 setAlert({
                     open: true,
                     title: 'Thành công',
@@ -605,10 +609,10 @@ const TasksPage = () => {
                     type: 'success'
                 });
             }
-            setConfirmDeleteOpen(false);
-            setDeleteTarget(null);
         } catch (error) {
             console.error('Error deleting:', error);
+            setConfirmDeleteOpen(false);
+            setDeleteTarget(null);
             setAlert({
                 open: true,
                 title: 'Lỗi',
@@ -1159,7 +1163,7 @@ const TasksPage = () => {
                 onClose={() => setConfirmDeleteOpen(false)}
                 onConfirm={handleConfirmDelete}
                 title={`Xóa ${deleteTarget?.type === 'task' ? 'Nhiệm vụ' : 'Ca'}?`}
-                message={`Bạn có chắc chắn muốn xóa ${deleteTarget?.type === 'task' ? `nhiệm vụ "${deleteTarget?.data?.name}"` : 'ca này'}?`}
+                message={`Bạn có chắc chắn muốn xóa ${deleteTarget?.type === 'task' ? `nhiệm vụ "${deleteTarget?.data?.title || deleteTarget?.data?.name || 'này'}"` : 'ca này'}?`}
                 confirmText="Xóa"
                 type="error"
             />
