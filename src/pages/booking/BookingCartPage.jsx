@@ -1,18 +1,22 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { 
-    Box, Typography, Card, CardContent, Stack, IconButton, 
+import {
+    Box, Typography, Card, CardContent, Stack, IconButton,
     Divider, Button, Chip, alpha, Paper, Fade
 } from '@mui/material';
 import { Delete, ShoppingCart, ArrowBack, CalendarToday, AccessTime, Pets, Person, Phone, Note, LocationOn } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 import { useNavigate } from 'react-router-dom';
 import { formatPrice } from '../../utils/formatPrice';
+import ConfirmModal from '../../components/modals/ConfirmModal';
+import AlertModal from '../../components/modals/AlertModal';
 
 const BookingCartPage = () => {
     const navigate = useNavigate();
     const [items, setItems] = useState([]);
     const [initialized, setInitialized] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+    const [alert, setAlert] = useState({ open: false, message: '', type: 'info' });
 
     useEffect(() => {
         try {
@@ -25,7 +29,7 @@ const BookingCartPage = () => {
             try {
                 const latest = localStorage.getItem('booking_cart');
                 setItems(latest ? JSON.parse(latest) : []);
-            } catch {}
+            } catch { }
         };
         window.addEventListener('bookingCartUpdated', onCartUpdated);
         setInitialized(true);
@@ -36,7 +40,7 @@ const BookingCartPage = () => {
         if (!initialized) return;
         try {
             localStorage.setItem('booking_cart', JSON.stringify(items));
-        } catch {}
+        } catch { }
     }, [items, initialized]);
 
     const total = useMemo(() => {
@@ -94,34 +98,26 @@ const BookingCartPage = () => {
         }
     };
 
-    const clearCart = async () => {
-        if (items.length === 0) {
-            return;
-        }
-
-        // Confirm before deleting
-        if (!window.confirm('Bạn có chắc chắn muốn xóa toàn bộ giỏ hàng?')) {
-            return;
-        }
-
+    const handleConfirmDelete = async () => {
+        setConfirmDeleteOpen(false);
         setIsDeleting(true);
         try {
             // Call API to delete cart
             const result = await deleteCartFromAPI();
-            
+
             if (result.success) {
                 // Clear local cart
                 setItems([]);
                 localStorage.removeItem('booking_cart');
                 window.dispatchEvent(new Event('bookingCartUpdated'));
-                alert('Đã xóa giỏ hàng thành công');
+                setAlert({ open: true, message: 'Đã xóa giỏ hàng thành công', type: 'success' });
             } else {
                 // Even if API fails, still clear local cart (fallback)
                 console.warn('[BookingCart] API delete failed, clearing local cart anyway:', result.message);
                 setItems([]);
                 localStorage.removeItem('booking_cart');
                 window.dispatchEvent(new Event('bookingCartUpdated'));
-                alert('Đã xóa giỏ hàng (có thể chưa đồng bộ với server)');
+                setAlert({ open: true, message: 'Đã xóa giỏ hàng (có thể chưa đồng bộ với server)', type: 'warning' });
             }
         } catch (error) {
             console.error('[BookingCart][clearCart] error:', error);
@@ -129,10 +125,17 @@ const BookingCartPage = () => {
             setItems([]);
             localStorage.removeItem('booking_cart');
             window.dispatchEvent(new Event('bookingCartUpdated'));
-            alert('Đã xóa giỏ hàng (có thể chưa đồng bộ với server)');
+            setAlert({ open: true, message: 'Đã xóa giỏ hàng (có thể chưa đồng bộ với server)', type: 'warning' });
         } finally {
             setIsDeleting(false);
         }
+    };
+
+    const clearCart = () => {
+        if (items.length === 0) {
+            return;
+        }
+        setConfirmDeleteOpen(true);
     };
 
     // Get customer info from first item (all items should have same customer info)
@@ -150,17 +153,17 @@ const BookingCartPage = () => {
 
     const checkout = async () => {
         if (!items.length) {
-            alert('Giỏ hàng trống');
+            setAlert({ open: true, message: 'Giỏ hàng trống', type: 'warning' });
             return;
         }
 
         // Validate required fields from cart items
         if (!customerInfo.full_name || !customerInfo.full_name.trim()) {
-            alert('Vui lòng điền thông tin liên hệ ở form đặt dịch vụ');
+            setAlert({ open: true, message: 'Vui lòng điền thông tin liên hệ ở form đặt dịch vụ', type: 'warning' });
             return;
         }
         if (!customerInfo.phone || !customerInfo.phone.trim()) {
-            alert('Vui lòng điền thông tin liên hệ ở form đặt dịch vụ');
+            setAlert({ open: true, message: 'Vui lòng điền thông tin liên hệ ở form đặt dịch vụ', type: 'warning' });
             return;
         }
 
@@ -169,7 +172,7 @@ const BookingCartPage = () => {
             const services = items.map(item => {
                 // Get booking_date from item (should be stored when adding to cart)
                 let bookingDate = item.booking_date || item.selectedDate;
-                
+
                 // If booking_date is just a date string (YYYY-MM-DD), convert to ISO format
                 if (bookingDate && !bookingDate.includes('T')) {
                     // If we have slot with start_time, combine date and time
@@ -190,8 +193,8 @@ const BookingCartPage = () => {
                         const dateStr = date.toISOString().split('T')[0];
                         // Ensure time format includes milliseconds
                         const timeParts = time.split(':');
-                        const formattedTime = timeParts.length === 3 
-                            ? time 
+                        const formattedTime = timeParts.length === 3
+                            ? time
                             : `${time}:00`;
                         bookingDate = `${dateStr}T${formattedTime}.000Z`;
                     } else if (item.slot.day_of_week) {
@@ -206,15 +209,15 @@ const BookingCartPage = () => {
                             const currentDay = today.getDay();
                             let daysUntilTarget = (targetDay - currentDay + 7) % 7;
                             if (daysUntilTarget === 0) daysUntilTarget = 7;
-                            
+
                             const targetDate = new Date(today);
                             targetDate.setDate(today.getDate() + daysUntilTarget);
-                            
+
                             const time = item.slot.start_time || '00:00:00';
                             const dateStr = targetDate.toISOString().split('T')[0];
                             const timeParts = time.split(':');
-                            const formattedTime = timeParts.length === 3 
-                                ? time 
+                            const formattedTime = timeParts.length === 3
+                                ? time
                                 : `${time}:00`;
                             bookingDate = `${dateStr}T${formattedTime}.000Z`;
                         }
@@ -347,12 +350,14 @@ const BookingCartPage = () => {
                 window.location.href = checkoutUrl;
             } else {
                 // Fallback nếu không có checkout_url
-                alert('Đặt dịch vụ thành công!');
-                navigate('/booking');
+                setAlert({ open: true, message: 'Đặt dịch vụ thành công!', type: 'success' });
+                setTimeout(() => {
+                    navigate('/booking');
+                }, 1500);
             }
         } catch (e) {
             console.error('[BookingCart][checkout] error:', e);
-            alert(e.message || 'Lỗi tạo đơn hàng');
+            setAlert({ open: true, message: e.message || 'Lỗi tạo đơn hàng', type: 'error' });
         }
     };
 
@@ -406,7 +411,7 @@ const BookingCartPage = () => {
                                     Giỏ hàng dịch vụ
                                 </Typography>
                             </Box>
-                            <Chip 
+                            <Chip
                                 label={`${items.length} dịch vụ`}
                                 sx={{
                                     backgroundColor: alpha(COLORS.INFO[500], 0.9),
@@ -476,14 +481,14 @@ const BookingCartPage = () => {
                                             >
                                                 <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={2}>
                                                     <Box sx={{ flex: 1 }}>
-                                                        <Typography variant="h6" sx={{ 
-                                                            fontWeight: 700, 
-                                                            mb: 1.5, 
+                                                        <Typography variant="h6" sx={{
+                                                            fontWeight: 700,
+                                                            mb: 1.5,
                                                             color: COLORS.INFO[700]
                                                         }}>
                                                             {service?.name || item.name}
                                                         </Typography>
-                                                        
+
                                                         <Stack spacing={1}>
                                                             {bookingDate && (
                                                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -534,9 +539,9 @@ const BookingCartPage = () => {
                                                             )}
 
                                                             <Box sx={{ mt: 1.5 }}>
-                                                                <Typography variant="h6" sx={{ 
-                                                                    color: COLORS.ERROR[600], 
-                                                                    fontWeight: 700 
+                                                                <Typography variant="h6" sx={{
+                                                                    color: COLORS.ERROR[600],
+                                                                    fontWeight: 700
                                                                 }}>
                                                                     {formatPrice(price)}
                                                                 </Typography>
@@ -788,6 +793,29 @@ const BookingCartPage = () => {
                         </Card>
                     </Box>
                 )}
+
+                {/* Confirm Delete Modal */}
+                <ConfirmModal
+                    isOpen={confirmDeleteOpen}
+                    onClose={() => setConfirmDeleteOpen(false)}
+                    onConfirm={handleConfirmDelete}
+                    title="Xác nhận xóa giỏ hàng"
+                    message="Bạn có chắc chắn muốn xóa toàn bộ giỏ hàng?"
+                    confirmText="Xóa"
+                    cancelText="Hủy"
+                    type="warning"
+                    isLoading={isDeleting}
+                />
+
+                {/* Alert Modal */}
+                <AlertModal
+                    isOpen={alert.open}
+                    onClose={() => setAlert({ open: false, message: '', type: 'info' })}
+                    title={alert.type === 'success' ? 'Thành công' : alert.type === 'error' ? 'Lỗi' : 'Thông báo'}
+                    message={alert.message}
+                    type={alert.type}
+                    okText="Đã hiểu"
+                />
             </Box>
         </Fade>
     );

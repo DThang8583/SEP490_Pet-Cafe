@@ -1,10 +1,11 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { Box, Container, Grid, Card, CardContent, Typography, TextField, Button, Stack, Badge, Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Chip, Divider, Tooltip, alpha } from '@mui/material';
+import { Box, Container, Grid, Card, CardContent, Typography, TextField, Button, Stack, Badge, Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Chip, Divider, Tooltip, alpha, Paper, CircularProgress } from '@mui/material';
 import { COLORS } from '../../constants/colors';
 import { salesApi, authApi } from '../../api/authApi';
 import { useNavigate } from 'react-router-dom';
 import { ShoppingCart, ArrowBack, Close, CheckCircle, Info, AccessTime, AttachMoney, Pets, Spa, CalendarToday, People, Note } from '@mui/icons-material';
 import { WEEKDAY_LABELS } from '../../api/slotApi';
+import serviceApi from '../../api/serviceApi';
 
 const ServiceSalesPage = () => {
     const navigate = useNavigate();
@@ -18,6 +19,8 @@ const ServiceSalesPage = () => {
     const [slotModalOpen, setSlotModalOpen] = useState(false);
     const [showDetails, setShowDetails] = useState(false);
     const [detailService, setDetailService] = useState(null);
+    const [slots, setSlots] = useState([]);
+    const [loadingSlots, setLoadingSlots] = useState(false);
 
     useEffect(() => {
         const load = async () => {
@@ -64,16 +67,35 @@ const ServiceSalesPage = () => {
     const filtered = useMemo(() => services.filter(s => (s.name || '').toLowerCase().includes(keyword.toLowerCase())), [services, keyword]);
 
     const notifyCartChanged = (next) => {
-        try { localStorage.setItem('sales_cart', JSON.stringify(next)); } catch {}
-        try { window.dispatchEvent(new Event('cartUpdated')); } catch {}
+        try { localStorage.setItem('sales_cart', JSON.stringify(next)); } catch { }
+        try { window.dispatchEvent(new Event('cartUpdated')); } catch { }
     };
 
+    // Fetch slots from API when modal opens
+    useEffect(() => {
+        const loadSlots = async () => {
+            if (!slotModalOpen || !selectedService?.id) {
+                setSlots([]);
+                return;
+            }
+
+            setLoadingSlots(true);
+            try {
+                // Fetch all slots (use a high limit to get all slots)
+                const result = await serviceApi.getSlotsByServiceId(selectedService.id, { page: 0, limit: 100 });
+                setSlots(result.data || []);
+            } catch (error) {
+                console.error('[ServiceSalesPage] Error loading slots:', error);
+                setSlots([]);
+            } finally {
+                setLoadingSlots(false);
+            }
+        };
+
+        loadSlots();
+    }, [slotModalOpen, selectedService?.id]);
+
     const handleCardClick = (svc) => {
-        const slots = Array.isArray(svc.slots) ? svc.slots : [];
-        if (slots.length === 0) {
-            alert('Dịch vụ này chưa có slot nào');
-            return;
-        }
         setSelectedService(svc);
         setSelectedSlotId(null);
         setSelectedSlotDate(null);
@@ -89,7 +111,7 @@ const ServiceSalesPage = () => {
 
         const quantity = 1;
         const selectedSlot = selectedService.slots.find(s => s.id === selectedSlotId);
-        
+
         if (!selectedSlot) {
             console.error('[ServiceSalesPage] Lỗi: Slot không hợp lệ', { selectedSlotId, serviceId: selectedService.id });
             alert('Slot không hợp lệ');
@@ -100,16 +122,16 @@ const ServiceSalesPage = () => {
         // Ensure price is a number and not null/undefined
         const slotPriceNum = selectedSlot.price != null ? Number(selectedSlot.price) : null;
         const price = (slotPriceNum != null && slotPriceNum > 0) ? slotPriceNum : (selectedService.base_price || 0);
-        
-        const item = { 
-            id: `svc-${selectedSlotId}`, 
-            name: selectedService.name, 
-            price: price, 
+
+        const item = {
+            id: `svc-${selectedSlotId}`,
+            name: selectedService.name,
+            price: price,
             quantity,
             slot_id: selectedSlotId,
             service_id: selectedService.id
         };
-        
+
         try {
             const saved = localStorage.getItem('sales_cart');
             const current = saved ? JSON.parse(saved) : [];
@@ -165,13 +187,13 @@ const ServiceSalesPage = () => {
             'SATURDAY': 6,
             'SUNDAY': 0
         };
-        
+
         const targetDay = dayMap[dayOfWeek];
         if (targetDay === undefined) return dates;
 
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        
+
         // Get next 4 occurrences of this day
         for (let week = 0; week < 4; week++) {
             const current = new Date(today);
@@ -179,46 +201,57 @@ const ServiceSalesPage = () => {
             let daysUntilTarget = (targetDay - currentDay + 7) % 7;
             if (daysUntilTarget === 0 && week === 0) daysUntilTarget = 7; // If today is target day, get next week
             daysUntilTarget += week * 7;
-            
+
             const targetDate = new Date(current);
             targetDate.setDate(current.getDate() + daysUntilTarget);
-            
+
             // Only add future dates
             if (targetDate >= today) {
                 dates.push(targetDate);
             }
         }
-        
+
         return dates;
     };
 
     // Get available slots with dates (giống BookingDateModal)
-    const getAvailableSlotsWithDates = (service) => {
-        if (!service || !service.slots) return [];
-        
+    const getAvailableSlotsWithDates = () => {
+        if (!slots || slots.length === 0) return [];
+
         const slotsWithDates = [];
-        
-        service.slots
-            .filter(slot => slot && !slot.is_deleted)
+
+        slots
+            .filter(slot => slot && !slot.is_deleted && slot.service_status === 'AVAILABLE')
             .forEach(slot => {
                 if (slot.specific_date) {
                     // Specific date slot
                     const date = new Date(slot.specific_date);
                     const today = new Date();
                     today.setHours(0, 0, 0, 0);
-                    
+
                     if (date >= today) {
                         // Format date as YYYY-MM-DD using local timezone
                         const year = date.getFullYear();
                         const month = String(date.getMonth() + 1).padStart(2, '0');
                         const day = String(date.getDate()).padStart(2, '0');
                         const dateStr = `${year}-${month}-${day}`;
-                        
+
+                        // Find slot_availabilities for this date
+                        const availability = slot.slot_availabilities?.find(
+                            av => av.booking_date === dateStr
+                        ) || null;
+
+                        // Check if slot is full (booked_count >= max_capacity)
+                        const maxCapacity = availability?.max_capacity ?? slot.max_capacity ?? 0;
+                        const bookedCount = availability?.booked_count ?? 0;
+                        const isFull = maxCapacity > 0 && bookedCount >= maxCapacity;
+
                         slotsWithDates.push({
                             slot,
                             date: dateStr,
                             dateObj: date,
-                            isAvailable: slot.service_status === 'AVAILABLE'
+                            isAvailable: !isFull,
+                            availability
                         });
                     }
                 } else if (slot.day_of_week) {
@@ -230,17 +263,28 @@ const ServiceSalesPage = () => {
                         const month = String(dateObj.getMonth() + 1).padStart(2, '0');
                         const day = String(dateObj.getDate()).padStart(2, '0');
                         const dateStr = `${year}-${month}-${day}`;
-                        
+
+                        // Find slot_availabilities for this date
+                        const availability = slot.slot_availabilities?.find(
+                            av => av.booking_date === dateStr
+                        ) || null;
+
+                        // Check if slot is full (booked_count >= max_capacity)
+                        const maxCapacity = availability?.max_capacity ?? slot.max_capacity ?? 0;
+                        const bookedCount = availability?.booked_count ?? 0;
+                        const isFull = maxCapacity > 0 && bookedCount >= maxCapacity;
+
                         slotsWithDates.push({
                             slot,
                             date: dateStr,
                             dateObj,
-                            isAvailable: slot.service_status === 'AVAILABLE'
+                            isAvailable: !isFull,
+                            availability
                         });
                     });
                 }
             });
-        
+
         // Sort by date, then by start_time
         return slotsWithDates.sort((a, b) => {
             if (a.date !== b.date) {
@@ -254,10 +298,7 @@ const ServiceSalesPage = () => {
         <Box sx={{ py: 3, backgroundColor: COLORS.BACKGROUND.NEUTRAL, minHeight: '100vh' }}>
             <Container maxWidth="xl">
                 <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 3 }}>
-                    <Stack direction="row" spacing={1} alignItems="center">
-                        <Button startIcon={<ArrowBack />} onClick={() => navigate(-1)} color="error" variant="text">Quay lại</Button>
-                        <Typography variant="h4" sx={{ fontWeight: 700, fontSize: '2rem', color: COLORS.ERROR[600], letterSpacing: '-0.02em', lineHeight: 1.2 }}>Bán dịch vụ</Typography>
-                    </Stack>
+                    <Typography variant="h4" sx={{ fontWeight: 700, fontSize: '2rem', color: COLORS.ERROR[600], letterSpacing: '-0.02em', lineHeight: 1.2 }}>Bán dịch vụ</Typography>
                     <Badge color="error" badgeContent={cartCount} showZero>
                         <Button startIcon={<ShoppingCart />} variant="contained" color="error" onClick={() => navigate('/sales/cart')}>
                             Giỏ hàng
@@ -282,7 +323,7 @@ const ServiceSalesPage = () => {
                 }}>
                     {filtered.map(s => (
                         <Box key={s.id} sx={{ height: '100%' }}>
-                            <Card 
+                            <Card
                                 sx={{
                                     borderRadius: 4,
                                     height: '100%',
@@ -298,11 +339,11 @@ const ServiceSalesPage = () => {
                                     {s.image_url ? (
                                         <Box component="img" src={s.image_url} alt={s.name} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                     ) : (
-                                        <Box sx={{ 
-                                            width: '100%', 
-                                            height: '100%', 
-                                            display: 'flex', 
-                                            alignItems: 'center', 
+                                        <Box sx={{
+                                            width: '100%',
+                                            height: '100%',
+                                            display: 'flex',
+                                            alignItems: 'center',
                                             justifyContent: 'center',
                                             background: `linear-gradient(135deg, ${alpha(COLORS.ERROR[100], 0.5)} 0%, ${alpha(COLORS.SECONDARY[100], 0.5)} 100%)`
                                         }}>
@@ -317,7 +358,7 @@ const ServiceSalesPage = () => {
                                     </Typography>
                                     <Typography sx={{ fontWeight: 700, fontSize: '1.25rem', color: COLORS.ERROR[600], mb: 1, letterSpacing: '-0.01em' }}>{(s.base_price || 0).toLocaleString('vi-VN')} ₫</Typography>
                                     <Box sx={{ flexGrow: 1 }} />
-                                    
+
                                     {/* Info Icon - Góc dưới */}
                                     <Tooltip title="Xem chi tiết">
                                         <IconButton
@@ -352,8 +393,8 @@ const ServiceSalesPage = () => {
             </Container>
 
             {/* Slot Selection Modal */}
-            <Dialog 
-                open={slotModalOpen} 
+            <Dialog
+                open={slotModalOpen}
                 onClose={() => {
                     setSlotModalOpen(false);
                     setSelectedService(null);
@@ -366,16 +407,19 @@ const ServiceSalesPage = () => {
                     sx: {
                         borderRadius: 4,
                         boxShadow: 6,
-                        backgroundColor: COLORS.BACKGROUND.DEFAULT
+                        backgroundColor: COLORS.BACKGROUND.DEFAULT,
+                        maxHeight: '90vh',
+                        display: 'flex',
+                        flexDirection: 'column'
                     }
                 }}
             >
                 {selectedService && (
                     <>
-                        <DialogTitle sx={{ 
+                        <DialogTitle sx={{
                             background: `linear-gradient(135deg, ${COLORS.ERROR[500]} 0%, ${COLORS.ERROR[600]} 100%)`,
-                            color: 'white', 
-                            py: 2 
+                            color: 'white',
+                            py: 2
                         }}>
                             <Stack direction="row" alignItems="center" justifyContent="space-between">
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -389,7 +433,7 @@ const ServiceSalesPage = () => {
                                         Chọn slot - {selectedService.name}
                                     </Typography>
                                 </Box>
-                                <IconButton 
+                                <IconButton
                                     onClick={() => {
                                         setSlotModalOpen(false);
                                         setSelectedService(null);
@@ -402,7 +446,13 @@ const ServiceSalesPage = () => {
                                 </IconButton>
                             </Stack>
                         </DialogTitle>
-                        <DialogContent sx={{ pt: 3 }}>
+                        <DialogContent
+                            sx={{
+                                pt: 3,
+                                pb: 2
+                            }}
+                            dividers
+                        >
                             <Stack spacing={3}>
                                 {/* Service Image */}
                                 {selectedService.image_url && (
@@ -466,36 +516,27 @@ const ServiceSalesPage = () => {
 
                                 {/* Slot Selection */}
                                 <Box>
-                                    <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>
+                                    <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2, color: COLORS.TEXT.PRIMARY, fontSize: '1rem' }}>
                                         Chọn slot khả dụng:
                                     </Typography>
-                                    <Box sx={{ 
-                                        display: 'flex', 
-                                        flexDirection: 'column', 
-                                        gap: 1.5, 
-                                        maxHeight: 400, 
-                                        overflowY: 'auto',
-                                        '&::-webkit-scrollbar': {
-                                            width: '8px'
-                                        },
-                                        '&::-webkit-scrollbar-track': {
-                                            background: COLORS.GRAY[50]
-                                        },
-                                        '&::-webkit-scrollbar-thumb': {
-                                            background: COLORS.GRAY[300],
-                                            borderRadius: '4px',
-                                            '&:hover': {
-                                                background: COLORS.GRAY[400]
-                                            }
-                                        }
+                                    <Box sx={{
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: 2
                                     }}>
-                                        {(() => {
-                                            const availableSlots = getAvailableSlotsWithDates(selectedService);
+                                        {loadingSlots ? (
+                                            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 4 }}>
+                                                <CircularProgress />
+                                            </Box>
+                                        ) : (() => {
+                                            const availableSlots = getAvailableSlotsWithDates();
                                             if (availableSlots.length === 0) {
                                                 return (
-                                                    <Typography sx={{ color: COLORS.TEXT.SECONDARY, textAlign: 'center', py: 3 }}>
-                                                        Không có slot nào cho dịch vụ này
-                                                    </Typography>
+                                                    <Paper sx={{ p: 4, textAlign: 'center', borderRadius: 2, bgcolor: alpha(COLORS.GRAY[50], 0.5) }}>
+                                                        <Typography sx={{ color: COLORS.TEXT.SECONDARY }}>
+                                                            Không có slot nào khả dụng cho dịch vụ này
+                                                        </Typography>
+                                                    </Paper>
                                                 );
                                             }
                                             return availableSlots.map((item, index) => {
@@ -505,26 +546,42 @@ const ServiceSalesPage = () => {
                                                 // Ensure price is a number and not null/undefined
                                                 const slotPriceNum = item.slot.price != null ? Number(item.slot.price) : null;
                                                 const slotPrice = (slotPriceNum != null && slotPriceNum > 0) ? slotPriceNum : (selectedService.base_price || 0);
-                                                
+
+                                                // Check if slot is full
+                                                const maxCapacity = item.availability?.max_capacity ?? item.slot.max_capacity ?? 0;
+                                                const bookedCount = item.availability?.booked_count ?? 0;
+                                                const isFull = maxCapacity > 0 && bookedCount >= maxCapacity;
+
                                                 return (
-                                                    <Card
+                                                    <Paper
                                                         key={`${item.slot.id}-${item.date}-${index}`}
                                                         onClick={() => {
-                                                            if (isAvailable) {
+                                                            if (isAvailable && !isFull) {
                                                                 // Chọn slot này và ngày này, bỏ chọn các slot khác
                                                                 setSelectedSlotId(item.slot.id);
                                                                 setSelectedSlotDate(item.date);
                                                             }
                                                         }}
+                                                        elevation={0}
                                                         sx={{
-                                                            p: 2.5,
-                                                            border: `2px solid ${isSelected ? COLORS.ERROR[600] : isAvailable ? alpha(COLORS.ERROR[300], 0.5) : alpha(COLORS.GRAY[300], 0.3)}`,
+                                                            p: 3,
+                                                            border: `2px solid ${isSelected
+                                                                ? COLORS.ERROR[600]
+                                                                : isFull
+                                                                    ? COLORS.ERROR[300]
+                                                                    : isAvailable
+                                                                        ? alpha(COLORS.ERROR[300], 0.5)
+                                                                        : alpha(COLORS.GRAY[300], 0.3)}`,
                                                             borderRadius: 2,
-                                                            cursor: isAvailable ? 'pointer' : 'not-allowed',
-                                                            opacity: isAvailable ? 1 : 0.6,
-                                                            bgcolor: isSelected ? alpha(COLORS.ERROR[50], 0.8) : 'transparent',
+                                                            cursor: (isAvailable && !isFull) ? 'pointer' : 'not-allowed',
+                                                            opacity: (isAvailable && !isFull) ? 1 : 0.6,
+                                                            bgcolor: isSelected
+                                                                ? alpha(COLORS.ERROR[50], 0.8)
+                                                                : isFull
+                                                                    ? alpha(COLORS.ERROR[50], 0.3)
+                                                                    : 'transparent',
                                                             transition: 'all 0.2s ease',
-                                                            '&:hover': isAvailable ? {
+                                                            '&:hover': (isAvailable && !isFull) ? {
                                                                 borderColor: COLORS.ERROR[600],
                                                                 bgcolor: alpha(COLORS.ERROR[50], 0.5),
                                                                 transform: 'translateY(-2px)',
@@ -532,31 +589,37 @@ const ServiceSalesPage = () => {
                                                             } : {}
                                                         }}
                                                     >
-                                                        <Stack spacing={1.5}>
+                                                        <Stack spacing={2}>
                                                             {/* Header with Status and Price */}
                                                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                                <Stack direction="row" spacing={1} alignItems="center">
+                                                                <Stack direction="row" spacing={1.5} alignItems="center">
                                                                     <Chip
-                                                                        label={isAvailable ? 'Có sẵn' : 'Không khả dụng'}
+                                                                        label={
+                                                                            isFull
+                                                                                ? 'Hết chỗ'
+                                                                                : isAvailable
+                                                                                    ? 'Có sẵn'
+                                                                                    : 'Không khả dụng'
+                                                                        }
                                                                         size="small"
-                                                                        color={isAvailable ? 'success' : 'default'}
-                                                                        sx={{ fontWeight: 'bold' }}
+                                                                        color={isFull ? 'error' : isAvailable ? 'success' : 'default'}
+                                                                        sx={{ fontWeight: 700, fontSize: '0.75rem' }}
                                                                     />
                                                                     {isSelected && (
-                                                                        <CheckCircle sx={{ color: COLORS.ERROR[600], fontSize: 20 }} />
+                                                                        <CheckCircle sx={{ color: COLORS.ERROR[600], fontSize: 22 }} />
                                                                     )}
                                                                 </Stack>
                                                                 {slotPrice > 0 && (
-                                                                    <Typography variant="h6" sx={{ fontWeight: 800, color: COLORS.ERROR[600] }}>
+                                                                    <Typography variant="h6" sx={{ fontWeight: 800, color: COLORS.ERROR[600], fontSize: '1.25rem' }}>
                                                                         {slotPrice.toLocaleString('vi-VN')} ₫
                                                                     </Typography>
                                                                 )}
                                                             </Box>
 
-                                                            {/* Date - Hiển thị ngày cụ thể giống BookingDateModal */}
-                                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                                <CalendarToday sx={{ fontSize: 18, color: isAvailable ? COLORS.ERROR[500] : COLORS.GRAY[400] }} />
-                                                                <Typography variant="body1" fontWeight={600}>
+                                                            {/* Date */}
+                                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                                                <CalendarToday sx={{ fontSize: 20, color: (isAvailable && !isFull) ? COLORS.ERROR[500] : COLORS.GRAY[400] }} />
+                                                                <Typography variant="body1" fontWeight={700} sx={{ fontSize: '1rem' }}>
                                                                     {item.dateObj.toLocaleDateString('vi-VN', {
                                                                         weekday: 'long',
                                                                         year: 'numeric',
@@ -564,50 +627,84 @@ const ServiceSalesPage = () => {
                                                                         day: 'numeric'
                                                                     })}
                                                                 </Typography>
-                                                                
                                                             </Box>
 
                                                             {/* Time Range */}
                                                             {item.slot.start_time && item.slot.end_time && (
-                                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                                    <AccessTime sx={{ fontSize: 18, color: isAvailable ? COLORS.ERROR[500] : COLORS.GRAY[400] }} />
-                                                                    <Typography variant="body1" fontWeight={600}>
-                                                                        {item.slot.start_time} - {item.slot.end_time}
+                                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                                                    <AccessTime sx={{ fontSize: 20, color: (isAvailable && !isFull) ? COLORS.ERROR[500] : COLORS.GRAY[400] }} />
+                                                                    <Typography variant="body1" fontWeight={600} sx={{ fontSize: '0.9375rem' }}>
+                                                                        {item.slot.start_time.substring(0, 5)} - {item.slot.end_time.substring(0, 5)}
                                                                     </Typography>
                                                                 </Box>
                                                             )}
 
                                                             {/* Max Capacity */}
                                                             {item.slot.max_capacity !== null && item.slot.max_capacity !== undefined && (
-                                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                                    <People sx={{ fontSize: 18, color: isAvailable ? COLORS.ERROR[500] : COLORS.GRAY[400] }} />
-                                                                    <Typography variant="body2" color="text.secondary">
-                                                                        Sức chứa tối đa: <strong>{item.slot.max_capacity}</strong> {(() => {
+                                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                                                    <People sx={{ fontSize: 20, color: (isAvailable && !isFull) ? COLORS.ERROR[500] : COLORS.GRAY[400] }} />
+                                                                    <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.875rem' }}>
+                                                                        Sức chứa tối đa: <strong style={{ color: COLORS.TEXT.PRIMARY }}>{item.slot.max_capacity}</strong> {(() => {
                                                                             const hasPetSlots = selectedService.slots && selectedService.slots.length > 0
                                                                                 ? selectedService.slots.some(s => s?.pet_group_id || s?.pet_id)
                                                                                 : false;
-                                                                            return hasPetSlots ? 'thú cưng' : 'người';
+                                                                            return hasPetSlots ? 'chỗ' : 'người';
                                                                         })()}
                                                                     </Typography>
+                                                                </Box>
+                                                            )}
+
+                                                            {/* Slot Availability Info */}
+                                                            {item.availability && (
+                                                                <Box sx={{
+                                                                    p: 2,
+                                                                    borderRadius: 1.5,
+                                                                    backgroundColor: isFull
+                                                                        ? alpha(COLORS.ERROR[50], 0.5)
+                                                                        : alpha(COLORS.SUCCESS[50], 0.5),
+                                                                    border: `1px solid ${isFull
+                                                                        ? alpha(COLORS.ERROR[200], 0.3)
+                                                                        : alpha(COLORS.SUCCESS[200], 0.3)}`
+                                                                }}>
+                                                                    <Stack spacing={1}>
+                                                                        <Typography variant="subtitle2" fontWeight="bold" sx={{
+                                                                            color: isFull ? COLORS.ERROR[700] : COLORS.SUCCESS[700],
+                                                                            mb: 0.5,
+                                                                            fontSize: '0.8125rem'
+                                                                        }}>
+                                                                            Thông tin đặt chỗ
+                                                                        </Typography>
+                                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                                                            <People sx={{ fontSize: 18, color: isFull ? COLORS.ERROR[600] : COLORS.SUCCESS[600] }} />
+                                                                            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.875rem' }}>
+                                                                                Đã đặt: <strong style={{ color: COLORS.TEXT.PRIMARY }}>{item.availability.booked_count}</strong> / <strong style={{ color: COLORS.TEXT.PRIMARY }}>{item.availability.max_capacity}</strong> {(() => {
+                                                                                    const hasPetSlots = selectedService.slots && selectedService.slots.length > 0
+                                                                                        ? selectedService.slots.some(s => s?.pet_group_id || s?.pet_id)
+                                                                                        : false;
+                                                                                    return hasPetSlots ? 'chỗ' : 'người';
+                                                                                })()}
+                                                                            </Typography>
+                                                                        </Box>
+                                                                    </Stack>
                                                                 </Box>
                                                             )}
 
                                                             {/* Pet Group Info */}
                                                             {item.slot.pet_group && (
                                                                 <Box sx={{
-                                                                    p: 1.5,
-                                                                    borderRadius: 1,
-                                                                    backgroundColor: alpha(COLORS.INFO[100], 0.3),
-                                                                    border: `1px solid ${alpha(COLORS.INFO[200], 0.3)}`
+                                                                    p: 2,
+                                                                    borderRadius: 1.5,
+                                                                    backgroundColor: alpha(COLORS.INFO[50], 0.4),
+                                                                    border: `1px solid ${alpha(COLORS.INFO[200], 0.4)}`
                                                                 }}>
-                                                                    <Box sx={{ display: 'flex', alignItems: 'start', gap: 1 }}>
-                                                                        <Pets sx={{ fontSize: 18, color: COLORS.INFO[600], mt: 0.25 }} />
+                                                                    <Box sx={{ display: 'flex', alignItems: 'start', gap: 1.5 }}>
+                                                                        <Pets sx={{ fontSize: 20, color: COLORS.INFO[600], mt: 0.25 }} />
                                                                         <Box>
-                                                                            <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 0.5 }}>
+                                                                            <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 0.5, color: COLORS.INFO[700], fontSize: '0.875rem' }}>
                                                                                 Nhóm thú cưng: {item.slot.pet_group.name}
                                                                             </Typography>
                                                                             {item.slot.pet_group.description && (
-                                                                                <Typography variant="caption" color="text.secondary">
+                                                                                <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8125rem', lineHeight: 1.5 }}>
                                                                                     {item.slot.pet_group.description}
                                                                                 </Typography>
                                                                             )}
@@ -619,18 +716,18 @@ const ServiceSalesPage = () => {
                                                             {/* Special Notes */}
                                                             {item.slot.special_notes && (
                                                                 <Box sx={{
-                                                                    p: 1.5,
-                                                                    borderRadius: 1,
+                                                                    p: 2,
+                                                                    borderRadius: 1.5,
                                                                     backgroundColor: alpha(COLORS.WARNING[50], 0.5),
-                                                                    border: `1px solid ${alpha(COLORS.WARNING[200], 0.3)}`
+                                                                    border: `1px solid ${alpha(COLORS.WARNING[200], 0.4)}`
                                                                 }}>
-                                                                    <Box sx={{ display: 'flex', alignItems: 'start', gap: 1 }}>
-                                                                        <Note sx={{ fontSize: 18, color: COLORS.WARNING[600], mt: 0.25 }} />
+                                                                    <Box sx={{ display: 'flex', alignItems: 'start', gap: 1.5 }}>
+                                                                        <Note sx={{ fontSize: 20, color: COLORS.WARNING[600], mt: 0.25 }} />
                                                                         <Box>
-                                                                            <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 0.5, color: COLORS.WARNING[700] }}>
+                                                                            <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 0.5, color: COLORS.WARNING[700], fontSize: '0.875rem' }}>
                                                                                 Ghi chú đặc biệt:
                                                                             </Typography>
-                                                                            <Typography variant="body2" color="text.secondary">
+                                                                            <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.8125rem', lineHeight: 1.5 }}>
                                                                                 {item.slot.special_notes}
                                                                             </Typography>
                                                                         </Box>
@@ -638,7 +735,7 @@ const ServiceSalesPage = () => {
                                                                 </Box>
                                                             )}
                                                         </Stack>
-                                                    </Card>
+                                                    </Paper>
                                                 );
                                             });
                                         })()}
@@ -646,33 +743,33 @@ const ServiceSalesPage = () => {
                                 </Box>
                             </Stack>
                         </DialogContent>
-                        <DialogActions sx={{ px: 3, pb: 2 }}>
-                        <Button 
-                            onClick={() => {
-                                setSlotModalOpen(false);
-                                setSelectedService(null);
-                                setSelectedSlotId(null);
-                                setSelectedSlotDate(null);
-                            }}
-                            color="inherit"
-                        >
-                            Hủy
-                        </Button>
-                        <Button
-                            variant="contained"
-                            color="error"
-                            onClick={handleAddToCart}
-                            disabled={!selectedSlotId || !selectedSlotDate}
-                            startIcon={<ShoppingCart />}
-                            sx={{
-                                background: `linear-gradient(135deg, ${COLORS.ERROR[500]} 0%, ${COLORS.ERROR[600]} 100%)`,
-                                '&:hover': {
-                                    background: `linear-gradient(135deg, ${COLORS.ERROR[600]} 0%, ${COLORS.ERROR[700]} 100%)`
-                                }
-                            }}
-                        >
-                            Thêm vào giỏ
-                        </Button>
+                        <DialogActions sx={{ px: 3, pb: 2, pt: 2 }}>
+                            <Button
+                                onClick={() => {
+                                    setSlotModalOpen(false);
+                                    setSelectedService(null);
+                                    setSelectedSlotId(null);
+                                    setSelectedSlotDate(null);
+                                }}
+                                color="inherit"
+                            >
+                                Hủy
+                            </Button>
+                            <Button
+                                variant="contained"
+                                color="error"
+                                onClick={handleAddToCart}
+                                disabled={!selectedSlotId || !selectedSlotDate}
+                                startIcon={<ShoppingCart />}
+                                sx={{
+                                    background: `linear-gradient(135deg, ${COLORS.ERROR[500]} 0%, ${COLORS.ERROR[600]} 100%)`,
+                                    '&:hover': {
+                                        background: `linear-gradient(135deg, ${COLORS.ERROR[600]} 0%, ${COLORS.ERROR[700]} 100%)`
+                                    }
+                                }}
+                            >
+                                Thêm vào giỏ
+                            </Button>
                         </DialogActions>
                     </>
                 )}
@@ -713,7 +810,7 @@ const ServiceSalesPage = () => {
                                         : false;
                                     return hasPetSlots ? <Pets sx={{ fontSize: 24 }} /> : <Spa sx={{ fontSize: 24 }} />;
                                 })()}
-                                    <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1.25rem', letterSpacing: '-0.01em', lineHeight: 1.3 }}>
+                                <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1.25rem', letterSpacing: '-0.01em', lineHeight: 1.3 }}>
                                     {detailService.name}
                                 </Typography>
                             </Box>
@@ -844,7 +941,7 @@ const ServiceSalesPage = () => {
                                                     const slotPriceNum = slot.price != null ? Number(slot.price) : null;
                                                     const slotPrice = (slotPriceNum != null && slotPriceNum > 0) ? slotPriceNum : (detailService.base_price || 0);
                                                     const isAvailable = slot.service_status === 'AVAILABLE';
-                                                    
+
                                                     return (
                                                         <Box
                                                             key={slot.id || index}
