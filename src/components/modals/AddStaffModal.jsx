@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { Dialog, DialogTitle, DialogContent, DialogActions, Box, Typography, Button, IconButton, TextField, FormControl, InputLabel, Select, MenuItem, Avatar, Stack, InputAdornment, Alert, alpha, Chip, CircularProgress, Switch, FormControlLabel } from '@mui/material';
 import { Close, Person, Email, Phone, Home, PhotoCamera, Visibility, VisibilityOff, WorkOutline } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
-import * as areasApi from '../../api/areasApi';
 import { uploadFile } from '../../api/fileApi';
 
 const AddStaffModal = ({
@@ -22,7 +21,6 @@ const AddStaffModal = ({
         salary: '',
         sub_role: '',
         skills: [],
-        area_id: '',
         avatar_url: '',
         password: '',
         is_active: true // Default to active when creating new employee
@@ -33,8 +31,6 @@ const AddStaffModal = ({
     const [showPassword, setShowPassword] = useState(false);
     const [previewAvatar, setPreviewAvatar] = useState('');
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
-    const [areas, setAreas] = useState([]);
-    const [loadingAreas, setLoadingAreas] = useState(false);
 
     // Fixed list of skills
     const skillOptions = [
@@ -46,25 +42,6 @@ const AddStaffModal = ({
         'Huấn luyện thú cưng',
         'Theo dõi sức khỏe thú cưng'
     ];
-
-    // Load areas when modal opens
-    useEffect(() => {
-        if (isOpen) {
-            const loadAreas = async () => {
-                try {
-                    setLoadingAreas(true);
-                    const response = await areasApi.getAllAreas({ page_index: 0, page_size: 1000, is_active: true });
-                    setAreas(response.data || []);
-                } catch (error) {
-                    console.error('Error loading areas:', error);
-                    setAreas([]);
-                } finally {
-                    setLoadingAreas(false);
-                }
-            };
-            loadAreas();
-        }
-    }, [isOpen]);
 
     // Load initial data when editing
     useEffect(() => {
@@ -80,7 +57,6 @@ const AddStaffModal = ({
                     salary: initialData.salary || '',
                     sub_role: initialData.sub_role || '',
                     skills: initialData.skills || [],
-                    area_id: initialData.area_id || '',
                     avatar_url: initialData.avatar_url || '',
                     password: '',
                     is_active: isActive !== undefined ? Boolean(isActive) : true
@@ -96,7 +72,6 @@ const AddStaffModal = ({
                     salary: '',
                     sub_role: '',
                     skills: [],
-                    area_id: '',
                     avatar_url: '',
                     password: '',
                     is_active: true // Default to active when creating new employee
@@ -183,7 +158,7 @@ const AddStaffModal = ({
                 if (!value) {
                     error = 'Vui lòng chọn chức vụ';
                 } else if (!['SALE_STAFF', 'WORKING_STAFF'].includes(value)) {
-                    error = 'Chức vụ không hợp lệ';
+                    error = 'Vai trò không hợp lệ';
                 }
                 break;
             case 'password':
@@ -522,14 +497,30 @@ const AddStaffModal = ({
                         sx={{ '& .MuiInputBase-root': { height: 56 } }}
                     />
 
+                    {/* Address */}
+                    <TextField
+                        label="Địa chỉ"
+                        fullWidth
+                        required
+                        multiline
+                        rows={2}
+                        value={formData.address}
+                        onChange={(e) => handleChange('address', e.target.value)}
+                        onBlur={() => handleBlur('address')}
+                        error={touched.address && !!errors.address}
+                        helperText={touched.address && errors.address ? errors.address : undefined}
+                        disabled={isLoading}
+                        placeholder="123 Nguyễn Huệ, P. Bến Nghé, Q.1, TP.HCM"
+                    />
+
                     {/* Sub Role */}
                     <FormControl fullWidth required error={touched.sub_role && !!errors.sub_role}>
-                        <InputLabel>Chức vụ</InputLabel>
+                        <InputLabel>Vai trò</InputLabel>
                         <Select
                             value={formData.sub_role}
                             onChange={(e) => handleChange('sub_role', e.target.value)}
                             onBlur={() => handleBlur('sub_role')}
-                            label="Chức vụ"
+                            label="Vai trò"
                             disabled={isLoading}
                             sx={{ height: 56 }}
                         >
@@ -555,43 +546,6 @@ const AddStaffModal = ({
                             </Typography>
                         )}
                     </FormControl>
-
-                    {/* Area */}
-                    <FormControl fullWidth>
-                        <InputLabel>Khu vực</InputLabel>
-                        <Select
-                            value={formData.area_id}
-                            onChange={(e) => handleChange('area_id', e.target.value)}
-                            label="Khu vực"
-                            disabled={isLoading || loadingAreas}
-                            sx={{ height: 56 }}
-                        >
-                            <MenuItem value="">
-                                <em>Không chọn</em>
-                            </MenuItem>
-                            {areas.map((area) => (
-                                <MenuItem key={area.id} value={area.id}>
-                                    {area.name}
-                                </MenuItem>
-                            ))}
-                        </Select>
-                    </FormControl>
-
-                    {/* Address */}
-                    <TextField
-                        label="Địa chỉ"
-                        fullWidth
-                        required
-                        multiline
-                        rows={2}
-                        value={formData.address}
-                        onChange={(e) => handleChange('address', e.target.value)}
-                        onBlur={() => handleBlur('address')}
-                        error={touched.address && !!errors.address}
-                        helperText={touched.address && errors.address ? errors.address : undefined}
-                        disabled={isLoading}
-                        placeholder="123 Nguyễn Huệ, P. Bến Nghé, Q.1, TP.HCM"
-                    />
 
                     {/* Skills - Multi-select */}
                     <FormControl fullWidth>
