@@ -10,6 +10,22 @@ const MONTHS = [
     'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'
 ];
 
+// Helper function to extract date from ISO string without timezone conversion
+const extractDateFromISO = (isoString) => {
+    if (!isoString) return null;
+    // Extract date directly from ISO string (YYYY-MM-DD) to avoid timezone conversion
+    const match = isoString.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (match) {
+        const [, year, month, day] = match;
+        return {
+            year: parseInt(year, 10),
+            month: parseInt(month, 10) - 1, // JavaScript months are 0-based
+            day: parseInt(day, 10)
+        };
+    }
+    return null;
+};
+
 const VaccinationCalendar = ({ upcomingVaccinations }) => {
     const [currentDate, setCurrentDate] = useState(new Date());
     const [selectedDate, setSelectedDate] = useState(null);
@@ -57,20 +73,44 @@ const VaccinationCalendar = ({ upcomingVaccinations }) => {
     const vaccinationsByDate = useMemo(() => {
         const grouped = {};
         upcomingVaccinations.forEach(vaccination => {
-            const date = new Date(vaccination.scheduled_date);
-            const dateKey = `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+            const dateInfo = extractDateFromISO(vaccination.scheduled_date);
+            if (!dateInfo) {
+                console.warn('[VaccinationCalendar] Failed to extract date from:', vaccination.scheduled_date);
+                return;
+            }
+            const dateKey = `${dateInfo.year}-${dateInfo.month}-${dateInfo.day}`;
             if (!grouped[dateKey]) {
                 grouped[dateKey] = [];
             }
             grouped[dateKey].push(vaccination);
+            // Debug log for Snow
+            if (vaccination.pet?.name === 'Snow') {
+                console.log('[VaccinationCalendar] Snow vaccination:', {
+                    scheduled_date: vaccination.scheduled_date,
+                    dateInfo,
+                    dateKey,
+                    pet: vaccination.pet?.name
+                });
+            }
         });
+        console.log('[VaccinationCalendar] Grouped vaccinations:', grouped);
         return grouped;
     }, [upcomingVaccinations]);
 
     // Get vaccinations for a specific date
     const getVaccinationsForDate = (day) => {
         const dateKey = `${currentYear}-${currentMonth}-${day}`;
-        return vaccinationsByDate[dateKey] || [];
+        const result = vaccinationsByDate[dateKey] || [];
+        // Debug log for day 12 and 13
+        if (day === 12 || day === 13) {
+            console.log('[VaccinationCalendar] getVaccinationsForDate:', {
+                day,
+                dateKey,
+                found: result.length,
+                vaccinations: result.map(v => ({ pet: v.pet?.name, scheduled_date: v.scheduled_date }))
+            });
+        }
+        return result;
     };
 
     // Check if date has vaccinations
@@ -260,8 +300,9 @@ const VaccinationCalendar = ({ upcomingVaccinations }) => {
                 {/* Summary */}
                 {useMemo(() => {
                     const vaccinationsThisMonth = upcomingVaccinations.filter(v => {
-                        const date = new Date(v.scheduled_date);
-                        return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
+                        const dateInfo = extractDateFromISO(v.scheduled_date);
+                        if (!dateInfo) return false;
+                        return dateInfo.month === currentMonth && dateInfo.year === currentYear;
                     });
                     return (
                         <Stack
@@ -449,7 +490,7 @@ const VaccinationCalendar = ({ upcomingVaccinations }) => {
                                                     >
                                                         {[vaccination.pet?.species?.name, vaccination.pet?.breed?.name]
                                                             .filter(Boolean)
-                                                            .join(' • ')}
+                                                            .join(' - ')}
                                                     </Typography>
                                                 </Box>
 
@@ -496,55 +537,10 @@ const VaccinationCalendar = ({ upcomingVaccinations }) => {
                                                         {(() => {
                                                             // Extract time directly without timezone conversion
                                                             const match = vaccination.scheduled_date?.match(/T(\d{2}:\d{2})/);
-                                                            return match ? match[1] : '—';
+                                                            return match ? match[1] : '?';
                                                         })()}
                                                     </Typography>
                                                 </Stack>
-                                            </Box>
-
-                                            {/* Vaccine Info */}
-                                            <Box>
-                                                <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 1 }}>
-                                                    <Vaccines sx={{ fontSize: 20, color: COLORS.WARNING[600] }} />
-                                                    <Typography
-                                                        variant="caption"
-                                                        sx={{
-                                                            color: COLORS.TEXT.SECONDARY,
-                                                            fontWeight: 600,
-                                                            fontSize: '0.8125rem',
-                                                            textTransform: 'uppercase',
-                                                            letterSpacing: 0.5
-                                                        }}
-                                                    >
-                                                        Loại vaccine
-                                                    </Typography>
-                                                </Stack>
-                                                <Typography
-                                                    variant="body1"
-                                                    sx={{
-                                                        fontWeight: 600,
-                                                        color: COLORS.TEXT.PRIMARY,
-                                                        lineHeight: 1.4,
-                                                        fontSize: '0.9375rem',
-                                                        mb: 0.75
-                                                    }}
-                                                >
-                                                    {vaccination.name || 'Vaccine'}
-                                                </Typography>
-                                                {vaccination.vaccine_type?.is_required && (
-                                                    <Chip
-                                                        label="Bắt buộc"
-                                                        size="small"
-                                                        sx={{
-                                                            height: 24,
-                                                            fontSize: '0.75rem',
-                                                            fontWeight: 600,
-                                                            bgcolor: alpha(COLORS.ERROR[50], 0.8),
-                                                            color: COLORS.ERROR[700],
-                                                            border: `1px solid ${alpha(COLORS.ERROR[200], 0.5)}`
-                                                        }}
-                                                    />
-                                                )}
                                             </Box>
 
                                             {/* Completion Date */}
@@ -583,7 +579,7 @@ const VaccinationCalendar = ({ upcomingVaccinations }) => {
                                                                 {(() => {
                                                                     // Extract date/time directly without timezone conversion
                                                                     const match = vaccination.completed_date?.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
-                                                                    if (!match) return '—';
+                                                                    if (!match) return '?';
                                                                     const [, year, month, day, hours, minutes] = match;
                                                                     return `${day}/${month}/${year}, ${hours}:${minutes}`;
                                                                 })()}

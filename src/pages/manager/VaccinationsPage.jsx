@@ -515,28 +515,27 @@ const VaccinationsPage = () => {
 
         // Filter by date range (client-side only)
         if (filterFromDate && filterFromDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
-            const fromDate = new Date(filterFromDate + 'T00:00:00');
-            if (!isNaN(fromDate.getTime())) {
-                fromDate.setHours(0, 0, 0, 0);
-                filtered = filtered.filter(item => {
-                    if (!item.scheduled_date) return false;
-                    const scheduledDate = new Date(item.scheduled_date);
-                    scheduledDate.setHours(0, 0, 0, 0);
-                    return scheduledDate >= fromDate;
-                });
-            }
+            // Extract date directly from ISO string to avoid timezone conversion
+            filtered = filtered.filter(item => {
+                if (!item.scheduled_date) return false;
+                const match = item.scheduled_date.match(/^(\d{4})-(\d{2})-(\d{2})/);
+                if (!match) return false;
+                const [, year, month, day] = match;
+                const scheduledDateStr = `${year}-${month}-${day}`;
+                return scheduledDateStr >= filterFromDate;
+            });
         }
 
         if (filterToDate && filterToDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
-            const toDate = new Date(filterToDate + 'T23:59:59');
-            if (!isNaN(toDate.getTime())) {
-                toDate.setHours(23, 59, 59, 999);
-                filtered = filtered.filter(item => {
-                    if (!item.scheduled_date) return false;
-                    const scheduledDate = new Date(item.scheduled_date);
-                    return scheduledDate <= toDate;
-                });
-            }
+            // Extract date directly from ISO string to avoid timezone conversion
+            filtered = filtered.filter(item => {
+                if (!item.scheduled_date) return false;
+                const match = item.scheduled_date.match(/^(\d{4})-(\d{2})-(\d{2})/);
+                if (!match) return false;
+                const [, year, month, day] = match;
+                const scheduledDateStr = `${year}-${month}-${day}`;
+                return scheduledDateStr <= filterToDate;
+            });
         }
 
         // Sort by closest date (nearest first)

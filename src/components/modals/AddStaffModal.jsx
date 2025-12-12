@@ -636,40 +636,40 @@ const AddStaffModal = ({
 
                     {/* Active Status Switch - Chỉ hiển thị khi chỉnh sửa nhân viên */}
                     {editMode && (
-                        <FormControlLabel
-                            control={
-                                <Switch
-                                    checked={formData.is_active}
-                                    onChange={(e) => handleChange('is_active', e.target.checked)}
-                                    disabled={isLoading}
-                                    sx={{
-                                        '& .MuiSwitch-switchBase.Mui-checked': {
-                                            color: COLORS.SUCCESS[600],
-                                        },
-                                        '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                                            backgroundColor: COLORS.SUCCESS[600],
-                                        },
-                                    }}
-                                />
+                    <FormControlLabel
+                        control={
+                            <Switch
+                                checked={formData.is_active}
+                                onChange={(e) => handleChange('is_active', e.target.checked)}
+                                disabled={isLoading}
+                                sx={{
+                                    '& .MuiSwitch-switchBase.Mui-checked': {
+                                        color: COLORS.SUCCESS[600],
+                                    },
+                                    '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                                        backgroundColor: COLORS.SUCCESS[600],
+                                    },
+                                }}
+                            />
+                        }
+                        label={
+                            <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                                Trạng thái hoạt động
+                            </Typography>
+                        }
+                        sx={{
+                            mt: 1,
+                            mb: 1,
+                            px: 2,
+                            py: 1.5,
+                            borderRadius: 2,
+                            bgcolor: formData.is_active ? alpha(COLORS.SUCCESS[500], 0.1) : alpha(COLORS.ERROR[500], 0.1),
+                            border: `1px solid ${formData.is_active ? COLORS.SUCCESS[200] : COLORS.ERROR[200]}`,
+                            '&:hover': {
+                                bgcolor: formData.is_active ? alpha(COLORS.SUCCESS[500], 0.15) : alpha(COLORS.ERROR[500], 0.15),
                             }
-                            label={
-                                <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                                    Trạng thái hoạt động
-                                </Typography>
-                            }
-                            sx={{
-                                mt: 1,
-                                mb: 1,
-                                px: 2,
-                                py: 1.5,
-                                borderRadius: 2,
-                                bgcolor: formData.is_active ? alpha(COLORS.SUCCESS[500], 0.1) : alpha(COLORS.ERROR[500], 0.1),
-                                border: `1px solid ${formData.is_active ? COLORS.SUCCESS[200] : COLORS.ERROR[200]}`,
-                                '&:hover': {
-                                    bgcolor: formData.is_active ? alpha(COLORS.SUCCESS[500], 0.15) : alpha(COLORS.ERROR[500], 0.15),
-                                }
-                            }}
-                        />
+                        }}
+                    />
                     )}
 
                 </Stack>
