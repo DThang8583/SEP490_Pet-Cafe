@@ -84,10 +84,10 @@ const BookingForm = ({ service, bookingData: initialBookingData, onBack, onSubmi
             const [year, month, day] = selectedDate.split('-').map(Number);
             const dateToValidate = new Date(year, month - 1, day);
             dateToValidate.setHours(0, 0, 0, 0);
-            
+
             const today = new Date();
             today.setHours(0, 0, 0, 0);
-            
+
             if (dateToValidate < today) {
                 newErrors.selectedDate = 'Không thể chọn ngày trong quá khứ';
             }
@@ -174,7 +174,7 @@ const BookingForm = ({ service, bookingData: initialBookingData, onBack, onSubmi
             const next = [...current, cartItem];
             localStorage.setItem('booking_cart', JSON.stringify(next));
             window.dispatchEvent(new Event('bookingCartUpdated'));
-            
+
             // Navigate to cart
             window.location.href = '/booking/cart';
         } catch (e) {
@@ -268,17 +268,6 @@ const BookingForm = ({ service, bookingData: initialBookingData, onBack, onSubmi
                                 >
                                     Quay lại
                                 </Button>
-                                <Chip
-                                    label={service.petRequired === false ? 'Dịch vụ của cửa hàng' : 'Chăm sóc pet'}
-                                    icon={service.petRequired === false ? <Spa /> : <Pets />}
-                                    sx={{
-                                        backgroundColor: service.petRequired === false
-                                            ? alpha(COLORS.WARNING[500], 0.9)
-                                            : alpha(COLORS.INFO[500], 0.9),
-                                        color: 'white',
-                                        fontWeight: 'bold'
-                                    }}
-                                />
                             </Box>
                             <Typography variant="h4" sx={{
                                 fontWeight: 700,
@@ -349,7 +338,7 @@ const BookingForm = ({ service, bookingData: initialBookingData, onBack, onSubmi
                                     <Typography variant="h6" sx={{ mb: 2, color: categoryColor[700], fontWeight: 'bold' }}>
                                         Lịch trình có sẵn
                                     </Typography>
-                                    
+
                                     {/* Ngày đã chọn (if already selected from modal) */}
                                     {(initialBookingData?.selectedDate || initialBookingData?.date) && (
                                         <Paper sx={{
@@ -360,9 +349,9 @@ const BookingForm = ({ service, bookingData: initialBookingData, onBack, onSubmi
                                             border: `2px solid ${alpha(COLORS.SUCCESS[300], 0.5)}`,
                                             boxShadow: `0 4px 12px ${alpha(COLORS.SUCCESS[200], 0.2)}`
                                         }}>
-                                            <Typography variant="subtitle1" sx={{ 
-                                                color: COLORS.SUCCESS[700], 
-                                                fontWeight: 'bold', 
+                                            <Typography variant="subtitle1" sx={{
+                                                color: COLORS.SUCCESS[700],
+                                                fontWeight: 'bold',
                                                 mb: 1.5,
                                                 display: 'flex',
                                                 alignItems: 'center',
@@ -422,7 +411,7 @@ const BookingForm = ({ service, bookingData: initialBookingData, onBack, onSubmi
                                             )}
                                         </Paper>
                                     )}
-                                    
+
                                     {/* Thông tin liên hệ người dùng */}
                                     {(formData.customerInfo.name || formData.customerInfo.phone || formData.customerInfo.email) && (
                                         <Paper sx={{
@@ -433,9 +422,9 @@ const BookingForm = ({ service, bookingData: initialBookingData, onBack, onSubmi
                                             border: `2px solid ${alpha(COLORS.INFO[200], 0.5)}`,
                                             boxShadow: `0 4px 12px ${alpha(COLORS.INFO[200], 0.2)}`
                                         }}>
-                                            <Typography variant="subtitle1" sx={{ 
-                                                mb: 1.5, 
-                                                color: COLORS.INFO[700], 
+                                            <Typography variant="subtitle1" sx={{
+                                                mb: 1.5,
+                                                color: COLORS.INFO[700],
                                                 fontWeight: 'bold',
                                                 display: 'flex',
                                                 alignItems: 'center',
@@ -467,7 +456,7 @@ const BookingForm = ({ service, bookingData: initialBookingData, onBack, onSubmi
                                 </Box>
                             )}
 
-                            
+
                         </CardContent>
                     </Card>
                 </Box>

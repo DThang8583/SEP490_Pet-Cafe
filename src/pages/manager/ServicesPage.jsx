@@ -11,6 +11,7 @@ import ServiceFormModal from '../../components/modals/ServiceFormModal';
 import ServiceDetailModal from '../../components/modals/ServiceDetailModal';
 import SlotDetailsModal from '../../components/modals/SlotDetailsModal';
 import SlotFormModal from '../../components/modals/SlotFormModal';
+import ServiceSlotsModal from '../../components/modals/ServiceSlotsModal';
 import taskTemplateApi from '../../api/taskTemplateApi';
 import serviceApi from '../../api/serviceApi';
 import slotApi from '../../api/slotApi';
@@ -61,6 +62,7 @@ const ServicesPage = () => {
     // Modals
     const [serviceFormOpen, setServiceFormOpen] = useState(false);
     const [serviceDetailOpen, setServiceDetailOpen] = useState(false);
+    const [serviceSlotsOpen, setServiceSlotsOpen] = useState(false);
     const [slotDetailsOpen, setSlotDetailsOpen] = useState(false);
     const [slotFormOpen, setSlotFormOpen] = useState(false);
     const [slotFormMode, setSlotFormMode] = useState('create');
@@ -75,6 +77,7 @@ const ServicesPage = () => {
     // Modal data
     const [selectedTask, setSelectedTask] = useState(null);
     const [selectedService, setSelectedService] = useState(null);
+    const [selectedServiceForSlots, setSelectedServiceForSlots] = useState(null);
 
     // Menu state
     const [serviceMenuAnchor, setServiceMenuAnchor] = useState(null);
@@ -1221,6 +1224,15 @@ const ServicesPage = () => {
                 service={selectedService}
             />
 
+            <ServiceSlotsModal
+                open={serviceSlotsOpen}
+                onClose={() => {
+                    setServiceSlotsOpen(false);
+                    setSelectedServiceForSlots(null);
+                }}
+                service={selectedServiceForSlots}
+            />
+
             <SlotDetailsModal
                 open={slotDetailsOpen}
                 onClose={() => setSlotDetailsOpen(false)}
@@ -1323,6 +1335,21 @@ const ServicesPage = () => {
                         <VisibilityIcon fontSize="small" sx={{ color: COLORS.INFO[600] }} />
                     </ListItemIcon>
                     <ListItemText>Xem chi tiết</ListItemText>
+                </MenuItem>
+                <MenuItem
+                    onClick={() => {
+                        if (menuService) {
+                            setSelectedServiceForSlots(menuService);
+                            setServiceSlotsOpen(true);
+                        }
+                        setServiceMenuAnchor(null);
+                        setMenuService(null);
+                    }}
+                >
+                    <ListItemIcon>
+                        <ScheduleIcon fontSize="small" sx={{ color: COLORS.PRIMARY[600] }} />
+                    </ListItemIcon>
+                    <ListItemText>Xem ca làm việc</ListItemText>
                 </MenuItem>
                 <MenuItem
                     onClick={() => {

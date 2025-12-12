@@ -2,12 +2,12 @@ import React, { useState } from 'react';
 import {
     Card, CardContent, CardMedia, Typography, Button, Chip, Box,
     Stack, IconButton, Tooltip, Dialog, DialogTitle, DialogContent,
-    DialogActions, alpha, Zoom, Divider
+    DialogActions, alpha, Zoom, Divider, Grid, Paper
 } from '@mui/material';
 import {
     Schedule, LocationOn, Star, Favorite, FavoriteBorder,
     Info, AccessTime, AttachMoney, Pets, LocalHospital,
-    School, Spa, Loyalty, CalendarToday, People, Note
+    School, Spa, Loyalty, CalendarToday, People, Note, Close
 } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 import { WEEKDAY_LABELS } from '../../api/slotApi';
@@ -166,28 +166,6 @@ const ServiceCard = ({ service, onSelect, onCardClick, showFavorite = true }) =>
                         }}
                     />
 
-                    {/* Category Badge */}
-                    <Chip
-                        icon={getCategoryIcon(service.category)}
-                        label={service.petRequired === false ? 'Dịch vụ của cửa hàng' : 'Chăm sóc pet'}
-                        sx={{
-                            position: 'absolute',
-                            top: 12,
-                            left: 12,
-                            backgroundColor: service.petRequired === false ?
-                                alpha(COLORS.WARNING[500], 0.9) :
-                                alpha(COLORS.INFO[500], 0.9),
-                            color: 'white',
-                            fontWeight: 'bold',
-                            fontSize: '0.75rem',
-                            '& .MuiChip-icon': {
-                                color: 'white'
-                            }
-                        }}
-                    />
-
-                    {/* Removed Service Type Badge */}
-
                     {/* Removed Favorite Button */}
 
                     {/* Removed Price Badge */}
@@ -226,30 +204,6 @@ const ServiceCard = ({ service, onSelect, onCardClick, showFavorite = true }) =>
 
                     {/* Service Details */}
                     <Stack spacing={1} sx={{ mb: 3 }}>
-                        {/* Show time info for cafe services (specific date/time) */}
-                        {service.petRequired === false && (
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <AccessTime sx={{ fontSize: 16, color: categoryColor[500] }} />
-                                <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
-                                    Thời gian: <strong>
-                                        {service.serviceStartDate ?
-                                            `${service.serviceStartDate.split('-').reverse().join('/')} - ${service.serviceEndDate.split('-').reverse().join('/')}, ${Math.floor((service.serviceStartTime || 8 * 60) / 60).toString().padStart(2, '0')}:${((service.serviceStartTime || 8 * 60) % 60).toString().padStart(2, '0')}-${Math.floor((service.serviceEndTime || 20 * 60) / 60).toString().padStart(2, '0')}:${((service.serviceEndTime || 20 * 60) % 60).toString().padStart(2, '0')}`
-                                            : '15/01/2024 - 20/01/2024, 8:00-20:00'
-                                        }
-                                    </strong>
-                                </Typography>
-                            </Box>
-                        )}
-
-                        {/* Show time info for pet care services (daily hours) */}
-                        {service.petRequired === true && (
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <AccessTime sx={{ fontSize: 16, color: categoryColor[500] }} />
-                                <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
-                                    Giờ hoạt động: <strong>8:00 - 20:00 (Hàng ngày)</strong>
-                                </Typography>
-                            </Box>
-                        )}
 
                         {service.location && (
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -347,321 +301,314 @@ const ServiceCard = ({ service, onSelect, onCardClick, showFavorite = true }) =>
                 fullWidth
                 PaperProps={{
                     sx: {
-                        borderRadius: 4,
-                        background: `linear-gradient(135deg, 
-                            ${COLORS.BACKGROUND.DEFAULT} 0%, 
-                            ${alpha(categoryColor[50], 0.8)} 100%
-                        )`
+                        borderRadius: 2,
+                        boxShadow: `0 8px 32px ${alpha(COLORS.GRAY[900], 0.12)}`,
+                        overflow: 'hidden',
+                        maxHeight: '90vh'
                     }
                 }}
             >
-                <DialogTitle sx={{
-                    background: `linear-gradient(135deg, 
-                        ${categoryColor[500]} 0%, 
-                        ${categoryColor[600]} 100%
-                    )`,
+                {/* Header */}
+                <Box sx={{
+                    background: `linear-gradient(135deg, ${categoryColor[500]} 0%, ${categoryColor[600]} 100%)`,
                     color: 'white',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 2
+                    p: 3,
+                    position: 'relative'
                 }}>
-                    {service.petRequired === false ? <Spa sx={{ fontSize: 24 }} /> : getCategoryIcon(service.category)}
-                    {service.name}
-                </DialogTitle>
-
-                <DialogContent sx={{ p: 4 }}>
-                    <Stack spacing={3}>
-                        {/* Service Image */}
-                        <Box
-                            component="img"
-                            src={service.image_url || (service.thumbnails && service.thumbnails[0]) || `https://images.unsplash.com/photo-1601758228041-f3b2795255f1?q=80&w=800&auto=format&fit=crop`}
-                            alt={service.name}
-                            sx={{
-                                width: '100%',
-                                height: 250,
-                                objectFit: 'cover',
-                                borderRadius: 3
-                            }}
-                            onError={(e) => {
-                                // Fallback to thumbnail or placeholder if image_url fails
-                                if (service.image_url && service.thumbnails && service.thumbnails[0]) {
-                                    e.target.src = service.thumbnails[0];
-                                } else {
-                                    e.target.src = `https://images.unsplash.com/photo-1601758228041-f3b2795255f1?q=80&w=800&auto=format&fit=crop`;
-                                }
-                            }}
-                        />
-
-                        {/* Description */}
-                        <Typography variant="body1" sx={{ lineHeight: 1.6 }}>
-                            {service.description}
-                        </Typography>
-
-                        {/* Service Type Info */}
-                        <Box sx={{
-                            p: 3,
-                            backgroundColor: service.petRequired === false ?
-                                alpha(COLORS.WARNING[100], 0.3) :
-                                alpha(COLORS.INFO[100], 0.3),
-                            borderRadius: 3,
-                            border: `2px solid ${service.petRequired === false ?
-                                alpha(COLORS.WARNING[300], 0.5) :
-                                alpha(COLORS.INFO[300], 0.5)}`,
-                            mb: 3
-                        }}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
-                                {service.petRequired === false ? (
-                                    <Spa sx={{
-                                        fontSize: 24,
-                                        color: COLORS.WARNING[500]
-                                    }} />
-                                ) : (
-                                    <Pets sx={{
-                                        fontSize: 24,
-                                        color: COLORS.INFO[500]
-                                    }} />
-                                )}
-                                <Typography variant="h6" sx={{
-                                    color: service.petRequired === false ? COLORS.WARNING[700] : COLORS.INFO[700],
-                                    fontWeight: 'bold'
-                                }}>
-                                    {service.petRequired === false ? '🐾 Dịch vụ của cửa hàng' : '🐕 Chăm sóc pet'}
-                                </Typography>
-                            </Box>
-                            <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
-                                {service.petRequired === false ?
-                                    'Sử dụng pet của cafe - Không cần mang theo pet của bạn' :
-                                    'Cần mang theo pet của bạn để thực hiện dịch vụ'
-                                }
-                            </Typography>
-                        </Box>
-
-                        {/* Service Basic Info */}
-                        <Box sx={{
-                            display: 'grid',
-                            gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
-                            gap: 2,
-                            p: 3,
-                            backgroundColor: alpha(categoryColor[100], 0.3),
-                            borderRadius: 3
-                        }}>
-                            <Box>
-                                <Typography variant="subtitle2" color={categoryColor[700]} fontWeight="bold" sx={{ mb: 1 }}>
-                                    Giá cơ bản
-                                </Typography>
-                                <Typography variant="h6" sx={{ color: COLORS.ERROR[600], fontWeight: 'bold' }}>
-                                    {formatPrice(service.base_price || service.price || 0)}
-                                </Typography>
-                            </Box>
-
-                            <Box>
-                                <Typography variant="subtitle2" color={categoryColor[700]} fontWeight="bold" sx={{ mb: 1 }}>
-                                    Thời lượng
-                                </Typography>
-                                <Typography variant="body1">
-                                    {formatDuration(service.duration_minutes || 0)}
-                                </Typography>
-                            </Box>
-                        </Box>
-
-                        {/* Available Slots */}
-                        {service.slots && service.slots.length > 0 && (
-                            <Box>
-                                <Typography variant="h6" sx={{ mb: 2, color: categoryColor[700], fontWeight: 'bold' }}>
-                                    Lịch trình có sẵn
-                                </Typography>
-                                <Stack spacing={2}>
-                                    {service.slots
-                                        .filter(slot => slot && !slot.is_deleted)
-                                        .map((slot, index) => {
-                                            const slotPrice = slot.price !== null && slot.price !== undefined ? slot.price : (service.base_price || 0);
-                                            const isAvailable = slot.service_status === 'AVAILABLE';
-                                            
-                                            return (
-                                                <Box
-                                                    key={slot.id || index}
-                                                    sx={{
-                                                        p: 2.5,
-                                                        borderRadius: 2,
-                                                        border: `2px solid ${isAvailable ? alpha(categoryColor[300], 0.5) : alpha(COLORS.GRAY[300], 0.3)}`,
-                                                        backgroundColor: isAvailable ? alpha(categoryColor[50], 0.5) : alpha(COLORS.GRAY[50], 0.3),
-                                                        opacity: isAvailable ? 1 : 0.6
-                                                    }}
-                                                >
-                                                    <Stack spacing={1.5}>
-                                                        {/* Status Badge */}
-                                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                            <Chip
-                                                                label={isAvailable ? 'Có sẵn' : 'Không khả dụng'}
-                                                                size="small"
-                                                                color={isAvailable ? 'success' : 'default'}
-                                                                sx={{ fontWeight: 'bold' }}
-                                                            />
-                                                            {slotPrice > 0 && (
-                                                                <Typography variant="h6" sx={{ color: COLORS.ERROR[600], fontWeight: 'bold' }}>
-                                                                    {formatPrice(slotPrice)}
-                                                                </Typography>
-                                                            )}
-                                                        </Box>
-
-                                                        {/* Day of Week */}
-                                                        {slot.day_of_week && (
-                                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                                <CalendarToday sx={{ fontSize: 18, color: categoryColor[500] }} />
-                                                                <Typography variant="body1" fontWeight={600}>
-                                                                    {WEEKDAY_LABELS[slot.day_of_week] || slot.day_of_week}
-                                                                </Typography>
-                                                                {slot.is_recurring && (
-                                                                    <Chip label="Lặp lại" size="small" sx={{ ml: 1, height: 20, fontSize: '0.7rem' }} />
-                                                                )}
-                                                            </Box>
-                                                        )}
-
-                                                        {/* Specific Date */}
-                                                        {slot.specific_date && (
-                                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                                <CalendarToday sx={{ fontSize: 18, color: categoryColor[500] }} />
-                                                                <Typography variant="body1">
-                                                                    Ngày: {new Date(slot.specific_date).toLocaleDateString('vi-VN')}
-                                                                </Typography>
-                                                            </Box>
-                                                        )}
-
-                                                        {/* Time Range */}
-                                                        {slot.start_time && slot.end_time && (
-                                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                                <AccessTime sx={{ fontSize: 18, color: categoryColor[500] }} />
-                                                                <Typography variant="body1">
-                                                                    {slot.start_time.substring(0, 5)} - {slot.end_time.substring(0, 5)}
-                                                                </Typography>
-                                                            </Box>
-                                                        )}
-
-                                                        {/* Max Capacity */}
-                                                        {slot.max_capacity !== null && slot.max_capacity !== undefined && (
-                                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                                <People sx={{ fontSize: 18, color: categoryColor[500] }} />
-                                                                <Typography variant="body2" color="text.secondary">
-                                                                    Sức chứa tối đa: <strong>{slot.max_capacity}</strong> {service.petRequired ? 'thú cưng' : 'người'}
-                                                                </Typography>
-                                                            </Box>
-                                                        )}
-
-                                                        {/* Pet Group Info */}
-                                                        {slot.pet_group && (
-                                                            <Box sx={{
-                                                                p: 1.5,
-                                                                borderRadius: 1,
-                                                                backgroundColor: alpha(categoryColor[100], 0.3),
-                                                                border: `1px solid ${alpha(categoryColor[200], 0.3)}`
-                                                            }}>
-                                                                <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 0.5 }}>
-                                                                    Nhóm thú cưng: {slot.pet_group.name}
-                                                                </Typography>
-                                                                {slot.pet_group.description && (
-                                                                    <Typography variant="caption" color="text.secondary">
-                                                                        {slot.pet_group.description}
-                                                                    </Typography>
-                                                                )}
-                                                            </Box>
-                                                        )}
-
-                                                        {/* Special Notes */}
-                                                        {slot.special_notes && (
-                                                            <Box sx={{
-                                                                p: 1.5,
-                                                                borderRadius: 1,
-                                                                backgroundColor: alpha(COLORS.WARNING[50], 0.5),
-                                                                border: `1px solid ${alpha(COLORS.WARNING[200], 0.3)}`
-                                                            }}>
-                                                                <Box sx={{ display: 'flex', alignItems: 'start', gap: 1 }}>
-                                                                    <Note sx={{ fontSize: 18, color: COLORS.WARNING[600], mt: 0.25 }} />
-                                                                    <Box>
-                                                                        <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 0.5, color: COLORS.WARNING[700] }}>
-                                                                            Ghi chú đặc biệt:
-                                                                        </Typography>
-                                                                        <Typography variant="body2" color="text.secondary">
-                                                                            {slot.special_notes}
-                                                                        </Typography>
-                                                                    </Box>
-                                                                </Box>
-                                                            </Box>
-                                                        )}
-                                                    </Stack>
-                                                </Box>
-                                            );
-                                        })}
-                                </Stack>
-                            </Box>
-                        )}
-
-                        {/* Task Information */}
-                        {service.task && (
-                            <Box>
-                                <Typography variant="h6" sx={{ mb: 2, color: categoryColor[700], fontWeight: 'bold' }}>
-                                    Thông tin nhiệm vụ
-                                </Typography>
-                                <Box sx={{
-                                    p: 2.5,
-                                    borderRadius: 2,
-                                    backgroundColor: alpha(categoryColor[50], 0.5),
-                                    border: `1px solid ${alpha(categoryColor[200], 0.3)}`
-                                }}>
-                                    <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 1 }}>
-                                        {service.task.title}
-                                    </Typography>
-                                    {service.task.description && (
-                                        <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6 }}>
-                                            {service.task.description}
-                                        </Typography>
-                                    )}
-                                    {service.task.estimated_hours && (
-                                        <Box sx={{ mt: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
-                                            <AccessTime sx={{ fontSize: 16, color: categoryColor[500] }} />
-                                            <Typography variant="body2" color="text.secondary">
-                                                Thời gian ước tính: <strong>{service.task.estimated_hours} giờ</strong>
-                                            </Typography>
-                                        </Box>
-                                    )}
-                                </Box>
-                            </Box>
-                        )}
-
-                        {/* Features/Benefits */}
-                        {service.features && service.features.length > 0 && (
-                            <Box>
-                                <Typography variant="h6" sx={{ mb: 2, color: categoryColor[700] }}>
-                                    Dịch vụ bao gồm:
-                                </Typography>
-                                <Stack spacing={1}>
-                                    {service.features.map((feature, index) => (
-                                        <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                            <Box
-                                                sx={{
-                                                    width: 6,
-                                                    height: 6,
-                                                    borderRadius: '50%',
-                                                    backgroundColor: categoryColor[500]
-                                                }}
-                                            />
-                                            <Typography variant="body2">
-                                                {feature}
-                                            </Typography>
-                                        </Box>
-                                    ))}
-                                </Stack>
-                            </Box>
-                        )}
-                    </Stack>
-                </DialogContent>
-
-                <DialogActions sx={{ p: 3, gap: 2 }}>
-                    <Button
+                    <IconButton
                         onClick={() => setShowDetails(false)}
                         sx={{
-                            color: COLORS.GRAY[600],
+                            position: 'absolute',
+                            right: 8,
+                            top: 8,
+                            color: 'white',
                             '&:hover': {
-                                backgroundColor: alpha(COLORS.GRAY[100], 0.8)
+                                bgcolor: alpha('#fff', 0.15)
+                            }
+                        }}
+                    >
+                        <Close />
+                    </IconButton>
+                    <Typography variant="h5" sx={{ fontWeight: 700, pr: 5 }}>
+                        {service.name}
+                    </Typography>
+                </Box>
+
+                <DialogContent sx={{ p: 0 }}>
+                    {/* Service Image */}
+                    <Box
+                        component="img"
+                        src={service.image_url || (service.thumbnails && service.thumbnails[0]) || `https://images.unsplash.com/photo-1601758228041-f3b2795255f1?q=80&w=800&auto=format&fit=crop`}
+                        alt={service.name}
+                        sx={{
+                            width: '100%',
+                            height: 280,
+                            objectFit: 'cover',
+                            display: 'block'
+                        }}
+                        onError={(e) => {
+                            if (service.image_url && service.thumbnails && service.thumbnails[0]) {
+                                e.target.src = service.thumbnails[0];
+                            } else {
+                                e.target.src = `https://images.unsplash.com/photo-1601758228041-f3b2795255f1?q=80&w=800&auto=format&fit=crop`;
+                            }
+                        }}
+                    />
+
+                    {/* Content */}
+                    <Box sx={{ p: 3 }}>
+                        <Stack spacing={3}>
+                            {/* Price and Duration - Highlight Cards */}
+                            <Grid container spacing={2}>
+                                <Grid item xs={6}>
+                                    <Paper
+                                        elevation={0}
+                                        sx={{
+                                            p: 2,
+                                            borderRadius: 2,
+                                            bgcolor: alpha(COLORS.ERROR[50], 0.6),
+                                            border: `1.5px solid ${alpha(COLORS.ERROR[200], 0.5)}`,
+                                            textAlign: 'center'
+                                        }}
+                                    >
+                                        <Stack direction="row" alignItems="center" justifyContent="center" spacing={1} sx={{ mb: 0.5 }}>
+                                            <AttachMoney sx={{ fontSize: 18, color: COLORS.ERROR[600] }} />
+                                            <Typography variant="caption" sx={{
+                                                color: COLORS.ERROR[700],
+                                                fontWeight: 600,
+                                                fontSize: '0.7rem',
+                                                textTransform: 'uppercase',
+                                                letterSpacing: 0.5
+                                            }}>
+                                                Giá cơ bản
+                                            </Typography>
+                                        </Stack>
+                                        <Typography variant="h6" sx={{
+                                            color: COLORS.ERROR[700],
+                                            fontWeight: 700,
+                                            fontSize: '1.25rem'
+                                        }}>
+                                            {formatPrice(service.base_price || service.price || 0)}
+                                        </Typography>
+                                    </Paper>
+                                </Grid>
+                                <Grid item xs={6}>
+                                    <Paper
+                                        elevation={0}
+                                        sx={{
+                                            p: 2,
+                                            borderRadius: 2,
+                                            bgcolor: alpha(categoryColor[50], 0.6),
+                                            border: `1.5px solid ${alpha(categoryColor[200], 0.5)}`,
+                                            textAlign: 'center'
+                                        }}
+                                    >
+                                        <Stack direction="row" alignItems="center" justifyContent="center" spacing={1} sx={{ mb: 0.5 }}>
+                                            <AccessTime sx={{ fontSize: 18, color: categoryColor[600] }} />
+                                            <Typography variant="caption" sx={{
+                                                color: categoryColor[700],
+                                                fontWeight: 600,
+                                                fontSize: '0.7rem',
+                                                textTransform: 'uppercase',
+                                                letterSpacing: 0.5
+                                            }}>
+                                                Thời lượng
+                                            </Typography>
+                                        </Stack>
+                                        <Typography variant="h6" sx={{
+                                            color: categoryColor[700],
+                                            fontWeight: 700,
+                                            fontSize: '1.25rem'
+                                        }}>
+                                            {formatDuration(service.duration_minutes || 0)}
+                                        </Typography>
+                                    </Paper>
+                                </Grid>
+                            </Grid>
+
+                            {/* Description */}
+                            <Box>
+                                <Typography variant="subtitle2" sx={{
+                                    fontWeight: 700,
+                                    color: COLORS.TEXT.PRIMARY,
+                                    mb: 1.5,
+                                    fontSize: '0.875rem',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: 1
+                                }}>
+                                    Mô tả dịch vụ
+                                </Typography>
+                                <Typography variant="body1" sx={{
+                                    lineHeight: 1.8,
+                                    color: COLORS.TEXT.SECONDARY,
+                                    fontSize: '0.9375rem'
+                                }}>
+                                    {service.description || 'Chưa có mô tả cho dịch vụ này.'}
+                                </Typography>
+                            </Box>
+
+                            {/* Additional Info */}
+                            <Stack spacing={1.5}>
+                                {service.location && (
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                        <LocationOn sx={{ fontSize: 20, color: categoryColor[600], flexShrink: 0 }} />
+                                        <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
+                                            <strong style={{ color: COLORS.TEXT.PRIMARY }}>Địa điểm:</strong> {service.location}
+                                        </Typography>
+                                    </Box>
+                                )}
+                                {service.rating && (
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                        <Star sx={{ fontSize: 20, color: COLORS.WARNING[500], flexShrink: 0 }} />
+                                        <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
+                                            <strong style={{ color: COLORS.TEXT.PRIMARY }}>Đánh giá:</strong> {service.rating}/5
+                                            {service.reviewCount && ` (${service.reviewCount} đánh giá)`}
+                                        </Typography>
+                                    </Box>
+                                )}
+                                {(service.petRequired === false && service.serviceStartDate) && (
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                        <CalendarToday sx={{ fontSize: 20, color: categoryColor[600], flexShrink: 0 }} />
+                                        <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
+                                            <strong style={{ color: COLORS.TEXT.PRIMARY }}>Thời gian:</strong> {
+                                                `${service.serviceStartDate.split('-').reverse().join('/')} - ${service.serviceEndDate.split('-').reverse().join('/')}, ${Math.floor((service.serviceStartTime || 8 * 60) / 60).toString().padStart(2, '0')}:${((service.serviceStartTime || 8 * 60) % 60).toString().padStart(2, '0')}-${Math.floor((service.serviceEndTime || 20 * 60) / 60).toString().padStart(2, '0')}:${((service.serviceEndTime || 20 * 60) % 60).toString().padStart(2, '0')}`
+                                            }
+                                        </Typography>
+                                    </Box>
+                                )}
+                            </Stack>
+
+                            {/* Task Information */}
+                            {service.task && (
+                                <Box>
+                                    <Divider sx={{ my: 2 }} />
+                                    <Typography variant="subtitle2" sx={{
+                                        fontWeight: 700,
+                                        color: COLORS.TEXT.PRIMARY,
+                                        mb: 1.5,
+                                        fontSize: '0.875rem',
+                                        textTransform: 'uppercase',
+                                        letterSpacing: 1
+                                    }}>
+                                        Thông tin nhiệm vụ
+                                    </Typography>
+                                    <Paper
+                                        elevation={0}
+                                        sx={{
+                                            p: 2.5,
+                                            borderRadius: 2,
+                                            bgcolor: alpha(categoryColor[50], 0.4),
+                                            border: `1px solid ${alpha(categoryColor[200], 0.4)}`
+                                        }}
+                                    >
+                                        <Stack spacing={1.5}>
+                                            <Typography variant="subtitle1" fontWeight={700} sx={{
+                                                color: COLORS.TEXT.PRIMARY,
+                                                fontSize: '1rem'
+                                            }}>
+                                                {service.task.title}
+                                            </Typography>
+                                            {service.task.description && (
+                                                <Typography variant="body2" sx={{
+                                                    color: COLORS.TEXT.SECONDARY,
+                                                    lineHeight: 1.7,
+                                                    fontSize: '0.875rem'
+                                                }}>
+                                                    {service.task.description}
+                                                </Typography>
+                                            )}
+                                            {service.task.estimated_hours && (
+                                                <Box sx={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: 1,
+                                                    pt: 1.5,
+                                                    borderTop: `1px solid ${alpha(categoryColor[200], 0.3)}`
+                                                }}>
+                                                    <AccessTime sx={{ fontSize: 16, color: categoryColor[600] }} />
+                                                    <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, fontSize: '0.875rem' }}>
+                                                        Thời gian ước tính: <strong style={{ color: COLORS.TEXT.PRIMARY }}>{service.task.estimated_hours} giờ</strong>
+                                                    </Typography>
+                                                </Box>
+                                            )}
+                                        </Stack>
+                                    </Paper>
+                                </Box>
+                            )}
+
+                            {/* Features/Benefits */}
+                            {service.features && service.features.length > 0 && (
+                                <Box>
+                                    <Divider sx={{ my: 2 }} />
+                                    <Typography variant="subtitle2" sx={{
+                                        fontWeight: 700,
+                                        color: COLORS.TEXT.PRIMARY,
+                                        mb: 1.5,
+                                        fontSize: '0.875rem',
+                                        textTransform: 'uppercase',
+                                        letterSpacing: 1
+                                    }}>
+                                        Dịch vụ bao gồm
+                                    </Typography>
+                                    <Stack spacing={1}>
+                                        {service.features.map((feature, index) => (
+                                            <Box key={index} sx={{
+                                                display: 'flex',
+                                                alignItems: 'flex-start',
+                                                gap: 1.5,
+                                                p: 1.5,
+                                                borderRadius: 1.5,
+                                                bgcolor: alpha(categoryColor[50], 0.3),
+                                                border: `1px solid ${alpha(categoryColor[200], 0.2)}`
+                                            }}>
+                                                <Box
+                                                    sx={{
+                                                        width: 6,
+                                                        height: 6,
+                                                        borderRadius: '50%',
+                                                        bgcolor: categoryColor[500],
+                                                        flexShrink: 0,
+                                                        mt: 1
+                                                    }}
+                                                />
+                                                <Typography variant="body2" sx={{
+                                                    color: COLORS.TEXT.PRIMARY,
+                                                    lineHeight: 1.6,
+                                                    fontSize: '0.875rem'
+                                                }}>
+                                                    {feature}
+                                                </Typography>
+                                            </Box>
+                                        ))}
+                                    </Stack>
+                                </Box>
+                            )}
+                        </Stack>
+                    </Box>
+                </DialogContent>
+
+                <DialogActions sx={{
+                    p: 2.5,
+                    gap: 2,
+                    borderTop: `1px solid ${alpha(COLORS.GRAY[200], 0.3)}`,
+                    bgcolor: alpha(COLORS.GRAY[50], 0.5)
+                }}>
+                    <Button
+                        onClick={() => setShowDetails(false)}
+                        variant="outlined"
+                        sx={{
+                            color: COLORS.TEXT.SECONDARY,
+                            borderColor: COLORS.GRAY[300],
+                            px: 3,
+                            py: 1,
+                            borderRadius: 1.5,
+                            textTransform: 'none',
+                            fontWeight: 600,
+                            fontSize: '0.875rem',
+                            minWidth: 100,
+                            '&:hover': {
+                                bgcolor: COLORS.GRAY[100],
+                                borderColor: COLORS.GRAY[400]
                             }
                         }}
                     >
@@ -677,10 +624,23 @@ const ServiceCard = ({ service, onSelect, onCardClick, showFavorite = true }) =>
                             background: service.petRequired === false ?
                                 `linear-gradient(135deg, ${COLORS.WARNING[500]} 0%, ${COLORS.WARNING[600]} 100%)` :
                                 `linear-gradient(135deg, ${COLORS.INFO[500]} 0%, ${COLORS.INFO[600]} 100%)`,
+                            px: 4,
+                            py: 1,
+                            borderRadius: 1.5,
+                            textTransform: 'none',
+                            fontWeight: 700,
+                            fontSize: '0.875rem',
+                            minWidth: 160,
+                            boxShadow: service.petRequired === false ?
+                                `0 2px 8px ${alpha(COLORS.WARNING[500], 0.3)}` :
+                                `0 2px 8px ${alpha(COLORS.INFO[500], 0.3)}`,
                             '&:hover': {
                                 background: service.petRequired === false ?
                                     `linear-gradient(135deg, ${COLORS.WARNING[600]} 0%, ${COLORS.WARNING[700]} 100%)` :
-                                    `linear-gradient(135deg, ${COLORS.INFO[600]} 0%, ${COLORS.INFO[700]} 100%)`
+                                    `linear-gradient(135deg, ${COLORS.INFO[600]} 0%, ${COLORS.INFO[700]} 100%)`,
+                                boxShadow: service.petRequired === false ?
+                                    `0 4px 12px ${alpha(COLORS.WARNING[500], 0.4)}` :
+                                    `0 4px 12px ${alpha(COLORS.INFO[500], 0.4)}`
                             }
                         }}
                     >
