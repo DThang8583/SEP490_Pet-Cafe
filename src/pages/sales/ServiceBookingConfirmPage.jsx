@@ -55,29 +55,29 @@ const ServiceBookingConfirmPage = () => {
             try {
                 setLoading(true);
                 const token = localStorage.getItem('authToken');
-                
+
                 // Build query parameters - Lấy toàn bộ orders (không filter theo type)
                 const params = new URLSearchParams();
                 params.append('limit', pageSize.toString());
-                
+
                 if (paymentMethod) {
                     params.append('PaymentMethod', paymentMethod);
                 }
-                
+
                 // Filter theo giá
                 if (appliedMinPrice && !isNaN(parseFloat(appliedMinPrice))) {
                     params.append('MinPrice', parseFloat(appliedMinPrice).toString());
                 }
-                
+
                 if (appliedMaxPrice && !isNaN(parseFloat(appliedMaxPrice))) {
                     params.append('MaxPrice', parseFloat(appliedMaxPrice).toString());
                 }
-                
+
                 const queryString = params.toString();
                 const url = `https://petcafes.azurewebsites.net/api/orders${queryString ? `?${queryString}` : ''}`;
-                
+
                 console.log('[ServiceBookingConfirm] Fetching orders with params:', queryString);
-                
+
                 const res = await fetch(url, {
                     headers: {
                         'Authorization': token ? `Bearer ${token}` : '',
@@ -105,73 +105,124 @@ const ServiceBookingConfirmPage = () => {
                 // Lấy TẤT CẢ service orders từ API, bất kể có thông tin hay không
                 // Không filter theo status, không filter theo name, address, phone, v.v.
                 // Lấy tất cả orders có service_order (không null)
-                const serviceOrders = json.data
+                const serviceOrdersPromises = json.data
                     .filter(order => order.service_order !== null && order.service_order !== undefined)
-                    // Lấy tất cả, không filter gì thêm
-                    .map(order => {
-                        // Map services từ service_order.order_details nếu có
-                        const services = [];
-                        if (order.service_order && order.service_order.order_details && Array.isArray(order.service_order.order_details)) {
-                            order.service_order.order_details.forEach((detail) => {
-                                services.push({
-                                    service_name: detail.service?.name || detail.service_name || 'Dịch vụ thú cưng',
-                                    price: detail.price || detail.final_amount || 0,
-                                    booking_date: detail.booking_date || order.service_order.order_date || order.created_at,
-                                    notes: detail.notes || order.notes || '',
-                                    slot_id: detail.slot_id,
-                                    slot: detail.slot,
-                                    image: detail.service?.image_url || detail.service?.thumbnails?.[0] || 'https://i.ibb.co/4fL7q4f/pet-service.jpg'
+                    .map(async (order) => {
+                        // Nếu order_details rỗng hoặc không có service/slot, fetch từ order detail API
+                        let fullOrder = order;
+                        if (!order.service_order?.order_details ||
+                            order.service_order.order_details.length === 0 ||
+                            !order.service_order.order_details[0]?.service) {
+                            try {
+                                console.log('[ServiceBookingConfirm] Fetching full order detail for:', order.id);
+                                const orderDetailResp = await fetch(`https://petcafes.azurewebsites.net/api/orders/${order.id}`, {
+                                    headers: {
+                                        'Authorization': token ? `Bearer ${token}` : '',
+                                        'Accept': 'application/json'
+                                    }
                                 });
-                            });
+                                if (orderDetailResp.ok) {
+                                    fullOrder = await orderDetailResp.json();
+                                    console.log('[ServiceBookingConfirm] Fetched full order:', fullOrder);
+                                }
+                            } catch (e) {
+                                console.warn('[ServiceBookingConfirm] Could not fetch order detail:', e);
+                            }
                         }
 
-                        // Nếu không có order_details, tạo một service từ service_order
-                        if (services.length === 0 && order.service_order) {
-                            services.push({
-                                service_name: 'Dịch vụ thú cưng',
-                                price: order.service_order.final_amount || order.final_amount || 0,
-                                booking_date: order.service_order.order_date || order.created_at,
-                                notes: order.notes || '',
-                                image: 'https://i.ibb.co/4fL7q4f/pet-service.jpg'
-                            });
+                        // Map services từ service_order.order_details nếu có
+                        const services = [];
+                        if (fullOrder.service_order && fullOrder.service_order.order_details && Array.isArray(fullOrder.service_order.order_details) && fullOrder.service_order.order_details.length > 0) {
+                            // Fetch thông tin slot và service cho mỗi detail
+                            for (const detail of fullOrder.service_order.order_details) {
+                                let slotInfo = detail.slot || null;
+                                let serviceInfo = detail.service || null;
+
+                                // Fetch slot info nếu có slot_id nhưng chưa có slot data
+                                if (detail.slot_id && !slotInfo) {
+                                    try {
+                                        const slotResp = await fetch(`https://petcafes.azurewebsites.net/api/slots/${detail.slot_id}`, {
+                                            headers: {
+                                                'Authorization': token ? `Bearer ${token}` : '',
+                                                'Accept': 'application/json'
+                                            }
+                                        });
+                                        if (slotResp.ok) {
+                                            const slotJson = await slotResp.json();
+                                            slotInfo = slotJson?.data || slotJson;
+                                        }
+                                    } catch (e) {
+                                        console.warn('[ServiceBookingConfirm] Could not fetch slot:', e);
+                                    }
+                                }
+
+                                // Fetch service info nếu có service_id nhưng chưa có service data
+                                if (detail.service_id && !serviceInfo) {
+                                    try {
+                                        const serviceResp = await fetch(`https://petcafes.azurewebsites.net/api/services/${detail.service_id}`, {
+                                            headers: {
+                                                'Authorization': token ? `Bearer ${token}` : '',
+                                                'Accept': 'application/json'
+                                            }
+                                        });
+                                        if (serviceResp.ok) {
+                                            const serviceJson = await serviceResp.json();
+                                            serviceInfo = serviceJson?.data || serviceJson;
+                                        }
+                                    } catch (e) {
+                                        console.warn('[ServiceBookingConfirm] Could not fetch service:', e);
+                                    }
+                                }
+
+                                // Ưu tiên sử dụng service từ API response (detail.service đã có đầy đủ)
+                                const serviceName = detail.service?.name || serviceInfo?.name || detail.service_name;
+                                if (!serviceName) {
+                                    console.warn('[ServiceBookingConfirm] No service name found for detail:', detail);
+                                }
+
+                                services.push({
+                                    service_name: serviceName || 'Chưa xác định',
+                                    price: detail.unit_price || detail.total_price || detail.price || serviceInfo?.base_price || 0,
+                                    booking_date: detail.booking_date || fullOrder.service_order.order_date || fullOrder.created_at,
+                                    notes: detail.notes || fullOrder.notes || '',
+                                    slot_id: detail.slot_id,
+                                    slot: slotInfo || detail.slot,
+                                    service: detail.service || serviceInfo, // Ưu tiên detail.service từ API
+                                    image: detail.service?.image_url || detail.service?.thumbnails?.[0] || serviceInfo?.image_url || serviceInfo?.thumbnails?.[0] || 'https://i.ibb.co/4fL7q4f/pet-service.jpg'
+                                });
+                            }
                         }
 
                         // Map payment method
-                        let paymentMethod = order.payment_method || 'AT_COUNTER';
+                        let paymentMethod = fullOrder.payment_method || 'AT_COUNTER';
                         if (paymentMethod === 'CASH') {
                             paymentMethod = 'AT_COUNTER';
                         }
 
                         return {
-                            id: order.order_number || order.id,
-                            total: order.final_amount || 0,
+                            id: fullOrder.order_number || fullOrder.id,
+                            total: fullOrder.final_amount || 0,
                             payment_method: paymentMethod,
-                            payment_status: order.payment_status || order.status || 'PENDING',
-                            status: order.status || 'PENDING',
-                            type: order.type || 'EMPLOYEE',
-                            order_date: order.service_order?.order_date || order.order_date || order.created_at,
-                            created_at: order.created_at,
-                            employee: order.employee,
-                            services: services.length > 0 ? services : [
-                                {
-                                    service_name: 'Dịch vụ thú cưng',
-                                    price: order.final_amount || 0,
-                                    booking_date: order.created_at,
-                                    notes: order.notes || '',
-                                    image: 'https://i.ibb.co/4fL7q4f/pet-service.jpg'
-                                }
-                            ],
+                            payment_status: fullOrder.payment_status || fullOrder.status || 'PENDING',
+                            status: fullOrder.status || 'PENDING',
+                            type: fullOrder.type || 'EMPLOYEE',
+                            order_date: fullOrder.service_order?.order_date || fullOrder.order_date || fullOrder.created_at,
+                            created_at: fullOrder.created_at,
+                            employee: fullOrder.employee,
+                            services: services.length > 0 ? services : [],
                             customerInfo: {
-                                full_name: order.full_name || '',
-                                phone: order.phone || '',
-                                address: order.address || '',
-                                notes: order.notes || ''
+                                full_name: fullOrder.full_name || '',
+                                phone: fullOrder.phone || '',
+                                address: fullOrder.address || '',
+                                notes: fullOrder.notes || ''
                             }
                         };
                     });
 
+                const serviceOrders = await Promise.all(serviceOrdersPromises);
+
                 // Filter ẩn các hóa đơn "Chờ thanh toán" (PENDING)
-                const filteredOrders = serviceOrders.filter(order => 
+                const filteredOrders = serviceOrders.filter(order =>
                     order.payment_status !== 'PENDING'
                 );
 
@@ -210,7 +261,7 @@ const ServiceBookingConfirmPage = () => {
 
         fetchOrders();
     }, [paymentMethod, appliedMinPrice, appliedMaxPrice, pageSize]);
-    
+
     // Hàm để áp dụng bộ lọc (chỉ search khi click nút)
     const handleApplyFilters = () => {
         setAppliedMinPrice(minPrice);
@@ -221,10 +272,10 @@ const ServiceBookingConfirmPage = () => {
     const groupOrdersByDate = (orders) => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        
+
         const yesterday = new Date(today);
         yesterday.setDate(yesterday.getDate() - 1);
-        
+
         const groups = {
             today: [],
             yesterday: [],
@@ -235,7 +286,7 @@ const ServiceBookingConfirmPage = () => {
             const orderDate = new Date(order.order_date || order.created_at);
             const orderDateOnly = new Date(orderDate);
             orderDateOnly.setHours(0, 0, 0, 0);
-            
+
             if (orderDateOnly.getTime() === today.getTime()) {
                 groups.today.push(order);
             } else if (orderDateOnly.getTime() === yesterday.getTime()) {
@@ -282,18 +333,18 @@ const ServiceBookingConfirmPage = () => {
             </Box>
 
             {/* Services List */}
-            {orderData.services && orderData.services.length > 0 && (
-                <Box sx={{ mb: 2.5, flexGrow: 1 }}>
-                    <Typography variant="subtitle2" sx={{
-                        fontWeight: 700,
-                        color: COLORS.ERROR[600],
-                        mb: 1.5,
-                        fontSize: '0.95rem',
-                        textTransform: 'uppercase',
-                        letterSpacing: 0.5
-                    }}>
-                        Dịch vụ đã đặt
-                    </Typography>
+            <Box sx={{ mb: 2.5, flexGrow: 1 }}>
+                <Typography variant="subtitle2" sx={{
+                    fontWeight: 700,
+                    color: COLORS.ERROR[600],
+                    mb: 1.5,
+                    fontSize: '0.95rem',
+                    textTransform: 'uppercase',
+                    letterSpacing: 0.5
+                }}>
+                    Dịch vụ đã đặt
+                </Typography>
+                {orderData.services && orderData.services.length > 0 ? (
                     <Stack spacing={1.5}>
                         {orderData.services.map((service, index) => (
                             <Paper
@@ -329,7 +380,8 @@ const ServiceBookingConfirmPage = () => {
                                             </Typography>
                                         )}
                                     </Box>
-                                    
+
+                                    {/* Booking Date */}
                                     {service.booking_date && (
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                             <CalendarToday sx={{ fontSize: 16, color: COLORS.ERROR[500] }} />
@@ -337,31 +389,69 @@ const ServiceBookingConfirmPage = () => {
                                                 {(() => {
                                                     const dateStr = service.booking_date;
                                                     if (!dateStr) return '';
+                                                    let date;
                                                     if (dateStr.includes('T')) {
-                                                        const date = new Date(dateStr);
-                                                        return date.toLocaleDateString('vi-VN', {
-                                                            weekday: 'long',
-                                                            year: 'numeric',
-                                                            month: 'long',
-                                                            day: 'numeric',
-                                                            hour: '2-digit',
-                                                            minute: '2-digit'
-                                                        });
+                                                        date = new Date(dateStr);
                                                     } else {
                                                         const [year, month, day] = dateStr.split('-').map(Number);
-                                                        const date = new Date(year, month - 1, day);
-                                                        return date.toLocaleDateString('vi-VN', {
-                                                            weekday: 'long',
-                                                            year: 'numeric',
-                                                            month: 'long',
-                                                            day: 'numeric'
-                                                        });
+                                                        date = new Date(year, month - 1, day);
                                                     }
+                                                    return date.toLocaleDateString('vi-VN', {
+                                                        weekday: 'long',
+                                                        year: 'numeric',
+                                                        month: 'long',
+                                                        day: 'numeric'
+                                                    });
                                                 })()}
                                             </Typography>
                                         </Box>
                                     )}
 
+                                    {/* Slot Time Range */}
+                                    {service.slot && service.slot.start_time && service.slot.end_time && (
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                            <AccessTime sx={{ fontSize: 16, color: COLORS.ERROR[500] }} />
+                                            <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, fontSize: '0.875rem' }}>
+                                                {service.slot.start_time.substring(0, 5)} - {service.slot.end_time.substring(0, 5)}
+                                            </Typography>
+                                        </Box>
+                                    )}
+
+                                    {/* Pet Group Info */}
+                                    {service.slot && service.slot.pet_group && (
+                                        <Box sx={{
+                                            p: 1.5,
+                                            borderRadius: 1,
+                                            backgroundColor: alpha(COLORS.INFO[50], 0.4),
+                                            border: `1px solid ${alpha(COLORS.INFO[200], 0.3)}`
+                                        }}>
+                                            <Box sx={{ display: 'flex', alignItems: 'start', gap: 1 }}>
+                                                <Pets sx={{ fontSize: 16, color: COLORS.INFO[600], mt: 0.25 }} />
+                                                <Box>
+                                                    <Typography variant="body2" fontWeight="bold" sx={{ color: COLORS.INFO[700], fontSize: '0.8125rem' }}>
+                                                        Nhóm thú cưng: {service.slot.pet_group.name}
+                                                    </Typography>
+                                                    {service.slot.pet_group.description && (
+                                                        <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, fontSize: '0.75rem', display: 'block', mt: 0.25 }}>
+                                                            {service.slot.pet_group.description}
+                                                        </Typography>
+                                                    )}
+                                                </Box>
+                                            </Box>
+                                        </Box>
+                                    )}
+
+                                    {/* Area Info */}
+                                    {service.slot && service.slot.area && (
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                            <LocationOn sx={{ fontSize: 16, color: COLORS.ERROR[500] }} />
+                                            <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, fontSize: '0.875rem' }}>
+                                                {service.slot.area.name} {service.slot.area.location && `(${service.slot.area.location})`}
+                                            </Typography>
+                                        </Box>
+                                    )}
+
+                                    {/* Notes */}
                                     {service.notes && (
                                         <Box sx={{ display: 'flex', alignItems: 'start', gap: 1, mt: 0.5 }}>
                                             <Note sx={{ fontSize: 16, color: COLORS.ERROR[500], mt: 0.25 }} />
@@ -374,57 +464,68 @@ const ServiceBookingConfirmPage = () => {
                             </Paper>
                         ))}
                     </Stack>
-                </Box>
-            )}
+                ) : (
+                    <Paper sx={{
+                        p: 2,
+                        borderRadius: 2.5,
+                        backgroundColor: alpha(COLORS.WARNING[50], 0.4),
+                        border: `1px solid ${alpha(COLORS.WARNING[200], 0.6)}`
+                    }}>
+                        <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, fontStyle: 'italic' }}>
+                            ⚠️ Không tìm thấy thông tin chi tiết dịch vụ cho đơn hàng này
+                        </Typography>
+                    </Paper>
+                )}
+            </Box>
 
             <Divider sx={{ my: 2.5 }} />
 
             {/* Customer Information - Compact - Chỉ hiển thị nếu có thông tin */}
-            {(orderData.customerInfo?.full_name || 
-              orderData.customerInfo?.phone || 
-              orderData.customerInfo?.address) && (
-                <>
-                    <Box sx={{ mb: 2.5 }}>
-                        <Typography variant="subtitle2" sx={{
-                            fontWeight: 700,
-                            color: COLORS.ERROR[600],
-                            mb: 1.5,
-                            fontSize: '0.95rem',
-                            textTransform: 'uppercase',
-                            letterSpacing: 0.5
-                        }}>
-                            Thông tin khách hàng
-                        </Typography>
-                        <Stack spacing={1}>
-                            {orderData.customerInfo?.full_name && (
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                    <Person sx={{ fontSize: 18, color: COLORS.ERROR[500] }} />
-                                    <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.TEXT.PRIMARY }}>
-                                        {orderData.customerInfo.full_name}
-                                    </Typography>
-                                </Box>
-                            )}
-                            {orderData.customerInfo?.phone && (
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                    <Phone sx={{ fontSize: 18, color: COLORS.ERROR[500] }} />
-                                    <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
-                                        {orderData.customerInfo.phone}
-                                    </Typography>
-                                </Box>
-                            )}
-                            {orderData.customerInfo?.address && (
-                                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
-                                    <LocationOn sx={{ fontSize: 18, color: COLORS.ERROR[500], mt: 0.25 }} />
-                                    <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, flex: 1 }}>
-                                        {orderData.customerInfo.address}
-                                    </Typography>
-                                </Box>
-                            )}
-                        </Stack>
-                    </Box>
-                    <Divider sx={{ my: 2.5 }} />
-                </>
-            )}
+            {(orderData.customerInfo?.full_name ||
+                orderData.customerInfo?.phone ||
+                orderData.customerInfo?.address) && (
+                    <>
+                        <Box sx={{ mb: 2.5 }}>
+                            <Typography variant="subtitle2" sx={{
+                                fontWeight: 700,
+                                color: COLORS.ERROR[600],
+                                mb: 1.5,
+                                fontSize: '0.95rem',
+                                textTransform: 'uppercase',
+                                letterSpacing: 0.5
+                            }}>
+                                Thông tin khách hàng
+                            </Typography>
+                            <Stack spacing={1}>
+                                {orderData.customerInfo?.full_name && (
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                        <Person sx={{ fontSize: 18, color: COLORS.ERROR[500] }} />
+                                        <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.TEXT.PRIMARY }}>
+                                            {orderData.customerInfo.full_name}
+                                        </Typography>
+                                    </Box>
+                                )}
+                                {orderData.customerInfo?.phone && (
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                        <Phone sx={{ fontSize: 18, color: COLORS.ERROR[500] }} />
+                                        <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
+                                            {orderData.customerInfo.phone}
+                                        </Typography>
+                                    </Box>
+                                )}
+                                {orderData.customerInfo?.address && (
+                                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
+                                        <LocationOn sx={{ fontSize: 18, color: COLORS.ERROR[500], mt: 0.25 }} />
+                                        <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, flex: 1 }}>
+                                            {orderData.customerInfo.address}
+                                        </Typography>
+                                    </Box>
+                                )}
+                            </Stack>
+                        </Box>
+                        <Divider sx={{ my: 2.5 }} />
+                    </>
+                )}
 
             {/* Payment & Total - Bottom Section */}
             <Box sx={{ mt: 'auto', pt: 2 }}>
@@ -436,7 +537,7 @@ const ServiceBookingConfirmPage = () => {
                         </Typography>
                     </Box>
                 )}
-                
+
                 {orderData.total && (
                     <Paper sx={{
                         p: 2,
@@ -650,9 +751,9 @@ const ServiceBookingConfirmPage = () => {
                             {/* Hôm nay */}
                             {groupedOrders.today.length > 0 && (
                                 <Box>
-                                    <Typography variant="h5" sx={{ 
-                                        fontWeight: 800, 
-                                        color: COLORS.ERROR[600], 
+                                    <Typography variant="h5" sx={{
+                                        fontWeight: 800,
+                                        color: COLORS.ERROR[600],
                                         mb: 2,
                                         display: 'flex',
                                         alignItems: 'center',
@@ -679,9 +780,9 @@ const ServiceBookingConfirmPage = () => {
                             {/* Hôm qua */}
                             {groupedOrders.yesterday.length > 0 && (
                                 <Box>
-                                    <Typography variant="h5" sx={{ 
-                                        fontWeight: 800, 
-                                        color: COLORS.ERROR[600], 
+                                    <Typography variant="h5" sx={{
+                                        fontWeight: 800,
+                                        color: COLORS.ERROR[600],
                                         mb: 2,
                                         display: 'flex',
                                         alignItems: 'center',
@@ -724,9 +825,9 @@ const ServiceBookingConfirmPage = () => {
 
                                 return Object.keys(otherByDate).map(dateKey => (
                                     <Box key={dateKey}>
-                                        <Typography variant="h5" sx={{ 
-                                            fontWeight: 800, 
-                                            color: COLORS.ERROR[600], 
+                                        <Typography variant="h5" sx={{
+                                            fontWeight: 800,
+                                            color: COLORS.ERROR[600],
                                             mb: 2,
                                             display: 'flex',
                                             alignItems: 'center',

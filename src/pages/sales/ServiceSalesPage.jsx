@@ -76,8 +76,8 @@ const ServiceSalesPage = () => {
         const loadSlots = async () => {
             if (!slotModalOpen || !selectedService?.id) {
                 setSlots([]);
-                return;
-            }
+            return;
+        }
 
             setLoadingSlots(true);
             try {
@@ -103,15 +103,15 @@ const ServiceSalesPage = () => {
     };
 
     const handleAddToCart = () => {
-        if (!selectedService || !selectedSlotId) {
-            console.warn('[ServiceSalesPage] Không thể thêm vào giỏ: Chưa chọn slot');
-            alert('Vui lòng chọn slot');
+        if (!selectedService || !selectedSlotId || !selectedSlotDate) {
+            console.warn('[ServiceSalesPage] Không thể thêm vào giỏ: Chưa chọn slot hoặc ngày');
+            alert('Vui lòng chọn slot và ngày');
             return;
         }
 
         const quantity = 1;
         const selectedSlot = selectedService.slots.find(s => s.id === selectedSlotId);
-
+        
         if (!selectedSlot) {
             console.error('[ServiceSalesPage] Lỗi: Slot không hợp lệ', { selectedSlotId, serviceId: selectedService.id });
             alert('Slot không hợp lệ');
@@ -122,16 +122,17 @@ const ServiceSalesPage = () => {
         // Ensure price is a number and not null/undefined
         const slotPriceNum = selectedSlot.price != null ? Number(selectedSlot.price) : null;
         const price = (slotPriceNum != null && slotPriceNum > 0) ? slotPriceNum : (selectedService.base_price || 0);
-
-        const item = {
-            id: `svc-${selectedSlotId}`,
-            name: selectedService.name,
-            price: price,
+        
+        const item = { 
+            id: `svc-${selectedSlotId}-${selectedSlotDate}`,
+            name: selectedService.name, 
+            price: price, 
             quantity,
             slot_id: selectedSlotId,
-            service_id: selectedService.id
+            service_id: selectedService.id,
+            booking_date: selectedSlotDate // Lưu ngày đã chọn
         };
-
+        
         try {
             const saved = localStorage.getItem('sales_cart');
             const current = saved ? JSON.parse(saved) : [];
@@ -187,13 +188,13 @@ const ServiceSalesPage = () => {
             'SATURDAY': 6,
             'SUNDAY': 0
         };
-
+        
         const targetDay = dayMap[dayOfWeek];
         if (targetDay === undefined) return dates;
 
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-
+        
         // Get next 4 occurrences of this day
         for (let week = 0; week < 4; week++) {
             const current = new Date(today);
@@ -201,25 +202,25 @@ const ServiceSalesPage = () => {
             let daysUntilTarget = (targetDay - currentDay + 7) % 7;
             if (daysUntilTarget === 0 && week === 0) daysUntilTarget = 7; // If today is target day, get next week
             daysUntilTarget += week * 7;
-
+            
             const targetDate = new Date(current);
             targetDate.setDate(current.getDate() + daysUntilTarget);
-
+            
             // Only add future dates
             if (targetDate >= today) {
                 dates.push(targetDate);
             }
         }
-
+        
         return dates;
     };
 
     // Get available slots with dates (giống BookingDateModal)
     const getAvailableSlotsWithDates = () => {
         if (!slots || slots.length === 0) return [];
-
+        
         const slotsWithDates = [];
-
+        
         slots
             .filter(slot => slot && !slot.is_deleted && slot.service_status === 'AVAILABLE')
             .forEach(slot => {
@@ -228,7 +229,7 @@ const ServiceSalesPage = () => {
                     const date = new Date(slot.specific_date);
                     const today = new Date();
                     today.setHours(0, 0, 0, 0);
-
+                    
                     if (date >= today) {
                         // Format date as YYYY-MM-DD using local timezone
                         const year = date.getFullYear();
@@ -245,7 +246,7 @@ const ServiceSalesPage = () => {
                         const maxCapacity = availability?.max_capacity ?? slot.max_capacity ?? 0;
                         const bookedCount = availability?.booked_count ?? 0;
                         const isFull = maxCapacity > 0 && bookedCount >= maxCapacity;
-
+                        
                         slotsWithDates.push({
                             slot,
                             date: dateStr,
@@ -273,7 +274,7 @@ const ServiceSalesPage = () => {
                         const maxCapacity = availability?.max_capacity ?? slot.max_capacity ?? 0;
                         const bookedCount = availability?.booked_count ?? 0;
                         const isFull = maxCapacity > 0 && bookedCount >= maxCapacity;
-
+                        
                         slotsWithDates.push({
                             slot,
                             date: dateStr,
@@ -285,8 +286,20 @@ const ServiceSalesPage = () => {
                 }
             });
 
+        // Remove duplicates: same slot.id + date combination
+        const uniqueSlots = [];
+        const seenKeys = new Set();
+
+        slotsWithDates.forEach(item => {
+            const key = `${item.slot.id}-${item.date}`;
+            if (!seenKeys.has(key)) {
+                seenKeys.add(key);
+                uniqueSlots.push(item);
+                }
+            });
+        
         // Sort by date, then by start_time
-        return slotsWithDates.sort((a, b) => {
+        return uniqueSlots.sort((a, b) => {
             if (a.date !== b.date) {
                 return a.date.localeCompare(b.date);
             }
@@ -298,7 +311,7 @@ const ServiceSalesPage = () => {
         <Box sx={{ py: 3, backgroundColor: COLORS.BACKGROUND.NEUTRAL, minHeight: '100vh' }}>
             <Container maxWidth="xl">
                 <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 3 }}>
-                    <Typography variant="h4" sx={{ fontWeight: 700, fontSize: '2rem', color: COLORS.ERROR[600], letterSpacing: '-0.02em', lineHeight: 1.2 }}>Bán dịch vụ</Typography>
+                        <Typography variant="h4" sx={{ fontWeight: 700, fontSize: '2rem', color: COLORS.ERROR[600], letterSpacing: '-0.02em', lineHeight: 1.2 }}>Bán dịch vụ</Typography>
                     <Badge color="error" badgeContent={cartCount} showZero>
                         <Button startIcon={<ShoppingCart />} variant="contained" color="error" onClick={() => navigate('/sales/cart')}>
                             Giỏ hàng
@@ -323,7 +336,7 @@ const ServiceSalesPage = () => {
                 }}>
                     {filtered.map(s => (
                         <Box key={s.id} sx={{ height: '100%' }}>
-                            <Card
+                            <Card 
                                 sx={{
                                     borderRadius: 4,
                                     height: '100%',
@@ -339,11 +352,11 @@ const ServiceSalesPage = () => {
                                     {s.image_url ? (
                                         <Box component="img" src={s.image_url} alt={s.name} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                     ) : (
-                                        <Box sx={{
-                                            width: '100%',
-                                            height: '100%',
-                                            display: 'flex',
-                                            alignItems: 'center',
+                                        <Box sx={{ 
+                                            width: '100%', 
+                                            height: '100%', 
+                                            display: 'flex', 
+                                            alignItems: 'center', 
                                             justifyContent: 'center',
                                             background: `linear-gradient(135deg, ${alpha(COLORS.ERROR[100], 0.5)} 0%, ${alpha(COLORS.SECONDARY[100], 0.5)} 100%)`
                                         }}>
@@ -358,7 +371,7 @@ const ServiceSalesPage = () => {
                                     </Typography>
                                     <Typography sx={{ fontWeight: 700, fontSize: '1.25rem', color: COLORS.ERROR[600], mb: 1, letterSpacing: '-0.01em' }}>{(s.base_price || 0).toLocaleString('vi-VN')} ₫</Typography>
                                     <Box sx={{ flexGrow: 1 }} />
-
+                                    
                                     {/* Info Icon - Góc dưới */}
                                     <Tooltip title="Xem chi tiết">
                                         <IconButton
@@ -393,8 +406,8 @@ const ServiceSalesPage = () => {
             </Container>
 
             {/* Slot Selection Modal */}
-            <Dialog
-                open={slotModalOpen}
+            <Dialog 
+                open={slotModalOpen} 
                 onClose={() => {
                     setSlotModalOpen(false);
                     setSelectedService(null);
@@ -416,10 +429,10 @@ const ServiceSalesPage = () => {
             >
                 {selectedService && (
                     <>
-                        <DialogTitle sx={{
+                        <DialogTitle sx={{ 
                             background: `linear-gradient(135deg, ${COLORS.ERROR[500]} 0%, ${COLORS.ERROR[600]} 100%)`,
-                            color: 'white',
-                            py: 2
+                            color: 'white', 
+                            py: 2 
                         }}>
                             <Stack direction="row" alignItems="center" justifyContent="space-between">
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -433,7 +446,7 @@ const ServiceSalesPage = () => {
                                         Chọn slot - {selectedService.name}
                                     </Typography>
                                 </Box>
-                                <IconButton
+                                <IconButton 
                                     onClick={() => {
                                         setSlotModalOpen(false);
                                         setSelectedService(null);
@@ -519,9 +532,9 @@ const ServiceSalesPage = () => {
                                     <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2, color: COLORS.TEXT.PRIMARY, fontSize: '1rem' }}>
                                         Chọn slot khả dụng:
                                     </Typography>
-                                    <Box sx={{
-                                        display: 'flex',
-                                        flexDirection: 'column',
+                                    <Box sx={{ 
+                                        display: 'flex', 
+                                        flexDirection: 'column', 
                                         gap: 2
                                     }}>
                                         {loadingSlots ? (
@@ -535,7 +548,7 @@ const ServiceSalesPage = () => {
                                                     <Paper sx={{ p: 4, textAlign: 'center', borderRadius: 2, bgcolor: alpha(COLORS.GRAY[50], 0.5) }}>
                                                         <Typography sx={{ color: COLORS.TEXT.SECONDARY }}>
                                                             Không có slot nào khả dụng cho dịch vụ này
-                                                        </Typography>
+                                                    </Typography>
                                                     </Paper>
                                                 );
                                             }
@@ -551,7 +564,7 @@ const ServiceSalesPage = () => {
                                                 const maxCapacity = item.availability?.max_capacity ?? item.slot.max_capacity ?? 0;
                                                 const bookedCount = item.availability?.booked_count ?? 0;
                                                 const isFull = maxCapacity > 0 && bookedCount >= maxCapacity;
-
+                                                
                                                 return (
                                                     <Paper
                                                         key={`${item.slot.id}-${item.date}-${index}`}
@@ -744,32 +757,32 @@ const ServiceSalesPage = () => {
                             </Stack>
                         </DialogContent>
                         <DialogActions sx={{ px: 3, pb: 2, pt: 2 }}>
-                            <Button
-                                onClick={() => {
-                                    setSlotModalOpen(false);
-                                    setSelectedService(null);
-                                    setSelectedSlotId(null);
-                                    setSelectedSlotDate(null);
-                                }}
-                                color="inherit"
-                            >
-                                Hủy
-                            </Button>
-                            <Button
-                                variant="contained"
-                                color="error"
-                                onClick={handleAddToCart}
-                                disabled={!selectedSlotId || !selectedSlotDate}
-                                startIcon={<ShoppingCart />}
-                                sx={{
-                                    background: `linear-gradient(135deg, ${COLORS.ERROR[500]} 0%, ${COLORS.ERROR[600]} 100%)`,
-                                    '&:hover': {
-                                        background: `linear-gradient(135deg, ${COLORS.ERROR[600]} 0%, ${COLORS.ERROR[700]} 100%)`
-                                    }
-                                }}
-                            >
-                                Thêm vào giỏ
-                            </Button>
+                        <Button 
+                            onClick={() => {
+                                setSlotModalOpen(false);
+                                setSelectedService(null);
+                                setSelectedSlotId(null);
+                                setSelectedSlotDate(null);
+                            }}
+                            color="inherit"
+                        >
+                            Hủy
+                        </Button>
+                        <Button
+                            variant="contained"
+                            color="error"
+                            onClick={handleAddToCart}
+                            disabled={!selectedSlotId || !selectedSlotDate}
+                            startIcon={<ShoppingCart />}
+                            sx={{
+                                background: `linear-gradient(135deg, ${COLORS.ERROR[500]} 0%, ${COLORS.ERROR[600]} 100%)`,
+                                '&:hover': {
+                                    background: `linear-gradient(135deg, ${COLORS.ERROR[600]} 0%, ${COLORS.ERROR[700]} 100%)`
+                                }
+                            }}
+                        >
+                            Thêm vào giỏ
+                        </Button>
                         </DialogActions>
                     </>
                 )}
@@ -810,7 +823,7 @@ const ServiceSalesPage = () => {
                                         : false;
                                     return hasPetSlots ? <Pets sx={{ fontSize: 24 }} /> : <Spa sx={{ fontSize: 24 }} />;
                                 })()}
-                                <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1.25rem', letterSpacing: '-0.01em', lineHeight: 1.3 }}>
+                                    <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1.25rem', letterSpacing: '-0.01em', lineHeight: 1.3 }}>
                                     {detailService.name}
                                 </Typography>
                             </Box>
@@ -941,7 +954,7 @@ const ServiceSalesPage = () => {
                                                     const slotPriceNum = slot.price != null ? Number(slot.price) : null;
                                                     const slotPrice = (slotPriceNum != null && slotPriceNum > 0) ? slotPriceNum : (detailService.base_price || 0);
                                                     const isAvailable = slot.service_status === 'AVAILABLE';
-
+                                                    
                                                     return (
                                                         <Box
                                                             key={slot.id || index}

@@ -330,30 +330,30 @@ const ServiceCard = ({ service, onSelect, onCardClick, showFavorite = true }) =>
                         <Close />
                     </IconButton>
                     <Typography variant="h5" sx={{ fontWeight: 700, pr: 5 }}>
-                        {service.name}
+                    {service.name}
                     </Typography>
                 </Box>
 
                 <DialogContent sx={{ p: 0 }}>
-                    {/* Service Image */}
-                    <Box
-                        component="img"
-                        src={service.image_url || (service.thumbnails && service.thumbnails[0]) || `https://images.unsplash.com/photo-1601758228041-f3b2795255f1?q=80&w=800&auto=format&fit=crop`}
-                        alt={service.name}
-                        sx={{
-                            width: '100%',
+                        {/* Service Image */}
+                        <Box
+                            component="img"
+                            src={service.image_url || (service.thumbnails && service.thumbnails[0]) || `https://images.unsplash.com/photo-1601758228041-f3b2795255f1?q=80&w=800&auto=format&fit=crop`}
+                            alt={service.name}
+                            sx={{
+                                width: '100%',
                             height: 280,
-                            objectFit: 'cover',
+                                objectFit: 'cover',
                             display: 'block'
-                        }}
-                        onError={(e) => {
-                            if (service.image_url && service.thumbnails && service.thumbnails[0]) {
-                                e.target.src = service.thumbnails[0];
-                            } else {
-                                e.target.src = `https://images.unsplash.com/photo-1601758228041-f3b2795255f1?q=80&w=800&auto=format&fit=crop`;
-                            }
-                        }}
-                    />
+                            }}
+                            onError={(e) => {
+                                if (service.image_url && service.thumbnails && service.thumbnails[0]) {
+                                    e.target.src = service.thumbnails[0];
+                                } else {
+                                    e.target.src = `https://images.unsplash.com/photo-1601758228041-f3b2795255f1?q=80&w=800&auto=format&fit=crop`;
+                                }
+                            }}
+                        />
 
                     {/* Content */}
                     <Box sx={{ p: 3 }}>
@@ -380,16 +380,16 @@ const ServiceCard = ({ service, onSelect, onCardClick, showFavorite = true }) =>
                                                 textTransform: 'uppercase',
                                                 letterSpacing: 0.5
                                             }}>
-                                                Giá cơ bản
-                                            </Typography>
+                                    Giá cơ bản
+                                </Typography>
                                         </Stack>
                                         <Typography variant="h6" sx={{
                                             color: COLORS.ERROR[700],
                                             fontWeight: 700,
                                             fontSize: '1.25rem'
                                         }}>
-                                            {formatPrice(service.base_price || service.price || 0)}
-                                        </Typography>
+                                    {formatPrice(service.base_price || service.price || 0)}
+                                </Typography>
                                     </Paper>
                                 </Grid>
                                 <Grid item xs={6}>
@@ -412,16 +412,16 @@ const ServiceCard = ({ service, onSelect, onCardClick, showFavorite = true }) =>
                                                 textTransform: 'uppercase',
                                                 letterSpacing: 0.5
                                             }}>
-                                                Thời lượng
-                                            </Typography>
+                                    Thời lượng
+                                </Typography>
                                         </Stack>
                                         <Typography variant="h6" sx={{
                                             color: categoryColor[700],
                                             fontWeight: 700,
                                             fontSize: '1.25rem'
                                         }}>
-                                            {formatDuration(service.duration_minutes || 0)}
-                                        </Typography>
+                                    {formatDuration(service.duration_minutes || 0)}
+                                </Typography>
                                     </Paper>
                                 </Grid>
                             </Grid>
@@ -444,8 +444,8 @@ const ServiceCard = ({ service, onSelect, onCardClick, showFavorite = true }) =>
                                     fontSize: '0.9375rem'
                                 }}>
                                     {service.description || 'Chưa có mô tả cho dịch vụ này.'}
-                                </Typography>
-                            </Box>
+                                                                </Typography>
+                                                        </Box>
 
                             {/* Additional Info */}
                             <Stack spacing={1.5}>
@@ -454,18 +454,18 @@ const ServiceCard = ({ service, onSelect, onCardClick, showFavorite = true }) =>
                                         <LocationOn sx={{ fontSize: 20, color: categoryColor[600], flexShrink: 0 }} />
                                         <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
                                             <strong style={{ color: COLORS.TEXT.PRIMARY }}>Địa điểm:</strong> {service.location}
-                                        </Typography>
-                                    </Box>
-                                )}
+                                                                </Typography>
+                                                            </Box>
+                                                        )}
                                 {service.rating && (
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                                         <Star sx={{ fontSize: 20, color: COLORS.WARNING[500], flexShrink: 0 }} />
                                         <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
                                             <strong style={{ color: COLORS.TEXT.PRIMARY }}>Đánh giá:</strong> {service.rating}/5
                                             {service.reviewCount && ` (${service.reviewCount} đánh giá)`}
-                                        </Typography>
-                                    </Box>
-                                )}
+                                                                </Typography>
+                                                            </Box>
+                                                        )}
                                 {(service.petRequired === false && service.serviceStartDate) && (
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                                         <CalendarToday sx={{ fontSize: 20, color: categoryColor[600], flexShrink: 0 }} />
@@ -473,14 +473,14 @@ const ServiceCard = ({ service, onSelect, onCardClick, showFavorite = true }) =>
                                             <strong style={{ color: COLORS.TEXT.PRIMARY }}>Thời gian:</strong> {
                                                 `${service.serviceStartDate.split('-').reverse().join('/')} - ${service.serviceEndDate.split('-').reverse().join('/')}, ${Math.floor((service.serviceStartTime || 8 * 60) / 60).toString().padStart(2, '0')}:${((service.serviceStartTime || 8 * 60) % 60).toString().padStart(2, '0')}-${Math.floor((service.serviceEndTime || 20 * 60) / 60).toString().padStart(2, '0')}:${((service.serviceEndTime || 20 * 60) % 60).toString().padStart(2, '0')}`
                                             }
-                                        </Typography>
-                                    </Box>
-                                )}
-                            </Stack>
+                                                                </Typography>
+                                                            </Box>
+                                                        )}
+                                </Stack>
 
-                            {/* Task Information */}
-                            {service.task && (
-                                <Box>
+                        {/* Task Information */}
+                        {service.task && (
+                            <Box>
                                     <Divider sx={{ my: 2 }} />
                                     <Typography variant="subtitle2" sx={{
                                         fontWeight: 700,
@@ -490,13 +490,13 @@ const ServiceCard = ({ service, onSelect, onCardClick, showFavorite = true }) =>
                                         textTransform: 'uppercase',
                                         letterSpacing: 1
                                     }}>
-                                        Thông tin nhiệm vụ
-                                    </Typography>
+                                    Thông tin nhiệm vụ
+                                </Typography>
                                     <Paper
                                         elevation={0}
                                         sx={{
-                                            p: 2.5,
-                                            borderRadius: 2,
+                                    p: 2.5,
+                                    borderRadius: 2,
                                             bgcolor: alpha(categoryColor[50], 0.4),
                                             border: `1px solid ${alpha(categoryColor[200], 0.4)}`
                                         }}
@@ -506,18 +506,18 @@ const ServiceCard = ({ service, onSelect, onCardClick, showFavorite = true }) =>
                                                 color: COLORS.TEXT.PRIMARY,
                                                 fontSize: '1rem'
                                             }}>
-                                                {service.task.title}
-                                            </Typography>
-                                            {service.task.description && (
+                                        {service.task.title}
+                                    </Typography>
+                                    {service.task.description && (
                                                 <Typography variant="body2" sx={{
                                                     color: COLORS.TEXT.SECONDARY,
                                                     lineHeight: 1.7,
                                                     fontSize: '0.875rem'
                                                 }}>
-                                                    {service.task.description}
-                                                </Typography>
-                                            )}
-                                            {service.task.estimated_hours && (
+                                            {service.task.description}
+                                        </Typography>
+                                    )}
+                                    {service.task.estimated_hours && (
                                                 <Box sx={{
                                                     display: 'flex',
                                                     alignItems: 'center',
@@ -528,17 +528,17 @@ const ServiceCard = ({ service, onSelect, onCardClick, showFavorite = true }) =>
                                                     <AccessTime sx={{ fontSize: 16, color: categoryColor[600] }} />
                                                     <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, fontSize: '0.875rem' }}>
                                                         Thời gian ước tính: <strong style={{ color: COLORS.TEXT.PRIMARY }}>{service.task.estimated_hours} giờ</strong>
-                                                    </Typography>
-                                                </Box>
-                                            )}
+                                            </Typography>
+                                        </Box>
+                                    )}
                                         </Stack>
                                     </Paper>
-                                </Box>
-                            )}
+                            </Box>
+                        )}
 
-                            {/* Features/Benefits */}
-                            {service.features && service.features.length > 0 && (
-                                <Box>
+                        {/* Features/Benefits */}
+                        {service.features && service.features.length > 0 && (
+                            <Box>
                                     <Divider sx={{ my: 2 }} />
                                     <Typography variant="subtitle2" sx={{
                                         fontWeight: 700,
@@ -549,9 +549,9 @@ const ServiceCard = ({ service, onSelect, onCardClick, showFavorite = true }) =>
                                         letterSpacing: 1
                                     }}>
                                         Dịch vụ bao gồm
-                                    </Typography>
-                                    <Stack spacing={1}>
-                                        {service.features.map((feature, index) => (
+                                </Typography>
+                                <Stack spacing={1}>
+                                    {service.features.map((feature, index) => (
                                             <Box key={index} sx={{
                                                 display: 'flex',
                                                 alignItems: 'flex-start',
@@ -561,29 +561,29 @@ const ServiceCard = ({ service, onSelect, onCardClick, showFavorite = true }) =>
                                                 bgcolor: alpha(categoryColor[50], 0.3),
                                                 border: `1px solid ${alpha(categoryColor[200], 0.2)}`
                                             }}>
-                                                <Box
-                                                    sx={{
-                                                        width: 6,
-                                                        height: 6,
-                                                        borderRadius: '50%',
+                                            <Box
+                                                sx={{
+                                                    width: 6,
+                                                    height: 6,
+                                                    borderRadius: '50%',
                                                         bgcolor: categoryColor[500],
                                                         flexShrink: 0,
                                                         mt: 1
-                                                    }}
-                                                />
+                                                }}
+                                            />
                                                 <Typography variant="body2" sx={{
                                                     color: COLORS.TEXT.PRIMARY,
                                                     lineHeight: 1.6,
                                                     fontSize: '0.875rem'
                                                 }}>
-                                                    {feature}
-                                                </Typography>
-                                            </Box>
-                                        ))}
-                                    </Stack>
-                                </Box>
-                            )}
-                        </Stack>
+                                                {feature}
+                                            </Typography>
+                                        </Box>
+                                    ))}
+                                </Stack>
+                            </Box>
+                        )}
+                    </Stack>
                     </Box>
                 </DialogContent>
 

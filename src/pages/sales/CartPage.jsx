@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Box, Container, Typography, Card, CardContent, Stack, IconButton, Divider, Button, Chip } from '@mui/material';
-import { Add, Remove, Delete, ShoppingCart, ArrowBack } from '@mui/icons-material';
+import { Box, Container, Typography, Card, CardContent, Stack, IconButton, Divider, Button, Chip, TextField, alpha, InputAdornment } from '@mui/material';
+import { Add, Remove, Delete, ShoppingCart, ArrowBack, Person, Phone, Home } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 import { useNavigate } from 'react-router-dom';
 import { salesApi, authApi } from '../../api/authApi';
@@ -10,6 +10,13 @@ const CartPage = () => {
     const [items, setItems] = useState([]);
     const [initialized, setInitialized] = useState(false);
     const [paymentMethod, setPaymentMethod] = useState('cash'); // 'cash' | 'bank_transfer'
+    const [customerInfo, setCustomerInfo] = useState({
+        full_name: '',
+        phone: '',
+        address: '',
+        notes: ''
+    });
+    const [errors, setErrors] = useState({});
 
     useEffect(() => {
         try {
@@ -22,7 +29,7 @@ const CartPage = () => {
             try {
                 const latest = localStorage.getItem('sales_cart');
                 setItems(latest ? JSON.parse(latest) : []);
-            } catch {}
+            } catch { }
         };
         window.addEventListener('cartUpdated', onCartUpdated);
         setInitialized(true);
@@ -33,18 +40,51 @@ const CartPage = () => {
         if (!initialized) return; // avoid clearing storage on first mount
         try {
             localStorage.setItem('sales_cart', JSON.stringify(items));
-        } catch {}
+        } catch { }
     }, [items, initialized]);
 
     const total = useMemo(() => items.reduce((s, i) => s + i.price * i.quantity, 0), [items]);
 
+    // Check if cart has service items
+    const hasServiceItems = useMemo(() => {
+        return items.some(i => String(i.id).startsWith('svc-'));
+    }, [items]);
+
     const increaseQty = (id) => setItems(prev => prev.map(i => i.id === id ? { ...i, quantity: i.quantity + 1 } : i));
     const decreaseQty = (id) => setItems(prev => prev.map(i => i.id === id ? { ...i, quantity: Math.max(1, i.quantity - 1) } : i));
     const removeItem = (id) => setItems(prev => prev.filter(i => i.id !== id));
-    const clearCart = () => setItems([]);
+    const clearCart = () => {
+        setItems([]);
+        setCustomerInfo({ full_name: '', phone: '', address: '', notes: '' });
+        setErrors({});
+    };
+
+    const validateCustomerInfo = () => {
+        if (!hasServiceItems) return true; // No validation needed if no services
+
+        const newErrors = {};
+        if (!customerInfo.full_name || !customerInfo.full_name.trim()) {
+            newErrors.full_name = 'Vui lòng nhập họ tên';
+        }
+        if (!customerInfo.phone || !customerInfo.phone.trim()) {
+            newErrors.phone = 'Vui lòng nhập số điện thoại';
+        }
+        setErrors(newErrors);
+        return Object.keys(newErrors).length === 0;
+    };
 
     const checkout = async () => {
-        if (!items.length) return;
+        if (!items.length) {
+            alert('Giỏ hàng trống');
+            return;
+        }
+
+        // Validate customer info if cart has services
+        if (hasServiceItems && !validateCustomerInfo()) {
+            alert('Vui lòng điền đầy đủ thông tin khách hàng (Họ tên và Số điện thoại)');
+            return;
+        }
+
         try {
             const role = authApi.getUserRole();
             if (role !== 'sales_staff' && role !== 'manager') throw new Error('Không có quyền');
@@ -69,7 +109,7 @@ const CartPage = () => {
                         const slot = json?.data || json;
                         const dayOfWeek = slot?.day_of_week;
                         const startTime = slot?.start_time; // Format: "HH:mm:ss" or "HH:mm"
-                        
+
                         if (dayOfWeek) {
                             // Map day_of_week to JavaScript day number
                             const dayMap = {
@@ -81,19 +121,19 @@ const CartPage = () => {
                                 'SATURDAY': 6,
                                 'SUNDAY': 0
                             };
-                            
+
                             const targetDay = dayMap[dayOfWeek];
                             if (targetDay !== undefined) {
                                 // Calculate the nearest target day
                                 const today = new Date();
                                 const currentDay = today.getDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
-                                
+
                                 let daysUntilTarget = (targetDay - currentDay + 7) % 7;
                                 if (daysUntilTarget === 0) daysUntilTarget = 7; // If today is the target day, get next week
-                                
+
                                 const targetDate = new Date(today);
                                 targetDate.setDate(today.getDate() + daysUntilTarget);
-                                
+
                                 // Parse start_time
                                 let hours = 0, minutes = 0, seconds = 0;
                                 if (startTime) {
@@ -102,7 +142,7 @@ const CartPage = () => {
                                     minutes = parseInt(timeParts[1]) || 0;
                                     seconds = parseInt(timeParts[2]) || 0;
                                 }
-                                
+
                                 // Get date components (using local date, not UTC)
                                 const year = targetDate.getFullYear();
                                 const month = String(targetDate.getMonth() + 1).padStart(2, '0');
@@ -110,7 +150,7 @@ const CartPage = () => {
                                 const hh = String(hours).padStart(2, '0');
                                 const mm = String(minutes).padStart(2, '0');
                                 const ss = String(seconds).padStart(2, '0');
-                                
+
                                 // Format: YYYY-MM-DDTHH:mm:ss.000Z (keep time as-is, treat as UTC)
                                 return `${year}-${month}-${day}T${hh}:${mm}:${ss}.000Z`;
                             }
@@ -119,7 +159,7 @@ const CartPage = () => {
                 } catch (e) {
                     console.warn('[Cart] Could not fetch slot info:', e);
                 }
-                
+
                 // Default: 21/11
                 const bookingDateObj = new Date();
                 bookingDateObj.setMonth(10); // November (0-indexed, so 10 = November)
@@ -132,15 +172,57 @@ const CartPage = () => {
             const serviceItemsPromises = items
                 .filter(i => String(i.id).startsWith('svc-'))
                 .map(async (i) => {
-                    const slotId = i.slot_id || String(i.id).replace('svc-','');
-                    const bookingDate = await getBookingDateForSlot(slotId);
+                    const slotId = i.slot_id || String(i.id).replace(/^svc-([^-]+).*/, '$1');
+
+                    // Nếu đã có booking_date trong cart item, sử dụng nó
+                    // Format: YYYY-MM-DD -> YYYY-MM-DDTHH:mm:ss.000Z
+                    let bookingDate;
+                    if (i.booking_date) {
+                        // booking_date từ cart là "YYYY-MM-DD", cần thêm time
+                        // Lấy start_time từ slot để tạo datetime đầy đủ
+                        try {
+                            const token = localStorage.getItem('authToken');
+                            const resp = await fetch(`https://petcafes.azurewebsites.net/api/slots/${slotId}`, {
+                                headers: {
+                                    'Authorization': token ? `Bearer ${token}` : '',
+                                    'Accept': 'application/json'
+                                }
+                            });
+                            if (resp.ok) {
+                                const json = await resp.json();
+                                const slot = json?.data || json;
+                                const startTime = slot?.start_time || '00:00:00';
+
+                                // Parse start_time
+                                const timeParts = startTime.split(':');
+                                const hours = parseInt(timeParts[0]) || 0;
+                                const minutes = parseInt(timeParts[1]) || 0;
+                                const seconds = parseInt(timeParts[2]) || 0;
+
+                                // Combine date and time
+                                const [year, month, day] = i.booking_date.split('-');
+                                bookingDate = `${year}-${month}-${day}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}.000Z`;
+                            } else {
+                                // Fallback: use date with default time
+                                bookingDate = `${i.booking_date}T00:00:00.000Z`;
+                            }
+                        } catch (e) {
+                            console.warn('[Cart] Could not fetch slot for booking_date:', e);
+                            // Fallback: use date with default time
+                            bookingDate = `${i.booking_date}T00:00:00.000Z`;
+                        }
+                    } else {
+                        // Fallback to old logic if booking_date not found
+                        bookingDate = await getBookingDateForSlot(slotId);
+                    }
+
                     return {
                         slot_id: slotId,
                         notes: '',
                         booking_date: bookingDate
                     };
                 });
-            
+
             const serviceItems = await Promise.all(serviceItemsPromises);
 
             // Map payment method: cash -> AT_COUNTER, bank_transfer -> ONLINE
@@ -150,15 +232,26 @@ const CartPage = () => {
             };
             const mappedPaymentMethod = paymentMethodMap[paymentMethod] || 'AT_COUNTER';
 
+            // Build payload - customer info is required when there are services
             const payload = {
-                full_name: '',
-                address: '',
-                phone: '',
-                notes: '',
+                // Customer information - required for service orders
+                full_name: hasServiceItems ? customerInfo.full_name.trim() : '',
+                address: hasServiceItems ? customerInfo.address.trim() : '',
+                phone: hasServiceItems ? customerInfo.phone.trim() : '',
+                notes: hasServiceItems ? customerInfo.notes.trim() : '',
                 payment_method: mappedPaymentMethod,
+                // Products and services
                 ...(productItems.length ? { products: productItems } : {}),
                 ...(serviceItems.length ? { services: serviceItems } : {})
             };
+
+            // Log payload to verify customer info is included
+            console.log('[Cart][checkout] Customer info:', {
+                full_name: payload.full_name,
+                phone: payload.phone,
+                address: payload.address,
+                notes: payload.notes
+            });
 
             const token = localStorage.getItem('authToken');
             console.log('[Cart][checkout] items:', items);
@@ -243,6 +336,109 @@ const CartPage = () => {
                             <Typography sx={{ fontWeight: 500, fontSize: '1.125rem', lineHeight: 1.5 }}>Tổng cộng</Typography>
                             <Typography sx={{ fontWeight: 700, fontSize: '1.25rem', color: COLORS.ERROR[600], letterSpacing: '-0.01em' }}>{total.toLocaleString('vi-VN')} ₫</Typography>
                         </Stack>
+
+                        {/* Customer Information Form - Only show if cart has services */}
+                        {hasServiceItems && (
+                            <Box sx={{ mb: 3 }}>
+                                <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 2, color: COLORS.ERROR[600], fontSize: '1rem' }}>
+                                    Thông tin khách hàng *
+                                </Typography>
+                                <Stack spacing={2}>
+                                    <TextField
+                                        fullWidth
+                                        label="Họ tên *"
+                                        placeholder="Nhập họ tên khách hàng"
+                                        value={customerInfo.full_name}
+                                        onChange={(e) => {
+                                            setCustomerInfo(prev => ({ ...prev, full_name: e.target.value }));
+                                            if (errors.full_name) {
+                                                setErrors(prev => ({ ...prev, full_name: '' }));
+                                            }
+                                        }}
+                                        error={!!errors.full_name}
+                                        helperText={errors.full_name}
+                                        required
+                                        InputProps={{
+                                            startAdornment: (
+                                                <InputAdornment position="start">
+                                                    <Person sx={{ color: COLORS.TEXT.SECONDARY }} />
+                                                </InputAdornment>
+                                            )
+                                        }}
+                                        sx={{
+                                            '& .MuiOutlinedInput-root': {
+                                                borderRadius: 2,
+                                                backgroundColor: alpha(COLORS.BACKGROUND.DEFAULT, 0.9)
+                                            }
+                                        }}
+                                    />
+                                    <TextField
+                                        fullWidth
+                                        label="Số điện thoại *"
+                                        placeholder="Nhập số điện thoại"
+                                        value={customerInfo.phone}
+                                        onChange={(e) => {
+                                            setCustomerInfo(prev => ({ ...prev, phone: e.target.value }));
+                                            if (errors.phone) {
+                                                setErrors(prev => ({ ...prev, phone: '' }));
+                                            }
+                                        }}
+                                        error={!!errors.phone}
+                                        helperText={errors.phone}
+                                        required
+                                        InputProps={{
+                                            startAdornment: (
+                                                <InputAdornment position="start">
+                                                    <Phone sx={{ color: COLORS.TEXT.SECONDARY }} />
+                                                </InputAdornment>
+                                            )
+                                        }}
+                                        sx={{
+                                            '& .MuiOutlinedInput-root': {
+                                                borderRadius: 2,
+                                                backgroundColor: alpha(COLORS.BACKGROUND.DEFAULT, 0.9)
+                                            }
+                                        }}
+                                    />
+                                    <TextField
+                                        fullWidth
+                                        label="Địa chỉ"
+                                        placeholder="Nhập địa chỉ (tùy chọn)"
+                                        value={customerInfo.address}
+                                        onChange={(e) => setCustomerInfo(prev => ({ ...prev, address: e.target.value }))}
+                                        InputProps={{
+                                            startAdornment: (
+                                                <InputAdornment position="start">
+                                                    <Home sx={{ color: COLORS.TEXT.SECONDARY }} />
+                                                </InputAdornment>
+                                            )
+                                        }}
+                                        sx={{
+                                            '& .MuiOutlinedInput-root': {
+                                                borderRadius: 2,
+                                                backgroundColor: alpha(COLORS.BACKGROUND.DEFAULT, 0.9)
+                                            }
+                                        }}
+                                    />
+                                    <TextField
+                                        fullWidth
+                                        label="Ghi chú"
+                                        placeholder="Ghi chú thêm (tùy chọn)"
+                                        value={customerInfo.notes}
+                                        onChange={(e) => setCustomerInfo(prev => ({ ...prev, notes: e.target.value }))}
+                                        multiline
+                                        rows={2}
+                                        sx={{
+                                            '& .MuiOutlinedInput-root': {
+                                                borderRadius: 2,
+                                                backgroundColor: alpha(COLORS.BACKGROUND.DEFAULT, 0.9)
+                                            }
+                                        }}
+                                    />
+                                </Stack>
+                            </Box>
+                        )}
+
                         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
                             <Button
                                 variant="outlined"
