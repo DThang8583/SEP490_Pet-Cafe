@@ -1,21 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
-    Box, Container, Typography, Grid, Card, CardContent, Button,
+    Box, Typography, Grid, Card, CardContent, Button,
     Chip, Stack, TextField, InputAdornment, FormControl, InputLabel,
     Select, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions,
-    Alert, CircularProgress, Pagination, Fade, alpha, Avatar, Divider
+    Alert, CircularProgress, Pagination, Fade, alpha, Avatar, Divider,
+    Table, TableHead, TableRow, TableCell, TableBody, TableContainer, Paper
 } from '@mui/material';
 import {
     Search, FilterList, Schedule, Pets, Star, AttachMoney,
     Visibility, Cancel, Refresh, Feedback, CalendarToday,
     AccessTime, LocationOn, Person, CheckCircle, Warning,
-    Error as ErrorIcon, Pending
+    Error as ErrorIcon, Pending, Group, Image as ImageIcon, Note
 } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
-import { feedbackApi } from '../../api/feedbackApi';
 import { bookingApi } from '../../api/bookingApi';
 import Loading from '../loading/Loading';
-import FeedbackModal from './FeedbackModal';
 import AlertModal from '../modals/AlertModal';
 
 const BookingHistory = ({ open, onClose }) => {
@@ -30,116 +29,69 @@ const BookingHistory = ({ open, onClose }) => {
     const [currentPage, setCurrentPage] = useState(1);
     const [selectedBooking, setSelectedBooking] = useState(null);
     const [showDetails, setShowDetails] = useState(false);
-    const [showFeedback, setShowFeedback] = useState(false);
     const [actionLoading, setActionLoading] = useState(false);
     const [confirmCancel, setConfirmCancel] = useState(false);
     const [bookingToCancel, setBookingToCancel] = useState(null);
     const [alert, setAlert] = useState({ open: false, message: '', type: 'info', title: 'Thông báo' });
 
-    const itemsPerPage = 6;
+    const itemsPerPage = 10;
 
-    // Load booking history
+    // Load booking history when modal opens or filters change
     useEffect(() => {
         if (open) {
             loadBookingHistory();
         }
-    }, [open]);
+    }, [open, statusFilter, dateFilter]);
 
-    // Filter bookings when search term or filters change
+    // Filter bookings when search term changes (client-side filtering)
     useEffect(() => {
         filterBookings();
-    }, [bookings, searchTerm, statusFilter, dateFilter]);
+    }, [bookings, searchTerm]);
 
     const loadBookingHistory = async () => {
         try {
             setLoading(true);
             setError('');
-            
-            // Get current user from localStorage
-            const currentUserStr = localStorage.getItem('currentUser');
-            if (!currentUserStr) {
-                setError('Chưa đăng nhập');
-                setLoading(false);
-                return;
+
+            // Build filters for API
+            const filters = {};
+            if (statusFilter !== 'all') {
+                filters.status = statusFilter;
             }
-            
-            const currentUser = JSON.parse(currentUserStr);
-            const customerId = currentUser.id;
-            
-            if (!customerId) {
-                setError('Không tìm thấy thông tin khách hàng');
-                setLoading(false);
-                return;
+            if (dateFilter === 'this_month') {
+                const now = new Date();
+                const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+                filters.dateFrom = startOfMonth.toISOString().split('T')[0];
+            } else if (dateFilter === 'last_month') {
+                const now = new Date();
+                const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+                filters.dateFrom = startOfLastMonth.toISOString().split('T')[0];
+                filters.dateTo = endOfLastMonth.toISOString().split('T')[0];
+            } else if (dateFilter === 'last_3_months') {
+                const now = new Date();
+                const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1);
+                filters.dateFrom = threeMonthsAgo.toISOString().split('T')[0];
             }
-            
-            // Get auth token
-            const token = localStorage.getItem('authToken');
-            
-            // Call API to get bookings
-            const response = await fetch(
-                `https://petcafes.azurewebsites.net/api/customers/${customerId}/bookings`,
-                {
-                    method: 'GET',
-                    headers: {
-                        'Accept': 'application/json',
-                        'Authorization': token ? `Bearer ${token}` : ''
-                    }
-                }
-            );
-            
-            const rawText = await response.text();
-            let jsonData = null;
-            
-            try {
-                jsonData = JSON.parse(rawText);
-            } catch (e) {
-                console.error('Error parsing response:', e);
-                throw new Error('Phản hồi từ server không hợp lệ');
+
+            console.log('[BookingHistory] Loading bookings with filters:', filters);
+            const res = await bookingApi.getMyBookings(filters);
+            console.log('[BookingHistory] API response:', res);
+
+            if (res.success) {
+                console.log('[BookingHistory] Loaded bookings:', res.data);
+                console.log('[BookingHistory] Bookings count:', res.data?.length || 0);
+                console.log('[BookingHistory] Is array?', Array.isArray(res.data));
+                setBookings(res.data || []);
+            } else {
+                console.error('[BookingHistory] API returned success=false');
+                setError('Không thể tải lịch sử đặt lịch');
+                setBookings([]);
             }
-            
-            if (!response.ok) {
-                const errorMsg = jsonData?.message || jsonData?.error || 'Không thể tải lịch sử đặt lịch';
-                throw new Error(errorMsg);
-            }
-            
-            // Parse response data
-            const bookingsData = jsonData?.data || jsonData || [];
-            
-            // Map API response to component format
-            const mappedBookings = Array.isArray(bookingsData) ? bookingsData.map(booking => {
-                // Map from API response format to component format
-                return {
-                    id: booking.id || booking.booking_id,
-                    service: {
-                        id: booking.service_id || booking.service?.id,
-                        name: booking.service_name || booking.service?.name || 'Dịch vụ không xác định',
-                        description: booking.service?.description,
-                        base_price: booking.service?.base_price || booking.price || 0
-                    },
-                    pet: booking.pet ? {
-                        id: booking.pet.id || booking.pet_id,
-                        name: booking.pet.name || booking.pet_name
-                    } : null,
-                    bookingDateTime: booking.booking_date || booking.bookingDateTime || booking.created_at,
-                    finalPrice: booking.final_amount || booking.total_amount || booking.price || 0,
-                    status: booking.status?.toLowerCase() || 'pending',
-                    notes: booking.notes || '',
-                    feedback: booking.feedback ? {
-                        overallRating: booking.feedback.overall_rating || booking.feedback.rating || 0,
-                        comment: booking.feedback.comment || booking.feedback.feedback_text || ''
-                    } : null,
-                    slot: booking.slot,
-                    payment_status: booking.payment_status,
-                    payment_method: booking.payment_method,
-                    // Keep original data for reference
-                    ...booking
-                };
-            }) : [];
-            
-            setBookings(mappedBookings);
         } catch (err) {
             console.error('[BookingHistory] Error loading bookings:', err);
             setError(err.message || 'Có lỗi xảy ra khi tải dữ liệu');
+            setBookings([]);
         } finally {
             setLoading(false);
         }
@@ -148,38 +100,14 @@ const BookingHistory = ({ open, onClose }) => {
     const filterBookings = () => {
         let filtered = [...bookings];
 
-        // Search filter
+        // Search filter (client-side only)
         if (searchTerm) {
             filtered = filtered.filter(booking =>
                 booking.service?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                booking.pet?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                booking.pet_group?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                booking.area?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                booking.team?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 booking.notes?.toLowerCase().includes(searchTerm.toLowerCase())
-            );
-        }
-
-        // Status filter
-        if (statusFilter !== 'all') {
-            filtered = filtered.filter(booking => booking.status === statusFilter);
-        }
-
-        // Date filter
-        const now = new Date();
-        if (dateFilter === 'this_month') {
-            const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-            filtered = filtered.filter(booking =>
-                new Date(booking.bookingDateTime) >= startOfMonth
-            );
-        } else if (dateFilter === 'last_month') {
-            const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-            const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
-            filtered = filtered.filter(booking => {
-                const bookingDate = new Date(booking.bookingDateTime);
-                return bookingDate >= startOfLastMonth && bookingDate <= endOfLastMonth;
-            });
-        } else if (dateFilter === 'last_3_months') {
-            const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1);
-            filtered = filtered.filter(booking =>
-                new Date(booking.bookingDateTime) >= threeMonthsAgo
             );
         }
 
@@ -189,8 +117,9 @@ const BookingHistory = ({ open, onClose }) => {
 
     // Get status info
     const getStatusInfo = (status) => {
-        switch (status) {
-            case 'pending':
+        const statusUpper = (status || '').toUpperCase();
+        switch (statusUpper) {
+            case 'PENDING':
                 return {
                     label: 'Chờ xác nhận',
                     color: 'warning',
@@ -198,7 +127,7 @@ const BookingHistory = ({ open, onClose }) => {
                     bgColor: COLORS.WARNING[100],
                     textColor: COLORS.WARNING[700]
                 };
-            case 'confirmed':
+            case 'CONFIRMED':
                 return {
                     label: 'Đã xác nhận',
                     color: 'info',
@@ -206,7 +135,7 @@ const BookingHistory = ({ open, onClose }) => {
                     bgColor: COLORS.INFO[100],
                     textColor: COLORS.INFO[700]
                 };
-            case 'in_progress':
+            case 'IN_PROGRESS':
                 return {
                     label: 'Đang thực hiện',
                     color: 'primary',
@@ -214,7 +143,7 @@ const BookingHistory = ({ open, onClose }) => {
                     bgColor: COLORS.PRIMARY[100],
                     textColor: COLORS.PRIMARY[700]
                 };
-            case 'completed':
+            case 'COMPLETED':
                 return {
                     label: 'Hoàn thành',
                     color: 'success',
@@ -222,7 +151,7 @@ const BookingHistory = ({ open, onClose }) => {
                     bgColor: COLORS.SUCCESS[100],
                     textColor: COLORS.SUCCESS[700]
                 };
-            case 'cancelled':
+            case 'CANCELLED':
                 return {
                     label: 'Đã hủy',
                     color: 'error',
@@ -249,17 +178,22 @@ const BookingHistory = ({ open, onClose }) => {
         }).format(price);
     };
 
-    // Format date and time
-    const formatDateTime = (dateTime) => {
-        const date = new Date(dateTime);
-        return {
-            date: date.toLocaleDateString('vi-VN'),
-            time: date.toLocaleTimeString('vi-VN', {
-                hour: '2-digit',
-                minute: '2-digit'
-            }),
-            dayName: date.toLocaleDateString('vi-VN', { weekday: 'long' })
-        };
+    // Format date
+    const formatDate = (dateStr) => {
+        if (!dateStr) return '';
+        let date;
+        if (dateStr.includes('T')) {
+            date = new Date(dateStr);
+        } else {
+            const [year, month, day] = dateStr.split('-').map(Number);
+            date = new Date(year, month - 1, day);
+        }
+        return date.toLocaleDateString('vi-VN', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
     };
 
     // Handle cancel booking
@@ -294,20 +228,6 @@ const BookingHistory = ({ open, onClose }) => {
             setActionLoading(false);
             setConfirmCancel(false);
             setBookingToCancel(null);
-        }
-    };
-
-    // Handle feedback submission
-    const handleFeedbackSubmit = async (feedbackData) => {
-        try {
-            const response = await feedbackApi.submitFeedback(feedbackData);
-
-            if (response.success) {
-                await loadBookingHistory();
-                setShowFeedback(false);
-            }
-        } catch (err) {
-            throw new Error(err.message || 'Có lỗi xảy ra khi gửi phản hồi');
         }
     };
 
@@ -372,7 +292,7 @@ const BookingHistory = ({ open, onClose }) => {
                                 <Grid item xs={12} md={4}>
                                     <TextField
                                         fullWidth
-                                        placeholder="Tìm kiếm theo dịch vụ, thú cưng..."
+                                        placeholder="Tìm kiếm theo dịch vụ, nhóm thú cưng..."
                                         value={searchTerm}
                                         onChange={(e) => setSearchTerm(e.target.value)}
                                         InputProps={{
@@ -453,16 +373,21 @@ const BookingHistory = ({ open, onClose }) => {
                         <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                             <Typography variant="body1" color="text.secondary">
                                 Tìm thấy <strong>{filteredBookings.length}</strong> lịch hẹn
+                                {bookings.length !== filteredBookings.length && (
+                                    <Typography component="span" variant="caption" sx={{ ml: 1, color: COLORS.GRAY[500] }}>
+                                        (Tổng: {bookings.length})
+                                    </Typography>
+                                )}
                             </Typography>
                             <Chip
                                 icon={<FilterList />}
-                                label={`Trang ${currentPage}/${totalPages}`}
+                                label={`Trang ${currentPage}/${totalPages || 1}`}
                                 variant="outlined"
                                 sx={{ borderColor: COLORS.PRIMARY[300] }}
                             />
                         </Box>
 
-                        {/* Booking Cards */}
+                        {/* Booking Table */}
                         {currentBookings.length === 0 ? (
                             <Box sx={{
                                 textAlign: 'center',
@@ -484,50 +409,93 @@ const BookingHistory = ({ open, onClose }) => {
                             </Box>
                         ) : (
                             <Fade in timeout={500}>
-                                <Grid container spacing={3}>
-                                    {currentBookings.map((booking) => {
-                                        const statusInfo = getStatusInfo(booking.status);
-                                        const dateTime = formatDateTime(booking.bookingDateTime);
+                                <TableContainer component={Paper} sx={{ borderRadius: 3, overflow: 'hidden' }}>
+                                    <Table stickyHeader>
+                                        <TableHead>
+                                            <TableRow sx={{ '& th': { backgroundColor: alpha(COLORS.INFO[50], 0.8), fontWeight: 700 } }}>
+                                                <TableCell>Dịch vụ</TableCell>
+                                                <TableCell>Ngày đặt</TableCell>
+                                                <TableCell>Thời gian slot</TableCell>
+                                                <TableCell>Trạng thái</TableCell>
+                                                <TableCell align="right">Hành động</TableCell>
+                                            </TableRow>
+                                        </TableHead>
+                                        <TableBody>
+                                            {currentBookings.map((booking) => {
+                                                const statusInfo = getStatusInfo(booking.booking_status || booking.status);
 
-                                        return (
-                                            <Grid item xs={12} md={6} key={booking.id}>
-                                                <Card sx={{
-                                                    border: `2px solid ${alpha(statusInfo.bgColor, 0.3)}`,
-                                                    borderRadius: 4,
-                                                    background: `linear-gradient(135deg, 
-                                                        ${COLORS.BACKGROUND.DEFAULT} 0%, 
-                                                        ${alpha(statusInfo.bgColor, 0.1)} 100%
-                                                    )`,
-                                                    transition: 'all 0.3s ease',
-                                                    '&:hover': {
-                                                        transform: 'translateY(-4px)',
-                                                        boxShadow: `0 8px 25px ${alpha(statusInfo.bgColor, 0.3)}`
-                                                    }
-                                                }}>
-                                                    <CardContent sx={{ p: 3 }}>
-                                                        {/* Header */}
-                                                        <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 2 }}>
-                                                            <Box sx={{ flex: 1 }}>
-                                                                <Typography variant="h6" fontWeight="bold" sx={{ mb: 1 }}>
-                                                                    {booking.service?.name}
-                                                                </Typography>
-                                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                                                                    <Avatar sx={{
-                                                                        width: 24,
-                                                                        height: 24,
-                                                                        backgroundColor: COLORS.SECONDARY[500],
-                                                                        fontSize: '0.8rem'
-                                                                    }}>
-                                                                        {booking.pet?.name?.charAt(0)}
+                                                return (
+                                                    <TableRow
+                                                        key={booking.id}
+                                                        hover
+                                                        sx={{
+                                                            '&:nth-of-type(odd)': { backgroundColor: alpha(COLORS.GRAY[50], 0.3) },
+                                                            cursor: 'pointer',
+                                                            '&:hover': {
+                                                                backgroundColor: alpha(COLORS.PRIMARY[50], 0.3)
+                                                            }
+                                                        }}
+                                                        onClick={() => {
+                                                            setSelectedBooking(booking);
+                                                            setShowDetails(true);
+                                                        }}
+                                                    >
+                                                        <TableCell>
+                                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                                                {booking.service?.image_url ? (
+                                                                    <Avatar
+                                                                        src={booking.service.image_url}
+                                                                        variant="rounded"
+                                                                        sx={{ width: 48, height: 48 }}
+                                                                    >
+                                                                        <ImageIcon />
                                                                     </Avatar>
-                                                                    <Typography variant="body2" color="text.secondary">
-                                                                        {booking.pet?.name}
+                                                                ) : (
+                                                                    <Avatar
+                                                                        variant="rounded"
+                                                                        sx={{
+                                                                            width: 48,
+                                                                            height: 48,
+                                                                            bgcolor: COLORS.PRIMARY[100],
+                                                                            color: COLORS.PRIMARY[700]
+                                                                        }}
+                                                                    >
+                                                                        <Schedule />
+                                                                    </Avatar>
+                                                                )}
+                                                                <Box>
+                                                                    <Typography variant="body1" fontWeight={600}>
+                                                                        {booking.service?.name || 'Dịch vụ không xác định'}
                                                                     </Typography>
+                                                                    {booking.pet_group && (
+                                                                        <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
+                                                                            <Pets sx={{ fontSize: 14 }} />
+                                                                            {booking.pet_group.name}
+                                                                        </Typography>
+                                                                    )}
                                                                 </Box>
                                                             </Box>
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {booking.bookingDateTime && (
+                                                                <Typography variant="body2">
+                                                                    {formatDate(booking.bookingDateTime)}
+                                                                </Typography>
+                                                            )}
+                                                        </TableCell>
+                                                        <TableCell>
+                                                            {booking.start_time && booking.end_time && (
+                                                                <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                                                    <AccessTime sx={{ fontSize: 16 }} />
+                                                                    {booking.start_time.substring(0, 5)} - {booking.end_time.substring(0, 5)}
+                                                                </Typography>
+                                                            )}
+                                                        </TableCell>
+                                                        <TableCell>
                                                             <Chip
                                                                 icon={statusInfo.icon}
                                                                 label={statusInfo.label}
+                                                                size="small"
                                                                 sx={{
                                                                     backgroundColor: statusInfo.bgColor,
                                                                     color: statusInfo.textColor,
@@ -537,112 +505,60 @@ const BookingHistory = ({ open, onClose }) => {
                                                                     }
                                                                 }}
                                                             />
-                                                        </Box>
-
-                                                        {/* Date & Time */}
-                                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                                <CalendarToday sx={{ fontSize: 16, color: COLORS.INFO[500] }} />
-                                                                <Typography variant="body2">
-                                                                    {dateTime.date}
-                                                                </Typography>
-                                                            </Box>
-                                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                                <AccessTime sx={{ fontSize: 16, color: COLORS.INFO[500] }} />
-                                                                <Typography variant="body2">
-                                                                    {dateTime.time}
-                                                                </Typography>
-                                                            </Box>
-                                                        </Box>
-
-                                                        {/* Price */}
-                                                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
-                                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                                <AttachMoney sx={{ fontSize: 16, color: COLORS.ERROR[500] }} />
-                                                                <Typography variant="body1" fontWeight="bold" sx={{ color: COLORS.ERROR[600] }}>
-                                                                    {formatPrice(booking.finalPrice)}
-                                                                </Typography>
-                                                            </Box>
-                                                            {booking.feedback && (
-                                                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                                                    <Star sx={{ fontSize: 16, color: COLORS.WARNING[500] }} />
-                                                                    <Typography variant="body2" fontWeight="bold">
-                                                                        {booking.feedback.overallRating}
-                                                                    </Typography>
-                                                                </Box>
-                                                            )}
-                                                        </Box>
-
-                                                        {/* Actions */}
-                                                        <Stack direction="row" spacing={1}>
-                                                            <Button
-                                                                size="small"
-                                                                variant="outlined"
-                                                                startIcon={<Visibility />}
-                                                                onClick={() => {
-                                                                    setSelectedBooking(booking);
-                                                                    setShowDetails(true);
-                                                                }}
-                                                                sx={{
-                                                                    borderColor: COLORS.INFO[300],
-                                                                    color: COLORS.INFO[600],
-                                                                    '&:hover': {
-                                                                        borderColor: COLORS.INFO[400],
-                                                                        backgroundColor: alpha(COLORS.INFO[100], 0.8)
-                                                                    }
-                                                                }}
-                                                            >
-                                                                Chi tiết
-                                                            </Button>
-
-                                                            {booking.status === 'completed' && !booking.feedback && (
+                                                        </TableCell>
+                                                        <TableCell align="right">
+                                                            <Stack direction="row" spacing={1} justifyContent="flex-end">
                                                                 <Button
                                                                     size="small"
                                                                     variant="outlined"
-                                                                    startIcon={<Feedback />}
-                                                                    onClick={() => {
+                                                                    startIcon={<Visibility />}
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
                                                                         setSelectedBooking(booking);
-                                                                        setShowFeedback(true);
+                                                                        setShowDetails(true);
                                                                     }}
                                                                     sx={{
-                                                                        borderColor: COLORS.WARNING[300],
-                                                                        color: COLORS.WARNING[600],
+                                                                        borderColor: COLORS.INFO[300],
+                                                                        color: COLORS.INFO[600],
                                                                         '&:hover': {
-                                                                            borderColor: COLORS.WARNING[400],
-                                                                            backgroundColor: alpha(COLORS.WARNING[100], 0.8)
+                                                                            borderColor: COLORS.INFO[400],
+                                                                            backgroundColor: alpha(COLORS.INFO[100], 0.8)
                                                                         }
                                                                     }}
                                                                 >
-                                                                    Đánh giá
+                                                                    Chi tiết
                                                                 </Button>
-                                                            )}
-
-                                                            {(booking.status === 'pending' || booking.status === 'confirmed') && (
-                                                                <Button
-                                                                    size="small"
-                                                                    variant="outlined"
-                                                                    startIcon={<Cancel />}
-                                                                    onClick={() => handleCancelBooking(booking.id)}
-                                                                    disabled={actionLoading}
-                                                                    sx={{
-                                                                        borderColor: COLORS.ERROR[300],
-                                                                        color: COLORS.ERROR[600],
-                                                                        '&:hover': {
-                                                                            borderColor: COLORS.ERROR[400],
-                                                                            backgroundColor: alpha(COLORS.ERROR[100], 0.8)
-                                                                        }
-                                                                    }}
-                                                                >
-                                                                    Hủy
-                                                                </Button>
-                                                            )}
-                                                        </Stack>
-                                                    </CardContent>
-                                                </Card>
-                                            </Grid>
-                                        );
-                                    })}
-                                </Grid>
+                                                                {((booking.booking_status || booking.status || '').toUpperCase() === 'PENDING' ||
+                                                                    (booking.booking_status || booking.status || '').toUpperCase() === 'CONFIRMED') && (
+                                                                        <Button
+                                                                            size="small"
+                                                                            variant="outlined"
+                                                                            startIcon={<Cancel />}
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                handleCancelBooking(booking.id);
+                                                                            }}
+                                                                            disabled={actionLoading}
+                                                                            sx={{
+                                                                                borderColor: COLORS.ERROR[300],
+                                                                                color: COLORS.ERROR[600],
+                                                                                '&:hover': {
+                                                                                    borderColor: COLORS.ERROR[400],
+                                                                                    backgroundColor: alpha(COLORS.ERROR[100], 0.8)
+                                                                                }
+                                                                            }}
+                                                                        >
+                                                                            Hủy
+                                                                        </Button>
+                                                                    )}
+                                                            </Stack>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                );
+                                            })}
+                                        </TableBody>
+                                    </Table>
+                                </TableContainer>
                             </Fade>
                         )}
 
@@ -669,90 +585,211 @@ const BookingHistory = ({ open, onClose }) => {
                     onClose={() => setShowDetails(false)}
                     maxWidth="md"
                     fullWidth
+                    PaperProps={{
+                        sx: { borderRadius: 4 }
+                    }}
                 >
-                    <DialogTitle>
-                        Chi tiết lịch hẹn
+                    <DialogTitle sx={{
+                        background: `linear-gradient(135deg, 
+                            ${COLORS.INFO[500]} 0%, 
+                            ${COLORS.INFO[600]} 100%
+                        )`,
+                        color: 'white',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between'
+                    }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                            <Schedule />
+                            <Typography variant="h6" fontWeight="bold">
+                                Chi tiết lịch hẹn
+                            </Typography>
+                        </Box>
+                        <Button
+                            onClick={() => setShowDetails(false)}
+                            sx={{ color: 'white', minWidth: 'auto', p: 1 }}
+                        >
+                            ×
+                        </Button>
                     </DialogTitle>
-                    <DialogContent>
-                        <Box sx={{ pt: 2 }}>
-                            <Grid container spacing={3}>
+                    <DialogContent sx={{ p: 3 }}>
+                        <Grid container spacing={3}>
+                            {/* Service Info */}
+                            <Grid item xs={12}>
+                                <Card sx={{ p: 2, backgroundColor: alpha(COLORS.PRIMARY[50], 0.3) }}>
+                                    <Box sx={{ display: 'flex', gap: 2 }}>
+                                        {selectedBooking.service?.image_url && (
+                                            <Avatar
+                                                src={selectedBooking.service.image_url}
+                                                variant="rounded"
+                                                sx={{ width: 80, height: 80 }}
+                                            />
+                                        )}
+                                        <Box sx={{ flex: 1 }}>
+                                            <Typography variant="h6" fontWeight="bold" sx={{ mb: 1 }}>
+                                                {selectedBooking.service?.name || 'Dịch vụ không xác định'}
+                                            </Typography>
+                                            <Typography variant="body2" color="text.secondary">
+                                                {selectedBooking.service?.description}
+                                            </Typography>
+                                            <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                <AttachMoney sx={{ fontSize: 16, color: COLORS.ERROR[500] }} />
+                                                <Typography variant="body1" fontWeight="bold" sx={{ color: COLORS.ERROR[600] }}>
+                                                    {formatPrice(selectedBooking.finalPrice || selectedBooking.service?.base_price || 0)}
+                                                </Typography>
+                                            </Box>
+                                        </Box>
+                                    </Box>
+                                </Card>
+                            </Grid>
+
+                            {/* Booking Date */}
+                            {selectedBooking.bookingDateTime && (
                                 <Grid item xs={12} sm={6}>
-                                    <Typography variant="subtitle2" color="text.secondary">
-                                        Dịch vụ
-                                    </Typography>
-                                    <Typography variant="body1" fontWeight="bold" sx={{ mb: 2 }}>
-                                        {selectedBooking.service?.name}
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                                        <CalendarToday sx={{ fontSize: 20, color: COLORS.INFO[500] }} />
+                                        <Typography variant="subtitle2" color="text.secondary">
+                                            Ngày đặt
+                                        </Typography>
+                                    </Box>
+                                    <Typography variant="body1" fontWeight="bold">
+                                        {formatDate(selectedBooking.bookingDateTime)}
                                     </Typography>
                                 </Grid>
+                            )}
+
+                            {/* Slot Time */}
+                            {selectedBooking.start_time && selectedBooking.end_time && (
                                 <Grid item xs={12} sm={6}>
-                                    <Typography variant="subtitle2" color="text.secondary">
-                                        Thú cưng
-                                    </Typography>
-                                    <Typography variant="body1" fontWeight="bold" sx={{ mb: 2 }}>
-                                        {selectedBooking.pet?.name}
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                                        <AccessTime sx={{ fontSize: 20, color: COLORS.INFO[500] }} />
+                                        <Typography variant="subtitle2" color="text.secondary">
+                                            Thời gian slot
+                                        </Typography>
+                                    </Box>
+                                    <Typography variant="body1" fontWeight="bold">
+                                        {selectedBooking.start_time.substring(0, 5)} - {selectedBooking.end_time.substring(0, 5)}
                                     </Typography>
                                 </Grid>
+                            )}
+
+                            {/* Pet Group */}
+                            {selectedBooking.pet_group && (
                                 <Grid item xs={12} sm={6}>
-                                    <Typography variant="subtitle2" color="text.secondary">
-                                        Ngày giờ
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                                        <Pets sx={{ fontSize: 20, color: COLORS.INFO[500] }} />
+                                        <Typography variant="subtitle2" color="text.secondary">
+                                            Nhóm thú cưng
+                                        </Typography>
+                                    </Box>
+                                    <Typography variant="body1" fontWeight="bold">
+                                        {selectedBooking.pet_group.name}
                                     </Typography>
-                                    <Typography variant="body1" fontWeight="bold" sx={{ mb: 2 }}>
-                                        {formatDateTime(selectedBooking.bookingDateTime).date} lúc {formatDateTime(selectedBooking.bookingDateTime).time}
-                                    </Typography>
+                                    {selectedBooking.pet_group.description && (
+                                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                                            {selectedBooking.pet_group.description}
+                                        </Typography>
+                                    )}
                                 </Grid>
+                            )}
+
+                            {/* Area */}
+                            {selectedBooking.area && (
                                 <Grid item xs={12} sm={6}>
-                                    <Typography variant="subtitle2" color="text.secondary">
-                                        Giá tiền
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                                        <LocationOn sx={{ fontSize: 20, color: COLORS.INFO[500] }} />
+                                        <Typography variant="subtitle2" color="text.secondary">
+                                            Khu vực
+                                        </Typography>
+                                    </Box>
+                                    <Typography variant="body1" fontWeight="bold">
+                                        {selectedBooking.area.name}
                                     </Typography>
-                                    <Typography variant="body1" fontWeight="bold" sx={{ mb: 2 }}>
-                                        {formatPrice(selectedBooking.finalPrice)}
-                                    </Typography>
+                                    {selectedBooking.area.location && (
+                                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                                            {selectedBooking.area.location}
+                                        </Typography>
+                                    )}
                                 </Grid>
-                                {selectedBooking.notes && (
-                                    <Grid item xs={12}>
+                            )}
+
+                            {/* Team */}
+                            {selectedBooking.team && (
+                                <Grid item xs={12} sm={6}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                                        <Group sx={{ fontSize: 20, color: COLORS.INFO[500] }} />
+                                        <Typography variant="subtitle2" color="text.secondary">
+                                            Nhóm phụ trách
+                                        </Typography>
+                                    </Box>
+                                    <Typography variant="body1" fontWeight="bold">
+                                        {selectedBooking.team.name}
+                                    </Typography>
+                                    {selectedBooking.team.description && (
+                                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                                            {selectedBooking.team.description}
+                                        </Typography>
+                                    )}
+                                </Grid>
+                            )}
+
+                            {/* Status */}
+                            <Grid item xs={12} sm={6}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                                    <CheckCircle sx={{ fontSize: 20, color: COLORS.INFO[500] }} />
+                                    <Typography variant="subtitle2" color="text.secondary">
+                                        Trạng thái
+                                    </Typography>
+                                </Box>
+                                <Chip
+                                    icon={getStatusInfo(selectedBooking.booking_status || selectedBooking.status).icon}
+                                    label={getStatusInfo(selectedBooking.booking_status || selectedBooking.status).label}
+                                    sx={{
+                                        backgroundColor: getStatusInfo(selectedBooking.booking_status || selectedBooking.status).bgColor,
+                                        color: getStatusInfo(selectedBooking.booking_status || selectedBooking.status).textColor,
+                                        fontWeight: 'bold'
+                                    }}
+                                />
+                            </Grid>
+
+                            {/* Notes */}
+                            {selectedBooking.notes && (
+                                <Grid item xs={12}>
+                                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 1 }}>
+                                        <Note sx={{ fontSize: 20, color: COLORS.INFO[500], mt: 0.5 }} />
                                         <Typography variant="subtitle2" color="text.secondary">
                                             Ghi chú
                                         </Typography>
-                                        <Typography variant="body1" sx={{ mb: 2 }}>
-                                            {selectedBooking.notes}
-                                        </Typography>
-                                    </Grid>
-                                )}
-                                {selectedBooking.feedback && (
-                                    <Grid item xs={12}>
-                                        <Typography variant="subtitle2" color="text.secondary">
-                                            Đánh giá
-                                        </Typography>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                                            <Star sx={{ color: COLORS.WARNING[500] }} />
-                                            <Typography variant="body1" fontWeight="bold">
-                                                {selectedBooking.feedback.overallRating}/5
-                                            </Typography>
-                                        </Box>
-                                        <Typography variant="body2">
-                                            {selectedBooking.feedback.comment}
-                                        </Typography>
-                                    </Grid>
-                                )}
-                            </Grid>
-                        </Box>
+                                    </Box>
+                                    <Typography variant="body2">
+                                        {selectedBooking.notes}
+                                    </Typography>
+                                </Grid>
+                            )}
+                        </Grid>
                     </DialogContent>
-                    <DialogActions>
-                        <Button onClick={() => setShowDetails(false)}>
+                    <DialogActions sx={{ p: 3, pt: 2, borderTop: `1px solid ${alpha(COLORS.GRAY[200], 0.5)}` }}>
+                        <Button
+                            onClick={() => setShowDetails(false)}
+                            variant="outlined"
+                            sx={{
+                                px: 3,
+                                py: 1,
+                                borderRadius: 2,
+                                textTransform: 'none',
+                                fontWeight: 600,
+                                borderColor: COLORS.GRAY[300],
+                                color: COLORS.GRAY[700],
+                                '&:hover': {
+                                    borderColor: COLORS.GRAY[400],
+                                    backgroundColor: alpha(COLORS.GRAY[50], 0.5)
+                                }
+                            }}
+                        >
                             Đóng
                         </Button>
                     </DialogActions>
                 </Dialog>
-            )}
-
-            {/* Feedback Modal */}
-            {showFeedback && selectedBooking && (
-                <FeedbackModal
-                    open={showFeedback}
-                    onClose={() => setShowFeedback(false)}
-                    booking={selectedBooking}
-                    onSubmit={handleFeedbackSubmit}
-                />
             )}
 
             {/* Confirm Cancel Dialog */}
@@ -799,3 +836,4 @@ const BookingHistory = ({ open, onClose }) => {
 };
 
 export default BookingHistory;
+

@@ -55,29 +55,29 @@ const ServiceBookingConfirmPage = () => {
             try {
                 setLoading(true);
                 const token = localStorage.getItem('authToken');
-
+                
                 // Build query parameters - Lấy toàn bộ orders (không filter theo type)
                 const params = new URLSearchParams();
                 params.append('limit', pageSize.toString());
-
+                
                 if (paymentMethod) {
                     params.append('PaymentMethod', paymentMethod);
                 }
-
+                
                 // Filter theo giá
                 if (appliedMinPrice && !isNaN(parseFloat(appliedMinPrice))) {
                     params.append('MinPrice', parseFloat(appliedMinPrice).toString());
                 }
-
+                
                 if (appliedMaxPrice && !isNaN(parseFloat(appliedMaxPrice))) {
                     params.append('MaxPrice', parseFloat(appliedMaxPrice).toString());
                 }
-
+                
                 const queryString = params.toString();
                 const url = `https://petcafes.azurewebsites.net/api/orders${queryString ? `?${queryString}` : ''}`;
-
+                
                 console.log('[ServiceBookingConfirm] Fetching orders with params:', queryString);
-
+                
                 const res = await fetch(url, {
                     headers: {
                         'Authorization': token ? `Bearer ${token}` : '',
@@ -172,7 +172,7 @@ const ServiceBookingConfirmPage = () => {
                                     } catch (e) {
                                         console.warn('[ServiceBookingConfirm] Could not fetch service:', e);
                                     }
-                                }
+                        }
 
                                 // Ưu tiên sử dụng service từ API response (detail.service đã có đầy đủ)
                                 const serviceName = detail.service?.name || serviceInfo?.name || detail.service_name;
@@ -180,7 +180,7 @@ const ServiceBookingConfirmPage = () => {
                                     console.warn('[ServiceBookingConfirm] No service name found for detail:', detail);
                                 }
 
-                                services.push({
+                            services.push({
                                     service_name: serviceName || 'Chưa xác định',
                                     price: detail.unit_price || detail.total_price || detail.price || serviceInfo?.base_price || 0,
                                     booking_date: detail.booking_date || fullOrder.service_order.order_date || fullOrder.created_at,
@@ -189,7 +189,7 @@ const ServiceBookingConfirmPage = () => {
                                     slot: slotInfo || detail.slot,
                                     service: detail.service || serviceInfo, // Ưu tiên detail.service từ API
                                     image: detail.service?.image_url || detail.service?.thumbnails?.[0] || serviceInfo?.image_url || serviceInfo?.thumbnails?.[0] || 'https://i.ibb.co/4fL7q4f/pet-service.jpg'
-                                });
+                            });
                             }
                         }
 
@@ -222,7 +222,7 @@ const ServiceBookingConfirmPage = () => {
                 const serviceOrders = await Promise.all(serviceOrdersPromises);
 
                 // Filter ẩn các hóa đơn "Chờ thanh toán" (PENDING)
-                const filteredOrders = serviceOrders.filter(order =>
+                const filteredOrders = serviceOrders.filter(order => 
                     order.payment_status !== 'PENDING'
                 );
 
@@ -261,7 +261,7 @@ const ServiceBookingConfirmPage = () => {
 
         fetchOrders();
     }, [paymentMethod, appliedMinPrice, appliedMaxPrice, pageSize]);
-
+    
     // Hàm để áp dụng bộ lọc (chỉ search khi click nút)
     const handleApplyFilters = () => {
         setAppliedMinPrice(minPrice);
@@ -272,10 +272,10 @@ const ServiceBookingConfirmPage = () => {
     const groupOrdersByDate = (orders) => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-
+        
         const yesterday = new Date(today);
         yesterday.setDate(yesterday.getDate() - 1);
-
+        
         const groups = {
             today: [],
             yesterday: [],
@@ -286,7 +286,7 @@ const ServiceBookingConfirmPage = () => {
             const orderDate = new Date(order.order_date || order.created_at);
             const orderDateOnly = new Date(orderDate);
             orderDateOnly.setHours(0, 0, 0, 0);
-
+            
             if (orderDateOnly.getTime() === today.getTime()) {
                 groups.today.push(order);
             } else if (orderDateOnly.getTime() === yesterday.getTime()) {
@@ -333,17 +333,17 @@ const ServiceBookingConfirmPage = () => {
             </Box>
 
             {/* Services List */}
-            <Box sx={{ mb: 2.5, flexGrow: 1 }}>
-                <Typography variant="subtitle2" sx={{
-                    fontWeight: 700,
-                    color: COLORS.ERROR[600],
-                    mb: 1.5,
-                    fontSize: '0.95rem',
-                    textTransform: 'uppercase',
-                    letterSpacing: 0.5
-                }}>
-                    Dịch vụ đã đặt
-                </Typography>
+                <Box sx={{ mb: 2.5, flexGrow: 1 }}>
+                    <Typography variant="subtitle2" sx={{
+                        fontWeight: 700,
+                        color: COLORS.ERROR[600],
+                        mb: 1.5,
+                        fontSize: '0.95rem',
+                        textTransform: 'uppercase',
+                        letterSpacing: 0.5
+                    }}>
+                        Dịch vụ đã đặt
+                    </Typography>
                 {orderData.services && orderData.services.length > 0 ? (
                     <Stack spacing={1.5}>
                         {orderData.services.map((service, index) => (
@@ -380,7 +380,7 @@ const ServiceBookingConfirmPage = () => {
                                             </Typography>
                                         )}
                                     </Box>
-
+                                    
                                     {/* Booking Date */}
                                     {service.booking_date && (
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -396,12 +396,12 @@ const ServiceBookingConfirmPage = () => {
                                                         const [year, month, day] = dateStr.split('-').map(Number);
                                                         date = new Date(year, month - 1, day);
                                                     }
-                                                    return date.toLocaleDateString('vi-VN', {
-                                                        weekday: 'long',
-                                                        year: 'numeric',
-                                                        month: 'long',
-                                                        day: 'numeric'
-                                                    });
+                                                        return date.toLocaleDateString('vi-VN', {
+                                                            weekday: 'long',
+                                                            year: 'numeric',
+                                                            month: 'long',
+                                                            day: 'numeric'
+                                                        });
                                                 })()}
                                             </Typography>
                                         </Box>
@@ -476,56 +476,56 @@ const ServiceBookingConfirmPage = () => {
                         </Typography>
                     </Paper>
                 )}
-            </Box>
+                </Box>
 
             <Divider sx={{ my: 2.5 }} />
 
             {/* Customer Information - Compact - Chỉ hiển thị nếu có thông tin */}
-            {(orderData.customerInfo?.full_name ||
-                orderData.customerInfo?.phone ||
-                orderData.customerInfo?.address) && (
-                    <>
-                        <Box sx={{ mb: 2.5 }}>
-                            <Typography variant="subtitle2" sx={{
-                                fontWeight: 700,
-                                color: COLORS.ERROR[600],
-                                mb: 1.5,
-                                fontSize: '0.95rem',
-                                textTransform: 'uppercase',
-                                letterSpacing: 0.5
-                            }}>
-                                Thông tin khách hàng
-                            </Typography>
-                            <Stack spacing={1}>
-                                {orderData.customerInfo?.full_name && (
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                        <Person sx={{ fontSize: 18, color: COLORS.ERROR[500] }} />
-                                        <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.TEXT.PRIMARY }}>
-                                            {orderData.customerInfo.full_name}
-                                        </Typography>
-                                    </Box>
-                                )}
-                                {orderData.customerInfo?.phone && (
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                                        <Phone sx={{ fontSize: 18, color: COLORS.ERROR[500] }} />
-                                        <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
-                                            {orderData.customerInfo.phone}
-                                        </Typography>
-                                    </Box>
-                                )}
-                                {orderData.customerInfo?.address && (
-                                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
-                                        <LocationOn sx={{ fontSize: 18, color: COLORS.ERROR[500], mt: 0.25 }} />
-                                        <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, flex: 1 }}>
-                                            {orderData.customerInfo.address}
-                                        </Typography>
-                                    </Box>
-                                )}
-                            </Stack>
-                        </Box>
-                        <Divider sx={{ my: 2.5 }} />
-                    </>
-                )}
+            {(orderData.customerInfo?.full_name || 
+              orderData.customerInfo?.phone || 
+              orderData.customerInfo?.address) && (
+                <>
+                    <Box sx={{ mb: 2.5 }}>
+                        <Typography variant="subtitle2" sx={{
+                            fontWeight: 700,
+                            color: COLORS.ERROR[600],
+                            mb: 1.5,
+                            fontSize: '0.95rem',
+                            textTransform: 'uppercase',
+                            letterSpacing: 0.5
+                        }}>
+                            Thông tin khách hàng
+                        </Typography>
+                        <Stack spacing={1}>
+                            {orderData.customerInfo?.full_name && (
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                    <Person sx={{ fontSize: 18, color: COLORS.ERROR[500] }} />
+                                    <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.TEXT.PRIMARY }}>
+                                        {orderData.customerInfo.full_name}
+                                    </Typography>
+                                </Box>
+                            )}
+                            {orderData.customerInfo?.phone && (
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                                    <Phone sx={{ fontSize: 18, color: COLORS.ERROR[500] }} />
+                                    <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
+                                        {orderData.customerInfo.phone}
+                                    </Typography>
+                                </Box>
+                            )}
+                            {orderData.customerInfo?.address && (
+                                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
+                                    <LocationOn sx={{ fontSize: 18, color: COLORS.ERROR[500], mt: 0.25 }} />
+                                    <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, flex: 1 }}>
+                                        {orderData.customerInfo.address}
+                                    </Typography>
+                                </Box>
+                            )}
+                        </Stack>
+                    </Box>
+                    <Divider sx={{ my: 2.5 }} />
+                </>
+            )}
 
             {/* Payment & Total - Bottom Section */}
             <Box sx={{ mt: 'auto', pt: 2 }}>
@@ -537,7 +537,7 @@ const ServiceBookingConfirmPage = () => {
                         </Typography>
                     </Box>
                 )}
-
+                
                 {orderData.total && (
                     <Paper sx={{
                         p: 2,
@@ -751,9 +751,9 @@ const ServiceBookingConfirmPage = () => {
                             {/* Hôm nay */}
                             {groupedOrders.today.length > 0 && (
                                 <Box>
-                                    <Typography variant="h5" sx={{
-                                        fontWeight: 800,
-                                        color: COLORS.ERROR[600],
+                                    <Typography variant="h5" sx={{ 
+                                        fontWeight: 800, 
+                                        color: COLORS.ERROR[600], 
                                         mb: 2,
                                         display: 'flex',
                                         alignItems: 'center',
@@ -780,9 +780,9 @@ const ServiceBookingConfirmPage = () => {
                             {/* Hôm qua */}
                             {groupedOrders.yesterday.length > 0 && (
                                 <Box>
-                                    <Typography variant="h5" sx={{
-                                        fontWeight: 800,
-                                        color: COLORS.ERROR[600],
+                                    <Typography variant="h5" sx={{ 
+                                        fontWeight: 800, 
+                                        color: COLORS.ERROR[600], 
                                         mb: 2,
                                         display: 'flex',
                                         alignItems: 'center',
@@ -825,9 +825,9 @@ const ServiceBookingConfirmPage = () => {
 
                                 return Object.keys(otherByDate).map(dateKey => (
                                     <Box key={dateKey}>
-                                        <Typography variant="h5" sx={{
-                                            fontWeight: 800,
-                                            color: COLORS.ERROR[600],
+                                        <Typography variant="h5" sx={{ 
+                                            fontWeight: 800, 
+                                            color: COLORS.ERROR[600], 
                                             mb: 2,
                                             display: 'flex',
                                             alignItems: 'center',

@@ -33,6 +33,7 @@ import BookingDateModal from '../../components/modals/BookingDateModal';
 import PaymentModal from '../../components/booking/PaymentModal';
 import BookingConfirmation from '../../components/booking/BookingConfirmation';
 import FeedbackModal from '../../components/booking/FeedbackModal';
+import BookingHistory from '../../components/booking/BookingHistory';
 
 // Error Boundary Component
 class ErrorBoundary extends React.Component {
@@ -203,7 +204,7 @@ const BookingPage = () => {
             }
 
             // Check if any slot is available (service_status === 'AVAILABLE')
-            const hasAvailableSlots = service.slots.some(slot => 
+            const hasAvailableSlots = service.slots.some(slot =>
                 slot?.service_status === 'AVAILABLE' && !slot?.is_deleted
             );
 
@@ -250,8 +251,8 @@ const BookingPage = () => {
             const isLastRow = i + servicesPerRow >= availableServices.length;
             if (!isLastRow) {
                 // Đảm bảo mỗi hàng (trừ hàng cuối) luôn có đúng 3 cards
-            while (rowServices.length < servicesPerRow) {
-                rowServices.push(null); // Thêm empty slot
+                while (rowServices.length < servicesPerRow) {
+                    rowServices.push(null); // Thêm empty slot
                 }
             }
             serviceRows.push(rowServices);
@@ -295,9 +296,9 @@ const BookingPage = () => {
         setSelectedDate(date);
         setSelectedSlot(slot);
         setSelectedService(serviceForDateSelection);
-        setBookingData({ 
-            ...bookingData, 
-            service: serviceForDateSelection, 
+        setBookingData({
+            ...bookingData,
+            service: serviceForDateSelection,
             selectedDate: date,
             slotId: slot.id,
             slot: slot,
@@ -535,24 +536,20 @@ const BookingPage = () => {
                             <Box>
                                 {/* History Button */}
                                 <Box sx={{ mb: 4, display: 'flex', justifyContent: 'flex-end' }}>
-                                        <Button
-                                            variant="outlined"
-                                            onClick={async () => {
-                                                setHistoryMode(true);
-                                                setCurrentStep(3);
-                                                setLoadingHistory(true);
-                                                try {
-                                                    const res = await bookingApi.getMyBookings({});
-                                                    if (res.success) setHistory(res.data);
-                                                } catch (e) {
-                                                    setHistory([]);
-                                                } finally {
-                                                    setLoadingHistory(false);
-                                                }
-                                            }}
-                                        >
-                                            Xem lịch sử đặt lịch
-                                        </Button>
+                                    <Button
+                                        variant="outlined"
+                                        onClick={() => setShowHistory(true)}
+                                        sx={{
+                                            borderColor: COLORS.PRIMARY[400],
+                                            color: COLORS.PRIMARY[600],
+                                            '&:hover': {
+                                                borderColor: COLORS.PRIMARY[500],
+                                                backgroundColor: alpha(COLORS.PRIMARY[50], 0.8)
+                                            }
+                                        }}
+                                    >
+                                        Xem lịch sử đặt lịch
+                                    </Button>
                                 </Box>
 
                                 {/* Services Grid - Fixed 3 cards per row with equal height */}
@@ -569,7 +566,7 @@ const BookingPage = () => {
                                             {rowServices && rowServices.map((service, cardIndex) => {
                                                 // Bỏ qua empty slots (null) khi render
                                                 if (!service) return null;
-                                                
+
                                                 return (
                                                     <Box key={service.id}>
                                                         <Grow
@@ -585,7 +582,7 @@ const BookingPage = () => {
                                                                 />
                                                             </Box>
                                                         </Grow>
-                                                </Box>
+                                                    </Box>
                                                 );
                                             })}
                                         </Box>
@@ -741,10 +738,16 @@ const BookingPage = () => {
                                                                 <TableCell>{new Date(bk.bookingDateTime).toLocaleString('vi-VN')}</TableCell>
                                                                 <TableCell>
                                                                     {(() => {
-                                                                        const status = bk.status || 'pending';
-                                                                        const label = status === 'completed' ? 'Đã hoàn thành' : status === 'confirmed' ? 'Đã xác nhận' : status === 'cancelled' ? 'Đã hủy' : 'Đang chờ';
-                                                                        const color = status === 'completed' ? 'success' : status === 'confirmed' ? 'info' : status === 'cancelled' ? 'default' : 'warning';
-                                                                        return <Chip size="small" label={label} color={color} />;
+                                                                        const status = (bk.status || bk.booking_status || 'PENDING').toUpperCase();
+                                                                        const statusMap = {
+                                                                            'PENDING': { label: 'Đang chờ', color: 'warning' },
+                                                                            'CONFIRMED': { label: 'Đã xác nhận', color: 'info' },
+                                                                            'IN_PROGRESS': { label: 'Đang thực hiện', color: 'primary' },
+                                                                            'COMPLETED': { label: 'Đã hoàn thành', color: 'success' },
+                                                                            'CANCELLED': { label: 'Đã hủy', color: 'default' }
+                                                                        };
+                                                                        const statusInfo = statusMap[status] || { label: 'Không xác định', color: 'default' };
+                                                                        return <Chip size="small" label={statusInfo.label} color={statusInfo.color} />;
                                                                     })()}
                                                                 </TableCell>
                                                                 <TableCell>
@@ -757,10 +760,18 @@ const BookingPage = () => {
                                                                 </TableCell>
                                                             </TableRow>
                                                         ))}
-                                                        {history.length === 0 && (
+                                                        {history.length === 0 && !loadingHistory && (
                                                             <TableRow>
-                                                                <TableCell colSpan={4} align="center">
-                                                                    <Typography color="text.secondary">Chưa có lịch đặt nào</Typography>
+                                                                <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
+                                                                    <Box sx={{ textAlign: 'center' }}>
+                                                                        <Schedule sx={{ fontSize: 48, color: COLORS.GRAY[400], mb: 2 }} />
+                                                                        <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
+                                                                            Chưa có lịch đặt nào
+                                                                        </Typography>
+                                                                        <Typography variant="body2" color="text.secondary">
+                                                                            Bạn chưa có lịch đặt dịch vụ nào. Hãy đặt lịch để bắt đầu!
+                                                                        </Typography>
+                                                                    </Box>
                                                                 </TableCell>
                                                             </TableRow>
                                                         )}
@@ -824,6 +835,12 @@ const BookingPage = () => {
                         }}
                         service={serviceForDateSelection}
                         onConfirm={handleDateConfirm}
+                    />
+
+                    {/* Booking History Modal */}
+                    <BookingHistory
+                        open={showHistory}
+                        onClose={() => setShowHistory(false)}
                     />
                 </Box>
 
