@@ -6,6 +6,40 @@ import userApi from './userApi.js';
 // External Auth API endpoint
 const OFFICIAL_AUTH_URL = 'https://petcafes.azurewebsites.net/api/auths';
 
+// Decode JWT token to get claims
+const decodeJWT = (token) => {
+    try {
+        if (!token) return null;
+
+        // JWT format: header.payload.signature
+        const parts = token.split('.');
+        if (parts.length !== 3) return null;
+
+        // Decode payload (base64url)
+        const payload = parts[1];
+        // Replace URL-safe base64 characters
+        const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+        // Add padding if needed
+        const padded = base64 + '='.repeat((4 - base64.length % 4) % 4);
+
+        const decoded = JSON.parse(atob(padded));
+        return decoded;
+    } catch (error) {
+        console.error('[authApi.decodeJWT] Error decoding token:', error);
+        return null;
+    }
+};
+
+// Get nameid (customer_id) from access token
+const getNameIdFromToken = (token) => {
+    const decoded = decodeJWT(token);
+    if (decoded) {
+        // nameid can be in different claim names
+        return decoded.nameid || decoded.nameId || decoded.sub || decoded.user_id || decoded.id;
+    }
+    return null;
+};
+
 const mapExternalRole = (account) => {
     const upperRole = (account?.role || '').toUpperCase();
     const subRole = (account?.employee?.sub_role || '').toUpperCase();
@@ -17,16 +51,37 @@ const mapExternalRole = (account) => {
     return 'customer';
 };
 
-const mapExternalAccountToUser = (account) => {
+const mapExternalAccountToUser = (account, nameIdFromToken = null) => {
     const role = mapExternalRole(account);
+
+    // For customer role, use customer.id if available, otherwise fallback to account.id
+    // For employee/manager roles, use employee.id or account.id
+    let userId;
+    let customerId;
+
+    if (role === 'customer') {
+        // Priority: nameid from token > customer.id > customer_id > account.id
+        customerId = nameIdFromToken || account?.customer?.id || account?.customer_id || account?.id;
+        userId = customerId || account?.id || account?.email;
+    } else {
+        userId = account?.employee?.id || account?.employee?.account_id || account?.id || account?.email;
+    }
+
+    console.log('[authApi.mapExternalAccountToUser] Account:', account);
+    console.log('[authApi.mapExternalAccountToUser] Role:', role);
+    console.log('[authApi.mapExternalAccountToUser] nameid from token:', nameIdFromToken);
+    console.log('[authApi.mapExternalAccountToUser] User ID:', userId);
+    console.log('[authApi.mapExternalAccountToUser] Customer ID:', customerId);
+
     const base = {
-        id: account?.id || account?.employee?.account_id || account?.employee?.id || account?.email,
+        id: userId,
+        customer_id: customerId, // Store customer_id separately for customer role
         email: account?.email,
-        name: account?.employee?.full_name || account?.username || account?.email?.split('@')[0] || 'Người dùng',
+        name: account?.employee?.full_name || account?.customer?.full_name || account?.username || account?.email?.split('@')[0] || 'Người dùng',
         role,
-        avatar: account?.employee?.avatar_url || '',
-        phone: account?.employee?.phone || '',
-        address: account?.employee?.address || ''
+        avatar: account?.employee?.avatar_url || account?.customer?.avatar_url || '',
+        phone: account?.employee?.phone || account?.customer?.phone || '',
+        address: account?.employee?.address || account?.customer?.address || ''
     };
     // Minimal permissions based on role to work with existing checks
     const permissionsByRole = {
@@ -56,7 +111,27 @@ export const authApi = {
             if (!data?.access_token || !data?.account) {
                 throw new Error('Phản hồi không hợp lệ');
             }
-            const user = mapExternalAccountToUser(data.account);
+
+            console.log('[authApi.login] Account from API:', data.account);
+            console.log('[authApi.login] Access token received');
+
+            // Get nameid (customer_id) from access token
+            const nameIdFromToken = getNameIdFromToken(data.access_token);
+            console.log('[authApi.login] nameid from token:', nameIdFromToken);
+
+            // Merge nameid into account if it's a customer
+            let accountWithCustomer = data.account;
+            if (data.account?.role === 'CUSTOMER' && nameIdFromToken) {
+                accountWithCustomer = {
+                    ...data.account,
+                    customer_id: nameIdFromToken,
+                    id: nameIdFromToken // Use nameid as id for customer
+                };
+                console.log('[authApi.login] Account with nameid from token:', accountWithCustomer);
+            }
+
+            const user = mapExternalAccountToUser(accountWithCustomer, nameIdFromToken);
+            console.log('[authApi.login] Mapped user:', user);
 
             // Persist tokens and user/session info
             localStorage.setItem('authToken', data.access_token);
@@ -113,7 +188,7 @@ export const authApi = {
             }
 
             const data = await response.json();
-            
+
             // Return success response
             return {
                 success: true,

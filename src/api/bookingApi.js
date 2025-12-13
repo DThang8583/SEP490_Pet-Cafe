@@ -485,42 +485,168 @@ const bookingApi = {
 
     // Get customer's bookings
     async getMyBookings(filters = {}) {
-        await delay(400);
-        const currentUser = getCurrentUser();
+        try {
+            const currentUser = getCurrentUser();
+            console.log('[bookingApi.getMyBookings] Current user:', currentUser);
 
-        if (!checkPermission(currentUser, 'service_booking')) {
-            throw new Error('Không có quyền xem lịch đặt');
+            if (!checkPermission(currentUser, 'service_booking')) {
+                throw new Error('Không có quyền xem lịch đặt');
+            }
+
+            // Get auth token first
+            const token = localStorage.getItem('authToken');
+
+            // Decode JWT token to get nameid (customer_id)
+            let nameIdFromToken = null;
+
+            if (token) {
+                try {
+                    // JWT format: header.payload.signature
+                    const parts = token.split('.');
+                    if (parts.length === 3) {
+                        // Decode payload (base64url)
+                        const payload = parts[1];
+                        // Replace URL-safe base64 characters
+                        const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+                        // Add padding if needed
+                        const padded = base64 + '='.repeat((4 - base64.length % 4) % 4);
+                        const decoded = JSON.parse(atob(padded));
+                        // nameid can be in different claim names
+                        nameIdFromToken = decoded.nameid || decoded.nameId || decoded.sub || decoded.user_id || decoded.id;
+                        console.log('[bookingApi.getMyBookings] Decoded token payload:', decoded);
+                        console.log('[bookingApi.getMyBookings] nameid from token:', nameIdFromToken);
+                    }
+                } catch (decodeError) {
+                    console.warn('[bookingApi.getMyBookings] Could not decode token:', decodeError);
+                }
+            }
+
+            // Try to get customer_id from different possible fields
+            // For customer role, prefer nameid from token > customer_id > id
+            let customerId;
+            if (currentUser.role === 'customer') {
+                customerId = nameIdFromToken || currentUser.customer_id || currentUser.id;
+            } else {
+                customerId = currentUser.id;
+            }
+            console.log('[bookingApi.getMyBookings] Current user:', currentUser);
+            console.log('[bookingApi.getMyBookings] Customer ID (final):', customerId);
+
+            if (!customerId) {
+                console.error('[bookingApi.getMyBookings] No customer ID found. Current user:', currentUser);
+                throw new Error('Không tìm thấy thông tin khách hàng. Vui lòng đăng nhập lại.');
+            }
+
+            // Build query parameters
+            const params = new URLSearchParams();
+            if (filters.status && filters.status !== 'all') {
+                const statusMap = {
+                    'pending': 'PENDING',
+                    'confirmed': 'CONFIRMED',
+                    'in_progress': 'IN_PROGRESS',
+                    'completed': 'COMPLETED',
+                    'cancelled': 'CANCELLED'
+                };
+                params.append('booking_status', statusMap[filters.status] || filters.status.toUpperCase());
+            }
+            if (filters.serviceId) {
+                params.append('service_id', filters.serviceId);
+            }
+            if (filters.dateFrom) {
+                params.append('from_date', filters.dateFrom);
+            }
+            if (filters.dateTo) {
+                params.append('to_date', filters.dateTo);
+            }
+            params.append('limit', '100'); // Get more bookings
+
+            const queryString = params.toString();
+            const url = `https://petcafes.azurewebsites.net/api/customers/${customerId}/bookings${queryString ? `?${queryString}` : ''}`;
+
+            console.log('[bookingApi.getMyBookings] Fetching from:', url);
+
+            // Call API to get bookings
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'application/json',
+                    'Authorization': token ? `Bearer ${token}` : ''
+                }
+            });
+
+            const rawText = await response.text();
+            let jsonData = null;
+
+            try {
+                jsonData = JSON.parse(rawText);
+            } catch (e) {
+                console.error('[bookingApi.getMyBookings] Error parsing response:', e);
+                throw new Error('Phản hồi từ server không hợp lệ');
+            }
+
+            if (!response.ok) {
+                const errorMsg = jsonData?.message || jsonData?.error || 'Không thể tải lịch sử đặt lịch';
+                throw new Error(errorMsg);
+            }
+
+            // Parse response data
+            const bookingsData = jsonData?.data || jsonData || [];
+            console.log('[bookingApi.getMyBookings] Raw bookings data:', bookingsData);
+            console.log('[bookingApi.getMyBookings] Is array?', Array.isArray(bookingsData));
+            console.log('[bookingApi.getMyBookings] Length:', Array.isArray(bookingsData) ? bookingsData.length : 'N/A');
+
+            // Map API response to component format
+            const mappedBookings = Array.isArray(bookingsData) ? bookingsData.map(booking => {
+                console.log('[bookingApi.getMyBookings] Mapping booking:', booking.id, booking.service?.name);
+                return {
+                    id: booking.id,
+                    serviceId: booking.service_id || booking.service?.id,
+                    service: booking.service ? {
+                        id: booking.service.id,
+                        name: booking.service.name || 'Dịch vụ không xác định',
+                        description: booking.service.description,
+                        base_price: booking.service.base_price || 0,
+                        image_url: booking.service.image_url,
+                        thumbnails: booking.service.thumbnails
+                    } : null,
+                    slot: booking.slot,
+                    team: booking.team,
+                    pet_group: booking.slot?.pet_group,
+                    area: booking.slot?.area,
+                    bookingDateTime: booking.booking_date || booking.created_at,
+                    start_time: booking.start_time,
+                    end_time: booking.end_time,
+                    finalPrice: booking.slot?.price || booking.service?.base_price || 0,
+                    status: (booking.booking_status || 'PENDING').toLowerCase(),
+                    booking_status: booking.booking_status || 'PENDING',
+                    notes: booking.notes || '',
+                    cancel_date: booking.cancel_date,
+                    cancel_reason: booking.cancel_reason,
+                    paymentStatus: booking.payment_status ? (booking.payment_status === 'PAID' ? 'paid' : 'unpaid') : 'unpaid',
+                    payment_status: booking.payment_status,
+                    feedback: booking.feedback,
+                    // Keep original data for reference
+                    ...booking
+                };
+            }) : [];
+
+            console.log('[bookingApi.getMyBookings] Mapped bookings:', mappedBookings);
+
+            return { success: true, data: mappedBookings };
+        } catch (error) {
+            console.error('[bookingApi.getMyBookings] Error:', error);
+            // Fallback to mock data if API fails (for development)
+            if (process.env.NODE_ENV === 'development') {
+                console.warn('[bookingApi.getMyBookings] Falling back to mock data');
+                const currentUser = getCurrentUser();
+                let bookings = MOCK_BOOKINGS.filter(booking =>
+                    booking.customerId === currentUser.id
+                );
+                bookings.sort((a, b) => new Date(b.bookingDateTime) - new Date(a.bookingDateTime));
+                return { success: true, data: bookings };
+            }
+            throw error;
         }
-
-        let bookings = MOCK_BOOKINGS.filter(booking =>
-            booking.customerId === currentUser.id
-        );
-
-        // Apply filters
-        if (filters.status && filters.status !== 'all') {
-            bookings = bookings.filter(booking => booking.status === filters.status);
-        }
-
-        if (filters.serviceId) {
-            bookings = bookings.filter(booking => booking.serviceId === filters.serviceId);
-        }
-
-        if (filters.dateFrom) {
-            bookings = bookings.filter(booking =>
-                new Date(booking.bookingDateTime) >= new Date(filters.dateFrom)
-            );
-        }
-
-        if (filters.dateTo) {
-            bookings = bookings.filter(booking =>
-                new Date(booking.bookingDateTime) <= new Date(filters.dateTo)
-            );
-        }
-
-        // Sort by booking date (newest first)
-        bookings.sort((a, b) => new Date(b.bookingDateTime) - new Date(a.bookingDateTime));
-
-        return { success: true, data: bookings };
     },
 
     // Get booking history with pagination
