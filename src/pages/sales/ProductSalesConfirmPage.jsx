@@ -49,29 +49,29 @@ const ProductSalesConfirmPage = () => {
             try {
                 setLoading(true);
                 const token = localStorage.getItem('authToken');
-                
+
                 // Build query parameters - Lấy toàn bộ orders (không filter theo type)
                 const params = new URLSearchParams();
                 params.append('limit', '99'); // Always use limit 99
-                
+
                 if (paymentMethod) {
                     params.append('PaymentMethod', paymentMethod);
                 }
-                
+
                 // Filter theo giá
                 if (appliedMinPrice && !isNaN(parseFloat(appliedMinPrice))) {
                     params.append('MinPrice', parseFloat(appliedMinPrice).toString());
                 }
-                
+
                 if (appliedMaxPrice && !isNaN(parseFloat(appliedMaxPrice))) {
                     params.append('MaxPrice', parseFloat(appliedMaxPrice).toString());
                 }
-                
+
                 const queryString = params.toString();
                 const url = `https://petcafes.azurewebsites.net/api/orders${queryString ? `?${queryString}` : ''}`;
-                
+
                 console.log('[ProductSalesConfirm] Fetching orders from:', url);
-                
+
                 // Gọi API
                 const res = await fetch(url, {
                     headers: {
@@ -102,99 +102,154 @@ const ProductSalesConfirmPage = () => {
                 }
 
                 // Filter chỉ lấy các orders có product_order (đơn hàng sản phẩm)
-                const productOrders = json.data.filter(order => 
-                    order.product_order !== null && 
+                const productOrders = json.data.filter(order =>
+                    order.product_order !== null &&
                     order.product_order !== undefined
                 );
 
                 console.log('[ProductSalesConfirm] Total orders from API:', json.data.length);
                 console.log('[ProductSalesConfirm] Product orders count:', productOrders.length);
 
-                // Map chỉ các đơn hàng sản phẩm
-                const allOrders = productOrders.map(order => {
-                    const productOrder = order.product_order;
-                    
+                // Map chỉ các đơn hàng sản phẩm - fetch thêm thông tin product nếu cần
+                const allOrdersPromises = productOrders.map(async (order) => {
+                    // Nếu order_details rỗng hoặc không có product, fetch từ order detail API
+                    let fullOrder = order;
+                    if (!order.product_order?.order_details ||
+                        order.product_order.order_details.length === 0 ||
+                        !order.product_order.order_details[0]?.product) {
+                        try {
+                            console.log('[ProductSalesConfirm] Fetching full order detail for:', order.id);
+                            const orderDetailResp = await fetch(`https://petcafes.azurewebsites.net/api/orders/${order.id}`, {
+                                headers: {
+                                    'Authorization': token ? `Bearer ${token}` : '',
+                                    'Accept': 'application/json'
+                                }
+                            });
+                            if (orderDetailResp.ok) {
+                                fullOrder = await orderDetailResp.json();
+                                console.log('[ProductSalesConfirm] Fetched full order:', fullOrder);
+                            }
+                        } catch (e) {
+                            console.warn('[ProductSalesConfirm] Could not fetch order detail:', e);
+                        }
+                    }
+
+                    const productOrder = fullOrder.product_order;
+
                     // Xử lý products từ product_order.order_details
                     const products = [];
-                    if (productOrder?.order_details && Array.isArray(productOrder.order_details)) {
-                        productOrder.order_details.forEach((detail) => {
+                    if (productOrder?.order_details && Array.isArray(productOrder.order_details) && productOrder.order_details.length > 0) {
+                        // Fetch thông tin product cho mỗi detail nếu cần
+                        for (const detail of productOrder.order_details) {
+                            // Ưu tiên sử dụng product từ API response (detail.product đã có đầy đủ)
+                            let productInfo = detail.product || null;
+
+                            // Chỉ fetch product info nếu có product_id nhưng chưa có product data (fallback)
+                            if (detail.product_id && !productInfo) {
+                                try {
+                                    console.log('[ProductSalesConfirm] Fetching product:', detail.product_id);
+                                    const productResp = await fetch(`https://petcafes.azurewebsites.net/api/products/${detail.product_id}`, {
+                                        headers: {
+                                            'Authorization': token ? `Bearer ${token}` : '',
+                                            'Accept': 'application/json'
+                                        }
+                                    });
+                                    if (productResp.ok) {
+                                        const productJson = await productResp.json();
+                                        productInfo = productJson?.data || productJson;
+                                        console.log('[ProductSalesConfirm] Fetched product:', productInfo);
+                                    }
+                                } catch (e) {
+                                    console.warn('[ProductSalesConfirm] Could not fetch product:', e);
+                                }
+                            }
+
+                            // Ưu tiên tên sản phẩm từ detail.product (API đã trả về)
+                            const productName = detail.product?.name || productInfo?.name;
+                            if (!productName) {
+                                console.warn('[ProductSalesConfirm] No product name found for detail:', detail);
+                            }
+
                             products.push({
-                                product_name: detail.product?.name || 'Sản phẩm',
-                                price: detail.unit_price || detail.product?.price || 0,
+                                product_name: productName || 'Chưa xác định',
+                                price: detail.unit_price || detail.product?.price || productInfo?.price || 0,
                                 quantity: detail.quantity || 1,
-                                subtotal: detail.total_price || (detail.unit_price || 0) * (detail.quantity || 1),
+                                subtotal: detail.total_price || (detail.unit_price || detail.product?.price || productInfo?.price || 0) * (detail.quantity || 1),
                                 notes: detail.notes || '',
-                                image: detail.product?.image_url || detail.product?.thumbnails?.[0] || null,
-                                description: detail.product?.description || '',
-                                is_for_feeding: detail.is_for_feeding || false
+                                image: detail.product?.image_url || detail.product?.thumbnails?.[0] || productInfo?.image_url || productInfo?.thumbnails?.[0] || null,
+                                description: detail.product?.description || productInfo?.description || '',
+                                is_for_feeding: detail.is_for_feeding || false,
+                                product: detail.product || productInfo // Ưu tiên detail.product từ API
                             });
-                        });
+                        }
                     }
 
                     // Map payment method
-                    let paymentMethod = order.payment_method || 'AT_COUNTER';
+                    let paymentMethod = fullOrder.payment_method || 'AT_COUNTER';
                     if (paymentMethod === 'CASH') {
                         paymentMethod = 'AT_COUNTER';
                     }
 
                     // Xác định order_date ưu tiên từ product_order
-                    const orderDate = productOrder?.order_date || 
-                                     productOrder?.created_at || 
-                                     order.order_date || 
-                                     order.created_at;
+                    const orderDate = productOrder?.order_date ||
+                        productOrder?.created_at ||
+                        fullOrder.order_date ||
+                        fullOrder.created_at;
 
                     // Xác định status ưu tiên từ product_order
-                    const orderStatus = productOrder?.status || order.status || 'PENDING';
+                    const orderStatus = productOrder?.status || fullOrder.status || 'PENDING';
 
                     // Lấy tất cả thông tin từ API
                     return {
                         // Thông tin cơ bản
-                        id: order.id,
-                        order_number: order.order_number,
-                        customer_id: order.customer_id,
-                        employee_id: order.employee_id,
-                        full_name: order.full_name || '',
-                        address: order.address || '',
-                        phone: order.phone || '',
-                        
+                        id: fullOrder.id,
+                        order_number: fullOrder.order_number,
+                        customer_id: fullOrder.customer_id,
+                        employee_id: fullOrder.employee_id,
+                        full_name: fullOrder.full_name || '',
+                        address: fullOrder.address || '',
+                        phone: fullOrder.phone || '',
+
                         // Thông tin tài chính
-                        total_amount: productOrder?.total_amount || order.total_amount || 0,
-                        discount_amount: productOrder?.discount_amount || order.discount_amount || 0,
-                        final_amount: productOrder?.final_amount || order.final_amount || 0,
-                        total: productOrder?.final_amount || order.final_amount || 0,
-                        
+                        total_amount: productOrder?.total_amount || fullOrder.total_amount || 0,
+                        discount_amount: productOrder?.discount_amount || fullOrder.discount_amount || 0,
+                        final_amount: productOrder?.final_amount || fullOrder.final_amount || 0,
+                        total: productOrder?.final_amount || fullOrder.final_amount || 0,
+
                         // Thông tin thanh toán
                         payment_method: paymentMethod,
-                        payment_status: order.payment_status || 'PENDING',
-                        payment_data_json: order.payment_data_json,
-                        payment_info: order.payment_info,
-                        
+                        payment_status: fullOrder.payment_status || 'PENDING',
+                        payment_data_json: fullOrder.payment_data_json,
+                        payment_info: fullOrder.payment_info,
+
                         // Thông tin trạng thái
                         status: orderStatus,
-                        type: order.type || 'CUSTOMER',
-                        
+                        type: fullOrder.type || 'CUSTOMER',
+
                         // Thông tin ngày tháng
                         order_date: orderDate,
-                        created_at: productOrder?.created_at || order.created_at,
-                        updated_at: productOrder?.updated_at || order.updated_at,
-                        
+                        created_at: productOrder?.created_at || fullOrder.created_at,
+                        updated_at: productOrder?.updated_at || fullOrder.updated_at,
+
                         // Thông tin liên quan
-                        employee: order.employee,
-                        customer: order.customer,
-                        notes: productOrder?.notes || order.notes || '',
-                        
+                        employee: fullOrder.employee,
+                        customer: fullOrder.customer,
+                        notes: productOrder?.notes || fullOrder.notes || '',
+
                         // Thông tin product_order
                         product_order: productOrder,
                         product_order_id: productOrder?.id,
                         product_order_status: productOrder?.status,
                         products: products,
                         is_product_order: true,
-                        
+
                         // Thông tin khác
-                        transactions: order.transactions || [],
-                        is_deleted: order.is_deleted || false
+                        transactions: fullOrder.transactions || [],
+                        is_deleted: fullOrder.is_deleted || false
                     };
                 });
+
+                const allOrders = await Promise.all(allOrdersPromises);
 
                 // Console.log kết quả đã map
                 console.log('[ProductSalesConfirm] Mapped product orders count:', allOrders.length);
@@ -231,7 +286,7 @@ const ProductSalesConfirmPage = () => {
 
         fetchOrders();
     }, [paymentMethod, appliedMinPrice, appliedMaxPrice, pageSize]);
-    
+
     // Hàm để áp dụng bộ lọc (chỉ search khi click nút)
     const handleApplyFilters = () => {
         setAppliedMinPrice(minPrice);
@@ -242,10 +297,10 @@ const ProductSalesConfirmPage = () => {
     const groupOrdersByDate = (orders) => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        
+
         const yesterday = new Date(today);
         yesterday.setDate(yesterday.getDate() - 1);
-        
+
         const groups = {
             today: [],
             yesterday: [],
@@ -256,7 +311,7 @@ const ProductSalesConfirmPage = () => {
             const orderDate = new Date(order.order_date || order.created_at);
             const orderDateOnly = new Date(orderDate);
             orderDateOnly.setHours(0, 0, 0, 0);
-            
+
             if (orderDateOnly.getTime() === today.getTime()) {
                 groups.today.push(order);
             } else if (orderDateOnly.getTime() === yesterday.getTime()) {
@@ -271,33 +326,19 @@ const ProductSalesConfirmPage = () => {
 
     // Hàm render order card
     const renderOrderCard = (orderData) => (
-        <CardContent sx={{ p: { xs: 2.5, sm: 3, md: 3.5 }, flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+        <CardContent sx={{ p: { xs: 2, sm: 2.5 }, flexGrow: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
             {/* Order Header */}
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2.5, pb: 2, borderBottom: `2px solid ${alpha(COLORS.ERROR[100], 0.5)}` }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5, pb: 1.5, borderBottom: `2px solid ${alpha(COLORS.ERROR[100], 0.5)}` }}>
                 <Box>
-                    <Typography variant="h6" sx={{
+                    <Typography variant="subtitle1" sx={{
                         fontWeight: 900,
                         color: COLORS.ERROR[600],
-                        mb: 0.5
+                        mb: 0.25,
+                        fontSize: '1rem'
                     }}>
                         Đơn hàng #{orderData.order_number || orderData.id}
                     </Typography>
-                    {orderData.full_name && (
-                        <Typography variant="body2" sx={{ color: COLORS.TEXT.PRIMARY, fontWeight: 600, mb: 0.5 }}>
-                            👤 {orderData.full_name}
-                        </Typography>
-                    )}
-                    {orderData.phone && (
-                        <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, display: 'block' }}>
-                            📞 {orderData.phone}
-                        </Typography>
-                    )}
-                    {orderData.address && (
-                        <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, display: 'block' }}>
-                            📍 {orderData.address}
-                        </Typography>
-                    )}
-                    <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, display: 'block', mt: 0.5 }}>
+                    <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, display: 'block', fontSize: '0.75rem' }}>
                         {orderData.order_date && new Date(orderData.order_date).toLocaleDateString('vi-VN', {
                             day: '2-digit',
                             month: '2-digit',
@@ -320,106 +361,133 @@ const ProductSalesConfirmPage = () => {
                 </Stack>
             </Box>
 
-            {/* Products List */}
-            {orderData.products && orderData.products.length > 0 && (
-                <Box sx={{ mb: 2.5, flexGrow: 1 }}>
-                    <Typography variant="subtitle2" sx={{
-                        fontWeight: 700,
-                        color: COLORS.ERROR[600],
-                        mb: 1.5,
-                        fontSize: '0.95rem',
-                        textTransform: 'uppercase',
-                        letterSpacing: 0.5
+            {/* Products List - Bill Style */}
+            <Box sx={{ mb: 2, flexGrow: 1, minHeight: 0 }}>
+                <Typography variant="subtitle2" sx={{
+                    fontWeight: 700,
+                    color: COLORS.ERROR[600],
+                    mb: 1,
+                    fontSize: '0.875rem',
+                    textTransform: 'uppercase',
+                    letterSpacing: 0.5
+                }}>
+                    Sản phẩm đã bán
+                </Typography>
+                {orderData.products && orderData.products.length > 0 ? (
+                    <Box sx={{
+                        maxHeight: '300px',
+                        overflowY: 'auto',
+                        pr: 1,
+                        '&::-webkit-scrollbar': {
+                            width: '6px',
+                        },
+                        '&::-webkit-scrollbar-track': {
+                            backgroundColor: alpha(COLORS.ERROR[50], 0.3),
+                            borderRadius: '3px',
+                        },
+                        '&::-webkit-scrollbar-thumb': {
+                            backgroundColor: alpha(COLORS.ERROR[300], 0.5),
+                            borderRadius: '3px',
+                            '&:hover': {
+                                backgroundColor: alpha(COLORS.ERROR[400], 0.7),
+                            },
+                        },
                     }}>
-                        Sản phẩm đã bán
-                    </Typography>
-                    <Stack spacing={1.5}>
-                        {orderData.products.map((product, index) => (
-                            <Paper
-                                key={index}
-                                sx={{
-                                    p: 2,
-                                    borderRadius: 2.5,
-                                    backgroundColor: alpha(COLORS.ERROR[50], 0.4),
-                                    border: `1px solid ${alpha(COLORS.ERROR[200], 0.6)}`,
-                                    transition: 'all 0.2s ease',
-                                    '&:hover': {
-                                        backgroundColor: alpha(COLORS.ERROR[50], 0.6),
-                                        borderColor: COLORS.ERROR[300]
-                                    }
-                                }}
-                            >
-                                <Stack spacing={1.5}>
-                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                        <Box sx={{ flex: 1 }}>
-                                            <Typography variant="subtitle1" sx={{
-                                                fontWeight: 800,
+                        <Stack spacing={0.75}>
+                            {orderData.products.map((product, index) => (
+                                <Box
+                                    key={index}
+                                    sx={{
+                                        p: 1.5,
+                                        borderRadius: 1.5,
+                                        backgroundColor: alpha(COLORS.ERROR[50], 0.3),
+                                        border: `1px solid ${alpha(COLORS.ERROR[200], 0.4)}`,
+                                        transition: 'all 0.15s ease',
+                                        '&:hover': {
+                                            backgroundColor: alpha(COLORS.ERROR[50], 0.5),
+                                            borderColor: COLORS.ERROR[300]
+                                        }
+                                    }}
+                                >
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1.5 }}>
+                                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                                            <Typography variant="body2" sx={{
+                                                fontWeight: 700,
                                                 color: COLORS.TEXT.PRIMARY,
-                                                mb: 0.5
+                                                mb: 0.25,
+                                                fontSize: '0.875rem'
                                             }}>
                                                 {product.product_name}
                                             </Typography>
-                                            <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
-                                                Số lượng: {product.quantity} × {formatPrice(product.price)} = {formatPrice(product.subtotal)}
+                                            <Typography variant="caption" sx={{
+                                                color: COLORS.TEXT.SECONDARY,
+                                                fontSize: '0.75rem',
+                                                display: 'block'
+                                            }}>
+                                                {product.quantity} × {formatPrice(product.price)}
                                             </Typography>
                                         </Box>
-                                        <Typography variant="h6" sx={{
+                                        <Typography variant="body2" sx={{
                                             color: COLORS.ERROR[600],
-                                            fontWeight: 800,
-                                            ml: 2
+                                            fontWeight: 700,
+                                            fontSize: '0.875rem',
+                                            whiteSpace: 'nowrap'
                                         }}>
                                             {formatPrice(product.subtotal)}
                                         </Typography>
                                     </Box>
-                                    
-                                    {product.notes && (
-                                        <Box sx={{ display: 'flex', alignItems: 'start', gap: 1, mt: 0.5 }}>
-                                            <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, fontSize: '0.875rem', fontStyle: 'italic' }}>
-                                                💬 {product.notes}
-                                            </Typography>
-                                        </Box>
-                                    )}
-                                </Stack>
-                            </Paper>
-                        ))}
-                    </Stack>
-                </Box>
-            )}
+                                </Box>
+                            ))}
+                        </Stack>
+                    </Box>
+                ) : (
+                    <Box sx={{
+                        p: 1.5,
+                        borderRadius: 1.5,
+                        backgroundColor: alpha(COLORS.WARNING[50], 0.3),
+                        border: `1px solid ${alpha(COLORS.WARNING[200], 0.4)}`
+                    }}>
+                        <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, fontStyle: 'italic', fontSize: '0.75rem' }}>
+                            ⚠️ Không tìm thấy thông tin sản phẩm
+                        </Typography>
+                    </Box>
+                )}
+            </Box>
 
             {/* Notes */}
             {orderData.notes && (
-                <Box sx={{ mb: 2 }}>
-                    <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, fontStyle: 'italic' }}>
-                        📝 Ghi chú: {orderData.notes}
+                <Box sx={{ mb: 1.5 }}>
+                    <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, fontStyle: 'italic', fontSize: '0.75rem' }}>
+                        📝 {orderData.notes}
                     </Typography>
                 </Box>
             )}
 
-            <Divider sx={{ my: 2.5 }} />
+            <Divider sx={{ my: 1.5 }} />
 
             {/* Payment & Total - Bottom Section */}
-            <Box sx={{ mt: 'auto', pt: 2 }}>
+            <Box sx={{ mt: 'auto', pt: 1.5 }}>
                 {orderData.payment_method && (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
-                        <Payment sx={{ fontSize: 18, color: COLORS.ERROR[500] }} />
-                        <Typography variant="body2" sx={{ fontWeight: 600, color: COLORS.TEXT.PRIMARY }}>
-                            {orderData.payment_method === 'AT_COUNTER' ? '💵 Thanh toán tại quầy' : '🏦 Chuyển khoản'}
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                        <Payment sx={{ fontSize: 16, color: COLORS.ERROR[500] }} />
+                        <Typography variant="caption" sx={{ fontWeight: 600, color: COLORS.TEXT.PRIMARY, fontSize: '0.8125rem' }}>
+                            {orderData.payment_method === 'AT_COUNTER' ? 'Thanh toán tại quầy' : 'Chuyển khoản'}
                         </Typography>
                     </Box>
                 )}
-                
+
                 {orderData.total && (
                     <Paper sx={{
-                        p: 2,
-                        borderRadius: 2.5,
+                        p: 1.5,
+                        borderRadius: 2,
                         backgroundColor: alpha(COLORS.ERROR[50], 0.6),
                         border: `2px solid ${COLORS.ERROR[300]}`
                     }}>
                         <Stack direction="row" alignItems="center" justifyContent="space-between">
-                            <Typography variant="subtitle1" sx={{ fontWeight: 800, color: COLORS.ERROR[600] }}>
+                            <Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.ERROR[600], fontSize: '0.875rem' }}>
                                 Tổng cộng
                             </Typography>
-                            <Typography variant="h6" sx={{ fontWeight: 900, color: COLORS.ERROR[600] }}>
+                            <Typography variant="h6" sx={{ fontWeight: 900, color: COLORS.ERROR[600], fontSize: '1.25rem' }}>
                                 {formatPrice(orderData.total)}
                             </Typography>
                         </Stack>
@@ -625,9 +693,9 @@ const ProductSalesConfirmPage = () => {
                             {/* Hôm nay */}
                             {groupedOrders.today.length > 0 && (
                                 <Box>
-                                    <Typography variant="h5" sx={{ 
-                                        fontWeight: 800, 
-                                        color: COLORS.ERROR[600], 
+                                    <Typography variant="h5" sx={{
+                                        fontWeight: 800,
+                                        color: COLORS.ERROR[600],
                                         mb: 2,
                                         display: 'flex',
                                         alignItems: 'center',
@@ -639,18 +707,19 @@ const ProductSalesConfirmPage = () => {
                                     <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: 'repeat(2, 1fr)' }, gap: 3 }}>
                                         {groupedOrders.today.map((orderData, orderIndex) => (
                                             <Card key={orderData.id || orderIndex} sx={{
-                                                borderRadius: 4,
-                                                boxShadow: 6,
+                                                borderRadius: 3,
+                                                boxShadow: 4,
                                                 border: `1px solid ${COLORS.BORDER.LIGHT}`,
                                                 backgroundColor: COLORS.BACKGROUND.PAPER,
-                                                height: '100%',
+                                                minHeight: '400px',
+                                                maxHeight: '500px',
                                                 display: 'flex',
                                                 flexDirection: 'column',
                                                 overflow: 'hidden',
                                                 transition: 'transform 120ms ease, box-shadow 120ms ease',
                                                 '&:hover': {
-                                                    transform: 'translateY(-3px)',
-                                                    boxShadow: 10
+                                                    transform: 'translateY(-2px)',
+                                                    boxShadow: 6
                                                 }
                                             }}>
                                                 {renderOrderCard(orderData)}
@@ -663,9 +732,9 @@ const ProductSalesConfirmPage = () => {
                             {/* Hôm qua */}
                             {groupedOrders.yesterday.length > 0 && (
                                 <Box>
-                                    <Typography variant="h5" sx={{ 
-                                        fontWeight: 800, 
-                                        color: COLORS.ERROR[600], 
+                                    <Typography variant="h5" sx={{
+                                        fontWeight: 800,
+                                        color: COLORS.ERROR[600],
                                         mb: 2,
                                         display: 'flex',
                                         alignItems: 'center',
@@ -677,18 +746,19 @@ const ProductSalesConfirmPage = () => {
                                     <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: 'repeat(2, 1fr)' }, gap: 3 }}>
                                         {groupedOrders.yesterday.map((orderData, orderIndex) => (
                                             <Card key={orderData.id || orderIndex} sx={{
-                                                borderRadius: 4,
-                                                boxShadow: 6,
+                                                borderRadius: 3,
+                                                boxShadow: 4,
                                                 border: `1px solid ${COLORS.BORDER.LIGHT}`,
                                                 backgroundColor: COLORS.BACKGROUND.PAPER,
-                                                height: '100%',
+                                                minHeight: '400px',
+                                                maxHeight: '500px',
                                                 display: 'flex',
                                                 flexDirection: 'column',
                                                 overflow: 'hidden',
                                                 transition: 'transform 120ms ease, box-shadow 120ms ease',
                                                 '&:hover': {
-                                                    transform: 'translateY(-3px)',
-                                                    boxShadow: 10
+                                                    transform: 'translateY(-2px)',
+                                                    boxShadow: 6
                                                 }
                                             }}>
                                                 {renderOrderCard(orderData)}
@@ -717,9 +787,9 @@ const ProductSalesConfirmPage = () => {
 
                                 return Object.keys(otherByDate).map(dateKey => (
                                     <Box key={dateKey}>
-                                        <Typography variant="h5" sx={{ 
-                                            fontWeight: 800, 
-                                            color: COLORS.ERROR[600], 
+                                        <Typography variant="h5" sx={{
+                                            fontWeight: 800,
+                                            color: COLORS.ERROR[600],
                                             mb: 2,
                                             display: 'flex',
                                             alignItems: 'center',

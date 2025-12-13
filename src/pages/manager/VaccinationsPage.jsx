@@ -516,26 +516,26 @@ const VaccinationsPage = () => {
         // Filter by date range (client-side only)
         if (filterFromDate && filterFromDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
             // Extract date directly from ISO string to avoid timezone conversion
-            filtered = filtered.filter(item => {
-                if (!item.scheduled_date) return false;
+                filtered = filtered.filter(item => {
+                    if (!item.scheduled_date) return false;
                 const match = item.scheduled_date.match(/^(\d{4})-(\d{2})-(\d{2})/);
                 if (!match) return false;
                 const [, year, month, day] = match;
                 const scheduledDateStr = `${year}-${month}-${day}`;
                 return scheduledDateStr >= filterFromDate;
-            });
+                });
         }
 
         if (filterToDate && filterToDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
             // Extract date directly from ISO string to avoid timezone conversion
-            filtered = filtered.filter(item => {
-                if (!item.scheduled_date) return false;
+                filtered = filtered.filter(item => {
+                    if (!item.scheduled_date) return false;
                 const match = item.scheduled_date.match(/^(\d{4})-(\d{2})-(\d{2})/);
                 if (!match) return false;
                 const [, year, month, day] = match;
                 const scheduledDateStr = `${year}-${month}-${day}`;
                 return scheduledDateStr <= filterToDate;
-            });
+                });
         }
 
         // Sort by closest date (nearest first)
