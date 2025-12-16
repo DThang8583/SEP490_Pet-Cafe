@@ -140,6 +140,14 @@ export const authApi = {
             localStorage.setItem('loginTime', new Date().toISOString());
             // Also persist currentUser for existing userApi-based getters
             localStorage.setItem('currentUser', JSON.stringify(user));
+            // Store backend account id for APIs that need it
+            try {
+                if (data.account?.id) {
+                    localStorage.setItem('accountId', data.account.id);
+                }
+            } catch (_) {
+                // ignore storage errors
+            }
 
             return {
                 success: true,
