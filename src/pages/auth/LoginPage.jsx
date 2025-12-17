@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { Box, Container, TextField, Button, Typography, Link, Divider, IconButton, InputAdornment, Alert } from '@mui/material';
 import { alpha } from '@mui/material/styles';
-import { Visibility, VisibilityOff, Google, Pets, Coffee } from '@mui/icons-material';
+import { Visibility, VisibilityOff, Pets, Coffee } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { COLORS } from '../../constants/colors';
 import Loading from '../../components/loading/Loading';
 import { authApi } from '../../api/authApi';
+import { GoogleLogin, GoogleOAuthProvider } from '@react-oauth/google';
 
 const LoginPage = () => {
     const navigate = useNavigate();
@@ -60,6 +61,46 @@ const LoginPage = () => {
 
     const handleRegisterRedirect = () => {
         navigate('/register');
+    };
+
+    const handleGoogleSuccess = async (credentialResponse) => {
+        try {
+            setError('');
+            console.log('Google credentialResponse:', credentialResponse);
+            if (!credentialResponse?.credential) {
+                setError('Không nhận được thông tin từ Google');
+                return;
+            }
+
+            // Decode ID token để xem thông tin user Google (log phục vụ debug)
+            try {
+                const token = credentialResponse.credential;
+                const payload = token.split('.')[1];
+                const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+                const padded = base64 + '='.repeat((4 - base64.length % 4) % 4);
+                const decoded = JSON.parse(atob(padded));
+                console.log('Google ID token payload (user info):', decoded);
+            } catch (e) {
+                console.warn('Không decode được ID token:', e);
+            }
+
+            setIsLoading(true);
+            const res = await authApi.loginWithGoogle(credentialResponse.credential);
+            console.log('Backend loginWithGoogle response:', res);
+            if (res?.success) {
+                console.log('Google login successful:', res.user);
+                navigate('/');
+            }
+        } catch (err) {
+            console.error('Google login error:', err);
+            setError(err.message || 'Đăng nhập Google thất bại');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleGoogleError = () => {
+        setError('Có lỗi xảy ra khi đăng nhập bằng Google.');
     };
 
     // Styles
@@ -320,37 +361,14 @@ const LoginPage = () => {
 
                         {/* Social Login Section */}
                         <Box sx={{ mb: { xs: 3, md: 4 } }}>
-                            <Button
-                                fullWidth
-                                variant="outlined"
-                                startIcon={<Google />}
-                                sx={{
-                                    py: { xs: 2.2, md: 2.5 },
-                                    px: { xs: 3, md: 4 },
-                                    borderRadius: 3,
-                                    borderColor: '#db4437',
-                                    color: '#db4437',
-                                    fontSize: { xs: '1rem', sm: '1.1rem', md: '1.1rem' },
-                                    fontWeight: 500,
-                                    textTransform: 'none',
-                                    background: `linear-gradient(135deg, 
-                                    ${alpha('#db4437', 0.05)} 0%, 
-                                    ${alpha(COLORS.SECONDARY[100], 0.3)} 100%
-                                )`,
-                                    '&:hover': {
-                                        borderColor: '#db4437',
-                                        background: `linear-gradient(135deg, 
-                                            ${alpha('#db4437', 0.05)} 0%, 
-                                            ${alpha(COLORS.SECONDARY[100], 0.3)} 100%
-                                        )`,
-                                        boxShadow: `0 6px 16px ${alpha('#db4437', 0.25)}`,
-                                        transform: 'translateY(-1px)'
-                                    },
-                                    transition: 'all 0.2s ease'
-                                }}
-                            >
-                                Đăng nhập với Google
-                            </Button>
+                            <GoogleOAuthProvider clientId="829602505083-adjjt91m6u0onmff18put1uad5u9qk9j.apps.googleusercontent.com">
+                                <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+                                    <GoogleLogin
+                                        onSuccess={handleGoogleSuccess}
+                                        onError={handleGoogleError}
+                                    />
+                                </Box>
+                            </GoogleOAuthProvider>
                         </Box>
 
                         <Divider sx={{ my: { xs: 2.5, md: 3.5 }, borderColor: alpha(COLORS.SECONDARY[200], 0.6) }}>

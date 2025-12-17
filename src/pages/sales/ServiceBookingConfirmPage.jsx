@@ -42,6 +42,7 @@ import { formatPrice } from '../../utils/formatPrice';
 const ServiceBookingConfirmPage = () => {
     const navigate = useNavigate();
     const [orders, setOrders] = useState([]);
+    const [transactions, setTransactions] = useState([]);
     const [loading, setLoading] = useState(true);
     const [paymentMethod, setPaymentMethod] = useState(''); // '' = all, 'AT_COUNTER', 'ONLINE'
     const [minPrice, setMinPrice] = useState(''); // Minimum price (input value)
@@ -199,24 +200,26 @@ const ServiceBookingConfirmPage = () => {
                             paymentMethod = 'AT_COUNTER';
                         }
 
-                        return {
-                            id: fullOrder.order_number || fullOrder.id,
-                            total: fullOrder.final_amount || 0,
-                            payment_method: paymentMethod,
-                            payment_status: fullOrder.payment_status || fullOrder.status || 'PENDING',
-                            status: fullOrder.status || 'PENDING',
-                            type: fullOrder.type || 'EMPLOYEE',
-                            order_date: fullOrder.service_order?.order_date || fullOrder.order_date || fullOrder.created_at,
-                            created_at: fullOrder.created_at,
-                            employee: fullOrder.employee,
-                            services: services.length > 0 ? services : [],
-                            customerInfo: {
-                                full_name: fullOrder.full_name || '',
-                                phone: fullOrder.phone || '',
-                                address: fullOrder.address || '',
-                                notes: fullOrder.notes || ''
-                            }
-                        };
+                return {
+                    id: fullOrder.order_number || fullOrder.id,
+                    order_code: fullOrder.order_number,
+                    order_guid: fullOrder.id,
+                    total: fullOrder.final_amount || 0,
+                    payment_method: paymentMethod,
+                    payment_status: fullOrder.payment_status || fullOrder.status || 'PENDING',
+                    status: fullOrder.status || 'PENDING',
+                    type: fullOrder.type || 'EMPLOYEE',
+                    order_date: fullOrder.service_order?.order_date || fullOrder.order_date || fullOrder.created_at,
+                    created_at: fullOrder.created_at,
+                    employee: fullOrder.employee,
+                    services: services.length > 0 ? services : [],
+                    customerInfo: {
+                        full_name: fullOrder.full_name || '',
+                        phone: fullOrder.phone || '',
+                        address: fullOrder.address || '',
+                        notes: fullOrder.notes || ''
+                    }
+                };
                     });
 
                 const serviceOrders = await Promise.all(serviceOrdersPromises);
@@ -261,6 +264,27 @@ const ServiceBookingConfirmPage = () => {
 
         fetchOrders();
     }, [paymentMethod, appliedMinPrice, appliedMaxPrice, pageSize]);
+
+    // Load transactions (hóa đơn) để đối chiếu OrderCode
+    useEffect(() => {
+        const loadTransactions = async () => {
+            try {
+                const token = localStorage.getItem('authToken');
+                const resp = await fetch('https://petcafes.azurewebsites.net/api/transactions', {
+                    headers: {
+                        Accept: 'application/json',
+                        Authorization: token ? `Bearer ${token}` : '',
+                    },
+                });
+                if (!resp.ok) throw new Error('Không thể tải danh sách hóa đơn');
+                const json = await resp.json();
+                setTransactions(Array.isArray(json?.data) ? json.data : []);
+            } catch (e) {
+                console.warn('[ServiceBookingConfirm] Load transactions error:', e);
+            }
+        };
+        loadTransactions();
+    }, []);
     
     // Hàm để áp dụng bộ lọc (chỉ search khi click nút)
     const handleApplyFilters = () => {
@@ -300,7 +324,12 @@ const ServiceBookingConfirmPage = () => {
     };
 
     // Hàm render order card
-    const renderOrderCard = (orderData) => (
+    const renderOrderCard = (orderData) => {
+        // Tìm transaction theo OrderCode (string so khớp linh hoạt)
+        const codeKey = String(orderData.order_code || orderData.id || "");
+        const invoice = transactions.find((t) => String(t.order_code || "") === codeKey);
+
+        return (
         <CardContent sx={{ p: { xs: 2.5, sm: 3, md: 3.5 }, flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
             {/* Order Header */}
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2.5, pb: 2, borderBottom: `2px solid ${alpha(COLORS.ERROR[100], 0.5)}` }}>
@@ -553,11 +582,34 @@ const ServiceBookingConfirmPage = () => {
                                 {formatPrice(orderData.total)}
                             </Typography>
                         </Stack>
+                        <Box sx={{ mt: 1.5 }}>
+                            <Divider sx={{ mb: 1 }} />
+                            <Stack direction="row" alignItems="center" justifyContent="space-between">
+                                <Box>
+                                    <Typography variant="body2" sx={{ fontWeight: 700 }}>Hóa đơn</Typography>
+                                    <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY }}>
+                                        {invoice
+                                            ? `Code: ${invoice.order_code} • ${invoice.desc || invoice.code || ''}`
+                                            : 'Chưa tìm thấy hóa đơn cho đơn này.'}
+                                    </Typography>
+                                </Box>
+                                <Button
+                                    size="small"
+                                    variant="outlined"
+                                    color="error"
+                                    onClick={() => navigate(`/sales/service-booking/${orderData.order_guid || orderData.id}`)}
+                                    sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2 }}
+                                >
+                                    Xem hóa đơn
+                                </Button>
+                            </Stack>
+                        </Box>
                     </Paper>
                 )}
             </Box>
         </CardContent>
     );
+    };
 
     const groupedOrders = groupOrdersByDate(orders);
 
