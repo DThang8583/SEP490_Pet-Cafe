@@ -5,7 +5,6 @@ import WorkingTeamsPage from "../pages/working/WorkingTeamsPage";
 import WorkingTasksPage from "../pages/working/WorkingTasksPage";
 import WorkingAttendancePage from "../pages/working/WorkingAttendancePage";
 import WorkingBookingsPage from "../pages/working/WorkingBookingsPage";
-import WorkingLeaveRequestPage from "../pages/working/WorkingLeaveRequestPage";
 import LeaderTaskCenterPage from "../pages/working/LeaderTaskCenterPage";
 import LeaderTaskDetailPage from "../pages/working/LeaderTaskDetailPage";
 import LeaderBookingsPage from "../pages/working/LeaderBookingsPage";
@@ -17,7 +16,6 @@ const workingRoutes = (
         <Route path="/staff/daily-tasks" element={<WorkingTasksPage />} />
         <Route path="/staff/attendance" element={<WorkingAttendancePage />} />
         <Route path="/staff/bookings" element={<WorkingBookingsPage />} />
-        <Route path="/staff/leave-request" element={<WorkingLeaveRequestPage />} />
 
         {/* Leader only */}
         <Route path="/staff/leader/task-center" element={<LeaderTaskCenterPage />} />

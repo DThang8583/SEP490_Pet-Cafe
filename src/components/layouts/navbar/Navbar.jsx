@@ -112,7 +112,7 @@ const Navbar = () => {
         { label: 'Nhiệm vụ hằng ngày', icon: <Assignment />, path: '/staff/daily-tasks' },
         { label: 'Điểm danh', icon: <ChecklistRtl />, path: '/staff/attendance' },
         { label: 'Xem Booking', icon: <ReceiptLong />, path: '/staff/bookings' },
-        { label: 'Đơn xin nghỉ phép', icon: <Description />, path: '/staff/leave-request' }
+        // Đơn xin nghỉ phép đã ngừng sử dụng nên ẩn khỏi menu
     ]), []);
 
     const leaderItems = useMemo(() => ([

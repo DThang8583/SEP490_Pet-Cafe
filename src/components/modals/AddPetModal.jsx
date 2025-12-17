@@ -49,6 +49,7 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
     const [errors, setErrors] = useState({});
     const [touched, setTouched] = useState({});
     const [imagePreview, setImagePreview] = useState(null);
+    const [imageFile, setImageFile] = useState(null);
     const [isUploadingImage, setIsUploadingImage] = useState(false);
     const [healthStatusOptions, setHealthStatusOptions] = useState([]);
 
@@ -783,52 +784,52 @@ const AddPetModal = ({ isOpen, onClose, onSubmit, editMode = false, initialData 
 
                         {/* Upload Area – chỉ hiển thị khi chưa có ảnh */}
                         {!imagePreview && !formData.image && (
-                        <Box
-                            component="label"
-                            sx={{
-                                display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                p: 4,
-                                border: `2px dashed ${COLORS.INFO[300]}`,
-                                borderRadius: 2,
-                                bgcolor: alpha(COLORS.INFO[50], 0.3),
-                                cursor: isLoading || isUploadingImage ? 'not-allowed' : 'pointer',
-                                transition: 'all 0.3s ease',
-                                '&:hover': {
-                                    borderColor: COLORS.INFO[500],
-                                    bgcolor: alpha(COLORS.INFO[50], 0.5)
-                                },
-                                opacity: isLoading || isUploadingImage ? 0.6 : 1
-                            }}
-                        >
-                            <input
-                                type="file"
-                                hidden
-                                accept="image/png,image/jpeg,image/jpg,image/webp"
-                                onChange={handleImageUpload}
-                                disabled={isLoading || isUploadingImage}
-                            />
-                            {isUploadingImage ? (
-                                <>
-                                    <CircularProgress size={40} sx={{ color: COLORS.INFO[500], mb: 2 }} />
-                                    <Typography variant="body2" sx={{ color: COLORS.INFO[700], fontWeight: 600 }}>
-                                        Đang tải ảnh lên...
-                                    </Typography>
-                                </>
-                            ) : (
-                                <>
-                                    <CloudUploadIcon sx={{ fontSize: 48, color: COLORS.INFO[500], mb: 2 }} />
-                                    <Typography variant="body1" sx={{ color: COLORS.INFO[700], fontWeight: 700, mb: 1 }}>
-                                        CLICK ĐỂ TẢI ẢNH LÊN
-                                    </Typography>
-                                    <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY }}>
-                                        PNG, JPG, WEBP (MAX 5MB)
-                                    </Typography>
-                                </>
-                            )}
-                        </Box>
+                            <Box
+                                component="label"
+                                sx={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    p: 4,
+                                    border: `2px dashed ${COLORS.INFO[300]}`,
+                                    borderRadius: 2,
+                                    bgcolor: alpha(COLORS.INFO[50], 0.3),
+                                    cursor: isLoading || isUploadingImage ? 'not-allowed' : 'pointer',
+                                    transition: 'all 0.3s ease',
+                                    '&:hover': {
+                                        borderColor: COLORS.INFO[500],
+                                        bgcolor: alpha(COLORS.INFO[50], 0.5)
+                                    },
+                                    opacity: isLoading || isUploadingImage ? 0.6 : 1
+                                }}
+                            >
+                                <input
+                                    type="file"
+                                    hidden
+                                    accept="image/png,image/jpeg,image/jpg,image/webp"
+                                    onChange={handleImageUpload}
+                                    disabled={isLoading || isUploadingImage}
+                                />
+                                {isUploadingImage ? (
+                                    <>
+                                        <CircularProgress size={40} sx={{ color: COLORS.INFO[500], mb: 2 }} />
+                                        <Typography variant="body2" sx={{ color: COLORS.INFO[700], fontWeight: 600 }}>
+                                            Đang tải ảnh lên...
+                                        </Typography>
+                                    </>
+                                ) : (
+                                    <>
+                                        <CloudUploadIcon sx={{ fontSize: 48, color: COLORS.INFO[500], mb: 2 }} />
+                                        <Typography variant="body1" sx={{ color: COLORS.INFO[700], fontWeight: 700, mb: 1 }}>
+                                            CLICK ĐỂ TẢI ẢNH LÊN
+                                        </Typography>
+                                        <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY }}>
+                                            PNG, JPG, WEBP (MAX 5MB)
+                                        </Typography>
+                                    </>
+                                )}
+                            </Box>
                         )}
 
                         {errors.image && (
