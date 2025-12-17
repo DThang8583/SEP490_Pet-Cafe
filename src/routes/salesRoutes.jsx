@@ -13,6 +13,7 @@ import AttendancePage from "../pages/sales/AttendancePage";
 import JoinedGroupsPage from "../pages/sales/JoinedGroupsPage";
 import ServiceBookingConfirmPage from "../pages/sales/ServiceBookingConfirmPage";
 import ProductSalesConfirmPage from "../pages/sales/ProductSalesConfirmPage";
+import SalesNotificationsPage from "../pages/sales/NotificationsPage";
 
 const salesRoutes = (
     <>
@@ -29,6 +30,7 @@ const salesRoutes = (
         <Route path="/sales/joined-groups" element={<JoinedGroupsPage />} />
         <Route path="/sales/service-booking-confirm" element={<ServiceBookingConfirmPage />} />
         <Route path="/sales/product-sales-confirm" element={<ProductSalesConfirmPage />} />
+        <Route path="/sales/notifications" element={<SalesNotificationsPage />} />
     </>
 );
 
