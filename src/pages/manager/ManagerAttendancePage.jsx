@@ -762,7 +762,8 @@ const ManagerAttendancePage = () => {
 
     // Pagination state
     const [page, setPage] = useState(1);
-    const [itemsPerPage, setItemsPerPage] = useState(999);
+    // Mặc định 50 bản ghi/trang để Select "Hiển thị" không bị rỗng
+    const [itemsPerPage, setItemsPerPage] = useState(50);
     const [selectedWeekId, setSelectedWeekId] = useState(null);
     const [refreshKey, setRefreshKey] = useState(0);
 
@@ -1233,17 +1234,27 @@ const ManagerAttendancePage = () => {
     return (
         <Box sx={{ background: COLORS.BACKGROUND.NEUTRAL, minHeight: '100vh', width: '100%' }}>
             <Box sx={{ px: { xs: 2, md: 4 }, py: 3 }}>
-                {/* Page Title */}
-                <Typography
-                    variant="h5"
-                    sx={{
-                        fontWeight: 900,
-                        color: COLORS.ERROR[600],
-                        mb: 3
-                    }}
-                >
-                    Điểm danh
-                </Typography>
+                {/* Page Header */}
+                <Box sx={{ mb: 3 }}>
+                    <Typography
+                        variant="h4"
+                        sx={{
+                            fontWeight: 800,
+                            color: COLORS.TEXT.PRIMARY,
+                            mb: 0.5
+                        }}
+                    >
+                        Quản lý điểm danh
+                    </Typography>
+                    <Typography
+                        variant="body2"
+                        sx={{
+                            color: COLORS.TEXT.SECONDARY
+                        }}
+                    >
+                        Theo dõi và cập nhật trạng thái điểm danh cho các nhóm nhân viên theo ca làm việc và tuần làm việc
+                    </Typography>
+                </Box>
 
                 {/* Statistics Cards */}
                 <StatisticsSection statistics={statistics} />

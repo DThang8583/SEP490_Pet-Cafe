@@ -553,9 +553,29 @@ const StaffPage = () => {
     return (
         <Box sx={{ background: COLORS.BACKGROUND.NEUTRAL, minHeight: '100vh', width: '100%' }}>
             <Box sx={{ px: { xs: 2, md: 4 }, py: 3 }}>
-                <Typography variant="h5" sx={{ fontWeight: 900, color: COLORS.ERROR[600], mb: 3 }}>
+                {/* Page Header */}
+                <Box sx={{ mb: 3 }}>
+                    <Typography
+                        variant="h4"
+                        sx={{
+                            fontWeight: 800,
+                            color: COLORS.TEXT.PRIMARY,
+                            mb: 0.5,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 1
+                        }}
+                    >
+                        <People sx={{ fontSize: 28, color: COLORS.PRIMARY[600] }} />
                     Quản lý nhân viên
                 </Typography>
+                    <Typography
+                        variant="body2"
+                        sx={{ color: COLORS.TEXT.SECONDARY }}
+                    >
+                        Theo dõi, phân loại và cập nhật thông tin nhân viên trong hệ thống
+                    </Typography>
+                </Box>
 
                 {/* Danh sách nhân viên */}
                 <>

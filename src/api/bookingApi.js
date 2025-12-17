@@ -1033,7 +1033,10 @@ const getBookings = async (params = {}) => {
         if (team_id) queryParams.append('team_id', team_id);
         if (service_id) queryParams.append('service_id', service_id);
         if (customer_id) queryParams.append('customer_id', customer_id);
-        queryParams.append('page', page);
+        // API sử dụng page dạng page_index (0-based), trong khi UI dùng 1-based
+        // => cần trừ 1 để đảm bảo page 1 trên UI tương ứng page_index = 0 trên API
+        const apiPage = Math.max(0, Number(page) - 1 || 0);
+        queryParams.append('page', apiPage);
         queryParams.append('limit', limit);
 
         const response = await apiClient.get(`/bookings?${queryParams.toString()}`, { timeout: 10000 });
@@ -1045,7 +1048,7 @@ const getBookings = async (params = {}) => {
                 total_items_count: 0,
                 page_size: limit,
                 total_pages_count: 0,
-                page_index: page - 1,
+                page_index: apiPage,
                 has_next: false,
                 has_previous: false
             }

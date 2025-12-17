@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AppBar, Toolbar, Typography, Button, Box, IconButton, Avatar, Menu, MenuItem, useTheme, alpha, Container, Stack, Drawer, List, ListItemButton, ListItemIcon, ListItemText, Divider, Tooltip, ListSubheader, useMediaQuery } from '@mui/material';
-import { LocalCafe, Restaurant, ConfirmationNumber, LocationOn, AccountCircle, Menu as MenuIcon, Close, Pets, Schedule, Dashboard, People, Groups, Assignment, DesignServices, Inventory2, Logout, Vaccines, ShoppingCart, ReceiptLong, HealthAndSafety, Person, ChecklistRtl, AssignmentTurnedIn, Description, CheckCircle, Fastfood, TrendingUp, Notifications } from '@mui/icons-material';
+import { LocalCafe, Restaurant, ConfirmationNumber, LocationOn, AccountCircle, Menu as MenuIcon, Close, Pets, Schedule, Dashboard, People, Groups, Assignment, DesignServices, Inventory2, Logout, Vaccines, ShoppingCart, ReceiptLong, HealthAndSafety, Person, ChecklistRtl, AssignmentTurnedIn, Description, CheckCircle, Fastfood, TrendingUp } from '@mui/icons-material';
 import { COLORS } from '../../../constants/colors';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { authApi } from '../../../api/authApi';
@@ -94,7 +94,6 @@ const Navbar = () => {
             { label: 'Bán dịch vụ', icon: <DesignServices />, path: '/sales/services' },
             { label: 'Dịch vụ đã đặt', icon: <CheckCircle />, path: '/sales/service-booking-confirm' },
             { label: 'Tổng số đồ ăn đã bán', icon: <Fastfood />, path: '/sales/product-sales-confirm' },
-            { label: 'Thông báo', icon: <Notifications />, path: '/sales/notifications' },
         ];
 
         // Chỉ hiển thị "Điểm danh" nếu user là leader
@@ -113,8 +112,7 @@ const Navbar = () => {
         { label: 'Nhiệm vụ hằng ngày', icon: <Assignment />, path: '/staff/daily-tasks' },
         { label: 'Điểm danh', icon: <ChecklistRtl />, path: '/staff/attendance' },
         { label: 'Xem Booking', icon: <ReceiptLong />, path: '/staff/bookings' },
-        { label: 'Đơn xin nghỉ phép', icon: <Description />, path: '/staff/leave-request' },
-        { label: 'Thông báo', icon: <Notifications />, path: '/staff/notifications' }
+        // Đơn xin nghỉ phép đã ngừng sử dụng nên ẩn khỏi menu
     ]), []);
 
     const leaderItems = useMemo(() => ([
