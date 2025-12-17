@@ -528,29 +528,7 @@ const BookingHistory = ({ open, onClose }) => {
                                                                 >
                                                                     Chi tiết
                                                                 </Button>
-                                                                {((booking.booking_status || booking.status || '').toUpperCase() === 'PENDING' ||
-                                                                    (booking.booking_status || booking.status || '').toUpperCase() === 'CONFIRMED') && (
-                                                                        <Button
-                                                                            size="small"
-                                                                            variant="outlined"
-                                                                            startIcon={<Cancel />}
-                                                                            onClick={(e) => {
-                                                                                e.stopPropagation();
-                                                                                handleCancelBooking(booking.id);
-                                                                            }}
-                                                                            disabled={actionLoading}
-                                                                            sx={{
-                                                                                borderColor: COLORS.ERROR[300],
-                                                                                color: COLORS.ERROR[600],
-                                                                                '&:hover': {
-                                                                                    borderColor: COLORS.ERROR[400],
-                                                                                    backgroundColor: alpha(COLORS.ERROR[100], 0.8)
-                                                                                }
-                                                                            }}
-                                                                        >
-                                                                            Hủy
-                                                                        </Button>
-                                                                    )}
+                                                                
                                                             </Stack>
                                                         </TableCell>
                                                     </TableRow>

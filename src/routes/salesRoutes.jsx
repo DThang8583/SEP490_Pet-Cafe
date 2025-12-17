@@ -14,6 +14,9 @@ import JoinedGroupsPage from "../pages/sales/JoinedGroupsPage";
 import ServiceBookingConfirmPage from "../pages/sales/ServiceBookingConfirmPage";
 import ProductSalesConfirmPage from "../pages/sales/ProductSalesConfirmPage";
 import SalesNotificationsPage from "../pages/sales/NotificationsPage";
+import SalesInvoicePage from "../pages/sales/InvoicePage";
+import ServiceBookingDetailPage from "../pages/sales/ServiceBookingDetailPage";
+import ProductOrderDetailPage from "../pages/sales/ProductOrderDetailPage";
 
 const salesRoutes = (
     <>
@@ -31,6 +34,9 @@ const salesRoutes = (
         <Route path="/sales/service-booking-confirm" element={<ServiceBookingConfirmPage />} />
         <Route path="/sales/product-sales-confirm" element={<ProductSalesConfirmPage />} />
         <Route path="/sales/notifications" element={<SalesNotificationsPage />} />
+        <Route path="/sales/invoice" element={<SalesInvoicePage />} />
+        <Route path="/sales/service-booking/:orderId" element={<ServiceBookingDetailPage />} />
+        <Route path="/sales/product-order/:orderId" element={<ProductOrderDetailPage />} />
     </>
 );
 

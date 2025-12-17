@@ -36,6 +36,7 @@ import { formatPrice } from '../../utils/formatPrice';
 const ProductSalesConfirmPage = () => {
     const navigate = useNavigate();
     const [orders, setOrders] = useState([]);
+    const [transactions, setTransactions] = useState([]);
     const [loading, setLoading] = useState(true);
     const [paymentMethod, setPaymentMethod] = useState(''); // '' = all, 'AT_COUNTER', 'ONLINE'
     const [minPrice, setMinPrice] = useState(''); // Minimum price (input value)
@@ -204,6 +205,7 @@ const ProductSalesConfirmPage = () => {
                         // Thông tin cơ bản
                         id: fullOrder.id,
                         order_number: fullOrder.order_number,
+                        order_code: fullOrder.order_number,
                         customer_id: fullOrder.customer_id,
                         employee_id: fullOrder.employee_id,
                         full_name: fullOrder.full_name || '',
@@ -287,6 +289,27 @@ const ProductSalesConfirmPage = () => {
         fetchOrders();
     }, [paymentMethod, appliedMinPrice, appliedMaxPrice, pageSize]);
 
+    // Load transactions (invoices) to match by order_code
+    useEffect(() => {
+        const loadTransactions = async () => {
+            try {
+                const token = localStorage.getItem('authToken');
+                const resp = await fetch('https://petcafes.azurewebsites.net/api/transactions', {
+                    headers: {
+                        Accept: 'application/json',
+                        Authorization: token ? `Bearer ${token}` : '',
+                    },
+                });
+                if (!resp.ok) throw new Error('Không thể tải danh sách hóa đơn');
+                const json = await resp.json();
+                setTransactions(Array.isArray(json?.data) ? json.data : []);
+            } catch (e) {
+                console.warn('[ProductSalesConfirm] Load transactions error:', e);
+            }
+        };
+        loadTransactions();
+    }, []);
+
     // Hàm để áp dụng bộ lọc (chỉ search khi click nút)
     const handleApplyFilters = () => {
         setAppliedMinPrice(minPrice);
@@ -325,7 +348,11 @@ const ProductSalesConfirmPage = () => {
     };
 
     // Hàm render order card
-    const renderOrderCard = (orderData) => (
+    const renderOrderCard = (orderData) => {
+        const codeKey = String(orderData.order_code || orderData.order_number || orderData.id || "");
+        const invoice = transactions.find((t) => String(t.order_code || "") === codeKey);
+
+        return (
         <CardContent sx={{ p: { xs: 2, sm: 2.5 }, flexGrow: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
             {/* Order Header */}
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5, pb: 1.5, borderBottom: `2px solid ${alpha(COLORS.ERROR[100], 0.5)}` }}>
@@ -491,11 +518,34 @@ const ProductSalesConfirmPage = () => {
                                 {formatPrice(orderData.total)}
                             </Typography>
                         </Stack>
+                        <Box sx={{ mt: 1.25 }}>
+                            <Divider sx={{ mb: 1 }} />
+                            <Stack direction="row" alignItems="center" justifyContent="space-between">
+                                <Box>
+                                    <Typography variant="caption" sx={{ fontWeight: 700 }}>Hóa đơn</Typography>
+                                    <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, display: 'block' }}>
+                                        {invoice
+                                            ? `Code: ${invoice.order_code} • ${invoice.desc || invoice.code || ''}`
+                                            : 'Chưa tìm thấy hóa đơn'}
+                                    </Typography>
+                                </Box>
+                                <Button
+                                    size="small"
+                                    variant="outlined"
+                                    color="error"
+                                    onClick={() => navigate(`/sales/product-order/${orderData.id}`)}
+                                    sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2 }}
+                                >
+                                    Xem hóa đơn
+                                </Button>
+                            </Stack>
+                        </Box>
                     </Paper>
                 )}
             </Box>
         </CardContent>
     );
+    };
 
     const groupedOrders = groupOrdersByDate(orders);
 

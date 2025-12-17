@@ -93,6 +93,57 @@ const mapExternalAccountToUser = (account, nameIdFromToken = null) => {
     return { ...base, permissions: permissionsByRole[role] || [] };
 };
 
+// Common processor for external login responses (email/password & Google)
+const processExternalLoginResponse = (data) => {
+    if (!data?.access_token || !data?.account) {
+        throw new Error('Phản hồi không hợp lệ');
+    }
+
+    console.log('[authApi.processExternalLoginResponse] Account from API:', data.account);
+    console.log('[authApi.processExternalLoginResponse] Access token received');
+
+    // Get nameid (customer_id) from access token
+    const nameIdFromToken = getNameIdFromToken(data.access_token);
+    console.log('[authApi.processExternalLoginResponse] nameid from token:', nameIdFromToken);
+
+    // Merge nameid into account if it's a customer
+    let accountWithCustomer = data.account;
+    if (data.account?.role === 'CUSTOMER' && nameIdFromToken) {
+        accountWithCustomer = {
+            ...data.account,
+            customer_id: nameIdFromToken,
+            id: nameIdFromToken // Use nameid as id for customer
+        };
+        console.log('[authApi.processExternalLoginResponse] Account with nameid from token:', accountWithCustomer);
+    }
+
+    const user = mapExternalAccountToUser(accountWithCustomer, nameIdFromToken);
+    console.log('[authApi.processExternalLoginResponse] Mapped user:', user);
+
+    // Persist tokens and user/session info
+    localStorage.setItem('authToken', data.access_token);
+    if (data.refresh_token) localStorage.setItem('refreshToken', data.refresh_token);
+    localStorage.setItem('userRole', user.role);
+    localStorage.setItem('loginTime', new Date().toISOString());
+    // Also persist currentUser for existing userApi-based getters
+    localStorage.setItem('currentUser', JSON.stringify(user));
+    // Store backend account id for APIs that need it
+    try {
+        if (data.account?.id) {
+            localStorage.setItem('accountId', data.account.id);
+        }
+    } catch (_) {
+        // ignore storage errors
+    }
+
+    return {
+        success: true,
+        user,
+        token: data.access_token,
+        message: 'Đăng nhập thành công'
+    };
+};
+
 // Re-export authentication functions from userApi with additional utilities
 export const authApi = {
     // Login function
@@ -108,53 +159,7 @@ export const authApi = {
                 throw new Error('Đăng nhập thất bại');
             }
             const data = await resp.json();
-            if (!data?.access_token || !data?.account) {
-                throw new Error('Phản hồi không hợp lệ');
-            }
-
-            console.log('[authApi.login] Account from API:', data.account);
-            console.log('[authApi.login] Access token received');
-
-            // Get nameid (customer_id) from access token
-            const nameIdFromToken = getNameIdFromToken(data.access_token);
-            console.log('[authApi.login] nameid from token:', nameIdFromToken);
-
-            // Merge nameid into account if it's a customer
-            let accountWithCustomer = data.account;
-            if (data.account?.role === 'CUSTOMER' && nameIdFromToken) {
-                accountWithCustomer = {
-                    ...data.account,
-                    customer_id: nameIdFromToken,
-                    id: nameIdFromToken // Use nameid as id for customer
-                };
-                console.log('[authApi.login] Account with nameid from token:', accountWithCustomer);
-            }
-
-            const user = mapExternalAccountToUser(accountWithCustomer, nameIdFromToken);
-            console.log('[authApi.login] Mapped user:', user);
-
-            // Persist tokens and user/session info
-            localStorage.setItem('authToken', data.access_token);
-            if (data.refresh_token) localStorage.setItem('refreshToken', data.refresh_token);
-            localStorage.setItem('userRole', user.role);
-            localStorage.setItem('loginTime', new Date().toISOString());
-            // Also persist currentUser for existing userApi-based getters
-            localStorage.setItem('currentUser', JSON.stringify(user));
-            // Store backend account id for APIs that need it
-            try {
-                if (data.account?.id) {
-                    localStorage.setItem('accountId', data.account.id);
-                }
-            } catch (_) {
-                // ignore storage errors
-            }
-
-            return {
-                success: true,
-                user,
-                token: data.access_token,
-                message: 'Đăng nhập thành công'
-            };
+            return processExternalLoginResponse(data);
         } catch (e) {
             // Fallback to local mock auth
             try {
@@ -311,6 +316,38 @@ export const authApi = {
         }
 
         return await this.login(credentials);
+    },
+
+    // Login with Google OAuth credential
+    async loginWithGoogle(googleCredential) {
+        try {
+            const resp = await fetch(`${OFFICIAL_AUTH_URL}/google`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                // Backend yêu cầu access_token theo swagger
+                body: JSON.stringify({ access_token: googleCredential })
+            });
+
+            console.log('[authApi.loginWithGoogle] status:', resp.status);
+
+            let data = {};
+            try {
+                data = await resp.json();
+            } catch (_) {
+                data = {};
+            }
+            console.log('[authApi.loginWithGoogle] raw response body:', data);
+
+            if (!resp.ok) {
+                const msg = data?.message || data?.detail || 'Đăng nhập Google thất bại';
+                throw new Error(msg);
+            }
+
+            return processExternalLoginResponse(data);
+        } catch (error) {
+            console.error('[authApi.loginWithGoogle] error:', error);
+            throw error;
+        }
     },
 
     // Get all available demo users (for development)
