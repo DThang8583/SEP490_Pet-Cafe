@@ -14,8 +14,10 @@ import {
 } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 import { bookingApi } from '../../api/bookingApi';
+import { authApi } from '../../api/authApi';
 import Loading from '../loading/Loading';
 import AlertModal from '../modals/AlertModal';
+import FeedbackModal from './FeedbackModal';
 
 const BookingHistory = ({ open, onClose }) => {
     // State management
@@ -33,6 +35,8 @@ const BookingHistory = ({ open, onClose }) => {
     const [confirmCancel, setConfirmCancel] = useState(false);
     const [bookingToCancel, setBookingToCancel] = useState(null);
     const [alert, setAlert] = useState({ open: false, message: '', type: 'info', title: 'Thông báo' });
+    const [showFeedback, setShowFeedback] = useState(false);
+    const [feedbackBooking, setFeedbackBooking] = useState(null);
 
     const itemsPerPage = 10;
 
@@ -289,7 +293,7 @@ const BookingHistory = ({ open, onClose }) => {
                         {/* Filters */}
                         <Box sx={{ mb: 4 }}>
                             <Grid container spacing={3} alignItems="center">
-                                <Grid item xs={12} md={4}>
+                                <Grid size={{ xs: 12, md: 4 }}>
                                     <TextField
                                         fullWidth
                                         placeholder="Tìm kiếm theo dịch vụ, nhóm thú cưng..."
@@ -309,7 +313,7 @@ const BookingHistory = ({ open, onClose }) => {
                                         }}
                                     />
                                 </Grid>
-                                <Grid item xs={12} md={3}>
+                                <Grid size={{ xs: 12, md: 3 }}>
                                     <FormControl fullWidth>
                                         <InputLabel>Trạng thái</InputLabel>
                                         <Select
@@ -327,7 +331,7 @@ const BookingHistory = ({ open, onClose }) => {
                                         </Select>
                                     </FormControl>
                                 </Grid>
-                                <Grid item xs={12} md={3}>
+                                <Grid size={{ xs: 12, md: 3 }}>
                                     <FormControl fullWidth>
                                         <InputLabel>Thời gian</InputLabel>
                                         <Select
@@ -343,7 +347,7 @@ const BookingHistory = ({ open, onClose }) => {
                                         </Select>
                                     </FormControl>
                                 </Grid>
-                                <Grid item xs={12} md={2}>
+                                <Grid size={{ xs: 12, md: 2 }}>
                                     <Button
                                         fullWidth
                                         variant="outlined"
@@ -423,6 +427,8 @@ const BookingHistory = ({ open, onClose }) => {
                                         <TableBody>
                                             {currentBookings.map((booking) => {
                                                 const statusInfo = getStatusInfo(booking.booking_status || booking.status);
+                                                const bookingStatus = (booking.booking_status || booking.status || '').toUpperCase();
+                                                const isCompleted = bookingStatus === 'COMPLETED';
 
                                                 return (
                                                     <TableRow
@@ -528,7 +534,28 @@ const BookingHistory = ({ open, onClose }) => {
                                                                 >
                                                                     Chi tiết
                                                                 </Button>
-                                                                
+                                                                {isCompleted && (
+                                                                    <Button
+                                                                        size="small"
+                                                                        variant="outlined"
+                                                                        startIcon={<Feedback />}
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            setFeedbackBooking(booking);
+                                                                            setShowFeedback(true);
+                                                                        }}
+                                                                        sx={{
+                                                                            borderColor: COLORS.WARNING[300],
+                                                                            color: COLORS.WARNING[600],
+                                                                            '&:hover': {
+                                                                                borderColor: COLORS.WARNING[400],
+                                                                                backgroundColor: alpha(COLORS.WARNING[100], 0.8)
+                                                                            }
+                                                                        }}
+                                                                    >
+                                                                        Đánh giá
+                                                                    </Button>
+                                                                )}
                                                             </Stack>
                                                         </TableCell>
                                                     </TableRow>
@@ -593,7 +620,7 @@ const BookingHistory = ({ open, onClose }) => {
                     <DialogContent sx={{ p: 3 }}>
                         <Grid container spacing={3}>
                             {/* Service Info */}
-                            <Grid item xs={12}>
+                            <Grid size={{ xs: 12 }}>
                                 <Card sx={{ p: 2, backgroundColor: alpha(COLORS.PRIMARY[50], 0.3) }}>
                                     <Box sx={{ display: 'flex', gap: 2 }}>
                                         {selectedBooking.service?.image_url && (
@@ -623,7 +650,7 @@ const BookingHistory = ({ open, onClose }) => {
 
                             {/* Booking Date */}
                             {selectedBooking.bookingDateTime && (
-                                <Grid item xs={12} sm={6}>
+                                <Grid size={{ xs: 12, sm: 6 }}>
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                                         <CalendarToday sx={{ fontSize: 20, color: COLORS.INFO[500] }} />
                                         <Typography variant="subtitle2" color="text.secondary">
@@ -638,7 +665,7 @@ const BookingHistory = ({ open, onClose }) => {
 
                             {/* Slot Time */}
                             {selectedBooking.start_time && selectedBooking.end_time && (
-                                <Grid item xs={12} sm={6}>
+                                <Grid size={{ xs: 12, sm: 6 }}>
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                                         <AccessTime sx={{ fontSize: 20, color: COLORS.INFO[500] }} />
                                         <Typography variant="subtitle2" color="text.secondary">
@@ -653,7 +680,7 @@ const BookingHistory = ({ open, onClose }) => {
 
                             {/* Pet Group */}
                             {selectedBooking.pet_group && (
-                                <Grid item xs={12} sm={6}>
+                                <Grid size={{ xs: 12, sm: 6 }}>
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                                         <Pets sx={{ fontSize: 20, color: COLORS.INFO[500] }} />
                                         <Typography variant="subtitle2" color="text.secondary">
@@ -673,7 +700,7 @@ const BookingHistory = ({ open, onClose }) => {
 
                             {/* Area */}
                             {selectedBooking.area && (
-                                <Grid item xs={12} sm={6}>
+                                <Grid size={{ xs: 12, sm: 6 }}>
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                                         <LocationOn sx={{ fontSize: 20, color: COLORS.INFO[500] }} />
                                         <Typography variant="subtitle2" color="text.secondary">
@@ -693,7 +720,7 @@ const BookingHistory = ({ open, onClose }) => {
 
                             {/* Team */}
                             {selectedBooking.team && (
-                                <Grid item xs={12} sm={6}>
+                                <Grid size={{ xs: 12, sm: 6 }}>
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                                         <Group sx={{ fontSize: 20, color: COLORS.INFO[500] }} />
                                         <Typography variant="subtitle2" color="text.secondary">
@@ -712,7 +739,7 @@ const BookingHistory = ({ open, onClose }) => {
                             )}
 
                             {/* Status */}
-                            <Grid item xs={12} sm={6}>
+                            <Grid size={{ xs: 12, sm: 6 }}>
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                                     <CheckCircle sx={{ fontSize: 20, color: COLORS.INFO[500] }} />
                                     <Typography variant="subtitle2" color="text.secondary">
@@ -732,7 +759,7 @@ const BookingHistory = ({ open, onClose }) => {
 
                             {/* Notes */}
                             {selectedBooking.notes && (
-                                <Grid item xs={12}>
+                                <Grid size={{ xs: 12 }}>
                                     <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, mb: 1 }}>
                                         <Note sx={{ fontSize: 20, color: COLORS.INFO[500], mt: 0.5 }} />
                                         <Typography variant="subtitle2" color="text.secondary">
@@ -800,6 +827,114 @@ const BookingHistory = ({ open, onClose }) => {
                     </Button>
                 </DialogActions>
             </Dialog>
+
+            {/* Feedback Modal */}
+            <FeedbackModal
+                open={showFeedback}
+                onClose={() => {
+                    setShowFeedback(false);
+                    setFeedbackBooking(null);
+                }}
+                booking={feedbackBooking}
+                onSubmit={async (feedbackData) => {
+                    console.log('[BookingHistory] onSubmit called with:', feedbackData);
+                    console.log('[BookingHistory] feedbackBooking:', feedbackBooking);
+                    
+                    try {
+                        // Lấy customer_id từ login
+                        const currentUser = authApi.getCurrentUser();
+                        console.log('[BookingHistory] Current user:', currentUser);
+                        
+                        const customerId = currentUser?.customer_id || currentUser?.id || null;
+                        
+                        if (!customerId) {
+                            const error = new Error('Không tìm thấy thông tin khách hàng. Vui lòng đăng nhập lại.');
+                            console.error('[BookingHistory] No customer ID found');
+                            throw error;
+                        }
+
+                        // Map dữ liệu theo format API yêu cầu
+                        const apiPayload = {
+                            customer_booking_id: feedbackBooking?.id || '',
+                            service_id: feedbackBooking?.service?.id || '',
+                            rating: feedbackData.overallRating || 0,
+                            comment: feedbackData.comment || ''
+                        };
+
+                        console.log('[BookingHistory] Submitting feedback:', apiPayload);
+                        console.log('[BookingHistory] Customer ID:', customerId);
+                        console.log('[BookingHistory] API URL: https://petcafes.azurewebsites.net/api/feedbacks');
+
+                        const token = localStorage.getItem('authToken');
+                        console.log('[BookingHistory] Auth token exists:', !!token);
+                        
+                        const resp = await fetch('https://petcafes.azurewebsites.net/api/feedbacks', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': token ? `Bearer ${token}` : '',
+                                'Accept': 'application/json'
+                            },
+                            body: JSON.stringify(apiPayload)
+                        });
+
+                        console.log('[BookingHistory] API Response status:', resp.status);
+                        console.log('[BookingHistory] API Response ok:', resp.ok);
+
+                        if (!resp.ok) {
+                            const errorText = await resp.text();
+                            console.error('[BookingHistory] API Error response:', errorText);
+                            
+                            let errorData = {};
+                            try {
+                                errorData = JSON.parse(errorText);
+                            } catch (e) {
+                                console.error('[BookingHistory] Failed to parse error response as JSON');
+                            }
+                            
+                            // Parse error message từ các field có thể có
+                            let errorMessage = errorData?.error || errorData?.detail || errorData?.message;
+                            
+                            // Nếu errorMessage là object, lấy giá trị đầu tiên
+                            if (typeof errorMessage === 'object' && errorMessage !== null) {
+                                errorMessage = Object.values(errorMessage)[0] || errorText;
+                            }
+                            
+                            // Nếu vẫn không có, dùng errorText
+                            if (!errorMessage || errorMessage === errorText) {
+                                errorMessage = errorText || 'Không thể gửi đánh giá';
+                            }
+                            
+                            console.error('[BookingHistory] Error message:', errorMessage);
+                            throw new Error(errorMessage);
+                        }
+
+                        const result = await resp.json();
+                        console.log('[BookingHistory] Feedback submitted successfully:', result);
+
+                        setAlert({
+                            open: true,
+                            title: 'Thành công',
+                            message: 'Cảm ơn bạn đã đánh giá dịch vụ!',
+                            type: 'success'
+                        });
+                    } catch (err) {
+                        console.error('[BookingHistory] Feedback submit error:', err);
+                        console.error('[BookingHistory] Error stack:', err.stack);
+                        
+                        // Re-throw error để FeedbackModal có thể catch và hiển thị
+                        setAlert({
+                            open: true,
+                            title: 'Lỗi',
+                            message: err.message || 'Có lỗi xảy ra khi gửi đánh giá',
+                            type: 'error'
+                        });
+                        
+                        // Throw error để FeedbackModal có thể hiển thị trong modal
+                        throw err;
+                    }
+                }}
+            />
 
             {/* Alert Modal */}
             <AlertModal
