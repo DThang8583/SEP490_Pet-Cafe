@@ -16,6 +16,7 @@ import BookingPaymentSuccessPage from "./pages/booking/BookingPaymentSuccessPage
 import BookingPaymentFailedPage from "./pages/booking/BookingPaymentFailedPage";
 import PetsListPage from "./pages/pets/PetsListPage";
 import PopularServicesPage from "./pages/services/PopularServicesPage";
+import NotificationsPage from "./pages/notifications/NotificationsPage";
 import managerRoutes from "./routes/managerRoutes";
 import salesRoutes from "./routes/salesRoutes";
 import workingRoutes from "./routes/workingRoutes";
@@ -44,6 +45,7 @@ function App() {
           <Route path="/popular-services" element={<PopularServicesPage />} />
           <Route path="/areas" element={<AreasPage />} />
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/notifications" element={<NotificationsPage />} />
           {managerRoutes}
           {salesRoutes}
           {workingRoutes}

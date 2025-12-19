@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { AppBar, Toolbar, Typography, Button, Box, IconButton, Avatar, Menu, MenuItem, useTheme, alpha, Container, Stack, Drawer, List, ListItemButton, ListItemIcon, ListItemText, Divider, Tooltip, ListSubheader, useMediaQuery } from '@mui/material';
-import { LocalCafe, Restaurant, ConfirmationNumber, LocationOn, AccountCircle, Menu as MenuIcon, Close, Pets, Schedule, Dashboard, People, Groups, Assignment, DesignServices, Inventory2, Logout, Vaccines, ShoppingCart, ReceiptLong, HealthAndSafety, Person, ChecklistRtl, AssignmentTurnedIn, Description, CheckCircle, Fastfood, TrendingUp } from '@mui/icons-material';
+import { AppBar, Toolbar, Typography, Button, Box, IconButton, Avatar, Menu, MenuItem, useTheme, alpha, Container, Stack, Drawer, List, ListItemButton, ListItemIcon, ListItemText, Divider, Tooltip, ListSubheader, useMediaQuery, Badge } from '@mui/material';
+import { LocalCafe, Restaurant, ConfirmationNumber, LocationOn, AccountCircle, Menu as MenuIcon, Close, Pets, Schedule, Dashboard, People, Groups, Assignment, DesignServices, Inventory2, Logout, Vaccines, ShoppingCart, ReceiptLong, HealthAndSafety, Person, ChecklistRtl, AssignmentTurnedIn, Description, CheckCircle, Fastfood, TrendingUp, Notifications } from '@mui/icons-material';
 import { COLORS } from '../../../constants/colors';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { authApi } from '../../../api/authApi';
@@ -18,6 +18,7 @@ const Navbar = () => {
     const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
     const [collapsed, setCollapsed] = useState(false);
     const [isLeader, setIsLeader] = useState(false);
+    const [unreadCount, setUnreadCount] = useState(0);
 
     useEffect(() => {
         try {
@@ -39,6 +40,48 @@ const Navbar = () => {
                 console.warn('Failed to parse stored user for leader flag', error);
             }
         }
+    }, []);
+
+    // Fetch unread notifications count
+    useEffect(() => {
+        const fetchUnreadCount = async () => {
+            try {
+                const accountId = localStorage.getItem("accountId");
+                if (!accountId) return;
+
+                const token = localStorage.getItem("authToken");
+                const params = new URLSearchParams({
+                    page: "0",
+                    limit: "100", // Lấy nhiều để đếm chính xác
+                    account_id: accountId,
+                });
+
+                const resp = await fetch(
+                    `https://petcafes.azurewebsites.net/api/notifications?${params.toString()}`,
+                    {
+                        headers: {
+                            Accept: "application/json",
+                            Authorization: token ? `Bearer ${token}` : "",
+                        },
+                    }
+                );
+
+                if (resp.ok) {
+                    const json = await resp.json();
+                    const notifications = Array.isArray(json?.data) ? json.data : [];
+                    // Đếm số thông báo chưa đọc (is_read === false)
+                    const unread = notifications.filter(n => n.is_read === false).length;
+                    setUnreadCount(unread);
+                }
+            } catch (error) {
+                console.error("[Navbar] Error fetching unread notifications:", error);
+            }
+        };
+
+        fetchUnreadCount();
+        // Refresh mỗi 30 giây
+        const interval = setInterval(fetchUnreadCount, 30000);
+        return () => clearInterval(interval);
     }, []);
 
     // Keep sidebar width synchronized globally for layouts without changing hook order
@@ -64,12 +107,20 @@ const Navbar = () => {
         setMobileMenuOpen(false);
     };
 
-    const navItems = [
+    const navItems = useMemo(() => [
         { label: 'Đồ ăn & Đồ uống', path: '/menu', icon: <Restaurant /> },
         { label: 'Đặt lịch dịch vụ', path: '/booking', icon: <Schedule /> },
         { label: 'Danh sách chó mèo', path: '/pets', icon: <Pets /> },
         { label: 'Dịch vụ bán chạy', path: '/popular-services', icon: <TrendingUp /> },
-    ];
+        { 
+            path: '/notifications', 
+            icon: (
+                <Badge badgeContent={unreadCount > 0 ? unreadCount : 0} color="error" max={99}>
+                    <Notifications />
+                </Badge>
+            )
+        },
+    ], [unreadCount]);
 
     const isActive = (path) => location.pathname === path;
 
