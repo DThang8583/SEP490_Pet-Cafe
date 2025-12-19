@@ -1,8 +1,54 @@
 import React from 'react';
-import { Typography, Stack, Grid, Chip, alpha } from '@mui/material';
+import { Typography, Stack, Grid, Chip, alpha, Box } from '@mui/material';
 import { AttachMoney, ShoppingCart, TrendingUp, TrendingDown, People, EventAvailable, Payment, Groups, PersonAdd, TaskAlt, Inventory2, Insights } from '@mui/icons-material';
 import { COLORS } from '../../../constants/colors';
 import { SectionContainer, SummaryGrid, CardSection, formatCurrency, formatNumber, SimpleBarChart, PieChartComponent, LineChartComponent } from './DashboardUtils';
+
+// Helpers for Vietnamese labels
+const mapPaymentMethod = (value) => {
+    switch ((value || '').toUpperCase()) {
+        case 'ONLINE':
+        case 'QR':
+            return 'Thanh toán online';
+        case 'AT_COUNTER':
+        case 'COUNTER':
+            return 'Tại quầy';
+        case 'CASH':
+            return 'Tiền mặt';
+        case 'CARD':
+            return 'Thẻ';
+        default:
+            return value || 'Không xác định';
+    }
+};
+
+const mapOrderStatus = (value) => {
+    switch ((value || '').toUpperCase()) {
+        case 'PAID':
+            return 'Đã thanh toán';
+        case 'PENDING':
+            return 'Đang chờ';
+        case 'CANCELLED':
+            return 'Đã hủy';
+        case 'REFUNDED':
+            return 'Đã hoàn tiền';
+        case 'EXPIRED':
+            return 'Hết hạn';
+        default:
+            return value || 'Không xác định';
+    }
+};
+
+const mapOrderType = (value) => {
+    switch ((value || '').toUpperCase()) {
+        case 'CUSTOMER':
+            return 'Khách hàng';
+        case 'EMPLOYEE':
+            return 'Nhân viên';
+        default:
+            return value || 'Không xác định';
+    }
+};
 
 // ========== OVERVIEW SECTION ==========
 export const OverviewSection = ({ overviewStats }) => {
@@ -254,7 +300,7 @@ export const RevenueSection = ({ revenueData }) => {
                                     }}
                                 >
                                     <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                                        {item.payment_method || 'Không xác định'}
+                                        {mapPaymentMethod(item.payment_method)}
                                     </Typography>
                                     <Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.PRIMARY[700] }}>
                                         {formatCurrency(item.revenue || 0)}
@@ -287,7 +333,7 @@ export const RevenueSection = ({ revenueData }) => {
                                     }}
                                 >
                                     <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                                        {item.order_status || 'Không xác định'}
+                                        {mapOrderStatus(item.order_status || item.status)}
                                     </Typography>
                                     <Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.SUCCESS[700] }}>
                                         {formatCurrency(item.revenue || 0)}
@@ -320,7 +366,7 @@ export const RevenueSection = ({ revenueData }) => {
                                     }}
                                 >
                                     <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                                        {item.order_type || 'Không xác định'}
+                                        {mapOrderType(item.order_type)}
                                     </Typography>
                                     <Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.WARNING[700] }}>
                                         {formatCurrency(item.revenue || 0)}
@@ -397,86 +443,28 @@ export const OrdersSection = ({ ordersData }) => {
                         hasData={Boolean(ordersData.orders_by_status?.length)}
                         emptyMessage="Chưa có dữ liệu trạng thái đơn hàng"
                     >
-                        <PieChartComponent
-                            data={ordersData.orders_by_status?.map(item => ({
-                                ...item,
-                                name: item.status === 'PAID' ? 'Đã thanh toán'
-                                    : item.status === 'PENDING' ? 'Đang chờ'
-                                        : item.status === 'CANCELLED' ? 'Đã hủy'
-                                            : item.status === 'REFUNDED' ? 'Đã hoàn tiền'
-                                                : item.status || 'Không xác định'
-                            }))}
-                            dataKey="count"
-                            nameKey="name"
-                            colors={[COLORS.SUCCESS[500], COLORS.WARNING[500], COLORS.ERROR[500], COLORS.INFO[500]]}
-                        />
+                        <Box sx={{ width: '100%', minWidth: { xs: '100%', md: 520 }, maxWidth: '100%', mx: 'auto' }}>
+                            <PieChartComponent
+                                data={ordersData.orders_by_status?.map(item => ({
+                                    ...item,
+                                    name: mapOrderStatus(item.status)
+                                }))}
+                                dataKey="count"
+                                nameKey="name"
+                                colors={[
+                                    COLORS.SUCCESS[500],   // Đã thanh toán
+                                    COLORS.WARNING[500],   // Đang chờ / hết hạn
+                                    COLORS.ERROR[500],     // Đã hủy
+                                    COLORS.INFO[500],
+                                    COLORS.SECONDARY[500]
+                                ]}
+                                height={360}
+                            />
+                        </Box>
                     </CardSection>
                 </Grid>
 
-                <Grid item xs={12} md={12}>
-                    <CardSection
-                        title="Top khách hàng theo doanh thu"
-                        color={COLORS.PRIMARY[600]}
-                        hasData={Boolean(ordersData.top_customers_by_revenue?.length)}
-                        emptyMessage="Chưa có dữ liệu khách hàng theo doanh thu"
-                    >
-                        <Stack spacing={1.5}>
-                            {ordersData.top_customers_by_revenue?.map((item, index) => (
-                                <Stack
-                                    key={index}
-                                    direction="row"
-                                    alignItems="center"
-                                    justifyContent="space-between"
-                                    sx={{ px: 2, py: 1.5, borderRadius: 2, background: alpha(COLORS.SECONDARY[100], 0.35) }}
-                                >
-                                    <Stack direction="row" spacing={1} alignItems="center">
-                                        <People sx={{ fontSize: 20, color: COLORS.SECONDARY[500] }} />
-                                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                                            {item.customer_name || 'Không xác định'}
-                                        </Typography>
-                                    </Stack>
-                                    <Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.SECONDARY[700] }}>
-                                        {formatCurrency(item.revenue || 0)}
-                                    </Typography>
-                                </Stack>
-                            ))}
-                        </Stack>
-                    </CardSection>
-                </Grid>
-
-                <Grid item xs={12}>
-                    <CardSection
-                        title="Top khách hàng theo số lượng đơn"
-                        color={COLORS.PRIMARY[600]}
-                        hasData={Boolean(ordersData.top_customers_by_order_count?.length)}
-                        emptyMessage="Chưa có dữ liệu khách hàng theo số đơn hàng"
-                    >
-                        <Stack spacing={1.5}>
-                            {ordersData.top_customers_by_order_count?.map((item, index) => (
-                                <Stack
-                                    key={index}
-                                    direction="row"
-                                    alignItems="center"
-                                    justifyContent="space-between"
-                                    sx={{ px: 2, py: 1.5, borderRadius: 2, background: alpha(COLORS.PRIMARY[100], 0.25) }}
-                                >
-                                    <Stack direction="row" spacing={1} alignItems="center">
-                                        <People sx={{ fontSize: 20, color: COLORS.PRIMARY[500] }} />
-                                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                                            {item.customer_name || 'Không xác định'}
-                                        </Typography>
-                                    </Stack>
-                                    <Chip
-                                        label={formatNumber(item.order_count || 0)}
-                                        size="small"
-                                        sx={{ fontWeight: 600 }}
-                                        color="primary"
-                                    />
-                                </Stack>
-                            ))}
-                        </Stack>
-                    </CardSection>
-                </Grid>
+                {/* Bỏ hiển thị Top khách hàng theo doanh thu và số lượng đơn theo yêu cầu */}
             </Grid>
         </SectionContainer>
     );

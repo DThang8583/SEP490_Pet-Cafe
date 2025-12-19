@@ -647,8 +647,8 @@ const ScheduleRow = memo(({ schedule, onMenuOpen }) => {
                         </Stack>
                         {schedule.employee?.sub_role && !schedule.employee?.isLeader && (
                             <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                                {schedule.employee.sub_role === 'SALE_STAFF' ? 'Sale Staff' :
-                                    schedule.employee.sub_role === 'WORKING_STAFF' ? 'Working Staff' :
+                                {schedule.employee.sub_role === 'SALE_STAFF' ? 'Nhân viên bán hàng' :
+                                    schedule.employee.sub_role === 'WORKING_STAFF' ? 'Nhân viên chăm sóc' :
                                         schedule.employee.sub_role}
                             </Typography>
                         )}
@@ -1058,15 +1058,24 @@ const ManagerAttendancePage = () => {
                                     return;
                                 }
 
+                                // Merge existing employee data with team member employee data to preserve isLeader flag
+                                const mergedEmployee = existing?.employee
+                                    ? {
+                                        ...existing.employee,
+                                        // Preserve isLeader flag from team member if it exists
+                                        isLeader: employee.isLeader !== undefined ? employee.isLeader : existing.employee.isLeader
+                                    }
+                                    : employee;
+
                                 expanded.push({
                                     id: existing?.id || key,
                                     team_member: existing?.team_member || {
                                         id: tm.id,
                                         team_id: team.id,
                                         employee_id: employeeId,
-                                        employee
+                                        employee: mergedEmployee
                                     },
-                                    employee: existing?.employee || employee,
+                                    employee: mergedEmployee,
                                     work_shift: existing?.work_shift || shift,
                                     date: existing?.date || dateStr,
                                     status,
@@ -1104,10 +1113,36 @@ const ManagerAttendancePage = () => {
                         return;
                     }
 
+                    // Try to find the team and check if this employee is a leader
+                    const team = filteredTeams.find(t => t.id === teamId);
+                    let isLeader = false;
+                    if (team) {
+                        const leader = team.leader;
+                        const leaderIds = [
+                            leader?.id,
+                            leader?.employee_id,
+                            leader?.account_id,
+                            team.leader_id
+                        ].filter(Boolean);
+
+                        const employeeIds = [
+                            employeeId,
+                            s.employee?.id,
+                            s.employee?.employee_id,
+                            s.employee?.account_id,
+                            s.team_member?.employee_id
+                        ].filter(Boolean);
+
+                        isLeader = leaderIds.some(lid => employeeIds.includes(lid));
+                    }
+
                     expanded.push({
                         id: s.id || key,
                         team_member: s.team_member || null,
-                        employee: s.employee || { id: employeeId, full_name: s.employee_name || 'N/A' },
+                        employee: {
+                            ...(s.employee || { id: employeeId, full_name: s.employee_name || 'N/A' }),
+                            isLeader
+                        },
                         work_shift: s.work_shift || null,
                         date: s.date || dateStr,
                         status,

@@ -300,7 +300,7 @@ export const SlotsSection = ({ slotsData }) => {
             <SummaryGrid
                 items={[
                     {
-                        label: 'Tỷ lệ sử dụng CaCa',
+                        label: 'Tỷ lệ sử dụng Ca',
                         value: `${(slotsData.utilization_rate ?? 0).toFixed(1)}%`,
                         caption: 'Hiệu suất phân bổ ca hiện tại',
                         color: COLORS.SECONDARY[500],
