@@ -22,7 +22,7 @@ const SalesPage = () => {
     const [quantities, setQuantities] = useState({});
     const [addOpen, setAddOpen] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState(null);
-    const [addQty, setAddQty] = useState(1);
+    const [addQty, setAddQty] = useState('1'); // cho phép nhập rỗng tạm thời
     const [addNote, setAddNote] = useState('');
 
     useEffect(() => {
@@ -31,7 +31,7 @@ const SalesPage = () => {
             const saved = localStorage.getItem('sales_cart');
             if (saved) setCart(JSON.parse(saved));
             setCartInitialized(true);
-        } catch {}
+        } catch { }
 
         const load = async () => {
             try {
@@ -80,23 +80,63 @@ const SalesPage = () => {
     // Persist cart after initial load, avoid wiping existing cart
     useEffect(() => {
         if (!cartInitialized) return;
-        try { localStorage.setItem('sales_cart', JSON.stringify(cart)); } catch {}
+        try { localStorage.setItem('sales_cart', JSON.stringify(cart)); } catch { }
     }, [cart, cartInitialized]);
 
     const filtered = useMemo(() => {
         const byText = products.filter(p => (p.name || '').toLowerCase().includes(keyword.toLowerCase()));
         if (category === 'all') return byText;
-        
+
         // Filter by category ID from API
         const selected = categories.find(c => c.id === category);
         if (!selected) return byText;
-        
+
         return byText.filter(p => {
             const pid = p.category_id || p.category?.id;
             return pid && pid === selected.id;
         });
     }, [products, keyword, category, categories]);
     const total = useMemo(() => cart.reduce((s, i) => s + i.price * i.quantity, 0), [cart]);
+
+    // Helper: tính số lượng trong giỏ của 1 sản phẩm
+    const getInCartQuantity = (productId) => {
+        const item = cart.find((i) => i.id === productId);
+        return item ? item.quantity : 0;
+    };
+
+    // Helper: lấy hạn mức bán trong ngày (Manager cấu hình) từ object sản phẩm
+    const getDailyLimit = (p) => {
+        // Ưu tiên các field có thể đến từ API, fallback về null nếu không có
+        return (
+            // Manager dùng stock_quantity làm \"Số lượng bán trong ngày\"
+            (typeof p?.stock_quantity === 'number' ? p.stock_quantity : null) ??
+            p?.daily_limit ??
+            p?.dailyQuantity ??
+            p?.daily_quantity ??
+            p?.max_daily_quantity ??
+            p?.limit_per_day ??
+            null
+        );
+    };
+
+    // Helper: đã bán trong ngày (nếu backend có cung cấp)
+    const getSoldToday = (p) => {
+        return (
+            p?.sold_today ??
+            p?.today_sold ??
+            p?.soldQuantityToday ??
+            0
+        );
+    };
+
+    // Thông tin hạn mức cho sản phẩm đang mở dialog \"Thêm vào giỏ\"
+    const selectedDailyLimit = selectedProduct ? getDailyLimit(selectedProduct) : null;
+    const selectedSoldToday = selectedProduct ? getSoldToday(selectedProduct) : 0;
+    const selectedInCart = selectedProduct ? getInCartQuantity(selectedProduct.id) : 0;
+    const selectedRemainingBase =
+        selectedDailyLimit != null
+            ? Math.max(selectedDailyLimit - selectedSoldToday - selectedInCart, 0)
+            : null;
 
     const getProductImage = (p) => {
         // Ưu tiên image_url từ API
@@ -114,10 +154,10 @@ const SalesPage = () => {
     const notifyCartChanged = (next) => {
         try {
             localStorage.setItem('sales_cart', JSON.stringify(next));
-        } catch {}
+        } catch { }
         try {
             window.dispatchEvent(new Event('cartUpdated'));
-        } catch {}
+        } catch { }
     };
 
     const setQty = (id, val) => {
@@ -126,15 +166,44 @@ const SalesPage = () => {
     };
 
     const addToCart = (p) => {
+        const dailyLimit = getDailyLimit(p);
+        const soldToday = getSoldToday(p);
+        const inCart = getInCartQuantity(p.id);
+
+        if (dailyLimit != null) {
+            const remaining = dailyLimit - soldToday - inCart;
+            if (remaining <= 0) {
+                alert('Bạn đã đạt tới số lượng bán trong ngày cho sản phẩm này. Không thể thêm thêm vào giỏ.');
+                return;
+            }
+        }
+
         setSelectedProduct(p);
-        setAddQty(1);
+        setAddQty('1');
         setAddNote('');
         setAddOpen(true);
     };
 
     const confirmAddToCart = async () => {
         if (!selectedProduct) return;
-        const qty = Math.max(1, parseInt(addQty || 1, 10));
+        const qty = Math.max(1, parseInt(addQty || '1', 10));
+
+        const dailyLimit = getDailyLimit(selectedProduct);
+        const soldToday = getSoldToday(selectedProduct);
+        const inCart = getInCartQuantity(selectedProduct.id);
+
+        if (dailyLimit != null) {
+            const remaining = dailyLimit - soldToday - inCart;
+            if (remaining <= 0) {
+                alert('Bạn đã đạt tới số lượng bán trong ngày cho sản phẩm này. Không thể thêm thêm vào giỏ.');
+                return;
+            }
+            if (qty > remaining) {
+                alert(`Số lượng tối đa có thể thêm cho sản phẩm này trong hôm nay là ${remaining}. Vui lòng giảm số lượng.`);
+                return;
+            }
+        }
+
         setCart((prev) => {
             const idx = prev.findIndex(i => i.id === selectedProduct.id);
             let next;
@@ -152,6 +221,20 @@ const SalesPage = () => {
     };
 
     const increaseQty = (id) => {
+        const product = products.find((p) => p.id === id);
+        if (product) {
+            const dailyLimit = getDailyLimit(product);
+            const soldToday = getSoldToday(product);
+            const inCart = getInCartQuantity(id);
+            if (dailyLimit != null) {
+                const remaining = dailyLimit - soldToday - inCart;
+                if (remaining <= 0) {
+                    alert('Không thể tăng thêm số lượng. Đã đạt tới số lượng bán trong ngày cho sản phẩm này.');
+                    return;
+                }
+            }
+        }
+
         setCart((prev) => {
             const next = prev.map(i => i.id === id ? { ...i, quantity: i.quantity + 1 } : i);
             notifyCartChanged(next);
@@ -214,137 +297,157 @@ const SalesPage = () => {
                 <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 3 }}>
                     <Stack direction="row" spacing={1} alignItems="center">
                         <Pets sx={{ color: COLORS.ERROR[500] }} />
-                        <Typography variant="h4" sx={{ fontWeight: 700, fontSize: '2rem', color: COLORS.ERROR[600], letterSpacing: '-0.02em', lineHeight: 1.2 }}>Bán hàng thân thiện</Typography>
+                        <Typography variant="h4" sx={{ fontWeight: 700, fontSize: '2rem', color: COLORS.ERROR[600], letterSpacing: '-0.02em', lineHeight: 1.2 }}>Bán hàng</Typography>
                     </Stack>
                     <Chip color="error" label="Sản phẩm hôm nay" sx={{ fontWeight: 700, borderRadius: 2 }} />
                 </Stack>
 
-            {error && <Typography color="error" sx={{ mb: 2 }}>{error}</Typography>}
+                {error && <Typography color="error" sx={{ mb: 2 }}>{error}</Typography>}
 
-            <Box sx={{ width: '100%', maxWidth: '100%' }}>
-                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 3, alignItems: 'center' }}>
-                    <TextField 
-                        fullWidth 
-                        placeholder="Tìm đồ uống, đồ ăn..." 
-                        value={keyword} 
-                        onChange={(e) => setKeyword(e.target.value)} 
+                <Box sx={{ width: '100%', maxWidth: '100%' }}>
+                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mb: 3, alignItems: 'center' }}>
+                        <TextField
+                            fullWidth
+                            placeholder="Tìm đồ uống, đồ ăn..."
+                            value={keyword}
+                            onChange={(e) => setKeyword(e.target.value)}
+                            sx={{
+                                '& .MuiOutlinedInput-root': {
+                                    borderRadius: 3,
+                                    backgroundColor: 'rgba(255,255,255,0.9)'
+                                },
+                                maxWidth: { xs: '100%', sm: '600px' }
+                            }}
+                        />
+                        <Badge color="error" badgeContent={cart.length} showZero>
+                            <Button
+                                startIcon={<ShoppingCart />}
+                                variant="contained"
+                                color="error"
+                                sx={{
+                                    height: 56,
+                                    borderRadius: 3,
+                                    boxShadow: 3,
+                                    minWidth: { xs: '100%', sm: '160px' }
+                                }}
+                                onClick={() => navigate('/sales/cart')}
+                            >
+                                GIỎ HÀNG
+                            </Button>
+                        </Badge>
+                    </Stack>
+
+                    <Stack
+                        direction="row"
+                        spacing={1}
                         sx={{
-                            '& .MuiOutlinedInput-root': {
-                                borderRadius: 3,
-                                backgroundColor: 'rgba(255,255,255,0.9)'
-                            },
-                            maxWidth: { xs: '100%', sm: '600px' }
-                        }} 
-                    />
-                    <Badge color="error" badgeContent={cart.length} showZero>
-                        <Button 
-                            startIcon={<ShoppingCart />} 
-                            variant="contained" 
-                            color="error" 
-                            sx={{ 
-                                height: 56, 
-                                borderRadius: 3, 
-                                boxShadow: 3,
-                                minWidth: { xs: '100%', sm: '160px' }
-                            }} 
-                            onClick={() => navigate('/sales/cart')}
-                        >
-                            GIỎ HÀNG
-                        </Button>
-                    </Badge>
-                </Stack>
+                            mb: 3,
+                            flexWrap: 'wrap',
+                            justifyContent: { xs: 'flex-start', sm: 'center' },
+                            gap: 1
+                        }}
+                    >
+                        <Chip
+                            label="Tất cả"
+                            icon={<Pets />}
+                            variant={category === 'all' ? 'filled' : 'outlined'}
+                            color={category === 'all' ? 'error' : 'default'}
+                            onClick={() => setCategory('all')}
+                            clickable
+                            sx={{ borderRadius: 2 }}
+                        />
+                        {categories.map(c => {
+                            const name = (c.name || '').toLowerCase();
+                            const isDrink = name.includes('uống') || name.includes('giải khát');
+                            const isFood = name.includes('ăn');
+                            const icon = isDrink ? <LocalCafe /> : (isFood ? <Fastfood /> : <Pets />);
+                            return (
+                                <Chip
+                                    key={c.id}
+                                    label={c.name}
+                                    icon={icon}
+                                    variant={category === c.id ? 'filled' : 'outlined'}
+                                    color={category === c.id ? 'error' : 'default'}
+                                    onClick={() => setCategory(c.id)}
+                                    clickable
+                                    sx={{ borderRadius: 2 }}
+                                />
+                            );
+                        })}
+                    </Stack>
 
-                <Stack 
-                    direction="row" 
-                    spacing={1} 
-                    sx={{ 
-                        mb: 3, 
-                        flexWrap: 'wrap',
-                        justifyContent: { xs: 'flex-start', sm: 'center' },
-                        gap: 1
-                    }}
-                >
-                    <Chip 
-                        label="Tất cả" 
-                        icon={<Pets />} 
-                        variant={category === 'all' ? 'filled' : 'outlined'} 
-                        color={category === 'all' ? 'error' : 'default'} 
-                        onClick={() => setCategory('all')} 
-                        clickable 
-                        sx={{ borderRadius: 2 }} 
-                    />
-                    {categories.map(c => {
-                        const name = (c.name || '').toLowerCase();
-                        const isDrink = name.includes('uống') || name.includes('giải khát');
-                        const isFood = name.includes('ăn');
-                        const icon = isDrink ? <LocalCafe /> : (isFood ? <Fastfood /> : <Pets />);
-                        return (
-                            <Chip 
-                                key={c.id} 
-                                label={c.name} 
-                                icon={icon} 
-                                variant={category === c.id ? 'filled' : 'outlined'} 
-                                color={category === c.id ? 'error' : 'default'} 
-                                onClick={() => setCategory(c.id)} 
-                                clickable 
-                                sx={{ borderRadius: 2 }} 
-                            />
-                        );
-                    })}
-                </Stack>
+                    <Box sx={{
+                        display: 'grid',
+                        gap: 3,
+                        gridTemplateColumns: {
+                            xs: 'repeat(1, 1fr)',
+                            sm: 'repeat(2, 1fr)',
+                            md: 'repeat(3, 1fr)',
+                            lg: 'repeat(4, 1fr)',
+                            xl: 'repeat(5, 1fr)'
+                        },
+                        justifyContent: 'center',
+                        width: '100%',
+                        mx: 'auto'
+                    }}>
+                        {filtered.map((p) => {
+                            const dailyLimit = getDailyLimit(p);
+                            const soldToday = getSoldToday(p);
+                            const inCart = getInCartQuantity(p.id);
+                            const remaining = dailyLimit != null ? Math.max(dailyLimit - soldToday - inCart, 0) : null;
 
-                <Box sx={{
-                    display: 'grid',
-                    gap: 3,
-                    gridTemplateColumns: {
-                        xs: 'repeat(1, 1fr)',
-                        sm: 'repeat(2, 1fr)',
-                        md: 'repeat(3, 1fr)',
-                        lg: 'repeat(4, 1fr)',
-                        xl: 'repeat(5, 1fr)'
-                    },
-                    justifyContent: 'center',
-                    width: '100%',
-                    mx: 'auto'
-                }}>
-                        {filtered.map((p) => (
-                            <Box key={p.id} sx={{ height: '100%' }}>
-                                <Card sx={{ borderRadius: 4, height: '100%', overflow: 'hidden', boxShadow: 6, transition: 'transform 120ms ease, box-shadow 120ms ease', '&:hover': { transform: 'translateY(-2px)', boxShadow: 10 }, display: 'flex', flexDirection: 'column' }}>
-                                    <Box sx={{ width: '100%', height: 180, position: 'relative', flexShrink: 0, backgroundColor: COLORS.BACKGROUND.NEUTRAL }}>
-                                        {getProductImage(p) ? (
-                                            <Box component="img" src={getProductImage(p)} alt={p.name} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                        ) : (
-                                            <Box sx={{ 
-                                                width: '100%', 
-                                                height: '100%', 
-                                                display: 'flex', 
-                                                alignItems: 'center', 
-                                                justifyContent: 'center',
-                                                background: `linear-gradient(135deg, ${COLORS.ERROR[100]} 0%, ${COLORS.SECONDARY[100]} 100%)`
-                                            }}>
-                                                <Pets sx={{ fontSize: 64, color: COLORS.ERROR[400], opacity: 0.6 }} />
-                                            </Box>
-                                        )}
-                                    </Box>
-                                    <CardContent sx={{ display: 'flex', flexDirection: 'column', flexGrow: 1 }}>
-                                    <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1.125rem', mb: 0.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', minHeight: 48, lineHeight: 1.4, letterSpacing: '-0.01em' }}>{p.name}</Typography>
-                                    <Typography sx={{ color: COLORS.TEXT.SECONDARY, fontSize: '0.9375rem', mb: 1, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', minHeight: 40, lineHeight: 1.5, fontWeight: 400 }}>{p.description}</Typography>
-                                    <Typography sx={{ fontWeight: 700, fontSize: '1.25rem', color: COLORS.ERROR[600], mb: 1, letterSpacing: '-0.01em' }}>{p.price.toLocaleString('vi-VN')} ₫</Typography>
-                                        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }} sx={{ mb: 1 }}>
-                                            <Button variant="contained" color="error" onClick={() => addToCart(p)} size="small" startIcon={<ShoppingBag />} sx={{ borderRadius: 2, alignSelf: 'flex-start' }}>
+                            return (
+                                <Box key={p.id} sx={{ height: '100%' }}>
+                                    <Card sx={{ borderRadius: 4, height: '100%', overflow: 'hidden', boxShadow: 6, transition: 'transform 120ms ease, box-shadow 120ms ease', '&:hover': { transform: 'translateY(-2px)', boxShadow: 10 }, display: 'flex', flexDirection: 'column' }}>
+                                        <Box sx={{ width: '100%', height: 180, position: 'relative', flexShrink: 0, backgroundColor: COLORS.BACKGROUND.NEUTRAL }}>
+                                            {getProductImage(p) ? (
+                                                <Box component="img" src={getProductImage(p)} alt={p.name} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                            ) : (
+                                                <Box sx={{
+                                                    width: '100%',
+                                                    height: '100%',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    background: `linear-gradient(135deg, ${COLORS.ERROR[100]} 0%, ${COLORS.SECONDARY[100]} 100%)`
+                                                }}>
+                                                    <Pets sx={{ fontSize: 64, color: COLORS.ERROR[400], opacity: 0.6 }} />
+                                                </Box>
+                                            )}
+                                        </Box>
+                                        <CardContent sx={{ display: 'flex', flexDirection: 'column', flexGrow: 1 }}>
+                                            <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1.125rem', mb: 0.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', minHeight: 48, lineHeight: 1.4, letterSpacing: '-0.01em' }}>{p.name}</Typography>
+                                            <Typography sx={{ color: COLORS.TEXT.SECONDARY, fontSize: '0.9375rem', mb: 1, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', minHeight: 40, lineHeight: 1.5, fontWeight: 400 }}>{p.description}</Typography>
+                                            <Typography sx={{ fontWeight: 700, fontSize: '1.25rem', color: COLORS.ERROR[600], mb: 1, letterSpacing: '-0.01em' }}>{p.price.toLocaleString('vi-VN')} ₫</Typography>
+                                            {dailyLimit != null && (
+                                                <Typography sx={{ fontSize: '0.85rem', color: COLORS.TEXT.SECONDARY, mb: 0.5 }}>
+                                                    Số lượng bán trong ngày: <strong>{dailyLimit}</strong>{soldToday ? ` • Đã bán: ${soldToday}` : ''}{inCart ? ` • Trong giỏ: ${inCart}` : ''}{remaining != null ? ` • Còn lại: ${remaining}` : ''}
+                                                </Typography>
+                                            )}
+                                            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }} sx={{ mb: 1 }}>
+                                                <Button
+                                                    variant="contained"
+                                                    color="error"
+                                                    onClick={() => addToCart(p)}
+                                                    size="small"
+                                                    startIcon={<ShoppingBag />}
+                                                    sx={{ borderRadius: 2, alignSelf: 'flex-start' }}
+                                                    disabled={dailyLimit != null && remaining <= 0}
+                                                >
+                                                    {dailyLimit != null && remaining <= 0 ? 'Hết lượt trong ngày' : 'Thêm vào giỏ'}
+                                                </Button>
+                                            </Stack>
+                                            <Box sx={{ flexGrow: 1 }} />
+                                            <Button variant="outlined" color="error" onClick={() => addToCart(p)} size="small" sx={{ display: 'none' }}>
                                                 Thêm vào giỏ
                                             </Button>
-                                        </Stack>
-                                        <Box sx={{ flexGrow: 1 }} />
-                                        <Button variant="outlined" color="error" onClick={() => addToCart(p)} size="small" sx={{ display: 'none' }}>
-                                            Thêm vào giỏ
-                                        </Button>
-                                    </CardContent>
-                                </Card>
-                            </Box>
-                        ))}
+                                        </CardContent>
+                                    </Card>
+                                </Box>
+                            );
+                        })}
+                    </Box>
                 </Box>
-            </Box>
 
             </Container>
 
@@ -374,8 +477,34 @@ const SalesPage = () => {
                             type="number"
                             label="Số lượng"
                             value={addQty}
-                            onChange={(e) => setAddQty(e.target.value)}
-                            InputProps={{ inputProps: { min: 1 }, endAdornment: <InputAdornment position="end">x</InputAdornment> }}
+                            onChange={(e) => {
+                                const raw = e.target.value;
+                                // Cho phép xóa hết để nhập lại
+                                if (raw === '') {
+                                    setAddQty('');
+                                    return;
+                                }
+                                let n = parseInt(raw, 10);
+                                if (Number.isNaN(n) || n < 1) n = 1;
+                                if (selectedRemainingBase != null && selectedRemainingBase > 0 && n > selectedRemainingBase) {
+                                    n = selectedRemainingBase;
+                                }
+                                setAddQty(String(n));
+                            }}
+                            InputProps={{
+                                inputProps: {
+                                    min: 1,
+                                    ...(selectedRemainingBase != null && selectedRemainingBase > 0
+                                        ? { max: selectedRemainingBase }
+                                        : {})
+                                },
+                                endAdornment: <InputAdornment position="end">x</InputAdornment>
+                            }}
+                            helperText={
+                                selectedDailyLimit != null
+                                    ? `Tối đa còn lại hôm nay: ${selectedRemainingBase ?? 0}`
+                                    : ''
+                            }
                             size="small"
                         />
                         <TextField

@@ -1242,6 +1242,7 @@ const ServicesPage = () => {
                 onDeleteSlot={handleDeleteSlot}
                 onRefresh={loadData}
                 showCreateAction={false}
+                showActionsColumn={false}
             />
 
             <SlotFormModal

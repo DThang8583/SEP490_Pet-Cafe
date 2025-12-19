@@ -17,6 +17,7 @@ import SalesNotificationsPage from "../pages/sales/NotificationsPage";
 import SalesInvoicePage from "../pages/sales/InvoicePage";
 import ServiceBookingDetailPage from "../pages/sales/ServiceBookingDetailPage";
 import ProductOrderDetailPage from "../pages/sales/ProductOrderDetailPage";
+import SalesTeamsPage from "../pages/sales/SalesTeamsPage";
 
 const salesRoutes = (
     <>
@@ -30,6 +31,7 @@ const salesRoutes = (
         <Route path="/sales/pet-groups" element={<PetGroupsPage />} />
         <Route path="/sales/pet-status" element={<PetStatusPage />} />
         <Route path="/sales/attendance" element={<AttendancePage />} />
+        <Route path="/sales/teams" element={<SalesTeamsPage />} />
         <Route path="/sales/joined-groups" element={<JoinedGroupsPage />} />
         <Route path="/sales/service-booking-confirm" element={<ServiceBookingConfirmPage />} />
         <Route path="/sales/product-sales-confirm" element={<ProductSalesConfirmPage />} />

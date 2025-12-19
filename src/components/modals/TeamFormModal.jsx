@@ -131,7 +131,7 @@ const TeamFormModal = ({
                                     <Stack direction="row" spacing={1.5} alignItems="center">
                                         <Typography>{emp.full_name}</Typography>
                                         <Chip
-                                            label={emp.sub_role === 'WORKING_STAFF' ? 'Working Staff' : 'Sale Staff'}
+                                            label={emp.sub_role === 'WORKING_STAFF' ? 'Nhân viên chăm sóc' : 'Nhân viên bán hàng'}
                                             size="small"
                                             sx={{
                                                 height: 20,

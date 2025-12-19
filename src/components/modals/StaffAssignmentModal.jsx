@@ -6,8 +6,8 @@ import { COLORS } from '../../constants/colors';
 
 const roleLabel = (r) => {
     switch (r) {
-        case 'sales_staff': return 'Sale staff';
-        case 'working_staff': return 'Working staff';
+        case 'sales_staff': return 'Nhân viên bán hàng';
+        case 'working_staff': return 'Nhân viên chăm sóc';
         default: return r;
     }
 };

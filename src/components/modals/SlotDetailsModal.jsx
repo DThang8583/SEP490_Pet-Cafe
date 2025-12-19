@@ -25,27 +25,28 @@ const SlotDetailsModal = ({
     onEditSlot,
     onDeleteSlot,
     onRefresh,
-    showCreateAction = false
+    showCreateAction = false,
+    showActionsColumn = true
 }) => {
     // Memoize filtered and sorted slots
     const taskSlots = useMemo(() => {
         if (!open || !taskData || !slots || !Array.isArray(slots)) return [];
 
-            // Filter slots for this task
-            const filtered = slots.filter(slot => slot.task_id === taskData.id);
+        // Filter slots for this task
+        const filtered = slots.filter(slot => slot.task_id === taskData.id);
 
         // Sort by weekday order (Monday first) and then by start_time
         return [...filtered].sort((a, b) => {
-                const dayA = a.day_of_week || 'MONDAY';
-                const dayB = b.day_of_week || 'MONDAY';
+            const dayA = a.day_of_week || 'MONDAY';
+            const dayB = b.day_of_week || 'MONDAY';
             const orderA = WEEKDAY_ORDER[dayA] ?? 999;
             const orderB = WEEKDAY_ORDER[dayB] ?? 999;
 
-                if (orderA !== orderB) {
-                    return orderA - orderB;
-                }
-                return (a.start_time || '').localeCompare(b.start_time || '');
-            });
+            if (orderA !== orderB) {
+                return orderA - orderB;
+            }
+            return (a.start_time || '').localeCompare(b.start_time || '');
+        });
     }, [open, taskData, slots]);
 
     // Memoize stats calculation
@@ -70,10 +71,10 @@ const SlotDetailsModal = ({
 
     // Memoize status map
     const statusMap = useMemo(() => ({
-            'AVAILABLE': { label: 'Có sẵn', color: COLORS.SUCCESS[700], bg: COLORS.SUCCESS[50] },
-            'UNAVAILABLE': { label: 'Không khả dụng', color: COLORS.WARNING[700], bg: COLORS.WARNING[50] },
+        'AVAILABLE': { label: 'Có sẵn', color: COLORS.SUCCESS[700], bg: COLORS.SUCCESS[50] },
+        'UNAVAILABLE': { label: 'Không khả dụng', color: COLORS.WARNING[700], bg: COLORS.WARNING[50] },
         'MAINTENANCE': { label: 'Bảo trì', color: COLORS.INFO[700], bg: COLORS.INFO[50] },
-            'CANCELLED': { label: 'Đã hủy', color: COLORS.ERROR[700], bg: COLORS.ERROR[50] }
+        'CANCELLED': { label: 'Đã hủy', color: COLORS.ERROR[700], bg: COLORS.ERROR[50] }
     }), []);
 
     // Memoize status chip component
@@ -243,7 +244,9 @@ const SlotDetailsModal = ({
                                     {taskData.is_public && <TableCell width="10%" align="right">Giá</TableCell>}
                                     <TableCell width="10%" align="center">Trạng thái</TableCell>
                                     <TableCell width="8%" align="center">Ghi chú</TableCell>
-                                    <TableCell width="8%" align="center">Thao tác</TableCell>
+                                    {showActionsColumn && (
+                                        <TableCell width="8%" align="center">Thao tác</TableCell>
+                                    )}
                                 </TableRow>
                             </TableHead>
                             <TableBody>
@@ -348,38 +351,40 @@ const SlotDetailsModal = ({
                                         </TableCell>
 
                                         {/* Thao tác */}
-                                        <TableCell align="center">
-                                            <Stack direction="row" spacing={0.5} justifyContent="center">
-                                                <Tooltip title="Sửa">
-                                                    <IconButton
-                                                        size="small"
-                                                        onClick={() => handleEditSlot(slot)}
-                                                        sx={{
-                                                            color: COLORS.PRIMARY[500],
-                                                            '&:hover': {
-                                                                bgcolor: alpha(COLORS.PRIMARY[50], 0.5)
-                                                            }
-                                                        }}
-                                                    >
-                                                        <EditIcon fontSize="small" />
-                                                    </IconButton>
-                                                </Tooltip>
-                                                <Tooltip title="Xóa">
-                                                    <IconButton
-                                                        size="small"
-                                                        onClick={() => handleDeleteSlot(slot.id)}
-                                                        sx={{
-                                                            color: COLORS.ERROR[500],
-                                                            '&:hover': {
-                                                                bgcolor: alpha(COLORS.ERROR[50], 0.5)
-                                                            }
-                                                        }}
-                                                    >
-                                                        <DeleteIcon fontSize="small" />
-                                                    </IconButton>
-                                                </Tooltip>
-                                            </Stack>
-                                        </TableCell>
+                                        {showActionsColumn && (
+                                            <TableCell align="center">
+                                                <Stack direction="row" spacing={0.5} justifyContent="center">
+                                                    <Tooltip title="Sửa">
+                                                        <IconButton
+                                                            size="small"
+                                                            onClick={() => handleEditSlot(slot)}
+                                                            sx={{
+                                                                color: COLORS.PRIMARY[500],
+                                                                '&:hover': {
+                                                                    bgcolor: alpha(COLORS.PRIMARY[50], 0.5)
+                                                                }
+                                                            }}
+                                                        >
+                                                            <EditIcon fontSize="small" />
+                                                        </IconButton>
+                                                    </Tooltip>
+                                                    <Tooltip title="Xóa">
+                                                        <IconButton
+                                                            size="small"
+                                                            onClick={() => handleDeleteSlot(slot.id)}
+                                                            sx={{
+                                                                color: COLORS.ERROR[500],
+                                                                '&:hover': {
+                                                                    bgcolor: alpha(COLORS.ERROR[50], 0.5)
+                                                                }
+                                                            }}
+                                                        >
+                                                            <DeleteIcon fontSize="small" />
+                                                        </IconButton>
+                                                    </Tooltip>
+                                                </Stack>
+                                            </TableCell>
+                                        )}
                                     </TableRow>
                                 ))}
                             </TableBody>

@@ -32,6 +32,7 @@ import {
 import { InputAdornment } from '@mui/material';
 import { COLORS } from '../../constants/colors';
 import { formatPrice } from '../../utils/formatPrice';
+import Loading from '../../components/loading/Loading';
 
 const ProductSalesConfirmPage = () => {
     const navigate = useNavigate();
@@ -353,198 +354,198 @@ const ProductSalesConfirmPage = () => {
         const invoice = transactions.find((t) => String(t.order_code || "") === codeKey);
 
         return (
-        <CardContent sx={{ p: { xs: 2, sm: 2.5 }, flexGrow: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-            {/* Order Header */}
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5, pb: 1.5, borderBottom: `2px solid ${alpha(COLORS.ERROR[100], 0.5)}` }}>
-                <Box>
-                    <Typography variant="subtitle1" sx={{
-                        fontWeight: 900,
-                        color: COLORS.ERROR[600],
-                        mb: 0.25,
-                        fontSize: '1rem'
-                    }}>
-                        Đơn hàng #{orderData.order_number || orderData.id}
-                    </Typography>
-                    <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, display: 'block', fontSize: '0.75rem' }}>
-                        {orderData.order_date && new Date(orderData.order_date).toLocaleDateString('vi-VN', {
-                            day: '2-digit',
-                            month: '2-digit',
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                        })}
-                    </Typography>
+            <CardContent sx={{ p: { xs: 2, sm: 2.5 }, flexGrow: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+                {/* Order Header */}
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5, pb: 1.5, borderBottom: `2px solid ${alpha(COLORS.ERROR[100], 0.5)}` }}>
+                    <Box>
+                        <Typography variant="subtitle1" sx={{
+                            fontWeight: 900,
+                            color: COLORS.ERROR[600],
+                            mb: 0.25,
+                            fontSize: '1rem'
+                        }}>
+                            Đơn hàng #{orderData.order_number || orderData.id}
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, display: 'block', fontSize: '0.75rem' }}>
+                            {orderData.order_date && new Date(orderData.order_date).toLocaleDateString('vi-VN', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                            })}
+                        </Typography>
+                    </Box>
+                    <Stack direction="column" spacing={0.5} alignItems="flex-end">
+                        <Chip
+                            label={orderData.payment_status === 'PAID' ? 'Đã thanh toán' : orderData.payment_status === 'PENDING' ? 'Chờ thanh toán' : orderData.payment_status === 'EXPIRED' ? 'Hết hạn' : orderData.payment_status || '—'}
+                            color={orderData.payment_status === 'PAID' ? 'success' : orderData.payment_status === 'PENDING' ? 'warning' : orderData.payment_status === 'EXPIRED' ? 'default' : 'default'}
+                            size="small"
+                            sx={{ fontWeight: 600, fontSize: '0.75rem' }}
+                        />
+                        {orderData.is_product_order && (
+                            <Chip label="Sản phẩm" size="small" color="error" sx={{ mt: 0.5, fontSize: '0.7rem' }} />
+                        )}
+                    </Stack>
                 </Box>
-                <Stack direction="column" spacing={0.5} alignItems="flex-end">
-                    <Chip
-                        label={orderData.payment_status === 'PAID' ? 'Đã thanh toán' : orderData.payment_status === 'PENDING' ? 'Chờ thanh toán' : orderData.payment_status === 'EXPIRED' ? 'Hết hạn' : orderData.payment_status || '—'}
-                        color={orderData.payment_status === 'PAID' ? 'success' : orderData.payment_status === 'PENDING' ? 'warning' : orderData.payment_status === 'EXPIRED' ? 'default' : 'default'}
-                        size="small"
-                        sx={{ fontWeight: 600, fontSize: '0.75rem' }}
-                    />
-                    {orderData.is_product_order && (
-                        <Chip label="Sản phẩm" size="small" color="error" sx={{ mt: 0.5, fontSize: '0.7rem' }} />
-                    )}
-                </Stack>
-            </Box>
 
-            {/* Products List - Bill Style */}
-            <Box sx={{ mb: 2, flexGrow: 1, minHeight: 0 }}>
-                <Typography variant="subtitle2" sx={{
-                    fontWeight: 700,
-                    color: COLORS.ERROR[600],
-                    mb: 1,
-                    fontSize: '0.875rem',
-                    textTransform: 'uppercase',
-                    letterSpacing: 0.5
-                }}>
-                    Sản phẩm đã bán
-                </Typography>
-                {orderData.products && orderData.products.length > 0 ? (
-                    <Box sx={{
-                        maxHeight: '300px',
-                        overflowY: 'auto',
-                        pr: 1,
-                        '&::-webkit-scrollbar': {
-                            width: '6px',
-                        },
-                        '&::-webkit-scrollbar-track': {
-                            backgroundColor: alpha(COLORS.ERROR[50], 0.3),
-                            borderRadius: '3px',
-                        },
-                        '&::-webkit-scrollbar-thumb': {
-                            backgroundColor: alpha(COLORS.ERROR[300], 0.5),
-                            borderRadius: '3px',
-                            '&:hover': {
-                                backgroundColor: alpha(COLORS.ERROR[400], 0.7),
-                            },
-                        },
+                {/* Products List - Bill Style */}
+                <Box sx={{ mb: 2, flexGrow: 1, minHeight: 0 }}>
+                    <Typography variant="subtitle2" sx={{
+                        fontWeight: 700,
+                        color: COLORS.ERROR[600],
+                        mb: 1,
+                        fontSize: '0.875rem',
+                        textTransform: 'uppercase',
+                        letterSpacing: 0.5
                     }}>
-                        <Stack spacing={0.75}>
-                            {orderData.products.map((product, index) => (
-                                <Box
-                                    key={index}
-                                    sx={{
-                                        p: 1.5,
-                                        borderRadius: 1.5,
-                                        backgroundColor: alpha(COLORS.ERROR[50], 0.3),
-                                        border: `1px solid ${alpha(COLORS.ERROR[200], 0.4)}`,
-                                        transition: 'all 0.15s ease',
-                                        '&:hover': {
-                                            backgroundColor: alpha(COLORS.ERROR[50], 0.5),
-                                            borderColor: COLORS.ERROR[300]
-                                        }
-                                    }}
-                                >
-                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1.5 }}>
-                                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                        Sản phẩm đã bán
+                    </Typography>
+                    {orderData.products && orderData.products.length > 0 ? (
+                        <Box sx={{
+                            maxHeight: '300px',
+                            overflowY: 'auto',
+                            pr: 1,
+                            '&::-webkit-scrollbar': {
+                                width: '6px',
+                            },
+                            '&::-webkit-scrollbar-track': {
+                                backgroundColor: alpha(COLORS.ERROR[50], 0.3),
+                                borderRadius: '3px',
+                            },
+                            '&::-webkit-scrollbar-thumb': {
+                                backgroundColor: alpha(COLORS.ERROR[300], 0.5),
+                                borderRadius: '3px',
+                                '&:hover': {
+                                    backgroundColor: alpha(COLORS.ERROR[400], 0.7),
+                                },
+                            },
+                        }}>
+                            <Stack spacing={0.75}>
+                                {orderData.products.map((product, index) => (
+                                    <Box
+                                        key={index}
+                                        sx={{
+                                            p: 1.5,
+                                            borderRadius: 1.5,
+                                            backgroundColor: alpha(COLORS.ERROR[50], 0.3),
+                                            border: `1px solid ${alpha(COLORS.ERROR[200], 0.4)}`,
+                                            transition: 'all 0.15s ease',
+                                            '&:hover': {
+                                                backgroundColor: alpha(COLORS.ERROR[50], 0.5),
+                                                borderColor: COLORS.ERROR[300]
+                                            }
+                                        }}
+                                    >
+                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1.5 }}>
+                                            <Box sx={{ flex: 1, minWidth: 0 }}>
+                                                <Typography variant="body2" sx={{
+                                                    fontWeight: 700,
+                                                    color: COLORS.TEXT.PRIMARY,
+                                                    mb: 0.25,
+                                                    fontSize: '0.875rem'
+                                                }}>
+                                                    {product.product_name}
+                                                </Typography>
+                                                <Typography variant="caption" sx={{
+                                                    color: COLORS.TEXT.SECONDARY,
+                                                    fontSize: '0.75rem',
+                                                    display: 'block'
+                                                }}>
+                                                    {product.quantity} × {formatPrice(product.price)}
+                                                </Typography>
+                                            </Box>
                                             <Typography variant="body2" sx={{
+                                                color: COLORS.ERROR[600],
                                                 fontWeight: 700,
-                                                color: COLORS.TEXT.PRIMARY,
-                                                mb: 0.25,
-                                                fontSize: '0.875rem'
+                                                fontSize: '0.875rem',
+                                                whiteSpace: 'nowrap'
                                             }}>
-                                                {product.product_name}
-                                            </Typography>
-                                            <Typography variant="caption" sx={{
-                                                color: COLORS.TEXT.SECONDARY,
-                                                fontSize: '0.75rem',
-                                                display: 'block'
-                                            }}>
-                                                {product.quantity} × {formatPrice(product.price)}
+                                                {formatPrice(product.subtotal)}
                                             </Typography>
                                         </Box>
-                                        <Typography variant="body2" sx={{
-                                            color: COLORS.ERROR[600],
-                                            fontWeight: 700,
-                                            fontSize: '0.875rem',
-                                            whiteSpace: 'nowrap'
-                                        }}>
-                                            {formatPrice(product.subtotal)}
-                                        </Typography>
                                     </Box>
-                                </Box>
-                            ))}
-                        </Stack>
-                    </Box>
-                ) : (
-                    <Box sx={{
-                        p: 1.5,
-                        borderRadius: 1.5,
-                        backgroundColor: alpha(COLORS.WARNING[50], 0.3),
-                        border: `1px solid ${alpha(COLORS.WARNING[200], 0.4)}`
-                    }}>
-                        <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, fontStyle: 'italic', fontSize: '0.75rem' }}>
-                            ⚠️ Không tìm thấy thông tin sản phẩm
-                        </Typography>
-                    </Box>
-                )}
-            </Box>
-
-            {/* Notes */}
-            {orderData.notes && (
-                <Box sx={{ mb: 1.5 }}>
-                    <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, fontStyle: 'italic', fontSize: '0.75rem' }}>
-                        📝 {orderData.notes}
-                    </Typography>
-                </Box>
-            )}
-
-            <Divider sx={{ my: 1.5 }} />
-
-            {/* Payment & Total - Bottom Section */}
-            <Box sx={{ mt: 'auto', pt: 1.5 }}>
-                {orderData.payment_method && (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-                        <Payment sx={{ fontSize: 16, color: COLORS.ERROR[500] }} />
-                        <Typography variant="caption" sx={{ fontWeight: 600, color: COLORS.TEXT.PRIMARY, fontSize: '0.8125rem' }}>
-                            {orderData.payment_method === 'AT_COUNTER' ? 'Thanh toán tại quầy' : 'Chuyển khoản'}
-                        </Typography>
-                    </Box>
-                )}
-
-                {orderData.total && (
-                    <Paper sx={{
-                        p: 1.5,
-                        borderRadius: 2,
-                        backgroundColor: alpha(COLORS.ERROR[50], 0.6),
-                        border: `2px solid ${COLORS.ERROR[300]}`
-                    }}>
-                        <Stack direction="row" alignItems="center" justifyContent="space-between">
-                            <Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.ERROR[600], fontSize: '0.875rem' }}>
-                                Tổng cộng
-                            </Typography>
-                            <Typography variant="h6" sx={{ fontWeight: 900, color: COLORS.ERROR[600], fontSize: '1.25rem' }}>
-                                {formatPrice(orderData.total)}
-                            </Typography>
-                        </Stack>
-                        <Box sx={{ mt: 1.25 }}>
-                            <Divider sx={{ mb: 1 }} />
-                            <Stack direction="row" alignItems="center" justifyContent="space-between">
-                                <Box>
-                                    <Typography variant="caption" sx={{ fontWeight: 700 }}>Hóa đơn</Typography>
-                                    <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, display: 'block' }}>
-                                        {invoice
-                                            ? `Code: ${invoice.order_code} • ${invoice.desc || invoice.code || ''}`
-                                            : 'Chưa tìm thấy hóa đơn'}
-                                    </Typography>
-                                </Box>
-                                <Button
-                                    size="small"
-                                    variant="outlined"
-                                    color="error"
-                                    onClick={() => navigate(`/sales/product-order/${orderData.id}`)}
-                                    sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2 }}
-                                >
-                                    Xem hóa đơn
-                                </Button>
+                                ))}
                             </Stack>
                         </Box>
-                    </Paper>
+                    ) : (
+                        <Box sx={{
+                            p: 1.5,
+                            borderRadius: 1.5,
+                            backgroundColor: alpha(COLORS.WARNING[50], 0.3),
+                            border: `1px solid ${alpha(COLORS.WARNING[200], 0.4)}`
+                        }}>
+                            <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, fontStyle: 'italic', fontSize: '0.75rem' }}>
+                                ⚠️ Không tìm thấy thông tin sản phẩm
+                            </Typography>
+                        </Box>
+                    )}
+                </Box>
+
+                {/* Notes */}
+                {orderData.notes && (
+                    <Box sx={{ mb: 1.5 }}>
+                        <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, fontStyle: 'italic', fontSize: '0.75rem' }}>
+                            📝 {orderData.notes}
+                        </Typography>
+                    </Box>
                 )}
-            </Box>
-        </CardContent>
-    );
+
+                <Divider sx={{ my: 1.5 }} />
+
+                {/* Payment & Total - Bottom Section */}
+                <Box sx={{ mt: 'auto', pt: 1.5 }}>
+                    {orderData.payment_method && (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+                            <Payment sx={{ fontSize: 16, color: COLORS.ERROR[500] }} />
+                            <Typography variant="caption" sx={{ fontWeight: 600, color: COLORS.TEXT.PRIMARY, fontSize: '0.8125rem' }}>
+                                {orderData.payment_method === 'AT_COUNTER' ? 'Thanh toán tại quầy' : 'Chuyển khoản'}
+                            </Typography>
+                        </Box>
+                    )}
+
+                    {orderData.total && (
+                        <Paper sx={{
+                            p: 1.5,
+                            borderRadius: 2,
+                            backgroundColor: alpha(COLORS.ERROR[50], 0.6),
+                            border: `2px solid ${COLORS.ERROR[300]}`
+                        }}>
+                            <Stack direction="row" alignItems="center" justifyContent="space-between">
+                                <Typography variant="body2" sx={{ fontWeight: 700, color: COLORS.ERROR[600], fontSize: '0.875rem' }}>
+                                    Tổng cộng
+                                </Typography>
+                                <Typography variant="h6" sx={{ fontWeight: 900, color: COLORS.ERROR[600], fontSize: '1.25rem' }}>
+                                    {formatPrice(orderData.total)}
+                                </Typography>
+                            </Stack>
+                            <Box sx={{ mt: 1.25 }}>
+                                <Divider sx={{ mb: 1 }} />
+                                <Stack direction="row" alignItems="center" justifyContent="space-between">
+                                    <Box>
+                                        <Typography variant="caption" sx={{ fontWeight: 700 }}>Hóa đơn</Typography>
+                                        <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, display: 'block' }}>
+                                            {invoice
+                                                ? `Code: ${invoice.order_code} • ${invoice.desc || invoice.code || ''}`
+                                                : 'Chưa tìm thấy hóa đơn'}
+                                        </Typography>
+                                    </Box>
+                                    <Button
+                                        size="small"
+                                        variant="outlined"
+                                        color="error"
+                                        onClick={() => navigate(`/sales/product-order/${orderData.id}`)}
+                                        sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2 }}
+                                    >
+                                        Xem hóa đơn
+                                    </Button>
+                                </Stack>
+                            </Box>
+                        </Paper>
+                    )}
+                </Box>
+            </CardContent>
+        );
     };
 
     const groupedOrders = groupOrdersByDate(orders);
@@ -554,12 +555,15 @@ const ProductSalesConfirmPage = () => {
             <Box sx={{
                 py: { xs: 2, md: 3 },
                 minHeight: '100vh',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
                 background: `radial-gradient(900px 260px at -10% -10%, ${alpha(COLORS.ERROR[50], 0.6)}, transparent 60%),
                              radial-gradient(900px 260px at 110% 0%, ${alpha(COLORS.INFO[50], 0.6)}, transparent 60%),
                              ${COLORS.BACKGROUND.NEUTRAL}`
             }}>
-                <Container maxWidth="xl">
-                    <Typography sx={{ color: COLORS.TEXT.SECONDARY, fontWeight: 500 }}>Đang tải danh sách đơn hàng...</Typography>
+                <Container maxWidth="xl" sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+                    <Loading message="Đang tải danh sách đơn hàng..." size="large" variant="default" fullScreen={false} />
                 </Container>
             </Box>
         );
