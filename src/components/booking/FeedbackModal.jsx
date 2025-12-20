@@ -26,6 +26,7 @@ const FeedbackModal = ({ open, onClose, booking, onSubmit }) => {
     });
     const [submitting, setSubmitting] = useState(false);
     const [errors, setErrors] = useState({});
+    const [successMessage, setSuccessMessage] = useState('');
 
     // Feedback categories
     const ratingCategories = [
@@ -71,6 +72,7 @@ const FeedbackModal = ({ open, onClose, booking, onSubmit }) => {
             });
             setErrors({});
             setSubmitting(false);
+            setSuccessMessage('');
         }
     }, [open]);
 
@@ -143,21 +145,29 @@ const FeedbackModal = ({ open, onClose, booking, onSubmit }) => {
             newErrors.comment = 'Nhận xét quá ngắn (tối thiểu 10 ký tự)';
         }
 
-        if (!feedbackData.recommend) {
-            newErrors.recommend = 'Vui lòng cho biết bạn có giới thiệu không';
-        }
+        // Không bắt buộc recommend nữa vì API không yêu cầu
+        // if (!feedbackData.recommend) {
+        //     newErrors.recommend = 'Vui lòng cho biết bạn có giới thiệu không';
+        // }
 
         setErrors(newErrors);
-        return Object.keys(newErrors).length === 0;
+        const isValid = Object.keys(newErrors).length === 0;
+        console.log('[FeedbackModal] Validation result:', isValid, newErrors);
+        return isValid;
     };
 
     // Submit feedback
     const handleSubmit = async () => {
+        console.log('[FeedbackModal] handleSubmit called');
+        
         if (!validateForm()) {
+            console.log('[FeedbackModal] Validation failed:', errors);
             return;
         }
 
         setSubmitting(true);
+        setErrors({});
+        setSuccessMessage('');
 
         try {
             // Calculate average rating
@@ -180,11 +190,25 @@ const FeedbackModal = ({ open, onClose, booking, onSubmit }) => {
                 submittedAt: new Date().toISOString()
             };
 
+            console.log('[FeedbackModal] Calling onSubmit with data:', submissionData);
+            console.log('[FeedbackModal] Booking data:', booking);
+
             await onSubmit(submissionData);
-            onClose();
+            
+            console.log('[FeedbackModal] onSubmit completed successfully');
+            
+            // Hiển thị thông báo thành công
+            setSuccessMessage('Cảm ơn bạn đã đánh giá dịch vụ!');
+            setSubmitting(false);
+            
+            // Đóng modal sau 1.5 giây để người dùng thấy thông báo
+            setTimeout(() => {
+                onClose();
+                setSuccessMessage('');
+            }, 1500);
         } catch (error) {
+            console.error('[FeedbackModal] Error in handleSubmit:', error);
             setErrors({ submit: error.message || 'Có lỗi xảy ra khi gửi phản hồi' });
-        } finally {
             setSubmitting(false);
         }
     };
@@ -253,7 +277,7 @@ const FeedbackModal = ({ open, onClose, booking, onSubmit }) => {
                             border: `2px solid ${alpha(COLORS.INFO[200], 0.3)}`
                         }}>
                             <Grid container spacing={3} alignItems="center">
-                                <Grid item xs={12} sm={8}>
+                                <Grid size={{ xs: 12, sm: 8 }}>
                                     <Typography variant="h6" fontWeight="bold" sx={{ mb: 1, color: COLORS.INFO[700] }}>
                                         {booking.service?.name}
                                     </Typography>
@@ -267,7 +291,7 @@ const FeedbackModal = ({ open, onClose, booking, onSubmit }) => {
                                         sx={{ backgroundColor: alpha(COLORS.INFO[200], 0.8) }}
                                     />
                                 </Grid>
-                                <Grid item xs={12} sm={4}>
+                                <Grid size={{ xs: 12, sm: 4 }}>
                                     <Avatar sx={{
                                         width: 60,
                                         height: 60,
@@ -314,45 +338,6 @@ const FeedbackModal = ({ open, onClose, booking, onSubmit }) => {
                             )}
                         </Box>
 
-                        {/* Detailed Ratings */}
-                        <Box>
-                            <Typography variant="h6" fontWeight="bold" sx={{ mb: 3, color: COLORS.WARNING[700] }}>
-                                Đánh giá chi tiết
-                            </Typography>
-                            <Grid container spacing={3}>
-                                {ratingCategories.map((category) => (
-                                    <Grid item xs={12} sm={6} key={category.key}>
-                                        <Box sx={{
-                                            p: 3,
-                                            border: `2px solid ${alpha(COLORS.WARNING[200], 0.3)}`,
-                                            borderRadius: 3,
-                                            backgroundColor: alpha(COLORS.WARNING[50], 0.3),
-                                            textAlign: 'center'
-                                        }}>
-                                            <Box sx={{ color: COLORS.WARNING[500], mb: 1 }}>
-                                                {category.icon}
-                                            </Box>
-                                            <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 1 }}>
-                                                {category.label}
-                                            </Typography>
-                                            <Typography variant="caption" color="text.secondary" sx={{ mb: 2, display: 'block' }}>
-                                                {category.description}
-                                            </Typography>
-                                            <Rating
-                                                value={feedbackData[category.key]}
-                                                onChange={(_, value) => handleRatingChange(category.key, value)}
-                                                sx={{
-                                                    '& .MuiRating-iconFilled': {
-                                                        color: COLORS.WARNING[500]
-                                                    }
-                                                }}
-                                            />
-                                        </Box>
-                                    </Grid>
-                                ))}
-                            </Grid>
-                        </Box>
-
                         {/* Written Feedback */}
                         <Box>
                             <Typography variant="h6" fontWeight="bold" sx={{ mb: 2, color: COLORS.WARNING[700] }}>
@@ -376,156 +361,26 @@ const FeedbackModal = ({ open, onClose, booking, onSubmit }) => {
                             />
                         </Box>
 
-                        {/* Recommendation */}
-                        <Box>
-                            <Typography variant="h6" fontWeight="bold" sx={{ mb: 2, color: COLORS.WARNING[700] }}>
-                                Bạn có giới thiệu Pet Cafe cho bạn bè không? *
-                            </Typography>
-                            <FormControl error={!!errors.recommend}>
-                                <RadioGroup
-                                    value={feedbackData.recommend}
-                                    onChange={(e) => handleFieldChange('recommend', e.target.value)}
-                                    row
-                                >
-                                    <FormControlLabel
-                                        value="yes"
-                                        control={<Radio />}
-                                        label={
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                <ThumbUp sx={{ color: COLORS.SUCCESS[500] }} />
-                                                Có, chắc chắn
-                                            </Box>
-                                        }
-                                    />
-                                    <FormControlLabel
-                                        value="maybe"
-                                        control={<Radio />}
-                                        label={
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                <Recommend sx={{ color: COLORS.WARNING[500] }} />
-                                                Có thể
-                                            </Box>
-                                        }
-                                    />
-                                    <FormControlLabel
-                                        value="no"
-                                        control={<Radio />}
-                                        label={
-                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                <ThumbDown sx={{ color: COLORS.ERROR[500] }} />
-                                                Không
-                                            </Box>
-                                        }
-                                    />
-                                </RadioGroup>
-                                {errors.recommend && (
-                                    <Alert severity="error" sx={{ mt: 1 }}>
-                                        {errors.recommend}
-                                    </Alert>
-                                )}
-                            </FormControl>
-                        </Box>
-
-                        {/* Improvements */}
-                        <Box>
-                            <Typography variant="h6" fontWeight="bold" sx={{ mb: 2, color: COLORS.WARNING[700] }}>
-                                Đề xuất cải thiện (tùy chọn)
-                            </Typography>
-                            <TextField
-                                fullWidth
-                                multiline
-                                rows={3}
-                                placeholder="Bạn có đề xuất gì để Pet Cafe cải thiện dịch vụ tốt hơn không?"
-                                value={feedbackData.improvements}
-                                onChange={(e) => handleFieldChange('improvements', e.target.value)}
-                                inputProps={{ maxLength: 300 }}
-                                helperText={`${feedbackData.improvements.length}/300 ký tự`}
-                                sx={{
-                                    '& .MuiOutlinedInput-root': {
-                                        borderRadius: 3
+                        {/* Success Message */}
+                        {successMessage && (
+                            <Alert 
+                                severity="success" 
+                                sx={{ 
+                                    borderRadius: 2,
+                                    '& .MuiAlert-icon': {
+                                        fontSize: '1.5rem'
                                     }
                                 }}
-                            />
-                        </Box>
-
-                        {/* Photo Upload */}
-                        <Box>
-                            <Typography variant="h6" fontWeight="bold" sx={{ mb: 2, color: COLORS.WARNING[700] }}>
-                                Ảnh minh họa (tùy chọn)
-                            </Typography>
-                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2 }}>
-                                {feedbackData.photos.map((photo, index) => (
-                                    <Box key={index} sx={{ position: 'relative' }}>
-                                        <Box
-                                            component="img"
-                                            src={photo.url}
-                                            alt={photo.name}
-                                            sx={{
-                                                width: 80,
-                                                height: 80,
-                                                objectFit: 'cover',
-                                                borderRadius: 2,
-                                                border: `2px solid ${alpha(COLORS.WARNING[300], 0.5)}`
-                                            }}
-                                        />
-                                        <Button
-                                            size="small"
-                                            onClick={() => removePhoto(index)}
-                                            sx={{
-                                                position: 'absolute',
-                                                top: -8,
-                                                right: -8,
-                                                minWidth: 20,
-                                                width: 20,
-                                                height: 20,
-                                                borderRadius: '50%',
-                                                backgroundColor: COLORS.ERROR[500],
-                                                color: 'white',
-                                                '&:hover': {
-                                                    backgroundColor: COLORS.ERROR[600]
-                                                }
-                                            }}
-                                        >
-                                            ×
-                                        </Button>
-                                    </Box>
-                                ))}
-
-                                {feedbackData.photos.length < 5 && (
-                                    <Button
-                                        component="label"
-                                        variant="outlined"
-                                        startIcon={<PhotoCamera />}
-                                        sx={{
-                                            width: 80,
-                                            height: 80,
-                                            borderStyle: 'dashed',
-                                            borderColor: COLORS.WARNING[300],
-                                            color: COLORS.WARNING[600],
-                                            flexDirection: 'column',
-                                            gap: 0.5,
-                                            fontSize: '0.7rem'
-                                        }}
-                                    >
-                                        Thêm ảnh
-                                        <input
-                                            hidden
-                                            type="file"
-                                            accept="image/*"
-                                            multiple
-                                            onChange={handlePhotoUpload}
-                                        />
-                                    </Button>
-                                )}
-                            </Box>
-                            <Typography variant="caption" color="text.secondary">
-                                Tối đa 5 ảnh, mỗi ảnh không quá 5MB
-                            </Typography>
-                        </Box>
+                            >
+                                <Typography variant="body1" fontWeight="bold">
+                                    {successMessage}
+                                </Typography>
+                            </Alert>
+                        )}
 
                         {/* Submit Error */}
                         {errors.submit && (
-                            <Alert severity="error">
+                            <Alert severity="error" sx={{ borderRadius: 2 }}>
                                 {errors.submit}
                             </Alert>
                         )}
@@ -550,7 +405,7 @@ const FeedbackModal = ({ open, onClose, booking, onSubmit }) => {
                     variant="contained"
                     onClick={handleSubmit}
                     disabled={submitting}
-                    startIcon={submitting ? <CircularProgress size={20} /> : <Send />}
+                    startIcon={submitting ? null : <Send />}
                     sx={{
                         px: 4,
                         py: 1.5,
@@ -566,10 +421,18 @@ const FeedbackModal = ({ open, onClose, booking, onSubmit }) => {
                         },
                         '&:disabled': {
                             background: COLORS.GRAY[300]
-                        }
+                        },
+                        position: 'relative'
                     }}
                 >
-                    {submitting ? 'Đang gửi...' : 'Gửi đánh giá'}
+                    {submitting ? (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <CircularProgress size={16} sx={{ color: 'white' }} />
+                            Đang gửi...
+                        </Box>
+                    ) : (
+                        'Gửi đánh giá'
+                    )}
                 </Button>
             </DialogActions>
         </Dialog>

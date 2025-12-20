@@ -322,14 +322,31 @@ export const authApi = {
     // Login with Google OAuth credential
     async loginWithGoogle(googleCredential) {
         try {
+            // Loại bỏ dấu *** nếu có ở đầu token
+            let cleanToken = googleCredential;
+            if (cleanToken && typeof cleanToken === 'string') {
+                // Loại bỏ *** ở đầu nếu có
+                cleanToken = cleanToken.replace(/^\*{3,}/, '');
+            }
+            
+            // Đảm bảo accessToken được gửi đúng vào field access_token
+            const requestBody = { access_token: cleanToken };
+            
+            console.log('[authApi.loginWithGoogle] Calling API:', `${OFFICIAL_AUTH_URL}/google`);
+            console.log('[authApi.loginWithGoogle] Original token length:', googleCredential?.length || 0);
+            console.log('[authApi.loginWithGoogle] Clean token length:', cleanToken?.length || 0);
+            console.log('[authApi.loginWithGoogle] Request body (masked):', { 
+                access_token: cleanToken ? cleanToken.substring(0, 20) + '...' : 'null' 
+            });
+            
             const resp = await fetch(`${OFFICIAL_AUTH_URL}/google`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 // Backend yêu cầu access_token theo swagger
-                body: JSON.stringify({ access_token: googleCredential })
+                body: JSON.stringify(requestBody)
             });
 
-            console.log('[authApi.loginWithGoogle] status:', resp.status);
+            console.log('[authApi.loginWithGoogle] Response status:', resp.status);
 
             let data = {};
             try {

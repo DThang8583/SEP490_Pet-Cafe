@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { AppBar, Toolbar, Typography, Button, Box, IconButton, Avatar, Menu, MenuItem, useTheme, alpha, Container, Stack, Drawer, List, ListItemButton, ListItemIcon, ListItemText, Divider, Tooltip, ListSubheader, useMediaQuery } from '@mui/material';
+import { AppBar, Toolbar, Typography, Button, Box, IconButton, Avatar, Menu, MenuItem, useTheme, alpha, Container, Stack, Drawer, List, ListItemButton, ListItemIcon, ListItemText, Divider, Tooltip, ListSubheader, useMediaQuery, Badge } from '@mui/material';
 import { LocalCafe, Restaurant, ConfirmationNumber, LocationOn, AccountCircle, Menu as MenuIcon, Close, Pets, Schedule, Dashboard, People, Groups, Assignment, DesignServices, Inventory2, Logout, Vaccines, ShoppingCart, ReceiptLong, HealthAndSafety, Person, ChecklistRtl, AssignmentTurnedIn, Description, CheckCircle, Fastfood, TrendingUp, Notifications } from '@mui/icons-material';
 import { COLORS } from '../../../constants/colors';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -21,7 +21,7 @@ const Navbar = () => {
     const [collapsed, setCollapsed] = useState(false);
     const [isLeader, setIsLeader] = useState(false);
     const [unreadCount, setUnreadCount] = useState(0);
-    const signalRNotification = useSignalR();
+    const { notification: signalRNotification } = useSignalR();
 
     useEffect(() => {
         try {
@@ -45,11 +45,9 @@ const Navbar = () => {
         }
     }, []);
 
-    // Fetch unread notification count for Manager
+    // Fetch unread notification count
     useEffect(() => {
         const fetchUnreadCount = async () => {
-            if (!isManager) return;
-
             try {
                 const accountId = localStorage.getItem('accountId');
                 if (!accountId) return;
@@ -75,14 +73,18 @@ const Navbar = () => {
 
         window.addEventListener('notificationsMarkedAsRead', handleNotificationsRead);
 
+        // Refresh every 30 seconds
+        const interval = setInterval(fetchUnreadCount, 30000);
+
         return () => {
             window.removeEventListener('notificationsMarkedAsRead', handleNotificationsRead);
+            clearInterval(interval);
         };
-    }, [isManager, location.pathname]);
+    }, [location.pathname]);
 
     // Update unread count when new notification arrives via SignalR
     useEffect(() => {
-        if (signalRNotification && isManager) {
+        if (signalRNotification) {
             const accountId = localStorage.getItem('accountId');
             const notificationAccountId = signalRNotification.accountId || signalRNotification.account_id;
 
@@ -91,7 +93,7 @@ const Navbar = () => {
                 setUnreadCount(prev => prev + 1);
             }
         }
-    }, [signalRNotification, isManager]);
+    }, [signalRNotification]);
 
     // Keep sidebar width synchronized globally for layouts without changing hook order
     useEffect(() => {
@@ -116,12 +118,20 @@ const Navbar = () => {
         setMobileMenuOpen(false);
     };
 
-    const navItems = [
+    const navItems = useMemo(() => [
         { label: 'Đồ ăn & Đồ uống', path: '/menu', icon: <Restaurant /> },
         { label: 'Đặt lịch dịch vụ', path: '/booking', icon: <Schedule /> },
         { label: 'Danh sách chó mèo', path: '/pets', icon: <Pets /> },
         { label: 'Dịch vụ bán chạy', path: '/popular-services', icon: <TrendingUp /> },
-    ];
+        { 
+            path: '/notifications', 
+            icon: (
+                <Badge badgeContent={unreadCount > 0 ? unreadCount : 0} color="error" max={99}>
+                    <Notifications />
+                </Badge>
+            )
+        },
+    ], [unreadCount]);
 
     const isActive = (path) => location.pathname === path;
 

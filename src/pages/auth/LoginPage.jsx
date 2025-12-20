@@ -6,8 +6,8 @@ import { useNavigate } from 'react-router-dom';
 import { COLORS } from '../../constants/colors';
 import Loading from '../../components/loading/Loading';
 import { authApi } from '../../api/authApi';
-import { GoogleLogin, GoogleOAuthProvider } from '@react-oauth/google';
-
+import { signInWithPopup, GoogleAuthProvider } from "firebase/auth";
+import { Authentication } from '../../firebaseConfig/firebaseConfig';
 const LoginPage = () => {
     const navigate = useNavigate();
 
@@ -63,44 +63,74 @@ const LoginPage = () => {
         navigate('/register');
     };
 
-    const handleGoogleSuccess = async (credentialResponse) => {
+    const handleGoogleLogin = async () => {
         try {
             setError('');
-            console.log('Google credentialResponse:', credentialResponse);
-            if (!credentialResponse?.credential) {
-                setError('Không nhận được thông tin từ Google');
-                return;
-            }
-
-            // Decode ID token để xem thông tin user Google (log phục vụ debug)
-            try {
-                const token = credentialResponse.credential;
-                const payload = token.split('.')[1];
-                const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
-                const padded = base64 + '='.repeat((4 - base64.length % 4) % 4);
-                const decoded = JSON.parse(atob(padded));
-                console.log('Google ID token payload (user info):', decoded);
-            } catch (e) {
-                console.warn('Không decode được ID token:', e);
-            }
-
             setIsLoading(true);
-            const res = await authApi.loginWithGoogle(credentialResponse.credential);
+
+            // Tạo GoogleAuthProvider
+            const provider = new GoogleAuthProvider();
+            // Thêm scope để lấy access token
+            provider.addScope('profile');
+            provider.addScope('email');
+            
+            // Đăng nhập với Firebase
+            const result = await signInWithPopup(Authentication, provider);
+            
+            console.log('Firebase Google login successful:', result.user);
+
+            // Lấy access token từ result.user.accessToken
+            let accessToken = null;
+            
+            // Lấy từ result.user.accessToken
+            if (result.user?.accessToken) {
+                accessToken = result.user.accessToken;
+                console.log('[Firebase] ✅ Got access token from result.user.accessToken');
+            }
+            // Fallback: Lấy từ user.getIdToken()
+            else {
+                accessToken = await result.user.getIdToken();
+                console.log('[Firebase] ⚠️ Using Firebase ID token as fallback');
+            }
+
+            if (!accessToken) {
+                throw new Error('Không nhận được access token từ Google');
+            }
+
+            // Kiểm tra xem có phải OAuth access token thực sự không (bắt đầu bằng "ya29.")
+            const isRealAccessToken = accessToken.startsWith('ya29.') || accessToken.startsWith('1//');
+            console.log('[Firebase] Is real OAuth access token?', isRealAccessToken);
+            console.log('[Firebase] Final access token to send:', accessToken);
+
+            // Gửi access token lên backend API (sẽ được gửi trong field access_token)
+            const res = await authApi.loginWithGoogle(accessToken);
             console.log('Backend loginWithGoogle response:', res);
+            
             if (res?.success) {
                 console.log('Google login successful:', res.user);
                 navigate('/');
             }
         } catch (err) {
             console.error('Google login error:', err);
-            setError(err.message || 'Đăng nhập Google thất bại');
+            
+            // Xử lý các lỗi Firebase phổ biến
+            let errorMessage = 'Đăng nhập Google thất bại';
+            if (err.code === 'auth/popup-closed-by-user') {
+                errorMessage = 'Bạn đã đóng cửa sổ đăng nhập';
+            } else if (err.code === 'auth/popup-blocked') {
+                errorMessage = 'Cửa sổ đăng nhập bị chặn. Vui lòng cho phép popup.';
+            } else if (err.code === 'auth/cancelled-popup-request') {
+                errorMessage = 'Yêu cầu đăng nhập đã bị hủy';
+            } else if (err.code === 'auth/account-exists-with-different-credential') {
+                errorMessage = 'Tài khoản đã tồn tại với phương thức đăng nhập khác';
+            } else if (err.message) {
+                errorMessage = err.message;
+            }
+            
+            setError(errorMessage);
         } finally {
             setIsLoading(false);
         }
-    };
-
-    const handleGoogleError = () => {
-        setError('Có lỗi xảy ra khi đăng nhập bằng Google.');
     };
 
     // Styles
@@ -361,14 +391,41 @@ const LoginPage = () => {
 
                         {/* Social Login Section */}
                         <Box sx={{ mb: { xs: 3, md: 4 } }}>
-                            <GoogleOAuthProvider clientId="829602505083-adjjt91m6u0onmff18put1uad5u9qk9j.apps.googleusercontent.com">
-                                <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-                                    <GoogleLogin
-                                        onSuccess={handleGoogleSuccess}
-                                        onError={handleGoogleError}
-                                    />
-                                </Box>
-                            </GoogleOAuthProvider>
+                            <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+                                <Button
+                                    fullWidth
+                                    variant="outlined"
+                                    onClick={handleGoogleLogin}
+                                    disabled={isLoading}
+                                    sx={{
+                                        py: 1.5,
+                                        borderRadius: 3,
+                                        borderColor: alpha(COLORS.GRAY[300], 0.8),
+                                        color: COLORS.GRAY[700],
+                                        textTransform: 'none',
+                                        fontSize: '1rem',
+                                        fontWeight: 500,
+                                        '&:hover': {
+                                            borderColor: COLORS.PRIMARY[400],
+                                            backgroundColor: alpha(COLORS.PRIMARY[50], 0.5)
+                                        },
+                                        '&:disabled': {
+                                            borderColor: COLORS.GRAY[200],
+                                            color: COLORS.GRAY[400]
+                                        }
+                                    }}
+                                    startIcon={
+                                        <Box
+                                            component="img"
+                                            src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+                                            alt="Google"
+                                            sx={{ width: 20, height: 20 }}
+                                        />
+                                    }
+                                >
+                                    {isLoading ? 'Đang đăng nhập...' : 'Đăng nhập với Google'}
+                                </Button>
+                            </Box>
                         </Box>
 
                         <Divider sx={{ my: { xs: 2.5, md: 3.5 }, borderColor: alpha(COLORS.SECONDARY[200], 0.6) }}>
