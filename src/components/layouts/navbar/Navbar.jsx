@@ -123,8 +123,8 @@ const Navbar = () => {
         { label: 'Đặt lịch dịch vụ', path: '/booking', icon: <Schedule /> },
         { label: 'Danh sách chó mèo', path: '/pets', icon: <Pets /> },
         { label: 'Dịch vụ bán chạy', path: '/popular-services', icon: <TrendingUp /> },
-        { 
-            path: '/notifications', 
+        {
+            path: '/notifications',
             icon: (
                 <Badge badgeContent={unreadCount > 0 ? unreadCount : 0} color="error" max={99}>
                     <Notifications />
