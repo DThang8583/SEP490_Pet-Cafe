@@ -5,7 +5,7 @@ import Loading from '../../../components/loading/Loading';
 import AlertModal from '../../../components/modals/AlertModal';
 import statisticsApi from '../../../api/statisticsApi';
 import { OverviewSection, TasksSection, RevenueSection, OrdersSection, ProductsSection, ServicesSection } from './DashboardMainSections';
-import { PetsSection, PetsHealthSection, PetGroupsSection, SlotsSection, FeedbacksSection, EmployeesSection, TeamsSection, EmployeesPerformanceSection, DailyTasksSection, WorkShiftsSection, CustomersSection, InventorySection } from './DashboardExtendedSections';
+import { PetsSection, PetsHealthSection, PetGroupsSection, SlotsSection, FeedbacksSection, EmployeesSection, TeamsSection, EmployeesPerformanceSection, DailyTasksSection, WorkShiftsSection, CustomersSection, InventorySection, TransactionsSection } from './DashboardExtendedSections';
 
 // API configuration mapping
 const API_CONFIG = [
@@ -113,6 +113,7 @@ const DashboardPage = () => {
                 {/* Statistics sections in API order */}
                 <RevenueSection revenueData={statistics.revenueData} />
                 <OrdersSection ordersData={statistics.ordersData} />
+                <TransactionsSection />
                 <ProductsSection productsData={statistics.productsData} />
                 <ServicesSection servicesData={statistics.servicesData} />
                 <SlotsSection slotsData={statistics.slotsData} />

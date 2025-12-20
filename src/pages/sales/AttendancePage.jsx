@@ -1004,7 +1004,7 @@ const AttendancePage = () => {
             sx={{
                 p: { xs: 2, md: 4 },
                 bgcolor: COLORS.BACKGROUND.NEUTRAL,
-                minHeight: '100vh',
+            minHeight: '100vh',
                 opacity: isPending ? 0.6 : 1,
                 transition: 'opacity 0.2s ease-out'
             }}
@@ -1345,14 +1345,14 @@ const AttendancePage = () => {
                                                         {team.name}
                                                     </Typography>
                                                     {isTeamLeader && (
-                                                        <Chip
+                            <Chip 
                                                             label="Leader"
-                                                            color="error"
+                                color="error"
                                                             size="small"
                                                             sx={{ fontWeight: 700, height: 26 }}
-                                                        />
-                                                    )}
-                                                </Stack>
+                            />
+                        )}
+                    </Stack>
                                                 <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, mb: 1.5 }}>
                                                     {team.work_type?.name || 'Nhóm dịch vụ'} • {team.area?.name || 'Khu vực chung'}
                                                 </Typography>
@@ -1371,8 +1371,8 @@ const AttendancePage = () => {
                                                         variant="outlined"
                                                         sx={{ bgcolor: 'white', fontWeight: 500 }}
                                                     />
-                                                </Stack>
-                                            </Box>
+                </Stack>
+                    </Box>
                                         </Stack>
                                     </Stack>
                                 </Box>
@@ -1393,10 +1393,10 @@ const AttendancePage = () => {
                                                 }}
                                             >
                                                 <CardContent sx={{ p: 3 }}>
-                                                    <Stack spacing={3}>
+                    <Stack spacing={3}>
                                                         {/* Shift Header */}
                                                         <Stack spacing={1.5}>
-                                                            <Stack direction="row" spacing={2} alignItems="center">
+                                <Stack direction="row" spacing={2} alignItems="center">
                                                                 <Box
                                                                     sx={{
                                                                         p: 1.5,
@@ -1412,12 +1412,12 @@ const AttendancePage = () => {
                                                                 <Box flex={1}>
                                                                     <Typography variant="h6" sx={{ fontWeight: 700, mb: 0.5 }}>
                                                                         {shift.name || 'Ca làm việc'}
-                                                                    </Typography>
+                                        </Typography>
                                                                     <Typography variant="body1" sx={{ color: COLORS.TEXT.SECONDARY, fontWeight: 500 }}>
                                                                         {formatTime(shift.start_time)} - {formatTime(shift.end_time)}
-                                                                    </Typography>
-                                                                </Box>
-                                                            </Stack>
+                                        </Typography>
+                                    </Box>
+                                </Stack>
                                                             {shift.description && (
                                                                 <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, pl: 7 }}>
                                                                     {shift.description}
@@ -1447,7 +1447,7 @@ const AttendancePage = () => {
                                                                 <Typography variant="body1" sx={{ color: COLORS.TEXT.SECONDARY, fontWeight: 500 }}>
                                                                     Chưa có dữ liệu điểm danh cho ca này.
                                                                 </Typography>
-                                                            </Box>
+                            </Box>
                                                         ) : (
                                                             <Box>
                                                                 {/* Day Tabs - Professional Design */}
@@ -1522,8 +1522,8 @@ const AttendancePage = () => {
                                                                                 </Button>
                                                                             );
                                                                         })}
-                                                                    </Stack>
-                                                                </Box>
+                                    </Stack>
+                                </Box>
 
                                                                 {/* Attendance Tables for Each Day */}
                                                                 {days.map(({ dayKey, members: dayMembers, dates }, dayIdx) => {
@@ -1559,7 +1559,7 @@ const AttendancePage = () => {
                                                                                         }}
                                                                                     >
                                                                                         <Table size="medium" stickyHeader>
-                                                                                            <TableHead>
+                                        <TableHead>
                                                                                                 <TableRow>
                                                                                                     <TableCell sx={{
                                                                                                         fontWeight: 800,
@@ -1602,9 +1602,9 @@ const AttendancePage = () => {
                                                                                                     }}>
                                                                                                         Trạng thái điểm danh
                                                                                                     </TableCell>
-                                                                                                </TableRow>
-                                                                                            </TableHead>
-                                                                                            <TableBody>
+                                            </TableRow>
+                                        </TableHead>
+                                        <TableBody>
                                                                                                 {displayData.map((item, idx) => {
                                                                                                     const isMemberView = item.member !== undefined;
                                                                                                     const member = isMemberView ? item.member : (item.employee || item.team_member?.employee || {});
@@ -1628,12 +1628,12 @@ const AttendancePage = () => {
                                                                                                                 member.team_member_id ||
                                                                                                                 null
                                                                                                         };
-
-                                                                                                    return (
-                                                                                                        <TableRow
+                                                
+                                                return (
+                                                    <TableRow 
                                                                                                             key={isMemberView ? `${member.id}-${dateStr}-${idx}` : (schedule?.id || idx)}
                                                                                                             hover
-                                                                                                            sx={{
+                                                        sx={{ 
                                                                                                                 '&:hover': {
                                                                                                                     bgcolor: alpha(COLORS.PRIMARY[50], 0.3)
                                                                                                                 }
@@ -1650,16 +1650,16 @@ const AttendancePage = () => {
                                                                                                                         }}
                                                                                                                     >
                                                                                                                         {member.full_name?.charAt(0) || '?'}
-                                                                                                                    </Avatar>
+                                                            </Avatar>
                                                                                                                     <Box>
                                                                                                                         <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
                                                                                                                             <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
                                                                                                                                 {member.full_name || 'N/A'}
                                                                                                                             </Typography>
                                                                                                                             {isMemberView && member.isLeader && (
-                                                                                                                                <Chip
+                                                            <Chip 
                                                                                                                                     label="Leader"
-                                                                                                                                    size="small"
+                                                                size="small"
                                                                                                                                     color="error"
                                                                                                                                     sx={{ height: 22, fontSize: '0.7rem', fontWeight: 700 }}
                                                                                                                                 />
@@ -1672,7 +1672,7 @@ const AttendancePage = () => {
                                                                                                                         )}
                                                                                                                     </Box>
                                                                                                                 </Stack>
-                                                                                                            </TableCell>
+                                                        </TableCell>
                                                                                                             <TableCell sx={{ py: 2 }}>
                                                                                                                 <Typography variant="body2" sx={{ fontWeight: 600 }}>
                                                                                                                     {formatDate(dateStr)}
@@ -1723,7 +1723,7 @@ const AttendancePage = () => {
                                                                                                                 {isTeamLeader && isTodayAttendance ? (
                                                                                                                     currentStatus === 'PENDING' ? (
                                                                                                                         <Stack direction="row" spacing={1.5} alignItems="center" justifyContent="center" flexWrap="wrap" sx={{ gap: 1 }}>
-                                                                                                                            <Chip
+                                                                <Chip
                                                                                                                                 icon={STATUS_OPTIONS.find((opt) => opt.value === currentStatus)?.icon}
                                                                                                                                 label={STATUS_OPTIONS.find((opt) => opt.value === currentStatus)?.label || currentStatus}
                                                                                                                                 sx={{
@@ -1740,10 +1740,10 @@ const AttendancePage = () => {
                                                                                                                                 option.value !== 'PENDING'
                                                                                                                             ).map((option) => (
                                                                                                                                 <Tooltip key={option.value} title={`Đánh dấu: ${option.label}`} arrow placement="top">
-                                                                                                                                    <Button
+                                                                <Button
                                                                                                                                         variant="outlined"
                                                                                                                                         color={option.color}
-                                                                                                                                        size="small"
+                                                                    size="small"
                                                                                                                                         startIcon={option.icon}
                                                                                                                                         onClick={() => handleStatusClick(
                                                                                                                                             memberData || { member, date: dateStr, schedule },
@@ -1773,7 +1773,7 @@ const AttendancePage = () => {
                                                                                                                                         }}
                                                                                                                                     >
                                                                                                                                         {option.label}
-                                                                                                                                    </Button>
+                                                                </Button>
                                                                                                                                 </Tooltip>
                                                                                                                             ))}
                                                                                                                         </Stack>
@@ -1794,10 +1794,10 @@ const AttendancePage = () => {
                                                                                                                                 size="medium"
                                                                                                                             />
                                                                                                                             {pendingChange && (
-                                                                                                                                <Button
+                                                                <Button
                                                                                                                                     variant="outlined"
                                                                                                                                     color="inherit"
-                                                                                                                                    size="small"
+                                                                    size="small"
                                                                                                                                     startIcon={<Close />}
                                                                                                                                     onClick={() => handleResetMemberStatus(team.id, shift.id, dayKey, recordId)}
                                                                                                                                     sx={{
@@ -1811,9 +1811,9 @@ const AttendancePage = () => {
                                                                                                                                     }}
                                                                                                                                 >
                                                                                                                                     Hủy
-                                                                                                                                </Button>
+                                                                </Button>
                                                                                                                             )}
-                                                                                                                        </Stack>
+                                                            </Stack>
                                                                                                                     )
                                                                                                                 ) : (
                                                                                                                     <Chip
@@ -1830,12 +1830,12 @@ const AttendancePage = () => {
                                                                                                                         size="medium"
                                                                                                                     />
                                                                                                                 )}
-                                                                                                            </TableCell>
-                                                                                                        </TableRow>
-                                                                                                    );
-                                                                                                })}
-                                                                                            </TableBody>
-                                                                                        </Table>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                );
+                                            })}
+                                        </TableBody>
+                                    </Table>
 
                                                                                         {/* Bulk Save Controls */}
                                                                                         {isTeamLeader && (() => {
@@ -1908,7 +1908,7 @@ const AttendancePage = () => {
                                                                                                 </Box>
                                                                                             ) : null;
                                                                                         })()}
-                                                                                    </TableContainer>
+                                </TableContainer>
                                                                                 </>
                                                                             )}
                                                                         </Box>
@@ -1992,7 +1992,7 @@ const AttendancePage = () => {
                                             <Person sx={{ color: COLORS.TEXT.SECONDARY, fontSize: 20 }} />
                                             <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
                                                 Thành viên:
-                                            </Typography>
+                            </Typography>
                                             <Typography variant="body2" sx={{ fontWeight: 700 }}>
                                                 {attendanceDialog.memberData.member?.full_name || 'N/A'}
                                             </Typography>
@@ -2008,21 +2008,21 @@ const AttendancePage = () => {
                                         </Stack>
                                     </Stack>
                                 </Paper>
-                                <TextField
+                        <TextField
                                     label="Ghi chú"
-                                    multiline
-                                    rows={4}
+                            multiline
+                            rows={4}
                                     fullWidth
                                     value={attendanceDialog.notes}
                                     onChange={(e) => setAttendanceDialog({ ...attendanceDialog, notes: e.target.value })}
                                     placeholder="Nhập ghi chú (tùy chọn)"
                                     variant="outlined"
-                                    sx={{
-                                        '& .MuiOutlinedInput-root': {
-                                            borderRadius: 2
-                                        }
-                                    }}
-                                />
+                            sx={{
+                                '& .MuiOutlinedInput-root': {
+                                    borderRadius: 2
+                                }
+                            }}
+                        />
                             </>
                         )}
                     </Stack>

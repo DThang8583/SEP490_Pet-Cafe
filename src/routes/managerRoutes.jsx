@@ -10,6 +10,7 @@ import ServicesPage from "../pages/manager/ServicesPage";
 import AreasPage from "../pages/manager/AreasPage";
 import ProductPage from "../pages/manager/products/ProductPage";
 import ManagerAttendancePage from "../pages/manager/ManagerAttendancePage";
+import NotificationsPage from "../pages/manager/NotificationsPage";
 
 const managerRoutes = (
     <>
@@ -23,6 +24,7 @@ const managerRoutes = (
         <Route path="/manager/tasks" element={<TasksPage />} />
         <Route path="/manager/services" element={<ServicesPage />} />
         <Route path="/manager/products" element={<ProductPage />} />
+        <Route path="/manager/notifications" element={<NotificationsPage />} />
     </>
 );
 

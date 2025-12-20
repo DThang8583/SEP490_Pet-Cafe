@@ -4,6 +4,8 @@ import { LocalCafe, Restaurant, ConfirmationNumber, LocationOn, AccountCircle, M
 import { COLORS } from '../../../constants/colors';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { authApi } from '../../../api/authApi';
+import { notificationApi } from '../../../api/notificationApi';
+import { useSignalR } from '../../../utils/SignalRContext';
 
 const Navbar = () => {
     const theme = useTheme();
@@ -19,6 +21,7 @@ const Navbar = () => {
     const [collapsed, setCollapsed] = useState(false);
     const [isLeader, setIsLeader] = useState(false);
     const [unreadCount, setUnreadCount] = useState(0);
+    const { notification: signalRNotification } = useSignalR();
 
     useEffect(() => {
         try {
@@ -42,47 +45,55 @@ const Navbar = () => {
         }
     }, []);
 
-    // Fetch unread notifications count
+    // Fetch unread notification count
     useEffect(() => {
         const fetchUnreadCount = async () => {
             try {
-                const accountId = localStorage.getItem("accountId");
+                const accountId = localStorage.getItem('accountId');
                 if (!accountId) return;
 
-                const token = localStorage.getItem("authToken");
-                const params = new URLSearchParams({
-                    page: "0",
-                    limit: "100", // Lấy nhiều để đếm chính xác
-                    account_id: accountId,
-                });
+                const response = await notificationApi.getNotifications(1, 100, accountId);
+                const notifications = response.data || [];
+                const unread = notifications.filter(n => !n.is_read).length;
 
-                const resp = await fetch(
-                    `https://petcafes.azurewebsites.net/api/notifications?${params.toString()}`,
-                    {
-                        headers: {
-                            Accept: "application/json",
-                            Authorization: token ? `Bearer ${token}` : "",
-                        },
-                    }
-                );
-
-                if (resp.ok) {
-                    const json = await resp.json();
-                    const notifications = Array.isArray(json?.data) ? json.data : [];
-                    // Đếm số thông báo chưa đọc (is_read === false)
-                    const unread = notifications.filter(n => n.is_read === false).length;
-                    setUnreadCount(unread);
-                }
+                console.log('[Navbar] Unread count:', unread);
+                setUnreadCount(unread);
             } catch (error) {
-                console.error("[Navbar] Error fetching unread notifications:", error);
+                console.error('[Navbar] Failed to fetch unread count:', error);
             }
         };
 
         fetchUnreadCount();
-        // Refresh mỗi 30 giây
+
+        // Listen for custom event from NotificationsPage when all notifications are marked as read
+        const handleNotificationsRead = () => {
+            console.log('[Navbar] Notifications marked as read, resetting count');
+            setUnreadCount(0);
+        };
+
+        window.addEventListener('notificationsMarkedAsRead', handleNotificationsRead);
+
+        // Refresh every 30 seconds
         const interval = setInterval(fetchUnreadCount, 30000);
-        return () => clearInterval(interval);
-    }, []);
+
+        return () => {
+            window.removeEventListener('notificationsMarkedAsRead', handleNotificationsRead);
+            clearInterval(interval);
+        };
+    }, [location.pathname]);
+
+    // Update unread count when new notification arrives via SignalR
+    useEffect(() => {
+        if (signalRNotification) {
+            const accountId = localStorage.getItem('accountId');
+            const notificationAccountId = signalRNotification.accountId || signalRNotification.account_id;
+
+            if (accountId && notificationAccountId === accountId) {
+                console.log('[Navbar] New notification received, incrementing count');
+                setUnreadCount(prev => prev + 1);
+            }
+        }
+    }, [signalRNotification]);
 
     // Keep sidebar width synchronized globally for layouts without changing hook order
     useEffect(() => {
@@ -112,8 +123,8 @@ const Navbar = () => {
         { label: 'Đặt lịch dịch vụ', path: '/booking', icon: <Schedule /> },
         { label: 'Danh sách chó mèo', path: '/pets', icon: <Pets /> },
         { label: 'Dịch vụ bán chạy', path: '/popular-services', icon: <TrendingUp /> },
-        { 
-            path: '/notifications', 
+        {
+            path: '/notifications',
             icon: (
                 <Badge badgeContent={unreadCount > 0 ? unreadCount : 0} color="error" max={99}>
                     <Notifications />
@@ -135,6 +146,7 @@ const Navbar = () => {
         { label: 'Nhiệm vụ', icon: <Assignment />, path: '/manager/tasks' },
         { label: 'Dịch vụ', icon: <DesignServices />, path: '/manager/services' },
         { label: 'Sản phẩm', icon: <ShoppingCart />, path: '/manager/products' },
+        { label: 'Thông báo', icon: <Notifications />, path: '/manager/notifications' },
         { label: 'Tài khoản', icon: <AccountCircle />, path: '/profile' }
     ]), []);
 
@@ -299,7 +311,14 @@ const Navbar = () => {
                                     )}
                                     <ListItemIcon sx={{ minWidth: collapsed ? 0 : 44, color: isItemActive(item.path) ? COLORS.ERROR[600] : COLORS.TEXT.SECONDARY, justifyContent: 'center' }}>{item.icon}</ListItemIcon>
                                     {!collapsed && (
-                                        <ListItemText primary={item.label} primaryTypographyProps={{ fontWeight: 600, sx: { fontSize: '0.95rem' } }} />
+                                        <ListItemText
+                                            primary={
+                                                item.path === '/manager/notifications'
+                                                    ? `${item.label} (${unreadCount})`
+                                                    : item.label
+                                            }
+                                            primaryTypographyProps={{ fontWeight: 600, sx: { fontSize: '0.95rem' } }}
+                                        />
                                     )}
                                 </ListItemButton>
                             );
