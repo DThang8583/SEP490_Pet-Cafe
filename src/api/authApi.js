@@ -75,6 +75,7 @@ const mapExternalAccountToUser = (account, nameIdFromToken = null) => {
 
     const base = {
         id: userId,
+        account_id: account?.id || account?.account_id,
         customer_id: customerId, // Store customer_id separately for customer role
         email: account?.email,
         name: account?.employee?.full_name || account?.customer?.full_name || account?.username || account?.email?.split('@')[0] || 'Người dùng',

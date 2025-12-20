@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AppBar, Toolbar, Typography, Button, Box, IconButton, Avatar, Menu, MenuItem, useTheme, alpha, Container, Stack, Drawer, List, ListItemButton, ListItemIcon, ListItemText, Divider, Tooltip, ListSubheader, useMediaQuery } from '@mui/material';
-import { LocalCafe, Restaurant, ConfirmationNumber, LocationOn, AccountCircle, Menu as MenuIcon, Close, Pets, Schedule, Dashboard, People, Groups, Assignment, DesignServices, Inventory2, Logout, Vaccines, ShoppingCart, ReceiptLong, HealthAndSafety, Person, ChecklistRtl, AssignmentTurnedIn, Description, CheckCircle, Fastfood, TrendingUp } from '@mui/icons-material';
+import { LocalCafe, Restaurant, ConfirmationNumber, LocationOn, AccountCircle, Menu as MenuIcon, Close, Pets, Schedule, Dashboard, People, Groups, Assignment, DesignServices, Inventory2, Logout, Vaccines, ShoppingCart, ReceiptLong, HealthAndSafety, Person, ChecklistRtl, AssignmentTurnedIn, Description, CheckCircle, Fastfood, TrendingUp, Notifications } from '@mui/icons-material';
 import { COLORS } from '../../../constants/colors';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { authApi } from '../../../api/authApi';
+import { notificationApi } from '../../../api/notificationApi';
+import { useSignalR } from '../../../utils/SignalRContext';
 
 const Navbar = () => {
     const theme = useTheme();
@@ -18,6 +20,8 @@ const Navbar = () => {
     const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
     const [collapsed, setCollapsed] = useState(false);
     const [isLeader, setIsLeader] = useState(false);
+    const [unreadCount, setUnreadCount] = useState(0);
+    const signalRNotification = useSignalR();
 
     useEffect(() => {
         try {
@@ -40,6 +44,54 @@ const Navbar = () => {
             }
         }
     }, []);
+
+    // Fetch unread notification count for Manager
+    useEffect(() => {
+        const fetchUnreadCount = async () => {
+            if (!isManager) return;
+
+            try {
+                const accountId = localStorage.getItem('accountId');
+                if (!accountId) return;
+
+                const response = await notificationApi.getNotifications(1, 100, accountId);
+                const notifications = response.data || [];
+                const unread = notifications.filter(n => !n.is_read).length;
+
+                console.log('[Navbar] Unread count:', unread);
+                setUnreadCount(unread);
+            } catch (error) {
+                console.error('[Navbar] Failed to fetch unread count:', error);
+            }
+        };
+
+        fetchUnreadCount();
+
+        // Listen for custom event from NotificationsPage when all notifications are marked as read
+        const handleNotificationsRead = () => {
+            console.log('[Navbar] Notifications marked as read, resetting count');
+            setUnreadCount(0);
+        };
+
+        window.addEventListener('notificationsMarkedAsRead', handleNotificationsRead);
+
+        return () => {
+            window.removeEventListener('notificationsMarkedAsRead', handleNotificationsRead);
+        };
+    }, [isManager, location.pathname]);
+
+    // Update unread count when new notification arrives via SignalR
+    useEffect(() => {
+        if (signalRNotification && isManager) {
+            const accountId = localStorage.getItem('accountId');
+            const notificationAccountId = signalRNotification.accountId || signalRNotification.account_id;
+
+            if (accountId && notificationAccountId === accountId) {
+                console.log('[Navbar] New notification received, incrementing count');
+                setUnreadCount(prev => prev + 1);
+            }
+        }
+    }, [signalRNotification, isManager]);
 
     // Keep sidebar width synchronized globally for layouts without changing hook order
     useEffect(() => {
@@ -84,6 +136,7 @@ const Navbar = () => {
         { label: 'Nhiệm vụ', icon: <Assignment />, path: '/manager/tasks' },
         { label: 'Dịch vụ', icon: <DesignServices />, path: '/manager/services' },
         { label: 'Sản phẩm', icon: <ShoppingCart />, path: '/manager/products' },
+        { label: 'Thông báo', icon: <Notifications />, path: '/manager/notifications' },
         { label: 'Tài khoản', icon: <AccountCircle />, path: '/profile' }
     ]), []);
 
@@ -248,7 +301,14 @@ const Navbar = () => {
                                     )}
                                     <ListItemIcon sx={{ minWidth: collapsed ? 0 : 44, color: isItemActive(item.path) ? COLORS.ERROR[600] : COLORS.TEXT.SECONDARY, justifyContent: 'center' }}>{item.icon}</ListItemIcon>
                                     {!collapsed && (
-                                        <ListItemText primary={item.label} primaryTypographyProps={{ fontWeight: 600, sx: { fontSize: '0.95rem' } }} />
+                                        <ListItemText
+                                            primary={
+                                                item.path === '/manager/notifications'
+                                                    ? `${item.label} (${unreadCount})`
+                                                    : item.label
+                                            }
+                                            primaryTypographyProps={{ fontWeight: 600, sx: { fontSize: '0.95rem' } }}
+                                        />
                                     )}
                                 </ListItemButton>
                             );

@@ -1,8 +1,11 @@
-import React from 'react';
-import { Typography, Stack, Chip, alpha, Box } from '@mui/material';
-import { People, TaskAlt, TrendingDown, Groups, PersonAdd, Insights, EventAvailable, Inventory2, AttachMoney } from '@mui/icons-material';
+import React, { useState, useEffect, useRef } from 'react';
+import { Typography, Stack, Chip, alpha, Box, TextField, FormControl, InputLabel, Select, MenuItem, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Dialog, DialogTitle, DialogContent, DialogActions, Button, IconButton, Tooltip, Grid, Divider } from '@mui/material';
+import { People, TaskAlt, TrendingDown, Groups, PersonAdd, Insights, EventAvailable, Inventory2, AttachMoney, Payment, Visibility, ArrowBack, ContentCopy, CheckCircle } from '@mui/icons-material';
 import { COLORS } from '../../../constants/colors';
 import { SectionContainer, SummaryGrid, CardSection, EmptyState, formatCurrency, formatNumber, formatMonthLabel, formatDateTime, SimpleBarChart, StackedBarChart, PieChartComponent, LineChartComponent } from './DashboardUtils';
+import { getTransactions } from '../../../api/transactionsApi';
+import Pagination from '../../../components/common/Pagination';
+import Loading from '../../../components/loading/Loading';
 
 // ========== PETS SECTION ==========
 export const PetsSection = ({ petsData }) => {
@@ -1113,6 +1116,741 @@ export const InventorySection = ({ inventoryStats }) => {
                     ))}
                 </Stack>
             </CardSection>
+        </SectionContainer>
+    );
+};
+
+// ========== TRANSACTIONS SECTION ==========
+const formatVnd = (val) => {
+    const n = Number(val || 0);
+    return n.toLocaleString("vi-VN") + " ₫";
+};
+
+const mapPaymentMethodTransactions = (method) => {
+    switch ((method || '').toUpperCase()) {
+        case 'ONLINE':
+        case 'QR':
+            return 'Thanh toán online';
+        case 'AT_COUNTER':
+        case 'COUNTER':
+            return 'Tại quầy';
+        case 'CASH':
+            return 'Tiền mặt';
+        case 'CARD':
+            return 'Thẻ';
+        default:
+            return method || 'Không xác định';
+    }
+};
+
+const mapOrderStatusTransactions = (status) => {
+    switch ((status || '').toUpperCase()) {
+        case 'PAID':
+            return 'Hoàn thành';
+        case 'PENDING':
+            return 'Đang xử lý';
+        case 'CANCELLED':
+            return 'Đã hủy';
+        case 'REFUNDED':
+            return 'Đã hoàn tiền';
+        case 'EXPIRED':
+            return 'Hết hạn';
+        default:
+            return status || 'Không xác định';
+    }
+};
+
+const mapPaymentStatusTransactions = (status) => {
+    switch ((status || '').toUpperCase()) {
+        case 'PAID':
+            return 'Đã thanh toán';
+        case 'PENDING':
+            return 'Chưa thanh toán';
+        case 'CANCELLED':
+            return 'Đã hủy';
+        case 'REFUNDED':
+            return 'Đã hoàn tiền';
+        case 'EXPIRED':
+            return 'Hết hạn';
+        case 'FAILED':
+            return 'Thất bại';
+        default:
+            return status || 'Không xác định';
+    }
+};
+
+const mapTransactionStatus = (desc) => {
+    switch ((desc || '').toLowerCase()) {
+        case 'success':
+            return 'Thành công';
+        case 'failed':
+            return 'Thất bại';
+        case 'pending':
+            return 'Đang xử lý';
+        default:
+            return desc || 'Không xác định';
+    }
+};
+
+const formatDateTransactions = (dateString) => {
+    if (!dateString || dateString === '0001-01-01T00:00:00') return '—';
+    try {
+        const date = new Date(dateString);
+        return new Intl.DateTimeFormat('vi-VN', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        }).format(date);
+    } catch (error) {
+        return dateString;
+    }
+};
+
+const DetailItemTransactions = ({ label, children }) => (
+    <Box sx={{ mb: 1 }}>
+        <Typography
+            variant="caption"
+            color="text.secondary"
+            display="block"
+            gutterBottom
+        >
+            {label}
+        </Typography>
+        {children}
+    </Box>
+);
+
+export const TransactionsSection = () => {
+    const [transactions, setTransactions] = useState([]);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+    const [selectedTransaction, setSelectedTransaction] = useState(null);
+    const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+    const [copiedText, setCopiedText] = useState(null);
+
+    // Filter states
+    const [orderCode, setOrderCode] = useState('');
+    const [paymentMethod, setPaymentMethod] = useState('');
+    const [status, setStatus] = useState('');
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
+
+    // Pagination states
+    const [page, setPage] = useState(1);
+    const [limit, setLimit] = useState(10);
+    const [total, setTotal] = useState(0);
+    const [totalPages, setTotalPages] = useState(0);
+
+    const loadTransactions = async () => {
+        setLoading(true);
+        setError('');
+        try {
+            const params = {
+                page,
+                limit,
+            };
+
+            if (orderCode.trim()) {
+                params.OrderCode = orderCode.trim();
+            }
+            if (paymentMethod) {
+                params.PaymentMethod = paymentMethod;
+            }
+            if (status) {
+                params.Status = status;
+            }
+            if (startDate) {
+                params.StartDate = startDate;
+            }
+            if (endDate) {
+                params.EndDate = endDate;
+            }
+
+            const response = await getTransactions(params);
+
+            let data = [];
+            let totalCount = 0;
+            let totalPagesCount = 0;
+
+            if (Array.isArray(response?.data)) {
+                data = response.data;
+                const pagination = response.pagination || {};
+                totalCount = pagination.total_items_count ?? data.length;
+                totalPagesCount = pagination.total_pages_count ?? (Math.ceil(totalCount / limit) || 1);
+            } else if (Array.isArray(response)) {
+                data = response;
+                totalCount = data.length;
+                totalPagesCount = Math.ceil(totalCount / limit) || 1;
+            }
+
+            // Client-side filtering for Status and PaymentMethod
+            let finalData = data;
+
+            if (status) {
+                const statusUpper = status.toUpperCase();
+                finalData = finalData.filter((tx) => {
+                    const orderStatus = (tx.order?.status || '').toUpperCase();
+                    const paymentStatus = (tx.order?.payment_status || '').toUpperCase();
+                    return orderStatus === statusUpper || paymentStatus === statusUpper;
+                });
+            }
+
+            if (paymentMethod) {
+                const methodUpper = paymentMethod.toUpperCase();
+                finalData = finalData.filter((tx) => {
+                    const orderPaymentMethod = (tx.order?.payment_method || '').toUpperCase();
+                    if (methodUpper === 'ONLINE' || methodUpper === 'QR') {
+                        return orderPaymentMethod === 'ONLINE' || orderPaymentMethod === 'QR';
+                    }
+                    if (methodUpper === 'AT_COUNTER' || methodUpper === 'COUNTER') {
+                        return orderPaymentMethod === 'AT_COUNTER' || orderPaymentMethod === 'COUNTER' || orderPaymentMethod === 'CASH';
+                    }
+                    if (methodUpper === 'CASH') {
+                        return orderPaymentMethod === 'CASH' || orderPaymentMethod === 'AT_COUNTER';
+                    }
+                    if (methodUpper === 'CARD') {
+                        return orderPaymentMethod === 'CARD';
+                    }
+                    return orderPaymentMethod === methodUpper;
+                });
+            }
+
+            if (status || paymentMethod) {
+                totalCount = finalData.length;
+                totalPagesCount = Math.ceil(totalCount / limit) || 1;
+                const startIndex = (page - 1) * limit;
+                const endIndex = startIndex + limit;
+                finalData = finalData.slice(startIndex, endIndex);
+            }
+
+            setTransactions(finalData);
+            setTotal(totalCount);
+            setTotalPages(totalPagesCount);
+        } catch (e) {
+            setError(e.message || 'Không thể tải giao dịch');
+            setTransactions([]);
+            setTotal(0);
+            setTotalPages(0);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const prevFiltersRef = useRef({ orderCode, paymentMethod, status, startDate, endDate });
+
+    useEffect(() => {
+        const filtersChanged =
+            prevFiltersRef.current.orderCode !== orderCode ||
+            prevFiltersRef.current.paymentMethod !== paymentMethod ||
+            prevFiltersRef.current.status !== status ||
+            prevFiltersRef.current.startDate !== startDate ||
+            prevFiltersRef.current.endDate !== endDate;
+
+        if (filtersChanged && page !== 1) {
+            setPage(1);
+            prevFiltersRef.current = { orderCode, paymentMethod, status, startDate, endDate };
+            return;
+        }
+
+        prevFiltersRef.current = { orderCode, paymentMethod, status, startDate, endDate };
+        loadTransactions();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [page, limit, orderCode, paymentMethod, status, startDate, endDate]);
+
+    const handleViewDetails = (transaction) => {
+        setSelectedTransaction(transaction);
+        setDetailDialogOpen(true);
+    };
+
+    const handleCloseDetailDialog = () => {
+        setDetailDialogOpen(false);
+        setSelectedTransaction(null);
+    };
+
+    const handleCopy = async (text, label) => {
+        try {
+            await navigator.clipboard.writeText(text);
+            setCopiedText(label);
+            setTimeout(() => setCopiedText(null), 2000);
+        } catch (err) {
+            console.error('Failed to copy:', err);
+        }
+    };
+
+    // Calculate statistics
+    const totalAmount = transactions.reduce((sum, tx) => sum + (tx.amount || 0), 0);
+    const successCount = transactions.filter(tx => tx.desc === 'success').length;
+
+    return (
+        <SectionContainer title="Giao dịch" color={COLORS.PRIMARY[600]}>
+            <SummaryGrid
+                items={[
+                    {
+                        label: 'Tổng giao dịch',
+                        value: formatNumber(total),
+                        caption: 'Tổng số giao dịch trong hệ thống',
+                        color: COLORS.PRIMARY[500],
+                        icon: <Payment fontSize="medium" />
+                    },
+                    {
+                        label: 'Tổng số tiền',
+                        value: formatCurrency(totalAmount),
+                        caption: 'Tổng giá trị giao dịch',
+                        color: COLORS.SUCCESS[500],
+                        icon: <AttachMoney fontSize="medium" />
+                    },
+                    {
+                        label: 'Giao dịch thành công',
+                        value: formatNumber(successCount),
+                        caption: 'Số giao dịch đã hoàn thành',
+                        color: COLORS.SUCCESS[500],
+                        icon: <CheckCircle fontSize="medium" />
+                    }
+                ]}
+            />
+
+            <CardSection
+                title="Bộ lọc"
+                color={COLORS.PRIMARY[600]}
+                hasData={true}
+            >
+                <Stack
+                    direction={{ xs: 'column', sm: 'row' }}
+                    spacing={2}
+                    sx={{
+                        '& > *': {
+                            flex: 1,
+                            minWidth: 0
+                        }
+                    }}
+                >
+                    <TextField
+                        size="small"
+                        label="Mã đơn hàng"
+                        value={orderCode}
+                        onChange={(e) => setOrderCode(e.target.value)}
+                        placeholder="Nhập mã đơn hàng"
+                    />
+                    <FormControl size="small" sx={{ minWidth: 0, flex: '1 1 calc(20% + 2px)' }}>
+                        <InputLabel>Phương thức thanh toán</InputLabel>
+                        <Select
+                            value={paymentMethod}
+                            label="Phương thức thanh toán"
+                            onChange={(e) => setPaymentMethod(e.target.value)}
+                        >
+                            <MenuItem value="">Tất cả</MenuItem>
+                            <MenuItem value="ONLINE">Thanh toán online</MenuItem>
+                            <MenuItem value="AT_COUNTER">Tại quầy</MenuItem>
+                            <MenuItem value="CASH">Tiền mặt</MenuItem>
+                            <MenuItem value="CARD">Thẻ</MenuItem>
+                        </Select>
+                    </FormControl>
+                    <FormControl size="small">
+                        <InputLabel>Trạng thái</InputLabel>
+                        <Select
+                            value={status}
+                            label="Trạng thái"
+                            onChange={(e) => setStatus(e.target.value)}
+                        >
+                            <MenuItem value="">Tất cả</MenuItem>
+                            <MenuItem value="PAID">Đã thanh toán</MenuItem>
+                            <MenuItem value="PENDING">Đang chờ</MenuItem>
+                            <MenuItem value="CANCELLED">Đã hủy</MenuItem>
+                            <MenuItem value="REFUNDED">Đã hoàn tiền</MenuItem>
+                            <MenuItem value="EXPIRED">Hết hạn</MenuItem>
+                        </Select>
+                    </FormControl>
+                    <TextField
+                        size="small"
+                        label="Từ ngày"
+                        type="date"
+                        value={startDate}
+                        onChange={(e) => setStartDate(e.target.value)}
+                        InputLabelProps={{ shrink: true }}
+                    />
+                    <TextField
+                        size="small"
+                        label="Đến ngày"
+                        type="date"
+                        value={endDate}
+                        onChange={(e) => setEndDate(e.target.value)}
+                        InputLabelProps={{ shrink: true }}
+                    />
+                </Stack>
+            </CardSection>
+
+            <CardSection
+                title="Danh sách giao dịch"
+                color={COLORS.PRIMARY[600]}
+                hasData={!loading}
+                emptyMessage="Chưa có giao dịch nào"
+            >
+                {loading ? (
+                    <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                        <Loading message="Đang tải giao dịch..." size="medium" variant="default" fullScreen={false} />
+                    </Box>
+                ) : transactions.length === 0 ? (
+                    <EmptyState message="Không có giao dịch nào. Vui lòng thử lại hoặc thay đổi bộ lọc." />
+                ) : (
+                    <>
+                        <TableContainer component={Paper} sx={{ boxShadow: 'none', maxHeight: 600, overflow: 'auto' }}>
+                            <Table stickyHeader>
+                                <TableHead>
+                                    <TableRow sx={{ backgroundColor: COLORS.PRIMARY[50] }}>
+                                        <TableCell sx={{ fontWeight: 700 }}>Mã đơn hàng</TableCell>
+                                        <TableCell sx={{ fontWeight: 700 }}>Khách hàng</TableCell>
+                                        <TableCell sx={{ fontWeight: 700 }}>Số điện thoại</TableCell>
+                                        <TableCell sx={{ fontWeight: 700 }}>Số tiền</TableCell>
+                                        <TableCell sx={{ fontWeight: 700 }}>Phương thức</TableCell>
+                                        <TableCell sx={{ fontWeight: 700 }}>Trạng thái</TableCell>
+                                        <TableCell sx={{ fontWeight: 700 }}>Ngày giao dịch</TableCell>
+                                        <TableCell sx={{ fontWeight: 700 }}>Thao tác</TableCell>
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {transactions.map((transaction) => (
+                                        <TableRow
+                                            key={transaction.id}
+                                            sx={{
+                                                '&:hover': {
+                                                    backgroundColor: COLORS.PRIMARY[50]
+                                                }
+                                            }}
+                                        >
+                                            <TableCell>
+                                                {transaction.order?.order_number || transaction.order_code || '—'}
+                                            </TableCell>
+                                            <TableCell>
+                                                {transaction.order?.full_name || '—'}
+                                            </TableCell>
+                                            <TableCell>
+                                                {transaction.order?.phone || '—'}
+                                            </TableCell>
+                                            <TableCell sx={{ fontWeight: 600, color: COLORS.SUCCESS[600] }}>
+                                                {formatCurrency(transaction.amount || 0)}
+                                            </TableCell>
+                                            <TableCell>
+                                                {mapPaymentMethodTransactions(transaction.order?.payment_method)}
+                                            </TableCell>
+                                            <TableCell>
+                                                <Chip
+                                                    label={mapTransactionStatus(transaction.desc)}
+                                                    color={transaction.desc === 'success' ? 'success' : 'default'}
+                                                    size="small"
+                                                />
+                                            </TableCell>
+                                            <TableCell>
+                                                {formatDateTransactions(transaction.created_at)}
+                                            </TableCell>
+                                            <TableCell>
+                                                <IconButton
+                                                    size="small"
+                                                    onClick={() => handleViewDetails(transaction)}
+                                                    sx={{ color: COLORS.PRIMARY[600] }}
+                                                >
+                                                    <Visibility fontSize="small" />
+                                                </IconButton>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </TableContainer>
+
+                        {totalPages > 0 && total > 0 && (
+                            <Box sx={{ mt: 2 }}>
+                                <Pagination
+                                    page={page}
+                                    totalPages={totalPages}
+                                    onPageChange={setPage}
+                                    itemsPerPage={limit}
+                                    onItemsPerPageChange={(newLimit) => {
+                                        setLimit(newLimit);
+                                        setPage(1);
+                                    }}
+                                    totalItems={total}
+                                    showItemsPerPage={true}
+                                    itemsPerPageOptions={[10, 20, 50, 100]}
+                                />
+                            </Box>
+                        )}
+                    </>
+                )}
+            </CardSection>
+
+            {/* Dialog chi tiết giao dịch */}
+            <Dialog
+                open={detailDialogOpen}
+                onClose={handleCloseDetailDialog}
+                maxWidth="md"
+                fullWidth
+                PaperProps={{
+                    sx: {
+                        borderRadius: 2,
+                        boxShadow: 3
+                    }
+                }}
+            >
+                <DialogTitle sx={{
+                    fontWeight: 700,
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    pb: 1
+                }}>
+                    <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                        Chi tiết giao dịch
+                    </Typography>
+                    <IconButton
+                        onClick={handleCloseDetailDialog}
+                        size="small"
+                    >
+                        <ArrowBack />
+                    </IconButton>
+                </DialogTitle>
+                <DialogContent dividers sx={{ py: 2 }}>
+                    {selectedTransaction && (
+                        <Stack spacing={2.5}>
+                            {/* Tóm tắt giao dịch */}
+                            <Box
+                                sx={{
+                                    p: 2,
+                                    borderRadius: 1.5,
+                                    bgcolor: COLORS.BACKGROUND.NEUTRAL,
+                                    border: `1px solid ${COLORS.BORDER.DEFAULT}`,
+                                }}
+                            >
+                                <Stack
+                                    direction={{ xs: 'column', sm: 'row' }}
+                                    spacing={2}
+                                    justifyContent="space-between"
+                                    alignItems={{ xs: 'flex-start', sm: 'center' }}
+                                >
+                                    <Box>
+                                        <Typography variant="caption" color="text.secondary" display="block">
+                                            Mã đơn hàng
+                                        </Typography>
+                                        <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                                            {selectedTransaction.order_code ||
+                                                selectedTransaction?.order?.payment_info?.order_code ||
+                                                selectedTransaction?.order?.order_number ||
+                                                '—'}
+                                        </Typography>
+                                        <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+                                            Ngày tạo
+                                        </Typography>
+                                        <Typography variant="body2">
+                                            {formatDateTransactions(selectedTransaction.created_at)}
+                                        </Typography>
+                                    </Box>
+                                    <Stack spacing={0.5} alignItems={{ xs: 'flex-start', sm: 'flex-end' }}>
+                                        <Typography variant="caption" color="text.secondary" display="block">
+                                            Số tiền giao dịch
+                                        </Typography>
+                                        <Typography variant="h6" sx={{ fontWeight: 700, color: COLORS.SUCCESS[600] }}>
+                                            {formatVnd(selectedTransaction.amount)}
+                                        </Typography>
+                                        {selectedTransaction?.order && (
+                                            <Chip
+                                                label={selectedTransaction.order.payment_status
+                                                    ? mapPaymentStatusTransactions(selectedTransaction.order.payment_status)
+                                                    : mapOrderStatusTransactions(selectedTransaction.order.status)}
+                                                color={(selectedTransaction.order.payment_status || selectedTransaction.order.status) === 'PAID' ? 'success' : 'default'}
+                                                size="small"
+                                                sx={{ mt: 0.5 }}
+                                            />
+                                        )}
+                                    </Stack>
+                                </Stack>
+                            </Box>
+
+                            {/* Thông tin giao dịch */}
+                            <Box>
+                                <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5, color: COLORS.TEXT.PRIMARY }}>
+                                    Thông tin giao dịch
+                                </Typography>
+                                <Grid container spacing={2}>
+                                    <Grid item xs={12} sm={6}>
+                                        <DetailItemTransactions label="Mã giao dịch">
+                                            <Stack direction="row" spacing={0.5} alignItems="center">
+                                                <Typography variant="body2" sx={{ wordBreak: 'break-all', fontFamily: 'monospace' }}>
+                                                    {selectedTransaction.id || '—'}
+                                                </Typography>
+                                                {selectedTransaction.id && (
+                                                    <Tooltip title={copiedText === 'transaction_id' ? 'Đã sao chép!' : 'Sao chép'}>
+                                                        <IconButton
+                                                            size="small"
+                                                            onClick={() => handleCopy(selectedTransaction.id, 'transaction_id')}
+                                                            sx={{ p: 0.5 }}
+                                                        >
+                                                            {copiedText === 'transaction_id' ? (
+                                                                <CheckCircle fontSize="small" />
+                                                            ) : (
+                                                                <ContentCopy fontSize="small" />
+                                                            )}
+                                                        </IconButton>
+                                                    </Tooltip>
+                                                )}
+                                            </Stack>
+                                        </DetailItemTransactions>
+                                    </Grid>
+                                    <Grid item xs={12} sm={6}>
+                                        <DetailItemTransactions label="Mã tham chiếu">
+                                            <Stack direction="row" spacing={0.5} alignItems="center">
+                                                <Typography variant="body2" sx={{ wordBreak: 'break-all', fontFamily: 'monospace' }}>
+                                                    {selectedTransaction.reference || '—'}
+                                                </Typography>
+                                                {selectedTransaction.reference && (
+                                                    <Tooltip title={copiedText === 'reference' ? 'Đã sao chép!' : 'Sao chép'}>
+                                                        <IconButton
+                                                            size="small"
+                                                            onClick={() => handleCopy(selectedTransaction.reference, 'reference')}
+                                                            sx={{ p: 0.5 }}
+                                                        >
+                                                            {copiedText === 'reference' ? (
+                                                                <CheckCircle fontSize="small" />
+                                                            ) : (
+                                                                <ContentCopy fontSize="small" />
+                                                            )}
+                                                        </IconButton>
+                                                    </Tooltip>
+                                                )}
+                                            </Stack>
+                                        </DetailItemTransactions>
+                                    </Grid>
+                                    <Grid item xs={12}>
+                                        <DetailItemTransactions label="Mô tả">
+                                            <Typography variant="body2">
+                                                {selectedTransaction.description || '—'}
+                                            </Typography>
+                                        </DetailItemTransactions>
+                                    </Grid>
+                                    <Grid item xs={12} sm={6}>
+                                        <DetailItemTransactions label="Trạng thái giao dịch">
+                                            <Chip
+                                                label={mapTransactionStatus(selectedTransaction.desc)}
+                                                color={selectedTransaction.desc === 'success' ? 'success' : 'default'}
+                                                size="small"
+                                            />
+                                        </DetailItemTransactions>
+                                    </Grid>
+                                </Grid>
+                            </Box>
+
+                            {/* Thông tin đơn hàng */}
+                            {selectedTransaction?.order && (
+                                <Box>
+                                    <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5, color: COLORS.TEXT.PRIMARY }}>
+                                        Thông tin đơn hàng
+                                    </Typography>
+                                    <Grid container spacing={2}>
+                                        <Grid item xs={12} sm={6}>
+                                            <DetailItemTransactions label="Khách hàng / Người thanh toán">
+                                                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                                    {selectedTransaction.order.full_name || '—'}
+                                                </Typography>
+                                            </DetailItemTransactions>
+                                        </Grid>
+                                        <Grid item xs={12} sm={6}>
+                                            <DetailItemTransactions label="Số điện thoại">
+                                                <Typography variant="body2">
+                                                    {selectedTransaction.order.phone || '—'}
+                                                </Typography>
+                                            </DetailItemTransactions>
+                                        </Grid>
+                                        <Grid item xs={12}>
+                                            <DetailItemTransactions label="Địa chỉ">
+                                                <Typography variant="body2">
+                                                    {selectedTransaction.order.address || '—'}
+                                                </Typography>
+                                            </DetailItemTransactions>
+                                        </Grid>
+                                        <Grid item xs={12} sm={6}>
+                                            <DetailItemTransactions label="Trạng thái đơn hàng">
+                                                <Chip
+                                                    label={mapOrderStatusTransactions(selectedTransaction.order.status)}
+                                                    color={selectedTransaction.order.status === 'PAID' ? 'success' : 'default'}
+                                                    size="small"
+                                                />
+                                            </DetailItemTransactions>
+                                        </Grid>
+                                        <Grid item xs={12} sm={6}>
+                                            <DetailItemTransactions label="Phương thức thanh toán">
+                                                <Typography variant="body2">
+                                                    {mapPaymentMethodTransactions(selectedTransaction.order.payment_method)}
+                                                </Typography>
+                                            </DetailItemTransactions>
+                                        </Grid>
+                                        <Grid item xs={12} sm={6}>
+                                            <DetailItemTransactions label="Trạng thái thanh toán">
+                                                <Chip
+                                                    label={mapPaymentStatusTransactions(selectedTransaction.order.payment_status)}
+                                                    color={selectedTransaction.order.payment_status === 'PAID' ? 'success' : 'default'}
+                                                    size="small"
+                                                />
+                                            </DetailItemTransactions>
+                                        </Grid>
+                                        <Grid item xs={12} sm={6}>
+                                            <DetailItemTransactions label="Loại đơn hàng">
+                                                <Typography variant="body2">
+                                                    {selectedTransaction.order.type === 'CUSTOMER'
+                                                        ? 'Khách hàng'
+                                                        : selectedTransaction.order.type === 'EMPLOYEE'
+                                                            ? 'Nhân viên'
+                                                            : selectedTransaction.order.type || '—'}
+                                                </Typography>
+                                            </DetailItemTransactions>
+                                        </Grid>
+                                        <Grid item xs={12} sm={6}>
+                                            <DetailItemTransactions label="Tổng tiền">
+                                                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                                    {formatVnd(selectedTransaction.order.total_amount)}
+                                                </Typography>
+                                            </DetailItemTransactions>
+                                        </Grid>
+                                        <Grid item xs={12} sm={6}>
+                                            <DetailItemTransactions label="Thành tiền">
+                                                <Typography variant="body1" sx={{ fontWeight: 600, color: COLORS.SUCCESS[600] }}>
+                                                    {formatVnd(selectedTransaction.order.final_amount)}
+                                                </Typography>
+                                            </DetailItemTransactions>
+                                        </Grid>
+                                        {selectedTransaction.order.order_date && selectedTransaction.order.order_date !== '0001-01-01T00:00:00' && (
+                                            <Grid item xs={12} sm={6}>
+                                                <DetailItemTransactions label="Ngày đơn hàng">
+                                                    <Typography variant="body2">
+                                                        {formatDateTransactions(selectedTransaction.order.order_date)}
+                                                    </Typography>
+                                                </DetailItemTransactions>
+                                            </Grid>
+                                        )}
+                                        {selectedTransaction.order.notes && (
+                                            <Grid item xs={12}>
+                                                <DetailItemTransactions label="Ghi chú">
+                                                    <Typography variant="body2">
+                                                        {selectedTransaction.order.notes}
+                                                    </Typography>
+                                                </DetailItemTransactions>
+                                            </Grid>
+                                        )}
+                                    </Grid>
+                                </Box>
+                            )}
+                        </Stack>
+                    )}
+                </DialogContent>
+                <DialogActions sx={{ px: 2, py: 1.5 }}>
+                    <Button
+                        onClick={handleCloseDetailDialog}
+                        variant="contained"
+                        sx={{ fontWeight: 500 }}
+                    >
+                        Đóng
+                    </Button>
+                </DialogActions>
+            </Dialog>
         </SectionContainer>
     );
 };
