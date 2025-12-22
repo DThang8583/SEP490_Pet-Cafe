@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { Box, Typography, Paper, Stack, Avatar, Chip, alpha, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Dialog, DialogTitle, DialogContent, DialogActions, Button, Divider, IconButton, Tabs, Tab, Menu, MenuItem, ListItemIcon, ListItemText, FormControl, InputLabel, Select, TextField, InputAdornment, Grid } from '@mui/material';
 import { Vaccines, Schedule, Visibility, Close, Pets, CalendarToday, MedicalServices, Event, Add, MoreVert, Edit, Delete, Search } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
@@ -17,7 +17,11 @@ import teamApi from '../../api/teamApi';
 
 const VaccinationsPage = () => {
     const [isLoading, setIsLoading] = useState(true);
-    const [currentTab, setCurrentTab] = useState(0);
+    // Initialize currentTab from sessionStorage, default to 0 if not found
+    const [currentTab, setCurrentTabState] = useState(() => {
+        const savedTab = sessionStorage.getItem('vaccinationPageTab');
+        return savedTab !== null ? parseInt(savedTab, 10) : 0;
+    });
     const [vaccinationStats, setVaccinationStats] = useState(null);
     const [upcomingVaccinations, setUpcomingVaccinations] = useState([]);
     const [allUpcomingVaccinations, setAllUpcomingVaccinations] = useState([]); // Store all data from API
@@ -26,6 +30,12 @@ const VaccinationsPage = () => {
     const [species, setSpecies] = useState([]);
     const [breeds, setBreeds] = useState([]);
     const [teams, setTeams] = useState([]);
+
+    // Wrapper function to update currentTab and save to sessionStorage
+    const setCurrentTab = useCallback((newTab) => {
+        setCurrentTabState(newTab);
+        sessionStorage.setItem('vaccinationPageTab', newTab.toString());
+    }, []);
 
     // Helper function to format scheduled_date without timezone conversion
     // Backend stores time as "fake UTC" representing local Vietnam time
@@ -516,26 +526,26 @@ const VaccinationsPage = () => {
         // Filter by date range (client-side only)
         if (filterFromDate && filterFromDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
             // Extract date directly from ISO string to avoid timezone conversion
-                filtered = filtered.filter(item => {
-                    if (!item.scheduled_date) return false;
+            filtered = filtered.filter(item => {
+                if (!item.scheduled_date) return false;
                 const match = item.scheduled_date.match(/^(\d{4})-(\d{2})-(\d{2})/);
                 if (!match) return false;
                 const [, year, month, day] = match;
                 const scheduledDateStr = `${year}-${month}-${day}`;
                 return scheduledDateStr >= filterFromDate;
-                });
+            });
         }
 
         if (filterToDate && filterToDate.match(/^\d{4}-\d{2}-\d{2}$/)) {
             // Extract date directly from ISO string to avoid timezone conversion
-                filtered = filtered.filter(item => {
-                    if (!item.scheduled_date) return false;
+            filtered = filtered.filter(item => {
+                if (!item.scheduled_date) return false;
                 const match = item.scheduled_date.match(/^(\d{4})-(\d{2})-(\d{2})/);
                 if (!match) return false;
                 const [, year, month, day] = match;
                 const scheduledDateStr = `${year}-${month}-${day}`;
                 return scheduledDateStr <= filterToDate;
-                });
+            });
         }
 
         // Sort by closest date (nearest first)
@@ -698,12 +708,40 @@ const VaccinationsPage = () => {
                 >
                     {[
                         {
+                            label: 'Tổng lịch tiêm',
+                            value: allUpcomingVaccinations.length,
+                            color: COLORS.PRIMARY[500],
+                            valueColor: COLORS.PRIMARY[700],
+                            onClick: () => setCurrentTab(1),
+                            cursor: 'pointer'
+                        },
+                        {
+                            label: 'Đã lên lịch',
+                            value: allUpcomingVaccinations.filter(v => v.status === 'PENDING').length,
+                            color: COLORS.WARNING[500],
+                            valueColor: COLORS.WARNING[700],
+                            onClick: () => setCurrentTab(1),
+                            cursor: 'pointer'
+                        },
+                        {
+                            label: 'Đã hoàn thành',
+                            value: allUpcomingVaccinations.filter(v => v.status === 'COMPLETED').length,
+                            color: COLORS.SUCCESS[500],
+                            valueColor: COLORS.SUCCESS[700]
+                        },
+                        {
+                            label: 'Đã hủy',
+                            value: allUpcomingVaccinations.filter(v => v.status === 'CANCELLED').length,
+                            color: COLORS.ERROR[500],
+                            valueColor: COLORS.ERROR[700]
+                        },
+                        {
                             label: 'Lịch tháng này',
                             value: (() => {
                                 const today = new Date();
                                 const currentMonth = today.getMonth();
                                 const currentYear = today.getFullYear();
-                                return upcomingVaccinations.filter(v => {
+                                return allUpcomingVaccinations.filter(v => {
                                     const date = new Date(v.scheduled_date);
                                     return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
                                 }).length;
@@ -712,35 +750,9 @@ const VaccinationsPage = () => {
                             valueColor: COLORS.INFO[700],
                             onClick: () => setCurrentTab(0),
                             cursor: 'pointer'
-                        },
-                        {
-                            label: 'Tổng hồ sơ',
-                            value: vaccinationRecords.length,
-                            color: COLORS.INFO[500],
-                            valueColor: COLORS.INFO[700]
-                        },
-                        {
-                            label: 'Đã tiêm',
-                            value: vaccinationRecords.length,
-                            color: COLORS.SUCCESS[500],
-                            valueColor: COLORS.SUCCESS[700]
-                        },
-                        {
-                            label: 'Đã lên lịch',
-                            value: filteredUpcomingVaccinations.length,
-                            color: COLORS.WARNING[500],
-                            valueColor: COLORS.WARNING[700],
-                            onClick: () => setCurrentTab(1),
-                            cursor: 'pointer'
-                        },
-                        {
-                            label: 'Quá hạn',
-                            value: statusCounts.overdue,
-                            color: COLORS.ERROR[500],
-                            valueColor: COLORS.ERROR[700]
                         }
                     ].map((stat, index) => {
-                        const cardWidth = `calc((100% - ${5 * 16}px) / 6)`;
+                        const cardWidth = `calc((100% - ${4 * 16}px) / 5)`;
                         return (
                             <Box
                                 key={index}

@@ -235,6 +235,9 @@ const AreasPage = () => {
         try {
             await areasApi.deleteArea(confirmDelete.areaId);
 
+            // Close confirm modal first
+            setConfirmDelete({ open: false, areaId: null });
+
             // Remove deleted area and recalculate stats
             setAreas(prevAreas => {
                 const updatedAreas = prevAreas.filter(a => a.id !== confirmDelete.areaId);
@@ -242,15 +245,20 @@ const AreasPage = () => {
                 return updatedAreas;
             });
 
+            // Show success alert
             setAlert({
                 open: true,
                 title: 'Thành công',
                 message: 'Xóa khu vực thành công!',
                 type: 'success'
             });
-            setConfirmDelete({ open: false, areaId: null });
         } catch (error) {
             console.error('Error deleting area:', error);
+
+            // Close confirm modal first
+            setConfirmDelete({ open: false, areaId: null });
+
+            // Show error alert
             setAlert({
                 open: true,
                 title: 'Lỗi',

@@ -119,14 +119,35 @@ const workingStaffApi = {
         const profile = getProfile();
         const filterDate = normalizeDate(date);
         try {
-            const response = await getDailySchedules({
-                page_index: 0,
-                page_size: 100,
-                FromDate: filterDate,
-                ToDate: filterDate
-            });
+            // Lấy danh sách teams của working staff trước
+            const teams = await this.getMyTeams();
 
-            const schedules = (response.data || []).filter((schedule) => {
+            if (!teams || teams.length === 0) {
+                console.warn('[workingStaffApi.getMySchedules] No teams found for current user');
+                return [];
+            }
+
+            // Gọi getDailySchedules cho từng team và merge kết quả
+            const schedulePromises = teams.map(team =>
+                getDailySchedules({
+                    TeamId: team.id,
+                    page_index: 0,
+                    page_size: 100,
+                    FromDate: filterDate,
+                    ToDate: filterDate
+                }).catch(error => {
+                    console.error(`[workingStaffApi.getMySchedules] Failed to fetch schedules for team ${team.id}:`, error);
+                    return { data: [] };
+                })
+            );
+
+            const responses = await Promise.all(schedulePromises);
+
+            // Merge tất cả schedules từ các teams
+            const allSchedules = responses.flatMap(response => response.data || []);
+
+            // Filter schedules của employee hiện tại
+            const schedules = allSchedules.filter((schedule) => {
                 const empId = schedule.employee_id || schedule.employee?.id || schedule.staff_id;
                 return !empId || empId === profile.id || empId === profile.employee_id;
             });
