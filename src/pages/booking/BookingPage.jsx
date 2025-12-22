@@ -16,7 +16,7 @@ import { authApi, customerApi } from '../../api/authApi';
 import serviceApi from '../../api/serviceApi';
 import { bookingApi } from '../../api/bookingApi';
 import { notificationApi } from '../../api/notificationApi';
-import { feedbackApi } from '../../api/feedbackApi';
+import feedbackApi from '../../api/feedbackApi';
 import AlertModal from '../../components/modals/AlertModal';
 
 // Utility function

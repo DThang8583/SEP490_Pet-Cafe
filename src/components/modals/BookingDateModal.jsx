@@ -97,83 +97,97 @@ const BookingDateModal = ({ open, onClose, service, onConfirm }) => {
     // Get available slots with dates
     const getAvailableSlotsWithDates = () => {
         if (!slots || slots.length === 0) return [];
-
-        const slotsWithDates = [];
-
+    
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+    
+        const results = [];
+        const dedupeMap = new Map(); // key = slotId + date
+    
+        const formatDate = (dateObj) => {
+            const y = dateObj.getFullYear();
+            const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const d = String(dateObj.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        };
+    
+        const isSlotFull = (slot, availability) => {
+            const max = availability?.max_capacity ?? slot.max_capacity ?? 0;
+            const booked = availability?.booked_count ?? 0;
+            return max > 0 && booked >= max;
+        };
+    
+        /**
+         * 1️⃣ Xử lý slot CÓ specific_date (ưu tiên)
+         */
         slots
-            .filter(slot => slot && !slot.is_deleted && slot.service_status === 'AVAILABLE')
+            .filter(s => s && !s.is_deleted && s.service_status === 'AVAILABLE' && s.specific_date)
             .forEach(slot => {
-                if (slot.specific_date) {
-                    // Specific date slot
-                    const date = new Date(slot.specific_date);
-                    const today = new Date();
-                    today.setHours(0, 0, 0, 0);
-
-                    if (date >= today) {
-                        // Format date as YYYY-MM-DD using local timezone
-                        const year = date.getFullYear();
-                        const month = String(date.getMonth() + 1).padStart(2, '0');
-                        const day = String(date.getDate()).padStart(2, '0');
-                        const dateStr = `${year}-${month}-${day}`;
-
-                        // Find slot_availabilities for this date
-                        const availability = slot.slot_availabilities?.find(
-                            av => av.booking_date === dateStr
-                        ) || null;
-
-                        // Check if slot is full (booked_count >= max_capacity)
-                        const maxCapacity = availability?.max_capacity ?? slot.max_capacity ?? 0;
-                        const bookedCount = availability?.booked_count ?? 0;
-                        const isFull = maxCapacity > 0 && bookedCount >= maxCapacity;
-
-                        slotsWithDates.push({
-                            slot,
-                            date: dateStr,
-                            dateObj: date,
-                            isAvailable: !isFull, // Not available if full
-                            availability
-                        });
-                    }
-                } else if (slot.day_of_week) {
-                    // Recurring slot - get dates for next 4 weeks
-                    const dates = getDatesForDayOfWeek(slot.day_of_week);
-                    dates.forEach(dateObj => {
-                        // Format date as YYYY-MM-DD using local timezone
-                        const year = dateObj.getFullYear();
-                        const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-                        const day = String(dateObj.getDate()).padStart(2, '0');
-                        const dateStr = `${year}-${month}-${day}`;
-
-                        // Find slot_availabilities for this date
-                        const availability = slot.slot_availabilities?.find(
-                            av => av.booking_date === dateStr
-                        ) || null;
-
-                        // Check if slot is full (booked_count >= max_capacity)
-                        const maxCapacity = availability?.max_capacity ?? slot.max_capacity ?? 0;
-                        const bookedCount = availability?.booked_count ?? 0;
-                        const isFull = maxCapacity > 0 && bookedCount >= maxCapacity;
-
-                        slotsWithDates.push({
-                            slot,
-                            date: dateStr,
-                            dateObj,
-                            isAvailable: !isFull, // Not available if full
-                            availability
-                        });
-                    });
-                }
+                const dateObj = new Date(slot.specific_date);
+                if (dateObj < today) return;
+    
+                const dateStr = formatDate(dateObj);
+                const availability = slot.slot_availabilities?.find(
+                    av => av.booking_date === dateStr
+                ) || null;
+    
+                const isAvailable = !isSlotFull(slot, availability);
+                const key = `${slot.id}-${dateStr}`;
+    
+                dedupeMap.set(key, {
+                    slot,
+                    date: dateStr,
+                    dateObj,
+                    availability,
+                    isAvailable
+                });
             });
-
-        // Sort by date, then by start_time
-        return slotsWithDates.sort((a, b) => {
+    
+        /**
+         * 2️⃣ Xử lý slot RECURRING (day_of_week)
+         *    ❌ KHÔNG sinh nếu ngày đó đã có specific_date
+         */
+        slots
+            .filter(s => s && !s.is_deleted && s.service_status === 'AVAILABLE' && !s.specific_date && s.day_of_week)
+            .forEach(slot => {
+                const dates = getDatesForDayOfWeek(slot.day_of_week);
+    
+                dates.forEach(dateObj => {
+                    if (dateObj < today) return;
+    
+                    const dateStr = formatDate(dateObj);
+                    const key = `${slot.id}-${dateStr}`;
+    
+                    // ⛔ Bỏ qua nếu đã có slot specific_date
+                    if (dedupeMap.has(key)) return;
+    
+                    const availability = slot.slot_availabilities?.find(
+                        av => av.booking_date === dateStr
+                    ) || null;
+    
+                    const isAvailable = !isSlotFull(slot, availability);
+    
+                    dedupeMap.set(key, {
+                        slot,
+                        date: dateStr,
+                        dateObj,
+                        availability,
+                        isAvailable
+                    });
+                });
+            });
+    
+        /**
+         * 3️⃣ Sort theo ngày → giờ
+         */
+        return Array.from(dedupeMap.values()).sort((a, b) => {
             if (a.date !== b.date) {
                 return a.date.localeCompare(b.date);
             }
             return (a.slot.start_time || '').localeCompare(b.slot.start_time || '');
         });
     };
-
+    
     const handleSlotSelect = (item) => {
         if (item.isAvailable) {
             setSelectedDate(item.date);
