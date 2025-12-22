@@ -14,7 +14,18 @@ import SpeciesTab from './SpeciesTab';
 
 const PetsPage = () => {
     const [isLoading, setIsLoading] = useState(true);
-    const [currentTab, setCurrentTab] = useState(0); // 0: Pets, 1: Groups, 2: Breeds, 3: Species
+
+    // Tab state - Initialize from sessionStorage, default to 0 if not found
+    const [currentTab, setCurrentTabState] = useState(() => {
+        const savedTab = sessionStorage.getItem('petsPageTab');
+        return savedTab !== null ? parseInt(savedTab, 10) : 0;
+    });
+
+    // Wrapper function to update currentTab and save to sessionStorage
+    const setCurrentTab = useCallback((newTab) => {
+        setCurrentTabState(newTab);
+        sessionStorage.setItem('petsPageTab', newTab.toString());
+    }, []);
 
     // Shared data for all tabs
     const [pets, setPets] = useState([]);

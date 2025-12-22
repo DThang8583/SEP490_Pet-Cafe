@@ -43,17 +43,9 @@ const SignalRProvider = ({ children }) => {
                         console.log('🔔 [SignalR] ReceiveNotification called');
                         console.log('🔔 [SignalR] notificationData:', JSON.stringify(notificationData, null, 2));
 
-                        const currentAccountId = localStorage.getItem('accountId') || user?.id;
-                        console.log('🔔 [SignalR] currentAccountId:', currentAccountId);
-
-                        // Check account ID với nhiều field variations
-                        const notifAccountId = notificationData.accountId || notificationData.account_id || notificationData.AccountId;
-                        console.log('🔔 [SignalR] notifAccountId:', notifAccountId);
-
-                        if (notifAccountId && notifAccountId !== currentAccountId) {
-                            console.log('⚠️ [SignalR] Không phải thông báo cho user này');
-                            return;
-                        }
+                        // Không cần check accountId vì user đã join đúng group
+                        // Backend chỉ gửi notification cho group của user này
+                        // Nếu nhận được notification thì chắc chắn là của user này
 
                         setNotification(notificationData);
                         console.log('✅ [SignalR] Notification set:', notificationData);

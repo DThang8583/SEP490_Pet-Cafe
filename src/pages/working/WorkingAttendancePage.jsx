@@ -403,6 +403,11 @@ const WorkingAttendancePage = () => {
                     shiftInfo.working_days?.length ? shiftInfo.working_days : shift?.applicable_days
                 );
 
+                // Sort workingDays theo thứ tự trong WEEKDAYS để hiển thị đúng thứ tự tabs
+                const sortedWorkingDays = [...workingDays].sort((a, b) => {
+                    return WEEKDAYS.indexOf(a) - WEEKDAYS.indexOf(b);
+                });
+
                 const shiftDays = [];
 
                 if (viewMode === 'day') {
@@ -411,7 +416,7 @@ const WorkingAttendancePage = () => {
                     const adjustedIndex = selectedDayIndex === 0 ? 6 : selectedDayIndex - 1;
                     const selectedDayKey = WEEKDAYS[adjustedIndex];
 
-                    workingDays.forEach((dayKey) => {
+                    sortedWorkingDays.forEach((dayKey) => {
                         const targetDayIndex = WEEKDAYS.indexOf(dayKey);
                         const currentDayIndex = adjustedIndex;
                         const daysToAdd = targetDayIndex - currentDayIndex;
@@ -493,7 +498,7 @@ const WorkingAttendancePage = () => {
                         });
                     });
                 } else {
-                    workingDays.forEach((dayKey) => {
+                    sortedWorkingDays.forEach((dayKey) => {
                         const dates = getDatesForDayOfWeek(dayKey, dateRange.fromDate, dateRange.toDate);
 
                         if (dates.length === 0) return;

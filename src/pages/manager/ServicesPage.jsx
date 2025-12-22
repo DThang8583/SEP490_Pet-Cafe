@@ -24,7 +24,19 @@ import { formatPrice } from '../../utils/formatPrice';
 
 const ServicesPage = () => {
     const [isPending, startTransition] = useTransition();
-    const [currentTab, setCurrentTab] = useState(0);
+
+    // Tab state - Initialize from sessionStorage, default to 0 if not found
+    const [currentTab, setCurrentTabState] = useState(() => {
+        const savedTab = sessionStorage.getItem('servicesPageTab');
+        return savedTab !== null ? parseInt(savedTab, 10) : 0;
+    });
+
+    // Wrapper function to update currentTab and save to sessionStorage
+    const setCurrentTab = useCallback((newTab) => {
+        setCurrentTabState(newTab);
+        sessionStorage.setItem('servicesPageTab', newTab.toString());
+    }, []);
+
     const [loading, setLoading] = useState(true);
 
     // Data
@@ -41,7 +53,7 @@ const ServicesPage = () => {
 
     const [searchQuery, setSearchQuery] = useState('');
     const deferredSearchQuery = useDeferredValue(searchQuery);
-    const [filterServiceStatus, setFilterServiceStatus] = useState('active'); // Mặc định là Hoạt động
+    const [filterServiceStatus, setFilterServiceStatus] = useState('all'); // Mặc định là Tất cả
     const [filterTaskId, setFilterTaskId] = useState('all');
     const [filterStartTime, setFilterStartTime] = useState('');
     const [filterEndTime, setFilterEndTime] = useState('');
@@ -213,30 +225,71 @@ const ServicesPage = () => {
         try {
             const shouldLoadAll = searchQuery && searchQuery.trim().length > 0;
 
-            const response = await serviceApi.getAllServices({
-                task_id: filterTaskId !== 'all' ? filterTaskId : undefined,
-                start_time: filterStartTime || undefined,
-                end_time: filterEndTime || undefined,
-                pet_species_ids: filterSpeciesIds.length > 0 ? filterSpeciesIds : undefined,
-                pet_breed_ids: filterBreedIds.length > 0 ? filterBreedIds : undefined,
-                area_ids: filterAreaIds.length > 0 ? filterAreaIds : undefined,
-                min_price: filterMinPrice === '' ? undefined : Number(filterMinPrice),
-                max_price: filterMaxPrice === '' ? undefined : Number(filterMaxPrice),
-                is_active: filterServiceStatus === 'active' ? true : false,
-                page: shouldLoadAll ? 0 : page - 1,
-                limit: shouldLoadAll ? 9999 : itemsPerPage
-            });
+            // Nếu filter là "Tất cả", cần gọi 2 requests riêng cho active và inactive
+            if (filterServiceStatus === 'all') {
+                const baseParams = {
+                    task_id: filterTaskId !== 'all' ? filterTaskId : undefined,
+                    start_time: filterStartTime || undefined,
+                    end_time: filterEndTime || undefined,
+                    pet_species_ids: filterSpeciesIds.length > 0 ? filterSpeciesIds : undefined,
+                    pet_breed_ids: filterBreedIds.length > 0 ? filterBreedIds : undefined,
+                    area_ids: filterAreaIds.length > 0 ? filterAreaIds : undefined,
+                    min_price: filterMinPrice === '' ? undefined : Number(filterMinPrice),
+                    max_price: filterMaxPrice === '' ? undefined : Number(filterMaxPrice),
+                    page: 0,
+                    limit: 9999
+                };
 
-            startTransition(() => {
-                setServices(response.data || []);
-            });
+                const [activeResponse, inactiveResponse] = await Promise.all([
+                    serviceApi.getAllServices({ ...baseParams, is_active: true }),
+                    serviceApi.getAllServices({ ...baseParams, is_active: false })
+                ]);
 
-            if (response.pagination && !shouldLoadAll) {
-                setTotalPages(response.pagination.total_pages_count || 1);
-                setTotalItems(response.pagination.total_items_count || 0);
+                const allServicesData = [
+                    ...(activeResponse.data || []),
+                    ...(inactiveResponse.data || [])
+                ];
+
+                // Client-side pagination khi lấy tất cả
+                const startIndex = (page - 1) * itemsPerPage;
+                const paginatedData = shouldLoadAll
+                    ? allServicesData
+                    : allServicesData.slice(startIndex, startIndex + itemsPerPage);
+
+                startTransition(() => {
+                    setServices(paginatedData);
+                });
+
+                const totalCount = allServicesData.length;
+                setTotalPages(Math.ceil(totalCount / itemsPerPage));
+                setTotalItems(totalCount);
             } else {
-                setTotalPages(1);
-                setTotalItems(response.data?.length || 0);
+                // Filter specific status (active hoặc inactive)
+                const response = await serviceApi.getAllServices({
+                    task_id: filterTaskId !== 'all' ? filterTaskId : undefined,
+                    start_time: filterStartTime || undefined,
+                    end_time: filterEndTime || undefined,
+                    pet_species_ids: filterSpeciesIds.length > 0 ? filterSpeciesIds : undefined,
+                    pet_breed_ids: filterBreedIds.length > 0 ? filterBreedIds : undefined,
+                    area_ids: filterAreaIds.length > 0 ? filterAreaIds : undefined,
+                    min_price: filterMinPrice === '' ? undefined : Number(filterMinPrice),
+                    max_price: filterMaxPrice === '' ? undefined : Number(filterMaxPrice),
+                    is_active: filterServiceStatus === 'active' ? true : false,
+                    page: shouldLoadAll ? 0 : page - 1,
+                    limit: shouldLoadAll ? 9999 : itemsPerPage
+                });
+
+                startTransition(() => {
+                    setServices(response.data || []);
+                });
+
+                if (response.pagination && !shouldLoadAll) {
+                    setTotalPages(response.pagination.total_pages_count || 1);
+                    setTotalItems(response.pagination.total_items_count || 0);
+                } else {
+                    setTotalPages(1);
+                    setTotalItems(response.data?.length || 0);
+                }
             }
         } catch (error) {
             setServices([]);
@@ -792,6 +845,7 @@ const ServicesPage = () => {
                                 <FormControl size="small" sx={{ width: 200 }}>
                                     <InputLabel>Trạng thái</InputLabel>
                                     <Select value={filterServiceStatus} onChange={(e) => { setFilterServiceStatus(e.target.value); setPage(1); loadServices(); }} label="Trạng thái">
+                                        <MenuItem value="all">Tất cả</MenuItem>
                                         <MenuItem value="active">Hoạt động</MenuItem>
                                         <MenuItem value="inactive">Không hoạt động</MenuItem>
                                     </Select>

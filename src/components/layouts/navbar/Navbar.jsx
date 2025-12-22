@@ -85,13 +85,10 @@ const Navbar = () => {
     // Update unread count when new notification arrives via SignalR
     useEffect(() => {
         if (signalRNotification) {
-            const accountId = localStorage.getItem('accountId');
-            const notificationAccountId = signalRNotification.accountId || signalRNotification.account_id;
-
-            if (accountId && notificationAccountId === accountId) {
-                console.log('[Navbar] New notification received, incrementing count');
-                setUnreadCount(prev => prev + 1);
-            }
+            // Không cần check accountId vì user đã join đúng group
+            // Nếu nhận được notification thì chắc chắn là của user này
+            console.log('[Navbar] New notification received, incrementing count');
+            setUnreadCount(prev => prev + 1);
         }
     }, [signalRNotification]);
 

@@ -21,8 +21,17 @@ import DailyTasksTab from './DailyTasksTab';
 import WorkTypeTab from './WorkTypeTab';
 
 const TasksPage = () => {
-    // Tab state
-    const [currentTab, setCurrentTab] = useState(0);
+    // Tab state - Initialize from sessionStorage, default to 0 if not found
+    const [currentTab, setCurrentTabState] = useState(() => {
+        const savedTab = sessionStorage.getItem('tasksPageTab');
+        return savedTab !== null ? parseInt(savedTab, 10) : 0;
+    });
+
+    // Wrapper function to update currentTab and save to sessionStorage
+    const setCurrentTab = useCallback((newTab) => {
+        setCurrentTabState(newTab);
+        sessionStorage.setItem('tasksPageTab', newTab.toString());
+    }, []);
 
     // Loading states
     const [baseDataLoading, setBaseDataLoading] = useState(true);
@@ -423,6 +432,11 @@ const TasksPage = () => {
                 // Reload slots to get updated data with populated nested objects
                 await loadSlots();
 
+                // Close modal first before showing alert
+                setSlotFormOpen(false);
+                setEditingSlot(null);
+                setSlotFormMode('create');
+
                 setAlert({
                     open: true,
                     title: 'Thành công',
@@ -454,6 +468,11 @@ const TasksPage = () => {
                 await new Promise(resolve => setTimeout(resolve, 500));
                 await loadSlots();
 
+                // Close modal first before showing alert
+                setSlotFormOpen(false);
+                setEditingSlot(null);
+                setSlotFormMode('create');
+
                 // Show result message với chi tiết lỗi
                 if (failCount === 0) {
                     setAlert({
@@ -463,7 +482,7 @@ const TasksPage = () => {
                         type: 'success'
                     });
                 } else if (successCount === 0) {
-                    // Tất cả slot đều thất bại - throw error để SlotFormModal có thể hiển thị alertModal
+                    // Tất cả slot đều thất bại
                     const errorDetails = errorMessages.length > 0
                         ? errorMessages.join('\n\n')
                         : 'Không thể tạo ca. Vui lòng kiểm tra lại thông tin.';
@@ -473,10 +492,8 @@ const TasksPage = () => {
                         message: `Không thể tạo ca. Chi tiết lỗi:\n\n${errorDetails}`,
                         type: 'error'
                     });
-                    // Throw error để SlotFormModal có thể catch và hiển thị alertModal
-                    throw new Error(errorDetails);
                 } else {
-                    // Một số slot thành công, một số thất bại - throw error để SlotFormModal có thể hiển thị alertModal
+                    // Một số slot thành công, một số thất bại
                     const errorDetails = errorMessages.length > 0
                         ? `\n\nChi tiết lỗi:\n${errorMessages.join('\n')}`
                         : '';
@@ -486,25 +503,24 @@ const TasksPage = () => {
                         message: `Tạo thành công ${successCount} ca, thất bại ${failCount} ca.${errorDetails}`,
                         type: 'warning'
                     });
-                    // Throw error để SlotFormModal có thể catch và hiển thị alertModal
-                    throw new Error(`Tạo thành công ${successCount} ca, thất bại ${failCount} ca.${errorDetails}`);
                 }
             }
 
             await loadAllTaskTemplates();
             await loadTaskList();
+        } catch (error) {
+            // Close modal first before showing alert
             setSlotFormOpen(false);
             setEditingSlot(null);
             setSlotFormMode('create');
-        } catch (error) {
+
             // Xử lý lỗi ngoài vòng lặp (nếu có)
             setAlert({
                 open: true,
                 title: 'Lỗi',
-                message: error.message || 'Có lỗi xảy ra khi tạo ca. Vui lòng thử lại.',
+                message: error.message || 'Có lỗi xảy ra khi lưu ca. Vui lòng thử lại.',
                 type: 'error'
             });
-            throw error;
         }
     };
 

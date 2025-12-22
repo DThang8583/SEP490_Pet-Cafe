@@ -5,12 +5,15 @@ import { COLORS } from '../../constants/colors';
 
 const AlertModal = ({
     isOpen = false,
+    open = false, // Support both "open" and "isOpen" for backward compatibility
     onClose,
     title = "Thông báo",
     message = "",
     type = "info",
     okText = "OK"
 }) => {
+    // Use either "open" or "isOpen" prop
+    const modalOpen = open || isOpen;
     // Get icon based on type
     const getIcon = () => {
         const iconProps = {
@@ -85,7 +88,7 @@ const AlertModal = ({
 
     return (
         <Dialog
-            open={isOpen}
+            open={modalOpen}
             onClose={(event, reason) => handleKeyDown(event, reason)}
             maxWidth="sm"
             fullWidth
