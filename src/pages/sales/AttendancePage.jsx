@@ -7,6 +7,7 @@ import { getDailySchedules } from '../../api/dailyScheduleApi';
 import apiClient from '../../config/config';
 import { WEEKDAY_LABELS, WEEKDAYS } from '../../api/workShiftApi';
 import Loading from '../../components/loading/Loading';
+import AlertModal from '../../components/modals/AlertModal';
 
 const STATUS_OPTIONS = [
     { value: 'PENDING', label: 'Chưa điểm danh', icon: <AccessTime fontSize="small" />, color: 'warning' },
@@ -120,6 +121,31 @@ const isToday = (dateString) => {
     return normalized === todayStr;
 };
 
+// Kiểm tra giờ hiện tại có nằm trong khung giờ của Ca làm việc hay không
+const isWithinShiftHours = (shift) => {
+    if (!shift || !shift.start_time || !shift.end_time) return false;
+
+    const now = new Date();
+    const currentHours = now.getHours();
+    const currentMinutes = now.getMinutes();
+    const currentTotalMinutes = currentHours * 60 + currentMinutes;
+
+    // Parse start_time (format: "HH:MM:SS" or "HH:MM")
+    const startParts = shift.start_time.split(':');
+    const startHours = parseInt(startParts[0], 10);
+    const startMinutes = parseInt(startParts[1], 10);
+    const startTotalMinutes = startHours * 60 + startMinutes;
+
+    // Parse end_time (format: "HH:MM:SS" or "HH:MM")
+    const endParts = shift.end_time.split(':');
+    const endHours = parseInt(endParts[0], 10);
+    const endMinutes = parseInt(endParts[1], 10);
+    const endTotalMinutes = endHours * 60 + endMinutes;
+
+    // Check if current time is within shift hours
+    return currentTotalMinutes >= startTotalMinutes && currentTotalMinutes <= endTotalMinutes;
+};
+
 const AttendancePage = () => {
     const [isPending, startTransition] = useTransition();
 
@@ -145,6 +171,8 @@ const AttendancePage = () => {
     const [activeDayTab, setActiveDayTab] = useState({});
     const [pendingChanges, setPendingChanges] = useState({});
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState({});
+    const [editingRecords, setEditingRecords] = useState({}); // Track which records are being edited
+    const [alert, setAlert] = useState({ open: false, title: '', message: '', type: 'info' }); // AlertModal state
 
     const fetchSchedulesForTeams = useCallback(async (teamIds, params) => {
         if (!Array.isArray(teamIds) || teamIds.length === 0) {
@@ -716,6 +744,14 @@ const AttendancePage = () => {
             message: `Đã đánh dấu ${member.full_name || 'thành viên'} là "${STATUS_OPTIONS.find(opt => opt.value === newStatus)?.label || newStatus}". Nhấn "Lưu" để cập nhật.`,
             severity: 'info'
         });
+
+        // Tắt editing mode sau khi cập nhật trạng thái
+        const editKey = `${teamId}-${shiftId}-${dayKey}-${recordId}`;
+        setEditingRecords(prev => {
+            const newState = { ...prev };
+            delete newState[editKey];
+            return newState;
+        });
     };
 
     // Mở dialog để nhập / chỉnh sửa ghi chú cho từng người (không gọi API, chỉ lưu tạm để bấm Lưu chung)
@@ -794,9 +830,15 @@ const AttendancePage = () => {
                 return updated;
             });
 
-            setSnackbar({
-                message: `Đã lưu điểm danh thành công cho ${changes.length} thành viên! Đang tải lại dữ liệu...`,
-                severity: 'success'
+            // Clear editing mode cho tất cả records của team/shift/day này
+            setEditingRecords(prev => {
+                const newState = { ...prev };
+                Object.keys(newState).forEach(editKey => {
+                    if (editKey.startsWith(`${teamId}-${shiftId}-${dayKey}-`)) {
+                        delete newState[editKey];
+                    }
+                });
+                return newState;
             });
 
             // Delay nhỏ để đảm bảo backend đã xử lý xong
@@ -814,11 +856,22 @@ const AttendancePage = () => {
                 setAttendance(updatedSchedules);
             }
 
+            // Hiển thị AlertModal thành công
+            setAlert({
+                open: true,
+                title: 'Lưu điểm danh thành công',
+                message: `Đã lưu điểm danh thành công cho ${changes.length} thành viên!`,
+                type: 'success'
+            });
+
         } catch (error) {
             console.error('[Bulk Update] Error:', error);
-            setSnackbar({
+            // Hiển thị AlertModal lỗi
+            setAlert({
+                open: true,
+                title: 'Lưu điểm danh thất bại',
                 message: error.response?.data?.message || error.response?.data?.error || error.message || 'Không thể lưu điểm danh. Vui lòng thử lại.',
-                severity: 'error'
+                type: 'error'
             });
         } finally {
             setLoading(false);
@@ -964,6 +1017,9 @@ const AttendancePage = () => {
                 [key]: updated
             };
         });
+
+        // Set hasUnsavedChanges để hiển thị nút "Lưu"
+        setHasUnsavedChanges(prev => ({ ...prev, [key]: true }));
 
         // Cập nhật notes hiển thị trong bảng cho record hiện tại
         if (dailyScheduleId) {
@@ -1684,50 +1740,67 @@ const AttendancePage = () => {
                                                                                                                 </Typography>
                                                                                                             </TableCell>
                                                                                                             <TableCell sx={{ py: 2 }}>
-                                                                                                                <Tooltip
-                                                                                                                    title={
-                                                                                                                        isTeamLeader
-                                                                                                                            ? (schedule?.notes ? 'Nhấn để sửa ghi chú' : 'Nhấn để thêm ghi chú')
-                                                                                                                            : ''
-                                                                                                                    }
-                                                                                                                    placement="top"
-                                                                                                                    arrow
-                                                                                                                >
-                                                                                                                    <Typography
-                                                                                                                        variant="body2"
-                                                                                                                        onClick={
-                                                                                                                            isTeamLeader
-                                                                                                                                ? () =>
-                                                                                                                                    handleOpenNotesDialog(
-                                                                                                                                        memberData || { member, date: dateStr, schedule },
-                                                                                                                                        team.id,
-                                                                                                                                        shift.id,
-                                                                                                                                        dateStr,
-                                                                                                                                        dayKey,
-                                                                                                                                        isTeamLeader
-                                                                                                                                    )
-                                                                                                                                : undefined
-                                                                                                                        }
-                                                                                                                        sx={{
-                                                                                                                            color: schedule?.notes ? COLORS.TEXT.PRIMARY : COLORS.TEXT.SECONDARY,
-                                                                                                                            fontStyle: schedule?.notes ? 'normal' : 'italic',
-                                                                                                                            maxWidth: 300,
-                                                                                                                            overflow: 'hidden',
-                                                                                                                            textOverflow: 'ellipsis',
-                                                                                                                            whiteSpace: 'nowrap',
-                                                                                                                            fontWeight: schedule?.notes ? 500 : 400,
-                                                                                                                            cursor: isTeamLeader ? 'pointer' : 'default',
-                                                                                                                            textDecoration: isTeamLeader ? 'underline dotted' : 'none'
-                                                                                                                        }}
-                                                                                                                    >
-                                                                                                                        {schedule?.notes || (isTeamLeader ? 'Thêm ghi chú' : '—')}
-                                                                                                                    </Typography>
-                                                                                                                </Tooltip>
+                                                                                                                {(() => {
+                                                                                                                    // Chỉ cho phép sửa ghi chú khi:
+                                                                                                                    // 1. Đang ở trạng thái PENDING (chưa điểm danh), HOẶC
+                                                                                                                    // 2. Đang ở chế độ editing (đã click nút Sửa)
+                                                                                                                    const editKey = `${team.id}-${shift.id}-${dayKey}-${recordId}`;
+                                                                                                                    const isEditing = editingRecords[editKey];
+                                                                                                                    const canEditNotes = isTeamLeader && isTodayAttendance && isWithinShiftHours(shift) && (currentStatus === 'PENDING' || isEditing);
+
+                                                                                                                    return (
+                                                                                                                        <Tooltip
+                                                                                                                            title={
+                                                                                                                                canEditNotes
+                                                                                                                                    ? (schedule?.notes ? 'Nhấn để sửa ghi chú' : 'Nhấn để thêm ghi chú')
+                                                                                                                                    : ''
+                                                                                                                            }
+                                                                                                                            placement="top"
+                                                                                                                            arrow
+                                                                                                                        >
+                                                                                                                            <Typography
+                                                                                                                                variant="body2"
+                                                                                                                                onClick={
+                                                                                                                                    canEditNotes
+                                                                                                                                        ? () =>
+                                                                                                                                            handleOpenNotesDialog(
+                                                                                                                                                memberData || { member, date: dateStr, schedule },
+                                                                                                                                                team.id,
+                                                                                                                                                shift.id,
+                                                                                                                                                dateStr,
+                                                                                                                                                dayKey,
+                                                                                                                                                isTeamLeader
+                                                                                                                                            )
+                                                                                                                                        : undefined
+                                                                                                                                }
+                                                                                                                                sx={{
+                                                                                                                                    color: schedule?.notes ? COLORS.TEXT.PRIMARY : COLORS.TEXT.SECONDARY,
+                                                                                                                                    fontStyle: schedule?.notes ? 'normal' : 'italic',
+                                                                                                                                    maxWidth: 300,
+                                                                                                                                    overflow: 'hidden',
+                                                                                                                                    textOverflow: 'ellipsis',
+                                                                                                                                    whiteSpace: 'nowrap',
+                                                                                                                                    fontWeight: schedule?.notes ? 500 : 400,
+                                                                                                                                    cursor: canEditNotes ? 'pointer' : 'default',
+                                                                                                                                    textDecoration: canEditNotes ? 'underline dotted' : 'none'
+                                                                                                                                }}
+                                                                                                                            >
+                                                                                                                                {schedule?.notes || (canEditNotes ? 'Thêm ghi chú' : '—')}
+                                                                                                                            </Typography>
+                                                                                                                        </Tooltip>
+                                                                                                                    );
+                                                                                                                })()}
                                                                                                             </TableCell>
                                                                                                             <TableCell align="center" sx={{ py: 2.5 }}>
-                                                                                                                {isTeamLeader && isTodayAttendance ? (
-                                                                                                                    currentStatus === 'PENDING' ? (
-                                                                                                                        <Stack direction="row" spacing={1.5} alignItems="center" justifyContent="center" flexWrap="wrap" sx={{ gap: 1 }}>
+                                                                                                                {(() => {
+                                                                                                                    const editKey = `${team.id}-${shift.id}-${dayKey}-${recordId}`;
+                                                                                                                    const isEditing = editingRecords[editKey];
+                                                                                                                    const showActionButtons = isTeamLeader && isTodayAttendance && isWithinShiftHours(shift);
+                                                                                                                    const showAttendanceButtons = currentStatus === 'PENDING' || isEditing;
+
+                                                                                                                    if (!showActionButtons) {
+                                                                                                                        // Chỉ hiển thị Chip (read-only mode)
+                                                                                                                        return (
                                                                                                                             <Chip
                                                                                                                                 icon={STATUS_OPTIONS.find((opt) => opt.value === currentStatus)?.icon}
                                                                                                                                 label={STATUS_OPTIONS.find((opt) => opt.value === currentStatus)?.label || currentStatus}
@@ -1741,49 +1814,101 @@ const AttendancePage = () => {
                                                                                                                                 }}
                                                                                                                                 size="medium"
                                                                                                                             />
-                                                                                                                            {STATUS_OPTIONS.filter(option =>
-                                                                                                                                option.value !== 'PENDING'
-                                                                                                                            ).map((option) => (
-                                                                                                                                <Tooltip key={option.value} title={`Đánh dấu: ${option.label}`} arrow placement="top">
-                                                                                                                                    <Button
-                                                                                                                                        variant="outlined"
-                                                                                                                                        color={option.color}
-                                                                                                                                        size="small"
-                                                                                                                                        startIcon={option.icon}
-                                                                                                                                        onClick={() => handleStatusClick(
-                                                                                                                                            memberData || { member, date: dateStr, schedule },
-                                                                                                                                            option.value,
-                                                                                                                                            team.id,
-                                                                                                                                            shift.id,
-                                                                                                                                            dateStr,
-                                                                                                                                            dayKey,
-                                                                                                                                            isTeamLeader
-                                                                                                                                        )}
-                                                                                                                                        sx={{
-                                                                                                                                            borderRadius: 2,
-                                                                                                                                            minWidth: 110,
-                                                                                                                                            textTransform: 'none',
-                                                                                                                                            fontWeight: 600,
-                                                                                                                                            px: 2,
-                                                                                                                                            py: 0.75,
-                                                                                                                                            fontSize: '0.8rem',
-                                                                                                                                            borderWidth: 2,
-                                                                                                                                            '&:hover': {
+                                                                                                                        );
+                                                                                                                    }
+
+                                                                                                                    if (showAttendanceButtons) {
+                                                                                                                        // Hiển thị tất cả các nút điểm danh
+                                                                                                                        return (
+                                                                                                                            <Stack direction="row" spacing={1.5} alignItems="center" justifyContent="center" flexWrap="wrap" sx={{ gap: 1 }}>
+                                                                                                                                <Chip
+                                                                                                                                    icon={STATUS_OPTIONS.find((opt) => opt.value === currentStatus)?.icon}
+                                                                                                                                    label={STATUS_OPTIONS.find((opt) => opt.value === currentStatus)?.label || currentStatus}
+                                                                                                                                    sx={{
+                                                                                                                                        bgcolor: STATUS_COLORS[currentStatus]?.bg || COLORS.GRAY[100],
+                                                                                                                                        color: STATUS_COLORS[currentStatus]?.color || COLORS.GRAY[700],
+                                                                                                                                        fontWeight: 700,
+                                                                                                                                        height: 36,
+                                                                                                                                        fontSize: '0.875rem',
+                                                                                                                                        border: `2px solid ${alpha(STATUS_COLORS[currentStatus]?.color || COLORS.GRAY[700], 0.3)}`
+                                                                                                                                    }}
+                                                                                                                                    size="medium"
+                                                                                                                                />
+                                                                                                                                {STATUS_OPTIONS.filter(option =>
+                                                                                                                                    option.value !== 'PENDING' && option.value !== currentStatus
+                                                                                                                                ).map((option) => (
+                                                                                                                                    <Tooltip key={option.value} title={`Đánh dấu: ${option.label}`} arrow placement="top">
+                                                                                                                                        <Button
+                                                                                                                                            variant="outlined"
+                                                                                                                                            color={option.color}
+                                                                                                                                            size="small"
+                                                                                                                                            startIcon={option.icon}
+                                                                                                                                            onClick={() => handleStatusClick(
+                                                                                                                                                memberData || { member, date: dateStr, schedule },
+                                                                                                                                                option.value,
+                                                                                                                                                team.id,
+                                                                                                                                                shift.id,
+                                                                                                                                                dateStr,
+                                                                                                                                                dayKey,
+                                                                                                                                                isTeamLeader
+                                                                                                                                            )}
+                                                                                                                                            sx={{
+                                                                                                                                                borderRadius: 2,
+                                                                                                                                                minWidth: 110,
+                                                                                                                                                textTransform: 'none',
+                                                                                                                                                fontWeight: 600,
+                                                                                                                                                px: 2,
+                                                                                                                                                py: 0.75,
+                                                                                                                                                fontSize: '0.8rem',
                                                                                                                                                 borderWidth: 2,
-                                                                                                                                                boxShadow: `0 4px 12px ${alpha(COLORS[option.color.toUpperCase()]?.[500] || COLORS.PRIMARY[500], 0.25)}`,
-                                                                                                                                                transform: 'translateY(-2px)',
-                                                                                                                                                bgcolor: alpha(COLORS[option.color.toUpperCase()]?.[50] || COLORS.PRIMARY[50], 0.5)
-                                                                                                                                            },
-                                                                                                                                            transition: 'all 0.2s'
-                                                                                                                                        }}
-                                                                                                                                    >
-                                                                                                                                        {option.label}
-                                                                                                                                    </Button>
-                                                                                                                                </Tooltip>
-                                                                                                                            ))}
-                                                                                                                        </Stack>
-                                                                                                                    ) : (
-                                                                                                                        <Stack direction="row" spacing={1.5} justifyContent="center" alignItems="center">
+                                                                                                                                                '&:hover': {
+                                                                                                                                                    borderWidth: 2,
+                                                                                                                                                    boxShadow: `0 4px 12px ${alpha(COLORS[option.color.toUpperCase()]?.[500] || COLORS.PRIMARY[500], 0.25)}`,
+                                                                                                                                                    transform: 'translateY(-2px)',
+                                                                                                                                                    bgcolor: alpha(COLORS[option.color.toUpperCase()]?.[50] || COLORS.PRIMARY[50], 0.5)
+                                                                                                                                                },
+                                                                                                                                                transition: 'all 0.2s'
+                                                                                                                                            }}
+                                                                                                                                        >
+                                                                                                                                            {option.label}
+                                                                                                                                        </Button>
+                                                                                                                                    </Tooltip>
+                                                                                                                                ))}
+                                                                                                                                {isEditing && (
+                                                                                                                                    <Tooltip title="Hủy chỉnh sửa" arrow placement="top">
+                                                                                                                                        <Button
+                                                                                                                                            variant="outlined"
+                                                                                                                                            color="inherit"
+                                                                                                                                            size="small"
+                                                                                                                                            startIcon={<Close />}
+                                                                                                                                            onClick={() => {
+                                                                                                                                                setEditingRecords(prev => {
+                                                                                                                                                    const newState = { ...prev };
+                                                                                                                                                    delete newState[editKey];
+                                                                                                                                                    return newState;
+                                                                                                                                                });
+                                                                                                                                            }}
+                                                                                                                                            sx={{
+                                                                                                                                                borderRadius: 2,
+                                                                                                                                                textTransform: 'none',
+                                                                                                                                                fontWeight: 600,
+                                                                                                                                                borderWidth: 2,
+                                                                                                                                                '&:hover': {
+                                                                                                                                                    borderWidth: 2
+                                                                                                                                                }
+                                                                                                                                            }}
+                                                                                                                                        >
+                                                                                                                                            Hủy
+                                                                                                                                        </Button>
+                                                                                                                                    </Tooltip>
+                                                                                                                                )}
+                                                                                                                            </Stack>
+                                                                                                                        );
+                                                                                                                    }
+
+                                                                                                                    // Đã điểm danh và không đang edit → hiển thị Chip + nút Sửa
+                                                                                                                    return (
+                                                                                                                        <Stack direction="row" spacing={1.5} alignItems="center" justifyContent="center" flexWrap="wrap" sx={{ gap: 1 }}>
                                                                                                                             <Chip
                                                                                                                                 icon={STATUS_OPTIONS.find((opt) => opt.value === currentStatus)?.icon}
                                                                                                                                 label={STATUS_OPTIONS.find((opt) => opt.value === currentStatus)?.label || currentStatus}
@@ -1798,43 +1923,43 @@ const AttendancePage = () => {
                                                                                                                                 }}
                                                                                                                                 size="medium"
                                                                                                                             />
-                                                                                                                            {pendingChange && (
+                                                                                                                            <Tooltip title="Sửa trạng thái điểm danh" arrow placement="top">
                                                                                                                                 <Button
                                                                                                                                     variant="outlined"
-                                                                                                                                    color="inherit"
+                                                                                                                                    color="primary"
                                                                                                                                     size="small"
-                                                                                                                                    startIcon={<Close />}
-                                                                                                                                    onClick={() => handleResetMemberStatus(team.id, shift.id, dayKey, recordId)}
+                                                                                                                                    startIcon={<Edit />}
                                                                                                                                     sx={{
                                                                                                                                         borderRadius: 2,
+                                                                                                                                        minWidth: 80,
                                                                                                                                         textTransform: 'none',
                                                                                                                                         fontWeight: 600,
+                                                                                                                                        px: 2,
+                                                                                                                                        py: 0.75,
+                                                                                                                                        fontSize: '0.8rem',
                                                                                                                                         borderWidth: 2,
                                                                                                                                         '&:hover': {
-                                                                                                                                            borderWidth: 2
-                                                                                                                                        }
+                                                                                                                                            borderWidth: 2,
+                                                                                                                                            boxShadow: `0 4px 12px ${alpha(COLORS.PRIMARY[500], 0.25)}`,
+                                                                                                                                            transform: 'translateY(-2px)',
+                                                                                                                                            bgcolor: alpha(COLORS.PRIMARY[50], 0.5)
+                                                                                                                                        },
+                                                                                                                                        transition: 'all 0.2s'
+                                                                                                                                    }}
+                                                                                                                                    onClick={() => {
+                                                                                                                                        // Set editing mode
+                                                                                                                                        setEditingRecords(prev => ({
+                                                                                                                                            ...prev,
+                                                                                                                                            [editKey]: true
+                                                                                                                                        }));
                                                                                                                                     }}
                                                                                                                                 >
-                                                                                                                                    Hủy
+                                                                                                                                    Sửa
                                                                                                                                 </Button>
-                                                                                                                            )}
+                                                                                                                            </Tooltip>
                                                                                                                         </Stack>
-                                                                                                                    )
-                                                                                                                ) : (
-                                                                                                                    <Chip
-                                                                                                                        icon={STATUS_OPTIONS.find((opt) => opt.value === currentStatus)?.icon}
-                                                                                                                        label={STATUS_OPTIONS.find((opt) => opt.value === currentStatus)?.label || currentStatus}
-                                                                                                                        sx={{
-                                                                                                                            bgcolor: STATUS_COLORS[currentStatus]?.bg || COLORS.GRAY[100],
-                                                                                                                            color: STATUS_COLORS[currentStatus]?.color || COLORS.GRAY[700],
-                                                                                                                            fontWeight: 700,
-                                                                                                                            height: 36,
-                                                                                                                            fontSize: '0.875rem',
-                                                                                                                            border: `2px solid ${alpha(STATUS_COLORS[currentStatus]?.color || COLORS.GRAY[700], 0.3)}`
-                                                                                                                        }}
-                                                                                                                        size="medium"
-                                                                                                                    />
-                                                                                                                )}
+                                                                                                                    );
+                                                                                                                })()}
                                                                                                             </TableCell>
                                                                                                         </TableRow>
                                                                                                     );
@@ -2065,6 +2190,15 @@ const AttendancePage = () => {
                     </Button>
                 </DialogActions>
             </Dialog>
+
+            {/* Alert Modal */}
+            <AlertModal
+                open={alert.open}
+                onClose={() => setAlert({ ...alert, open: false })}
+                title={alert.title}
+                message={alert.message}
+                type={alert.type}
+            />
         </Box>
     );
 };

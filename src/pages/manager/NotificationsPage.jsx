@@ -173,8 +173,8 @@ const NotificationsPage = () => {
             if (!hasMarkedOnThisVisit.current) {
                 try {
                     await notificationApi.markAllAsRead(accountId);
-                    window.dispatchEvent(new Event('notificationsMarkedAsRead'));
-                    await new Promise(resolve => setTimeout(resolve, 1500));
+                    // Đợi 500ms để backend xử lý xong
+                    await new Promise(resolve => setTimeout(resolve, 500));
                     hasMarkedOnThisVisit.current = true;
                 } catch (markError) {
                     console.error('[NotificationsPage] markAllAsRead failed:', markError);
@@ -182,6 +182,11 @@ const NotificationsPage = () => {
             }
 
             await loadNotifications();
+
+            // Dispatch event SAU KHI load xong để đảm bảo Navbar fetch đúng data
+            if (hasMarkedOnThisVisit.current) {
+                window.dispatchEvent(new Event('notificationsMarkedAsRead'));
+            }
         };
 
         markAndLoad();

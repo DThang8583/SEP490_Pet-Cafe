@@ -257,8 +257,6 @@ const ProfilePage = () => {
         return (
             <Loading
                 fullScreen={true}
-                variant="cafe"
-                size="large"
                 message="Đang lưu thông tin..."
             />
         );

@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Box, Typography, Tabs, Tab } from '@mui/material';
-import { Restaurant, Category } from '@mui/icons-material';
+import { Box, Typography, Tabs, Tab, Stack } from '@mui/material';
+import { Restaurant, Category, RestaurantMenu } from '@mui/icons-material';
 import { COLORS } from '../../../constants/colors';
 import ProductsTab from './ProductsTab';
 import CategoriesTab from './CategoriesTab';
@@ -16,9 +16,17 @@ const ProductPage = () => {
         }}>
             <Box sx={{ px: { xs: 2, md: 4 }, py: 3 }}>
                 {/* Header */}
-                <Typography variant="h5" sx={{ fontWeight: 900, color: COLORS.WARNING[600], mb: 2 }}>
-                    Quản lý Sản phẩm Menu
-                </Typography>
+                <Box sx={{ mb: 3 }}>
+                    <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 1 }}>
+                        <RestaurantMenu sx={{ fontSize: 32, color: COLORS.PRIMARY[600] }} />
+                        <Typography variant="h4" fontWeight={600}>
+                            Quản lý Sản phẩm Menu
+                        </Typography>
+                    </Stack>
+                    <Typography variant="body2" color="text.secondary">
+                        Quản lý sản phẩm thức ăn, đồ uống và danh mục menu
+                    </Typography>
+                </Box>
 
                 {/* Tabs */}
                 <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>

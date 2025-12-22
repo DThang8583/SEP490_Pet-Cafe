@@ -278,7 +278,7 @@ const DashboardPage = () => {
                              ${COLORS.BACKGROUND.NEUTRAL}`
             }}>
                 <Container maxWidth="xl" sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
-                    <Loading message="Đang tải dữ liệu dashboard..." size="large" variant="default" fullScreen={false} />
+                    <Loading message="Đang tải dữ liệu dashboard..." size="large" fullScreen={false} />
                 </Container>
             </Box>
         );
@@ -350,7 +350,7 @@ const DashboardPage = () => {
                         </Stack>
                         {loading ? (
                             <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-                                <Loading message="Đang tải dữ liệu dashboard..." size="medium" variant="default" />
+                                <Loading message="Đang tải dữ liệu dashboard..." size="medium" />
                             </Box>
                         ) : transactions.length === 0 ? (
                             <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>

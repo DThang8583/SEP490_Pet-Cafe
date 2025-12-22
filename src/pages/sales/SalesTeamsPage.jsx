@@ -385,7 +385,7 @@ const SalesTeamsPage = () => {
                 justifyContent: 'center'
             }}>
                 <Container maxWidth="xl" sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
-                    <Loading message="Đang tải lịch & nhóm..." size="large" variant="default" fullScreen={false} />
+                    <Loading message="Đang tải lịch & nhóm..." size="large" fullScreen={false} />
                 </Container>
             </Box>
         );

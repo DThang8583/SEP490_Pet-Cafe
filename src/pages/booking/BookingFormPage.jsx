@@ -320,8 +320,6 @@ const BookingFormPage = () => {
         return (
             <Loading
                 fullScreen={true}
-                variant="cafe"
-                size="large"
                 message="Đang tải form đặt dịch vụ..."
             />
         );

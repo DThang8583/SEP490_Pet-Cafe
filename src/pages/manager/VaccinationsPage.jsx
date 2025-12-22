@@ -688,12 +688,17 @@ const VaccinationsPage = () => {
         <Box sx={{ background: COLORS.BACKGROUND.NEUTRAL, minHeight: '100vh', width: '100%' }}>
             <Box sx={{ px: { xs: 2, md: 4 }, py: 3 }}>
                 {/* Header */}
-                <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 3 }}>
-                    <Vaccines sx={{ fontSize: 40, color: COLORS.PRIMARY[500] }} />
-                    <Typography variant="h4" sx={{ fontWeight: 900, color: COLORS.PRIMARY[600] }}>
-                        Quản lý tiêm phòng
+                <Box sx={{ mb: 3 }}>
+                    <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 1 }}>
+                        <Vaccines sx={{ fontSize: 32, color: COLORS.PRIMARY[600] }} />
+                        <Typography variant="h4" fontWeight={600}>
+                            Quản lý Tiêm phòng
+                        </Typography>
+                    </Stack>
+                    <Typography variant="body2" color="text.secondary">
+                        Quản lý lịch tiêm phòng và hồ sơ tiêm chủng cho thú cưng
                     </Typography>
-                </Stack>
+                </Box>
 
                 {/* Status Badges */}
                 <Box

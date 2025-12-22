@@ -73,15 +73,15 @@ const LoginPage = () => {
             // Thêm scope để lấy access token
             provider.addScope('profile');
             provider.addScope('email');
-            
+
             // Đăng nhập với Firebase
             const result = await signInWithPopup(Authentication, provider);
-            
+
             console.log('Firebase Google login successful:', result.user);
 
             // Lấy access token từ result.user.accessToken
             let accessToken = null;
-            
+
             // Lấy từ result.user.accessToken
             if (result.user?.accessToken) {
                 accessToken = result.user.accessToken;
@@ -105,14 +105,14 @@ const LoginPage = () => {
             // Gửi access token lên backend API (sẽ được gửi trong field access_token)
             const res = await authApi.loginWithGoogle(accessToken);
             console.log('Backend loginWithGoogle response:', res);
-            
+
             if (res?.success) {
                 console.log('Google login successful:', res.user);
                 navigate('/');
             }
         } catch (err) {
             console.error('Google login error:', err);
-            
+
             // Xử lý các lỗi Firebase phổ biến
             let errorMessage = 'Đăng nhập Google thất bại';
             if (err.code === 'auth/popup-closed-by-user') {
@@ -126,7 +126,7 @@ const LoginPage = () => {
             } else if (err.message) {
                 errorMessage = err.message;
             }
-            
+
             setError(errorMessage);
         } finally {
             setIsLoading(false);
@@ -163,8 +163,6 @@ const LoginPage = () => {
         return (
             <Loading
                 fullScreen={true}
-                variant="cafe"
-                size="large"
                 message="Đang đăng nhập vào Pet Cafe..."
             />
         );

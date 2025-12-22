@@ -8,7 +8,7 @@ import dailyScheduleApi from '../../api/dailyScheduleApi';
 import { getTeams, getTeamMembers, getTeamWorkShifts } from '../../api/teamApi';
 import { WEEKDAYS } from '../../api/workShiftApi';
 import apiClient from '../../config/config';
-import { MoreVert, ChevronLeft, ChevronRight } from '@mui/icons-material';
+import { MoreVert, ChevronLeft, ChevronRight, ChecklistRtl } from '@mui/icons-material';
 
 const STATUS_LABELS = {
     PENDING: 'Chờ điểm danh',
@@ -1260,7 +1260,7 @@ const ManagerAttendancePage = () => {
 
     // Show loading until initial load is complete
     if (isLoading || !hasInitialLoad) {
-        return <Loading fullScreen variant="cafe" />;
+        return <Loading fullScreen />;
     }
 
     // Show pending indicator for non-urgent updates
@@ -1271,22 +1271,13 @@ const ManagerAttendancePage = () => {
             <Box sx={{ px: { xs: 2, md: 4 }, py: 3 }}>
                 {/* Page Header */}
                 <Box sx={{ mb: 3 }}>
-                    <Typography
-                        variant="h4"
-                        sx={{
-                            fontWeight: 800,
-                            color: COLORS.TEXT.PRIMARY,
-                            mb: 0.5
-                        }}
-                    >
-                        Quản lý điểm danh
-                    </Typography>
-                    <Typography
-                        variant="body2"
-                        sx={{
-                            color: COLORS.TEXT.SECONDARY
-                        }}
-                    >
+                    <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 1 }}>
+                        <ChecklistRtl sx={{ fontSize: 32, color: COLORS.PRIMARY[600] }} />
+                        <Typography variant="h4" fontWeight={600}>
+                            Quản lý Điểm danh
+                        </Typography>
+                    </Stack>
+                    <Typography variant="body2" color="text.secondary">
                         Theo dõi và cập nhật trạng thái điểm danh cho các nhóm nhân viên theo ca làm việc và tuần làm việc
                     </Typography>
                 </Box>
