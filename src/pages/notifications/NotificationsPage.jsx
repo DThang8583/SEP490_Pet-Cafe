@@ -5,11 +5,6 @@ import {
 } from "@mui/material";
 import { Notifications, CheckCircle, Schedule, Error as ErrorIcon, Info } from "@mui/icons-material";
 import { COLORS } from "../../constants/colors";
-useEffect(() => {
-    // Khi vào trang thông báo → reset badge navbar
-    const event = new Event('notificationsMarkedAsRead');
-    window.dispatchEvent(event);
-}, []);
 const NotificationsPage = () => {
     const [notifications, setNotifications] = useState([]);
     const [page, setPage] = useState(1);

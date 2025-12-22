@@ -23,6 +23,11 @@ const Navbar = () => {
     const [unreadCount, setUnreadCount] = useState(0);
     const { notification: signalRNotification } = useSignalR();
 
+    const [notificationsSeen, setNotificationsSeen] = useState(
+        localStorage.getItem('notifications_seen') === 'true'
+    );
+    
+
     useEffect(() => {
         try {
             const role = authApi.getUserRole?.() || null;
@@ -85,12 +90,23 @@ const Navbar = () => {
     // Update unread count when new notification arrives via SignalR
     useEffect(() => {
         if (signalRNotification) {
-            // Không cần check accountId vì user đã join đúng group
-            // Nếu nhận được notification thì chắc chắn là của user này
-            console.log('[Navbar] New notification received, incrementing count');
+            console.log('[Navbar] New notification received');
+    
             setUnreadCount(prev => prev + 1);
+    
+            // 🔥 QUAN TRỌNG
+            localStorage.setItem('notifications_seen', 'false');
+            setNotificationsSeen(false);
         }
     }, [signalRNotification]);
+
+    useEffect(() => {
+        if (location.pathname === '/notifications') {
+            localStorage.setItem('notifications_seen', 'true');
+            setNotificationsSeen(true);
+        }
+    }, [location.pathname]);
+    
 
     // Keep sidebar width synchronized globally for layouts without changing hook order
     useEffect(() => {
@@ -123,12 +139,18 @@ const Navbar = () => {
         {
             path: '/notifications',
             icon: (
-                <Badge badgeContent={unreadCount > 0 ? unreadCount : 0} color="error" max={99}>
+                <Badge
+                    badgeContent={unreadCount}
+                    color="error"
+                    max={99}
+                    invisible={unreadCount === 0 || notificationsSeen}
+                >
                     <Notifications />
                 </Badge>
             )
         },
-    ], [unreadCount]);
+    ], [unreadCount, notificationsSeen]);    
+    
 
     const isActive = (path) => location.pathname === path;
 
