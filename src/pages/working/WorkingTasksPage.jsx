@@ -810,7 +810,7 @@ const WorkingTasksPage = () => {
     };
 
     if (loading) {
-        return <Loading fullScreen variant="cafe" />;
+        return <Loading fullScreen />;
     }
 
     return (

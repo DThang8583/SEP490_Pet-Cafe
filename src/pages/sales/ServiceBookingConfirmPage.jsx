@@ -627,7 +627,7 @@ const ServiceBookingConfirmPage = () => {
                              ${COLORS.BACKGROUND.NEUTRAL}`
             }}>
                 <Container maxWidth="xl" sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
-                    <Loading message="Đang tải danh sách đơn hàng..." size="large" variant="default" fullScreen={false} />
+                    <Loading message="Đang tải danh sách đơn hàng..." size="large" fullScreen={false} />
                 </Container>
             </Box>
         );

@@ -535,18 +535,7 @@ const StaffPage = () => {
 
     if (isLoading) {
         return (
-            <Box
-                sx={{
-                    background: COLORS.BACKGROUND.NEUTRAL,
-                    minHeight: '100vh',
-                    width: '100%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                }}
-            >
-                <Loading fullScreen={false} variant="cafe" size="large" message="Đang tải danh sách nhân viên..." />
-            </Box>
+            <Loading fullScreen message="Đang tải danh sách nhân viên..." />
         );
     }
 
@@ -555,24 +544,13 @@ const StaffPage = () => {
             <Box sx={{ px: { xs: 2, md: 4 }, py: 3 }}>
                 {/* Page Header */}
                 <Box sx={{ mb: 3 }}>
-                    <Typography
-                        variant="h4"
-                        sx={{
-                            fontWeight: 800,
-                            color: COLORS.TEXT.PRIMARY,
-                            mb: 0.5,
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 1
-                        }}
-                    >
-                        <People sx={{ fontSize: 28, color: COLORS.PRIMARY[600] }} />
-                    Quản lý nhân viên
-                </Typography>
-                    <Typography
-                        variant="body2"
-                        sx={{ color: COLORS.TEXT.SECONDARY }}
-                    >
+                    <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 1 }}>
+                        <People sx={{ fontSize: 32, color: COLORS.PRIMARY[600] }} />
+                        <Typography variant="h4" fontWeight={600}>
+                            Quản lý Nhân viên
+                        </Typography>
+                    </Stack>
+                    <Typography variant="body2" color="text.secondary">
                         Theo dõi, phân loại và cập nhật thông tin nhân viên trong hệ thống
                     </Typography>
                 </Box>

@@ -382,14 +382,14 @@ const InvoicePage = () => {
                         >
                             <ArrowBack />
                         </IconButton>
-                    <Box>
-                        <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.ERROR[600], letterSpacing: "-0.03em" }}>
-                            Hóa đơn thanh toán
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, mt: 0.5 }}>
-                            Xem và tra cứu các giao dịch đã thanh toán.
-                        </Typography>
-                    </Box>
+                        <Box>
+                            <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.ERROR[600], letterSpacing: "-0.03em" }}>
+                                Hóa đơn thanh toán
+                            </Typography>
+                            <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, mt: 0.5 }}>
+                                Xem và tra cứu các giao dịch đã thanh toán.
+                            </Typography>
+                        </Box>
                     </Box>
                 </Stack>
 
@@ -479,7 +479,7 @@ const InvoicePage = () => {
                     <Divider />
                     {loading ? (
                         <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", py: 4 }}>
-                            <Loading message="Đang tải danh sách hóa đơn..." size="medium" variant="default" />
+                            <Loading message="Đang tải danh sách hóa đơn..." size="medium" />
                         </Box>
                     ) : (
                         <Box>
@@ -602,7 +602,7 @@ const InvoicePage = () => {
                                     justifyContent="space-between"
                                     alignItems={{ xs: 'flex-start', sm: 'center' }}
                                 >
-                            <Box>
+                                    <Box>
                                         <Typography variant="caption" color="text.secondary" display="block">
                                             Mã đơn hàng
                                         </Typography>
@@ -618,7 +618,7 @@ const InvoicePage = () => {
                                         <Typography variant="body2">
                                             {formatDate(selected.created_at)}
                                         </Typography>
-                            </Box>
+                                    </Box>
                                     <Stack spacing={0.5} alignItems={{ xs: 'flex-start', sm: 'flex-end' }}>
                                         <Typography variant="caption" color="text.secondary" display="block">
                                             Số tiền giao dịch
@@ -715,7 +715,7 @@ const InvoicePage = () => {
 
                             {/* Thông tin đơn hàng */}
                             {selected?.order && (
-                                    <Box>
+                                <Box>
                                     <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5, color: COLORS.TEXT.PRIMARY }}>
                                         Thông tin đơn hàng
                                     </Typography>
@@ -810,7 +810,7 @@ const InvoicePage = () => {
                                             </Grid>
                                         )}
                                     </Grid>
-                                    </Box>
+                                </Box>
                             )}
                         </Stack>
                     )}

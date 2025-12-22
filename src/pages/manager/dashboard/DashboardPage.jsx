@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Container, Typography } from '@mui/material';
+import { Box, Container, Typography, Stack } from '@mui/material';
+import { Dashboard } from '@mui/icons-material';
 import { COLORS } from '../../../constants/colors';
 import Loading from '../../../components/loading/Loading';
 import AlertModal from '../../../components/modals/AlertModal';
@@ -94,7 +95,7 @@ const DashboardPage = () => {
     }, []);
 
     if (isLoading) {
-        return <Loading fullScreen variant="cafe" size="large" message="Đang tải dữ liệu thống kê..." />;
+        return <Loading fullScreen message="Đang tải dữ liệu thống kê..." />;
     }
 
     return (
@@ -102,8 +103,14 @@ const DashboardPage = () => {
             <Container maxWidth="xl">
                 {/* Header */}
                 <Box sx={{ mb: 3 }}>
-                    <Typography variant="h5" sx={{ fontWeight: 900, color: COLORS.PRIMARY[600] }}>
-                        Tổng quan
+                    <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 1 }}>
+                        <Dashboard sx={{ fontSize: 32, color: COLORS.PRIMARY[600] }} />
+                        <Typography variant="h4" fontWeight={600}>
+                            Tổng quan
+                        </Typography>
+                    </Stack>
+                    <Typography variant="body2" color="text.secondary">
+                        Tổng quan hiệu suất hoạt động, doanh thu và thống kê hệ thống
                     </Typography>
                 </Box>
 

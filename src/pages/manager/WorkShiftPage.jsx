@@ -1238,7 +1238,7 @@ const WorkShiftPage = () => {
     }, []);
 
     if (isLoading) {
-        return <Loading fullScreen variant="cafe" />;
+        return <Loading fullScreen />;
     }
 
     return (
@@ -1631,7 +1631,7 @@ const WorkShiftPage = () => {
                                         ) : (
                                             card
                                         )}
-                                </Grid>
+                                    </Grid>
                                 );
                             })}
                         </Grid>
@@ -2036,7 +2036,7 @@ const WorkShiftPage = () => {
                                                                             ) : (
                                                                                 card
                                                                             )}
-                                                                    </Grid>
+                                                                        </Grid>
                                                                     );
                                                                 })}
                                                             </Grid>

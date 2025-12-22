@@ -67,8 +67,9 @@ const Navbar = () => {
 
         // Listen for custom event from NotificationsPage when all notifications are marked as read
         const handleNotificationsRead = () => {
-            console.log('[Navbar] Notifications marked as read, resetting count');
-            setUnreadCount(0);
+            console.log('[Navbar] Notifications marked as read, re-fetching count from API');
+            // Fetch lại từ API thay vì set cứng = 0 để đảm bảo chính xác
+            fetchUnreadCount();
         };
 
         window.addEventListener('notificationsMarkedAsRead', handleNotificationsRead);
@@ -212,7 +213,12 @@ const Navbar = () => {
                             <MenuIcon />
                         </IconButton>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }} onClick={() => navigate('/')}>
-                            <LocalCafe />
+                            <Box
+                                component="img"
+                                src="/LogoPet.png"
+                                alt="Pet Cafe Logo"
+                                sx={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'contain' }}
+                            />
                             <Typography variant="h6" sx={{ fontWeight: 'bold', color: COLORS.ERROR[500] }}>Pet Cafe Manager</Typography>
                         </Box>
                         <IconButton onClick={handleLogout} sx={{ color: COLORS.ERROR[500] }}>
@@ -252,13 +258,18 @@ const Navbar = () => {
                         }}
                     >
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, cursor: 'pointer' }} onClick={() => navigate('/')}>
-                            <Box sx={{
-                                width: 44, height: 44, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                background: `linear-gradient(135deg, ${COLORS.ERROR[300]}, ${COLORS.SECONDARY[300]}, ${COLORS.WARNING[300]})`,
-                                boxShadow: `0 8px 20px ${alpha(COLORS.ERROR[300], 0.25)}`
-                            }}>
-                                <LocalCafe sx={{ color: 'white' }} />
-                            </Box>
+                            <Box
+                                component="img"
+                                src="/LogoPet.png"
+                                alt="Pet Cafe Logo"
+                                sx={{
+                                    width: 44,
+                                    height: 44,
+                                    borderRadius: '50%',
+                                    objectFit: 'contain',
+                                    boxShadow: `0 8px 20px ${alpha(COLORS.ERROR[300], 0.25)}`
+                                }}
+                            />
                             {!collapsed && (
                                 <Box>
                                     <Typography variant="h6" sx={{ fontWeight: 800, color: COLORS.ERROR[600], lineHeight: 1 }}>Pet Cafe</Typography>
@@ -429,20 +440,19 @@ const Navbar = () => {
                         onClick={() => handleNavigation('/')}
                     >
                         <Box
+                            component="img"
+                            src="/LogoPet.png"
+                            alt="Pet Cafe Logo"
                             sx={{
                                 width: 50,
                                 height: 50,
                                 borderRadius: '50%',
-                                background: `linear-gradient(135deg, ${COLORS.ERROR[300]}, ${COLORS.SECONDARY[300]}, ${COLORS.WARNING[300]})`,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
+                                objectFit: 'contain',
                                 mr: 2,
                                 boxShadow: `0 8px 20px ${alpha(COLORS.ERROR[300], 0.4)}`,
+                                backgroundColor: 'transparent'
                             }}
-                        >
-                            <LocalCafe sx={{ fontSize: 28, color: 'white' }} />
-                        </Box>
+                        />
                         <Typography
                             variant="h5"
                             component="div"

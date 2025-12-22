@@ -143,12 +143,17 @@ const PetsPage = () => {
         <Box sx={{ background: COLORS.BACKGROUND.NEUTRAL, minHeight: '100vh', width: '100%' }}>
             <Box sx={{ px: { xs: 2, md: 4 }, py: 3 }}>
                 {/* Header */}
-                <Stack direction="row" alignItems="center" spacing={2} sx={{ mb: 3 }}>
-                    <PetsIcon sx={{ fontSize: 40, color: COLORS.ERROR[500] }} />
-                    <Typography variant="h4" sx={{ fontWeight: 900, color: COLORS.ERROR[600] }}>
-                        Quản lý thú cưng
+                <Box sx={{ mb: 3 }}>
+                    <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 1 }}>
+                        <PetsIcon sx={{ fontSize: 32, color: COLORS.PRIMARY[600] }} />
+                        <Typography variant="h4" fontWeight={600}>
+                            Quản lý Thú cưng
+                        </Typography>
+                    </Stack>
+                    <Typography variant="body2" color="text.secondary">
+                        Quản lý thú cưng, giống loài và nhóm thú cưng trong hệ thống
                     </Typography>
-                </Stack>
+                </Box>
 
                 {/* Tabs Navigation */}
                 <Tabs

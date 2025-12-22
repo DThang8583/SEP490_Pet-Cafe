@@ -87,7 +87,7 @@ const Loading = ({
                 gap: 3
             }}
         >
-            {/* Main Loading Circle with Centered Icon */}
+            {/* Main Loading Circle with Centered Logo */}
             <Box
                 sx={{
                     position: 'relative',
@@ -112,11 +112,16 @@ const Loading = ({
                     }}
                 />
 
-                {/* Center Pet Icon */}
-                <Pets
+                {/* Center Pet Cafe Logo */}
+                <Box
+                    component="img"
+                    src="/LogoPet.png"
+                    alt="Pet Cafe Logo"
                     sx={{
-                        fontSize: config.icon * 0.6,
-                        color: COLORS.SECONDARY[500],
+                        width: config.icon,
+                        height: config.icon,
+                        objectFit: 'contain',
+                        borderRadius: '50%',
                         animation: `${pulse} 2s ease-in-out infinite`,
                         zIndex: 1
                     }}
@@ -149,11 +154,16 @@ const Loading = ({
                 gap: 3
             }}
         >
-            {/* Pet Icon */}
-            <Pets
+            {/* Pet Cafe Logo for dots variant */}
+            <Box
+                component="img"
+                src="/LogoPet.png"
+                alt="Pet Cafe Logo"
                 sx={{
-                    fontSize: config.icon,
-                    color: COLORS.ERROR[500],
+                    width: config.icon,
+                    height: config.icon,
+                    objectFit: 'contain',
+                    borderRadius: '50%',
                     animation: `${bounce} 2s ease-in-out infinite`
                 }}
             />
@@ -200,11 +210,16 @@ const Loading = ({
                 gap: 3
             }}
         >
-            {/* Coffee Icon */}
-            <Coffee
+            {/* Pet Cafe Logo for cafe variant */}
+            <Box
+                component="img"
+                src="/LogoPet.png"
+                alt="Pet Cafe Logo"
                 sx={{
-                    fontSize: config.icon,
-                    color: COLORS.SECONDARY[500],
+                    width: config.icon * 1.1,
+                    height: config.icon * 1.1,
+                    objectFit: 'contain',
+                    borderRadius: '50%',
                     animation: `${pulse} 2s ease-in-out infinite`
                 }}
             />

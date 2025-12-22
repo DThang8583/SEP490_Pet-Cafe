@@ -434,8 +434,6 @@ const BookingPage = () => {
         return (
             <Loading
                 fullScreen={true}
-                variant="cafe"
-                size="large"
                 message="Đang tải dịch vụ Pet Cafe..."
             />
         );
@@ -593,8 +591,6 @@ const BookingPage = () => {
                                     <Box sx={{ textAlign: 'center', py: 8 }}>
                                         <Loading
                                             message="Đang tải danh sách dịch vụ..."
-                                            size="large"
-                                            variant="cafe"
                                         />
                                     </Box>
                                 ) : availableServices.length === 0 ? (

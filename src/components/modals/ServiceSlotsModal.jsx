@@ -210,7 +210,7 @@ const ServiceSlotsModal = ({
             <DialogContent sx={{ pt: 3, pb: 2, px: 3 }}>
                 {loading ? (
                     <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-                        <Loading variant="cafe" size="medium" />
+                        <Loading />
                     </Box>
                 ) : sortedSlots.length === 0 ? (
                     <Alert severity="info" sx={{ mt: 2 }}>

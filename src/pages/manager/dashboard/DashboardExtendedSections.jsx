@@ -1489,7 +1489,7 @@ export const TransactionsSection = () => {
             >
                 {loading ? (
                     <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-                        <Loading message="Đang tải giao dịch..." size="medium" variant="default" fullScreen={false} />
+                        <Loading message="Đang tải giao dịch..." size="medium" fullScreen={false} />
                     </Box>
                 ) : transactions.length === 0 ? (
                     <EmptyState message="Không có giao dịch nào. Vui lòng thử lại hoặc thay đổi bộ lọc." />
