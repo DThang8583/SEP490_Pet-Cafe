@@ -16,22 +16,25 @@ const ServiceCard = ({ service, onSelect, onCardClick, showFavorite = true }) =>
     const [isFavorite, setIsFavorite] = useState(false);
     const [showDetails, setShowDetails] = useState(false);
 
-    // Check if cafe service is still available based on date and time
+    // Check if cafe service is still available based on slots or date/time
     const isServiceAvailable = () => {
         if (service.petRequired === false) {
-            // Cafe service - check if service hasn't ended yet
-            const now = new Date();
-            const currentDate = now.toISOString().split('T')[0]; // YYYY-MM-DD
+            // If service has defined slots, show it when any slot is AVAILABLE and not deleted
+            if (service.slots && service.slots.length > 0) {
+                const hasAvailableSlot = service.slots.some(slot =>
+                    slot?.service_status === 'AVAILABLE' && !slot?.is_deleted
+                );
+                return hasAvailableSlot;
+            }
 
-            // Use service's actual time data if available, otherwise use default
-            const serviceStartDate = service.serviceStartDate || '2024-01-15';
-            const serviceEndDate = service.serviceEndDate || '2024-01-20';
+            // Fallback: if explicit service end date is provided, check it
+            if (service.serviceEndDate) {
+                const currentDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+                return currentDate <= service.serviceEndDate;
+            }
 
-            // For demo purposes, show cafe services if they haven't ended yet
-            // In production, you might want to check registration period instead
-            const isNotEnded = currentDate <= serviceEndDate;
-
-            return isNotEnded;
+            // Default to showing the service if no slots and no end date provided
+            return true;
         }
         return true; // Pet care services are always available
     };
@@ -106,6 +109,18 @@ const ServiceCard = ({ service, onSelect, onCardClick, showFavorite = true }) =>
 
     return (
         <>
+            <style>{`
+                @keyframes glowPulse {
+                    0% { box-shadow: 0 6px 18px rgba(0,0,0,0.08); }
+                    50% { box-shadow: 0 12px 36px rgba(255,140,0,0.18); }
+                    100% { box-shadow: 0 6px 18px rgba(0,0,0,0.08); }
+                }
+                @keyframes neonShift {
+                    0% { background-position: 0% 50%; }
+                    50% { background-position: 100% 50%; }
+                    100% { background-position: 0% 50%; }
+                }
+            `}</style>
             <Card
                 sx={{
                     height: '500px',
@@ -235,27 +250,21 @@ const ServiceCard = ({ service, onSelect, onCardClick, showFavorite = true }) =>
                                     onSelect(service);
                                 }}
                                 sx={{
-                                    borderRadius: 4,
-                                    py: 1.8,
-                                    px: 3,
-                                    fontWeight: 'bold',
+                                    borderRadius: 6,
+                                    py: 1.2,
+                                    px: 3.5,
+                                    fontWeight: 800,
                                     textTransform: 'none',
-                                    fontSize: '1.1rem',
+                                    fontSize: '1.05rem',
                                     minHeight: '48px',
-                                    background: service.petRequired === false ?
-                                        `linear-gradient(135deg, ${COLORS.WARNING[500]} 0%, ${COLORS.WARNING[600]} 100%)` :
-                                        `linear-gradient(135deg, ${COLORS.INFO[500]} 0%, ${COLORS.INFO[600]} 100%)`,
-                                    boxShadow: service.petRequired === false ?
-                                        `0 4px 16px ${alpha(COLORS.WARNING[500], 0.3)}` :
-                                        `0 4px 16px ${alpha(COLORS.INFO[500], 0.3)}`,
+                                    color: '#fff',
+                                    backgroundImage: `linear-gradient(90deg, #ff7a7a 0%, #ffb86b 25%, #7afcff 50%, #9b7aff 75%, #ff7ad1 100%)`,
+                                    backgroundSize: '300% 100%',
+                                    animation: 'neonShift 3.6s linear infinite, glowPulse 4s ease-in-out infinite',
+                                    boxShadow: `0 10px 30px ${alpha('#ff7a7a', 0.18)}, 0 0 18px rgba(255,122,122,0.12) inset`,
                                     '&:hover': {
-                                        background: service.petRequired === false ?
-                                            `linear-gradient(135deg, ${COLORS.WARNING[600]} 0%, ${COLORS.WARNING[700]} 100%)` :
-                                            `linear-gradient(135deg, ${COLORS.INFO[600]} 0%, ${COLORS.INFO[700]} 100%)`,
-                                        transform: 'translateY(-2px)',
-                                        boxShadow: service.petRequired === false ?
-                                            `0 6px 20px ${alpha(COLORS.WARNING[500], 0.4)}` :
-                                            `0 6px 20px ${alpha(COLORS.INFO[500], 0.4)}`
+                                        transform: 'translateY(-4px) scale(1.02)',
+                                        boxShadow: `0 18px 46px ${alpha('#ff7a7a', 0.28)}, 0 0 32px rgba(255,122,122,0.2) inset`
                                     }
                                 }}
                             >
@@ -269,19 +278,11 @@ const ServiceCard = ({ service, onSelect, onCardClick, showFavorite = true }) =>
                                         setShowDetails(true);
                                     }}
                                     sx={{
-                                        border: service.petRequired === false ?
-                                            `2px solid ${alpha(COLORS.WARNING[300], 0.5)}` :
-                                            `2px solid ${alpha(COLORS.INFO[300], 0.5)}`,
-                                        color: service.petRequired === false ?
-                                            COLORS.WARNING[600] :
-                                            COLORS.INFO[600],
+                                        border: `2px solid ${alpha(COLORS.INFO[300], 0.5)}`,
+                                        color: COLORS.INFO[600],
                                         '&:hover': {
-                                            backgroundColor: service.petRequired === false ?
-                                                alpha(COLORS.WARNING[100], 0.8) :
-                                                alpha(COLORS.INFO[100], 0.8),
-                                            borderColor: service.petRequired === false ?
-                                                COLORS.WARNING[400] :
-                                                COLORS.INFO[400]
+                                            backgroundColor: alpha(COLORS.INFO[100], 0.8),
+                                            borderColor: COLORS.INFO[400]
                                         }
                                     }}
                                 >
@@ -478,63 +479,7 @@ const ServiceCard = ({ service, onSelect, onCardClick, showFavorite = true }) =>
                                                         )}
                                 </Stack>
 
-                        {/* Task Information */}
-                        {service.task && (
-                            <Box>
-                                    <Divider sx={{ my: 2 }} />
-                                    <Typography variant="subtitle2" sx={{
-                                        fontWeight: 700,
-                                        color: COLORS.TEXT.PRIMARY,
-                                        mb: 1.5,
-                                        fontSize: '0.875rem',
-                                        textTransform: 'uppercase',
-                                        letterSpacing: 1
-                                    }}>
-                                    Thông tin nhiệm vụ
-                                </Typography>
-                                    <Paper
-                                        elevation={0}
-                                        sx={{
-                                    p: 2.5,
-                                    borderRadius: 2,
-                                            bgcolor: alpha(categoryColor[50], 0.4),
-                                            border: `1px solid ${alpha(categoryColor[200], 0.4)}`
-                                        }}
-                                    >
-                                        <Stack spacing={1.5}>
-                                            <Typography variant="subtitle1" fontWeight={700} sx={{
-                                                color: COLORS.TEXT.PRIMARY,
-                                                fontSize: '1rem'
-                                            }}>
-                                        {service.task.title}
-                                    </Typography>
-                                    {service.task.description && (
-                                                <Typography variant="body2" sx={{
-                                                    color: COLORS.TEXT.SECONDARY,
-                                                    lineHeight: 1.7,
-                                                    fontSize: '0.875rem'
-                                                }}>
-                                            {service.task.description}
-                                        </Typography>
-                                    )}
-                                    {service.task.estimated_hours && (
-                                                <Box sx={{
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    gap: 1,
-                                                    pt: 1.5,
-                                                    borderTop: `1px solid ${alpha(categoryColor[200], 0.3)}`
-                                                }}>
-                                                    <AccessTime sx={{ fontSize: 16, color: categoryColor[600] }} />
-                                                    <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, fontSize: '0.875rem' }}>
-                                                        Thời gian ước tính: <strong style={{ color: COLORS.TEXT.PRIMARY }}>{service.task.estimated_hours} giờ</strong>
-                                            </Typography>
-                                        </Box>
-                                    )}
-                                        </Stack>
-                                    </Paper>
-                            </Box>
-                        )}
+                        {/* Task information removed */}
 
                         {/* Features/Benefits */}
                         {service.features && service.features.length > 0 && (
@@ -621,9 +566,7 @@ const ServiceCard = ({ service, onSelect, onCardClick, showFavorite = true }) =>
                             onSelect(service);
                         }}
                         sx={{
-                            background: service.petRequired === false ?
-                                `linear-gradient(135deg, ${COLORS.WARNING[500]} 0%, ${COLORS.WARNING[600]} 100%)` :
-                                `linear-gradient(135deg, ${COLORS.INFO[500]} 0%, ${COLORS.INFO[600]} 100%)`,
+                            background: `linear-gradient(135deg, ${COLORS.INFO[500]} 0%, ${COLORS.INFO[600]} 100%)`,
                             px: 4,
                             py: 1,
                             borderRadius: 1.5,
@@ -631,16 +574,10 @@ const ServiceCard = ({ service, onSelect, onCardClick, showFavorite = true }) =>
                             fontWeight: 700,
                             fontSize: '0.875rem',
                             minWidth: 160,
-                            boxShadow: service.petRequired === false ?
-                                `0 2px 8px ${alpha(COLORS.WARNING[500], 0.3)}` :
-                                `0 2px 8px ${alpha(COLORS.INFO[500], 0.3)}`,
+                            boxShadow: `0 2px 8px ${alpha(COLORS.INFO[500], 0.3)}`,
                             '&:hover': {
-                                background: service.petRequired === false ?
-                                    `linear-gradient(135deg, ${COLORS.WARNING[600]} 0%, ${COLORS.WARNING[700]} 100%)` :
-                                    `linear-gradient(135deg, ${COLORS.INFO[600]} 0%, ${COLORS.INFO[700]} 100%)`,
-                                boxShadow: service.petRequired === false ?
-                                    `0 4px 12px ${alpha(COLORS.WARNING[500], 0.4)}` :
-                                    `0 4px 12px ${alpha(COLORS.INFO[500], 0.4)}`
+                                background: `linear-gradient(135deg, ${COLORS.INFO[600]} 0%, ${COLORS.INFO[700]} 100%)`,
+                                boxShadow: `0 4px 12px ${alpha(COLORS.INFO[500], 0.4)}`
                             }
                         }}
                     >
