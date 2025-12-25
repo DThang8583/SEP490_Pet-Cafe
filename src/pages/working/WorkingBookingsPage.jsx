@@ -46,6 +46,8 @@ import { getBookings, updateBooking } from '../../api/bookingApi';
 import { COLORS } from '../../constants/colors';
 import Pagination from '../../components/common/Pagination';
 import EditBookingModal from '../../components/modals/EditBookingModal';
+import PageTitle from '../../components/common/PageTitle';
+import Loading from '../../components/loading/Loading';
 
 const BOOKING_STATUS_OPTIONS = [
     { value: '', label: 'Tất cả' },
@@ -460,6 +462,11 @@ const WorkingBookingsPage = () => {
         return { total, pending, confirmed, inProgress, completed, cancelled };
     }, [bookings]);
 
+    // Show fullScreen loading like manager pages
+    if (loading) {
+        return <Loading message="Đang tải dữ liệu booking..." fullScreen variant="dots" />;
+    }
+
     return (
         <Box
             sx={{
@@ -472,6 +479,7 @@ const WorkingBookingsPage = () => {
             <Stack spacing={3}>
                 {/* Header */}
                 <Box>
+                    <Stack direction="row" spacing={2} alignItems="center" justifyContent="space-between">
                     <Stack direction="row" spacing={2} alignItems="center">
                         <Box
                             sx={{
@@ -488,13 +496,9 @@ const WorkingBookingsPage = () => {
                             <ReceiptLong sx={{ color: 'white', fontSize: 26 }} />
                         </Box>
                         <Box>
-                            <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.TEXT.PRIMARY, mb: 0.5 }}>
-                                Xem Booking
-                            </Typography>
-                            <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
-                                Theo dõi lịch booking dịch vụ của các nhóm mà bạn đang tham gia, hỗ trợ xử lý và cập nhật trạng thái nhanh chóng
-                            </Typography>
+                                <PageTitle title="Xem Booking" subtitle="Theo dõi lịch booking dịch vụ của các nhóm mà bạn đang tham gia, hỗ trợ xử lý và cập nhật trạng thái nhanh chóng" center={false} />
                         </Box>
+                        </Stack>
                     </Stack>
                 </Box>
 
@@ -690,7 +694,7 @@ const WorkingBookingsPage = () => {
                     <Divider />
                     {loading ? (
                         <Box sx={{ p: 3 }}>
-                            <Skeleton variant="rounded" height={400} />
+                            <Loading message="Đang tải dữ liệu booking..." variant="dots" />
                         </Box>
                     ) : (
                         <>

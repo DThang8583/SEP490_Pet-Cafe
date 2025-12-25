@@ -1147,6 +1147,7 @@ const TasksPage = () => {
                     setSlotFormMode('create');
                 }}
                 onSubmit={handleSlotFormSubmit}
+                suppressAlert={true}
                 taskData={selectedTask}
                 initialData={editingSlot}
                 mode={slotFormMode}

@@ -500,7 +500,7 @@ const ServicesPage = () => {
                 setAlert({
                     open: true,
                     title: 'Thành công',
-                    message: 'Cập nhật service thành công!',
+                    message: 'Cập nhật dịch vụ thành công!',
                     type: 'success'
                 });
             } else {
@@ -508,7 +508,7 @@ const ServicesPage = () => {
                 setAlert({
                     open: true,
                     title: 'Thành công',
-                    message: 'Tạo service thành công!',
+                    message: 'Tạo dịch vụ thành công!',
                     type: 'success'
                 });
             }
@@ -1307,6 +1307,7 @@ const ServicesPage = () => {
                     setSlotFormMode('create');
                 }}
                 onSubmit={handleSlotFormSubmit}
+                suppressAlert={true}
                 taskData={selectedTask}
                 initialData={editingSlot}
                 mode={slotFormMode}

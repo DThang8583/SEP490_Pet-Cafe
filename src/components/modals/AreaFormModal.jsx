@@ -131,6 +131,10 @@ const AreaFormModal = ({ open, onClose, onSubmit, area, workTypes, mode = 'creat
             newErrors.max_capacity = 'Sức chứa phải >= 0';
         }
 
+        if (!formData.work_type_ids || formData.work_type_ids.length === 0) {
+            newErrors.work_type_ids = 'Phải chọn ít nhất 1 loại công việc';
+        }
+
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
     };
@@ -336,13 +340,13 @@ const AreaFormModal = ({ open, onClose, onSubmit, area, workTypes, mode = 'creat
                     </Box>
 
                     {/* Row 5: Work Types */}
-                    <FormControl fullWidth size="medium">
-                        <InputLabel>Loại công việc (Tùy chọn)</InputLabel>
+                    <FormControl fullWidth size="medium" error={!!errors.work_type_ids} required>
+                        <InputLabel>Loại công việc *</InputLabel>
                         <Select
                             multiple
                             value={formData.work_type_ids}
                             onChange={handleWorkTypesChange}
-                            input={<OutlinedInput label="Loại công việc (Tùy chọn)" />}
+                            input={<OutlinedInput label="Loại công việc *" />}
                             renderValue={(selected) => (
                                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                                     {selected.map((value, index) => {
@@ -369,6 +373,11 @@ const AreaFormModal = ({ open, onClose, onSubmit, area, workTypes, mode = 'creat
                                 </MenuItem>
                             ))}
                         </Select>
+                        {errors.work_type_ids && (
+                            <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 1.75 }}>
+                                {errors.work_type_ids}
+                            </Typography>
+                        )}
                     </FormControl>
 
                     {/* Row 6: Is Active (Edit mode only) */}

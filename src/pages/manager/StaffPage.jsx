@@ -6,7 +6,7 @@ import Loading from '../../components/loading/Loading';
 import Pagination from '../../components/common/Pagination';
 import AddStaffModal from '../../components/modals/AddStaffModal';
 import AlertModal from '../../components/modals/AlertModal';
-import { Edit, MoreVert, Visibility, VisibilityOff, People } from '@mui/icons-material';
+import { Edit, MoreVert, Visibility, VisibilityOff, People, WorkOutline } from '@mui/icons-material';
 import employeeApi from '../../api/employeeApi';
 
 const formatSalary = (salary) => {
@@ -89,6 +89,7 @@ const StaffPage = () => {
     // Menu state
     const [menuAnchor, setMenuAnchor] = useState(null);
     const [menuStaff, setMenuStaff] = useState(null);
+    // optional shifts UI removed
 
     // Salary visibility state
     const [showSalaries, setShowSalaries] = useState(false);
@@ -460,6 +461,8 @@ const StaffPage = () => {
                 const response = await employeeApi.updateEmployee(selectedStaff.id, updateData);
 
                 if (response.success) {
+                    // optional-work-shifts handling removed (not used)
+
                     // Reload current page and stats
                     await loadStaff();
                     await loadAllStaffForStats();
@@ -624,7 +627,7 @@ const StaffPage = () => {
                             placeholder="Tìm theo tên, email, số điện thoại..."
                             value={q}
                             onChange={(e) => setQ(e.target.value)}
-                            sx={{ minWidth: { xs: '100%', sm: 1100 }, flexGrow: { xs: 1, sm: 0 }, flexShrink: 0 }}
+                            sx={{ minWidth: { xs: '100%', sm: 1000 }, flexGrow: { xs: 1, sm: 0 }, flexShrink: 0 }}
                         />
                         <FormControl size="small" sx={{ minWidth: 180, flexShrink: 0 }}>
                             <InputLabel>Vai trò</InputLabel>
@@ -848,8 +851,7 @@ const StaffPage = () => {
                             vertical: 'top',
                             horizontal: 'right',
                         }}
-                        disablePortal={false}
-                        container={() => document.body}
+                        disableScrollLock={true}
                         MenuListProps={{
                             sx: {
                                 py: 0.5,
@@ -879,7 +881,9 @@ const StaffPage = () => {
                             </ListItemIcon>
                             <ListItemText>Chỉnh sửa</ListItemText>
                         </MenuItem>
+                            {/* Optional shifts feature removed */}
                     </Menu>
+                    {/* EditOptionalShiftsModal removed */}
                 </>
             </Box>
         </Box>

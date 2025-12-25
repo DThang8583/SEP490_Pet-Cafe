@@ -85,9 +85,17 @@ const ConfirmModal = ({
 
     const themeColors = getThemeColors();
 
-    // Handle keyboard events
+    // Handle keyboard events (avoid duplicate triggers from Enter on focused buttons/inputs)
     const handleKeyDown = (event) => {
         if (event.key === 'Enter' && !isLoading) {
+            // If focus is on interactive elements (button, input, textarea, select), skip here
+            // because the native click/submit will handle the action and we want to avoid double invoke.
+            const targetTag = event.target?.tagName?.toLowerCase();
+            const interactiveTags = ['button', 'input', 'textarea', 'select'];
+            if (interactiveTags.includes(targetTag) || event.repeat) {
+                return;
+            }
+            event.preventDefault();
             onConfirm?.();
         } else if (event.key === 'Escape' && !isLoading) {
             onClose?.();
