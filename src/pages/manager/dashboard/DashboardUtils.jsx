@@ -15,10 +15,15 @@ const isValidNumber = (value) => value !== null && value !== undefined && value 
 
 export const formatCurrency = (value) => {
     if (!isValidNumber(value)) return '0';
-    return new Intl.NumberFormat('vi-VN', {
-        style: 'currency',
-        currency: 'VND'
-    }).format(value);
+    // Use locale formatting for number grouping, append ' VNĐ' explicitly
+    try {
+        const formatted = new Intl.NumberFormat('vi-VN', {
+            maximumFractionDigits: 0
+        }).format(Number(value));
+        return `${formatted} VNĐ`;
+    } catch (e) {
+        return `${value} VNĐ`;
+    }
 };
 
 export const formatNumber = (value) => {

@@ -122,12 +122,17 @@ const ServiceSlotsModal = ({
         );
     }, [statusMap]);
 
-    // Format price
+    // Format price and append VNĐ (use number grouping for vi-VN)
     const formatPrice = useCallback((price) => {
-        return new Intl.NumberFormat('vi-VN', {
-            style: 'currency',
-            currency: 'VND'
-        }).format(price);
+        try {
+            const num = Number(price) || 0;
+            const formatted = new Intl.NumberFormat('vi-VN', {
+                maximumFractionDigits: 0
+            }).format(num);
+            return `${formatted} VNĐ`;
+        } catch (e) {
+            return `${price} VNĐ`;
+        }
     }, []);
 
     // Format date

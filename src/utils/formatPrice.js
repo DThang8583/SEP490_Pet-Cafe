@@ -4,14 +4,16 @@
  * @returns {string} - Formatted price string
  */
 export const formatPrice = (price) => {
-    if (typeof price !== 'number' || isNaN(price)) {
-        return '0 ₫';
+    try {
+        const num = Number(price);
+        if (Number.isNaN(num)) return '0 VNĐ';
+        const formatted = new Intl.NumberFormat('vi-VN', {
+            maximumFractionDigits: 0
+        }).format(num);
+        return `${formatted} VNĐ`;
+    } catch (e) {
+        return `${price} VNĐ`;
     }
-
-    return new Intl.NumberFormat('vi-VN', {
-        style: 'currency',
-        currency: 'VND'
-    }).format(price);
 };
 
 export default formatPrice;
