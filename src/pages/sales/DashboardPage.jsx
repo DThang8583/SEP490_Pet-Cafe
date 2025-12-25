@@ -206,7 +206,7 @@ const DashboardPage = () => {
 
     const formatVnd = (val) => {
         const n = Number(val || 0);
-        return n.toLocaleString("vi-VN") + " ₫";
+        return n.toLocaleString("vi-VN") + " VNĐ";
     };
 
     const mapOrderType = (type) => {
@@ -259,9 +259,9 @@ const DashboardPage = () => {
         { label: 'Sản phẩm', value: stats.products, icon: <ShoppingCart />, color: COLORS.INFO[500], path: '/sales/sales' },
         { label: 'Tổng số dịch vụ đã bán', value: stats.totalServicesSold, icon: <DesignServices />, color: COLORS.SECONDARY[600], path: '/sales/service-booking-confirm' },
         { label: 'Tổng số sản phẩm đã bán', value: stats.totalProductsSold, icon: <CheckCircle />, color: COLORS.WARNING[600], path: '/sales/product-sales-confirm' },
-        { label: 'Doanh thu hôm nay', value: stats.revenueToday.toLocaleString('vi-VN') + ' ₫', icon: <TrendingUp />, color: COLORS.ERROR[600], path: '/sales/sales' },
+        { label: 'Doanh thu hôm nay', value: stats.revenueToday.toLocaleString('vi-VN') + ' VNĐ', icon: <TrendingUp />, color: COLORS.ERROR[600], path: '/sales/sales' },
         { label: 'Tổng giao dịch', value: stats.totalTransactions, icon: <Payment />, color: COLORS.PRIMARY[600], path: '/sales/invoice' },
-        { label: 'Tổng số tiền giao dịch', value: formatCurrency(stats.totalTransactionAmount), icon: <ReceiptLong />, color: COLORS.SUCCESS[600], path: '/sales/invoice' }
+        { label: 'Tổng số tiền giao dịch', value: formatVnd(stats.totalTransactionAmount), icon: <ReceiptLong />, color: COLORS.SUCCESS[600], path: '/sales/invoice' }
     ];
 
     if (loading) {
@@ -392,7 +392,7 @@ const DashboardPage = () => {
                                                     {transaction.order?.phone || '—'}
                                                 </TableCell>
                                                 <TableCell sx={{ fontWeight: 600, color: COLORS.SUCCESS[600] }}>
-                                                    {formatCurrency(transaction.amount || 0)}
+                                                    {formatVnd(transaction.amount || 0)}
                                                 </TableCell>
                                                 <TableCell>
                                                     {mapPaymentMethod(transaction.order?.payment_method)}

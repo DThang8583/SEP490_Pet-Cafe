@@ -5,7 +5,7 @@ import { COLORS } from '../../constants/colors';
 
 const API_URL = 'https://petcafes.azurewebsites.net/api/product-categories';
 
-const formatPrice = (v) => v.toLocaleString('vi-VN') + 'đ';
+const formatPrice = (v) => v.toLocaleString('vi-VN') + 'VNĐ';
 
 // Remove markdown formatting from description
 const cleanDescription = (desc) => {

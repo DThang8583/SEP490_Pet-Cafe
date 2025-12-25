@@ -175,6 +175,7 @@ const Navbar = () => {
                 </Badge>
             )
         },
+        { label: 'Thông báo nghỉ phép', path: '/sales/notifications/leave', icon: <Notifications /> },
     ], [unreadCount, notificationsSeen]);    
     
 
@@ -204,6 +205,8 @@ const Navbar = () => {
         { label: 'Tổng số đồ ăn đã bán', icon: <Fastfood />, path: '/sales/product-sales-confirm' },
         { label: 'Lịch & nhóm', icon: <Groups />, path: '/sales/teams' },
         { label: 'Điểm danh', icon: <ChecklistRtl />, path: '/sales/attendance' },
+        { label: 'Đơn nghỉ phép', icon: <EventAvailable />, path: '/sales/leave-requests' },
+        { label: 'Thông báo', icon: <Notifications />, path: '/sales/notifications/leave' },
         { label: 'Tài khoản', icon: <AccountCircle />, path: '/profile' }
     ]), []);
 
@@ -386,7 +389,7 @@ const Navbar = () => {
                             ) : content;
                         })}
                     </List>
-                    {isWorkingStaff && isLeader && (
+                    {(isWorkingStaff || isSales) && isLeader && (
                         <>
                             <Divider sx={{ my: 1 }} />
                             <List

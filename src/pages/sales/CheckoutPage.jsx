@@ -21,7 +21,7 @@ const CheckoutPage = () => {
                     <Stack alignItems="center" spacing={2}>
                         <Typography sx={{ fontSize: '1rem', lineHeight: 1.6, fontWeight: 400 }}>Mã hóa đơn: <b style={{ fontWeight: 600 }}>{invoiceId}</b></Typography>
                         <Typography sx={{ fontSize: '1rem', lineHeight: 1.6, fontWeight: 400 }}>Hình thức: <b style={{ fontWeight: 600 }}>Tiền mặt</b></Typography>
-                        <Typography sx={{ fontSize: '1.125rem', lineHeight: 1.6, fontWeight: 500 }}>Tổng tiền: <b style={{ fontWeight: 700, color: COLORS.ERROR[600] }}>{total.toLocaleString('vi-VN')} ₫</b></Typography>
+                        <Typography sx={{ fontSize: '1.125rem', lineHeight: 1.6, fontWeight: 500 }}>Tổng tiền: <b style={{ fontWeight: 700, color: COLORS.ERROR[600] }}>{total.toLocaleString('vi-VN')} VNĐ</b></Typography>
                         <Typography sx={{ color: COLORS.TEXT.SECONDARY, textAlign: 'center', fontSize: '0.9375rem', lineHeight: 1.6, fontWeight: 400 }}>
                             Thu tiền mặt từ khách và xác nhận hoàn tất để ghi nhận thanh toán.
                         </Typography>

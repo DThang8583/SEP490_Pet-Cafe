@@ -31,7 +31,7 @@ import { getTransactions } from "../../api/transactionsApi";
 
 const formatVnd = (val) => {
     const n = Number(val || 0);
-    return n.toLocaleString("vi-VN") + " ₫";
+    return n.toLocaleString("vi-VN") + " VNĐ";
 };
 
 // Helper functions for Vietnamese localization

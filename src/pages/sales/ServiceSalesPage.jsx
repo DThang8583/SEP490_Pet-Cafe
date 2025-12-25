@@ -413,7 +413,7 @@ const ServiceSalesPage = () => {
                                     <Typography sx={{ color: COLORS.TEXT.SECONDARY, fontSize: '0.9375rem', mb: 1, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', minHeight: 40, lineHeight: 1.5, fontWeight: 400 }}>
                                         {s.description || 'Dịch vụ tại Pet Cafe'}
                                     </Typography>
-                                    <Typography sx={{ fontWeight: 700, fontSize: '1.25rem', color: COLORS.ERROR[600], mb: 1, letterSpacing: '-0.01em' }}>{(s.base_price || 0).toLocaleString('vi-VN')} ₫</Typography>
+                                    <Typography sx={{ fontWeight: 700, fontSize: '1.25rem', color: COLORS.ERROR[600], mb: 1, letterSpacing: '-0.01em' }}>{(s.base_price || 0).toLocaleString('vi-VN')} VNĐ</Typography>
                                     <Box sx={{ flexGrow: 1 }} />
 
                                     {/* Info Icon - Góc dưới */}
@@ -552,7 +552,7 @@ const ServiceSalesPage = () => {
                                             Giá cơ bản
                                         </Typography>
                                         <Typography variant="h6" sx={{ color: COLORS.ERROR[600], fontWeight: 'bold' }}>
-                                            {(selectedService.base_price || 0).toLocaleString('vi-VN')} ₫
+                                            {(selectedService.base_price || 0).toLocaleString('vi-VN')} VNĐ
                                         </Typography>
                                     </Box>
                                     <Box>
@@ -668,7 +668,7 @@ const ServiceSalesPage = () => {
                                                                 </Stack>
                                                                 {slotPrice > 0 && (
                                                                     <Typography variant="h6" sx={{ fontWeight: 800, color: COLORS.ERROR[600], fontSize: '1.25rem' }}>
-                                                                        {slotPrice.toLocaleString('vi-VN')} ₫
+                                                                        {slotPrice.toLocaleString('vi-VN')} VNĐ
                                                                     </Typography>
                                                                 )}
                                                             </Box>
@@ -1000,7 +1000,7 @@ const ServiceSalesPage = () => {
                                             Giá cơ bản
                                         </Typography>
                                         <Typography variant="h6" sx={{ color: COLORS.ERROR[600], fontWeight: 'bold' }}>
-                                            {(detailService.base_price || 0).toLocaleString('vi-VN')} ₫
+                                            {(detailService.base_price || 0).toLocaleString('vi-VN')} VNĐ
                                         </Typography>
                                     </Box>
 
@@ -1055,7 +1055,7 @@ const ServiceSalesPage = () => {
                                                                     />
                                                                     {slotPrice > 0 && (
                                                                         <Typography variant="h6" sx={{ color: COLORS.ERROR[600], fontWeight: 'bold' }}>
-                                                                            {slotPrice.toLocaleString('vi-VN')} ₫
+                                                                            {slotPrice.toLocaleString('vi-VN')} VNĐ
                                                                         </Typography>
                                                                     )}
                                                                 </Box>

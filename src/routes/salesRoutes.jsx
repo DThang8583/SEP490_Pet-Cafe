@@ -18,6 +18,10 @@ import SalesInvoicePage from "../pages/sales/InvoicePage";
 import ServiceBookingDetailPage from "../pages/sales/ServiceBookingDetailPage";
 import ProductOrderDetailPage from "../pages/sales/ProductOrderDetailPage";
 import SalesTeamsPage from "../pages/sales/SalesTeamsPage";
+import StaffLeaveNotificationsPage from "../pages/sales/StaffLeaveNotificationsPage";
+import TeamLeaveRequestsPage from "../pages/sales/TeamLeaveRequestsPage";
+import LeaveRequestPage from "../pages/sales/LeaveRequestPage";
+import SalesLeaveRequestPage from "../pages/sales/SalesLeaveRequestPage";
 
 const salesRoutes = (
     <>
@@ -36,9 +40,13 @@ const salesRoutes = (
         <Route path="/sales/service-booking-confirm" element={<ServiceBookingConfirmPage />} />
         <Route path="/sales/product-sales-confirm" element={<ProductSalesConfirmPage />} />
         <Route path="/sales/notifications" element={<SalesNotificationsPage />} />
+        <Route path="/sales/notifications/leave" element={<StaffLeaveNotificationsPage />} />
         <Route path="/sales/invoice" element={<SalesInvoicePage />} />
         <Route path="/sales/service-booking/:orderId" element={<ServiceBookingDetailPage />} />
         <Route path="/sales/product-order/:orderId" element={<ProductOrderDetailPage />} />
+        <Route path="/sales/leave-requests" element={<LeaveRequestPage />} />
+        <Route path="/sales/leave-requests/new" element={<SalesLeaveRequestPage />} />
+        <Route path="/sales/leader/leave-requests" element={<TeamLeaveRequestsPage />} />
     </>
 );
 
