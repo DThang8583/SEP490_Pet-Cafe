@@ -7,7 +7,7 @@ import {
     Table, TableHead, TableRow, TableCell, TableBody, TableContainer, Paper
 } from '@mui/material';
 import {
-    Search, FilterList, Schedule, Pets, Star, AttachMoney,
+    Search, FilterList, Schedule, Pets, Star,
     Visibility, Cancel, Refresh, Feedback, CalendarToday,
     AccessTime, LocationOn, Person, CheckCircle, Warning,
     Error as ErrorIcon, Pending, Group, Image as ImageIcon, Note
@@ -174,12 +174,11 @@ const BookingHistory = ({ open, onClose }) => {
         }
     };
 
-    // Format price
+    // Format price (show VNĐ)
     const formatPrice = (price) => {
-        return new Intl.NumberFormat('vi-VN', {
-            style: 'currency',
-            currency: 'VND'
-        }).format(price);
+        const num = Number(price || 0);
+        if (Number.isNaN(num)) return '0 VNĐ';
+        return new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 }).format(num) + ' VNĐ';
     };
 
     // Format date
@@ -638,7 +637,6 @@ const BookingHistory = ({ open, onClose }) => {
                                                 {selectedBooking.service?.description}
                                             </Typography>
                                             <Box sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                <AttachMoney sx={{ fontSize: 16, color: COLORS.ERROR[500] }} />
                                                 <Typography variant="body1" fontWeight="bold" sx={{ color: COLORS.ERROR[600] }}>
                                                     {formatPrice(selectedBooking.finalPrice || selectedBooking.service?.base_price || 0)}
                                                 </Typography>

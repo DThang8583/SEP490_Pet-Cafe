@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Box, Typography, Stack, Chip, IconButton, Divider, Paper, Grid, Avatar, List, ListItem, ListItemText } from '@mui/material';
-import { Close as CloseIcon, Info as InfoIcon, Schedule as ScheduleIcon, AttachMoney as MoneyIcon, Image as ImageIcon, Task as TaskIcon, CheckCircle as CheckIcon, Cancel as CancelIcon } from '@mui/icons-material';
+import { Close as CloseIcon, Info as InfoIcon, Schedule as ScheduleIcon, Image as ImageIcon, Task as TaskIcon, CheckCircle as CheckIcon, Cancel as CancelIcon, Delete as DeleteIcon, Star as StarIcon, StarBorder as StarBorderIcon } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 import { alpha } from '@mui/material/styles';
 import serviceApi from '../../api/serviceApi';
@@ -8,14 +8,19 @@ import Loading from '../loading/Loading';
 import { formatPrice } from '../../utils/formatPrice';
 
 const ServiceDetailModal = ({ open, onClose, service }) => {
+    const [feedbacks, setFeedbacks] = useState([]);
+    const [loadingFeedbacks, setLoadingFeedbacks] = useState(false);
+
     const [serviceDetail, setServiceDetail] = useState(null);
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
         if (open && service?.id) {
             loadServiceDetail();
+            loadFeedbacks();
         } else if (!open) {
             setServiceDetail(null);
+            setFeedbacks([]);
         }
     }, [service, open]);
 
@@ -30,6 +35,56 @@ const ServiceDetailModal = ({ open, onClose, service }) => {
             console.error('Error loading service detail:', error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const loadFeedbacks = async () => {
+        if (!service?.id) {
+            setFeedbacks([]);
+            return;
+        }
+        setLoadingFeedbacks(true);
+        try {
+            const token = localStorage.getItem('authToken');
+            const url = `https://petcafes.azurewebsites.net/api/feedbacks?service_id=${service.id}`;
+            const resp = await fetch(url, {
+                headers: token ? {
+                    'Authorization': `Bearer ${token}`
+                } : {}
+            });
+            if (!resp.ok) throw new Error('Failed to fetch feedbacks');
+            const json = await resp.json();
+            console.log('feedbacks:', json.data);
+            setFeedbacks(Array.isArray(json?.data) ? json.data : []);
+        } catch (err) {
+            console.error('Error fetching feedbacks:', err);
+            setFeedbacks([]);
+        } finally {
+            setLoadingFeedbacks(false);
+        }
+    };
+
+    const deleteFeedback = async (feedbackId) => {
+        try {
+            const token = localStorage.getItem('authToken');
+            if (!token) {
+                console.error('No auth token found');
+                return;
+            }
+
+            const url = `https://petcafes.azurewebsites.net/api/feedbacks/${feedbackId}`;
+            const resp = await fetch(url, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            if (!resp.ok) throw new Error('Failed to delete feedback');
+            // Reload feedbacks after successful deletion
+            await loadFeedbacks();
+        } catch (err) {
+            console.error('Error deleting feedback:', err);
         }
     };
 
@@ -167,7 +222,6 @@ const ServiceDetailModal = ({ open, onClose, service }) => {
                                                         Giá cơ bản
                                                     </Typography>
                                                     <Stack direction="row" alignItems="center" spacing={1}>
-                                                        <MoneyIcon sx={{ color: COLORS.SUCCESS[600], fontSize: 20 }} />
                                                         <Typography variant="h6" fontWeight={700} color={COLORS.SUCCESS[700]}>
                                                             {formatPrice(displayService.base_price)}
                                                         </Typography>
@@ -239,6 +293,48 @@ const ServiceDetailModal = ({ open, onClose, service }) => {
                                 </Stack>
                             </Box>
                         )}
+
+                        {/* Feedbacks Section */}
+                        <Box sx={{ px: 3, pb: 3 }}>
+                            <Typography variant="h6" fontWeight={600} gutterBottom sx={{ mb: 2, color: COLORS.PRIMARY[700] }}>
+                                Đánh giá ({feedbacks.length})
+                            </Typography>
+                            {loadingFeedbacks ? (
+                                <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+                                    <Loading />
+                                </Box>
+                            ) : feedbacks.length === 0 ? (
+                                <Typography variant="body2" color="text.secondary">Chưa có đánh giá cho dịch vụ này.</Typography>
+                            ) : (
+                                <Stack spacing={2}>
+                                    {feedbacks.map((f) => (
+                                        <Paper key={f.id} elevation={0} sx={{ p: 2, borderRadius: 2, border: `1px solid ${COLORS.GRAY[200]}` }}>
+                                            <Stack direction="row" spacing={2} alignItems="center">
+                                                <Avatar src={f.customer?.avatar_url} alt={f.customer?.full_name} />
+                                                <Box sx={{ flex: 1 }}>
+                                                    <Typography fontWeight={700}>{f.customer?.full_name || 'Khách hàng'}</Typography>
+                                                    <Typography variant="caption" color="text.secondary">{f.feedback_date ? new Date(f.feedback_date).toLocaleString('vi-VN') : ''}</Typography>
+                                                </Box>
+                                                <Stack direction="row" spacing={1} alignItems="center">
+                                                    <Chip label={`${f.rating || 0}/5`} color="primary" size="small" sx={{ fontWeight: 700 }} />
+                                                    <IconButton
+                                                        size="small"
+                                                        onClick={() => deleteFeedback(f.id)}
+                                                        sx={{
+                                                            color: COLORS.ERROR[600],
+                                                            '&:hover': { bgcolor: alpha(COLORS.ERROR[100], 0.5) }
+                                                        }}
+                                                    >
+                                                        <DeleteIcon fontSize="small" />
+                                                    </IconButton>
+                                                </Stack>
+                                            </Stack>
+                                            {f.comment ? <Typography sx={{ mt: 1, color: COLORS.TEXT.SECONDARY }}>{f.comment}</Typography> : null}
+                                        </Paper>
+                                    ))}
+                                </Stack>
+                            )}
+                        </Box>
 
                         {/* Task Information Section */}
                         {displayService.task && (

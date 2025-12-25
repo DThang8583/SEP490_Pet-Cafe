@@ -619,22 +619,6 @@ const Navbar = () => {
                             Hồ sơ cá nhân
                         </MenuItem>
                         <MenuItem
-                            onClick={() => {
-                                handleNavigation('/settings');
-                                handleProfileMenuClose();
-                            }}
-                            sx={{
-                                color: COLORS.ERROR[500],
-                                fontWeight: 500,
-                                '&:hover': {
-                                    backgroundColor: alpha(COLORS.ERROR[100], 0.2),
-                                }
-                            }}
-                        >
-                            <Pets sx={{ mr: 2 }} />
-                            Cài đặt
-                        </MenuItem>
-                        <MenuItem
                             onClick={async () => {
                                 handleProfileMenuClose();
                                 await handleLogout();
