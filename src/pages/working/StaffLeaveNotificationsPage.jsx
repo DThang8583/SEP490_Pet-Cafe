@@ -13,10 +13,10 @@ import {
 } from '@mui/material';
 import { Notifications as NotificationsIcon, Search as SearchIcon, AccessTime } from '@mui/icons-material';
 import Loading from '../../components/loading/Loading';
-import PageTitle from '../../components/common/PageTitle';
 import Pagination from '../../components/common/Pagination';
 import { useSignalR } from '../../utils/SignalRContext';
 import AlertModal from '../../components/modals/AlertModal';
+import { COLORS } from '../../constants/colors';
 import { notificationApi } from '../../api/notificationApi';
 
 const formatDate = (dateString) => {
@@ -136,7 +136,21 @@ const StaffLeaveNotificationsPage = () => {
 
     return (
         <Box sx={{ p: 3 }}>
-            <PageTitle title="Thông báo nghỉ phép" subtitle="Các thông báo liên quan đến đơn nghỉ phép của bạn" center={false} />
+            <Box>
+                <Stack direction="row" spacing={2.5} alignItems="center" sx={{ mb: 1 }}>
+                    <Avatar sx={{ bgcolor: COLORS.PRIMARY[600], width: 56, height: 56 }}>
+                        <NotificationsIcon sx={{ fontSize: 28, color: 'white' }} />
+                    </Avatar>
+                    <Box>
+                        <Typography variant="h4" sx={{ fontWeight: 700 }}>
+                            Thông báo
+                        </Typography>
+                        <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
+                            Các thông báo của bạn
+                        </Typography>
+                    </Box>
+                </Stack>
+            </Box>
 
             <Paper sx={{ mb: 2 }}>
                 <Toolbar sx={{ gap: 2, p: 2 }}>

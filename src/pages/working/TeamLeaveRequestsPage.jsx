@@ -16,13 +16,16 @@ import {
     Chip,
     CircularProgress,
     Button,
+    Stack,
+    Avatar,
     TextField,
     Toolbar
 } from '@mui/material';
 import Loading from '../../components/loading/Loading';
-import PageTitle from '../../components/common/PageTitle';
+import { EventAvailable } from '@mui/icons-material';
 import workingStaffApi from '../../api/workingStaffApi';
 import { getLeaveRequests } from '../../api/leaveRequestApi';
+import { COLORS } from '../../constants/colors';
 import Pagination from '../../components/common/Pagination';
 
 const LEAVE_TYPE_LABELS = {
@@ -198,7 +201,21 @@ const TeamLeaveRequestsPage = () => {
 
     return (
         <Box sx={{ p: 3 }}>
-            <PageTitle title="Đơn nghỉ phép (Trưởng nhóm)" subtitle="Xem các đơn của thành viên trong nhóm bạn quản lý" center={false} />
+            <Box>
+                <Stack direction="row" spacing={2.5} alignItems="center" sx={{ mb: 1 }}>
+                    <Avatar sx={{ bgcolor: COLORS.PRIMARY[600], width: 56, height: 56 }}>
+                        <EventAvailable sx={{ fontSize: 28, color: 'white' }} />
+                    </Avatar>
+                    <Box>
+                        <Typography variant="h4" sx={{ fontWeight: 700 }}>
+                            Đơn nghỉ phép (Trưởng nhóm)
+                        </Typography>
+                        <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
+                            Xem các đơn của thành viên trong nhóm bạn quản lý
+                        </Typography>
+                    </Box>
+                </Stack>
+            </Box>
 
             <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mb: 3 }}>
                 <FormControl size="small" sx={{ minWidth: 300 }}>
