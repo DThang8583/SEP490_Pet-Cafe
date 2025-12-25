@@ -3,7 +3,6 @@ import {
     Box,
     Container,
     Typography,
-    Grid,
     Card,
     CardContent,
     CardMedia,
@@ -75,6 +74,8 @@ const PetsListContent = () => {
     const [selectedPetForServices, setSelectedPetForServices] = useState(null);
     const [bookingDateModalOpen, setBookingDateModalOpen] = useState(false);
     const [selectedServiceForBooking, setSelectedServiceForBooking] = useState(null);
+    const [displayPetName, setDisplayPetName] = useState('');
+    const [loadingPetId, setLoadingPetId] = useState(null);
 
     // Load pet groups
     useEffect(() => {
@@ -130,11 +131,15 @@ const PetsListContent = () => {
     }, [groups]);
 
     // Fetch services matching a pet's species and open modal
-    const handlePetClick = async (pet) => {
+    // Accept optional displayName (the name shown on the card) to ensure header matches UI
+    const handlePetClick = async (pet, displayName) => {
         try {
+            // set both object and a simple name for reliable display in the modal header
             setSelectedPetForServices(pet);
+            setDisplayPetName(displayName || pet?.name || '');
             setServicesLoading(true);
             setServicesError('');
+            console.debug('[PetsListPage] handlePetClick for pet:', pet?.id, pet?.name, 'displayName:', displayName);
 
             const token = localStorage.getItem('authToken');
             const res = await fetch('https://petcafes.azurewebsites.net/api/services', {
@@ -227,6 +232,34 @@ const PetsListContent = () => {
 
         loadPets();
     }, [selectedGroupId]);
+
+    // Reliable click handler by pet id to avoid stale closures or mismatched data
+    const handlePetClickById = async (petId, displayName) => {
+        try {
+            // prevent concurrent clicks on different pets
+            if (loadingPetId && loadingPetId !== petId) {
+                console.debug('[PetsListPage] Ignoring click while another pet is loading', loadingPetId);
+                return;
+            }
+            setLoadingPetId(petId);
+            const petObj = pets.find(p => p?.id === petId) || null;
+            if (!petObj) {
+                console.warn('[PetsListPage] handlePetClickById: pet not found', petId);
+                setLoadingPetId(null);
+                return;
+            }
+            console.debug('[PetsListPage] handlePetClickById resolving pet:', petId, petObj?.name);
+            // set immediate UI state so modal header is correct before fetch finishes
+            setSelectedPetForServices(petObj);
+            setDisplayPetName(displayName || petObj?.name || '');
+            setServicesModalOpen(true);
+            await handlePetClick(petObj, displayName || petObj?.name);
+            setLoadingPetId(null);
+        } catch (err) {
+            console.error('Error in handlePetClickById', err);
+            setLoadingPetId(null);
+        }
+    };
 
     const filteredPets = pets.filter(pet => {
         if (!searchQuery) return true;
@@ -448,7 +481,9 @@ const PetsListContent = () => {
                                 }}>
                                     <Box>
                                         <Typography variant="h6" sx={{ fontWeight: 800 }}>
-                                            {selectedPetForServices ? `Dịch vụ cho ${selectedPetForServices.name}` : 'Dịch vụ'}
+                                            {displayPetName
+                                                ? `Dịch vụ cho ${displayPetName}${selectedPetForServices?.species?.name ? ` (${selectedPetForServices.species.name})` : ''}`
+                                                : (selectedPetForServices ? `Dịch vụ cho ${selectedPetForServices.name}${selectedPetForServices.species?.name ? ` (${selectedPetForServices.species.name})` : ''}` : 'Dịch vụ')}
                                         </Typography>
                                         <Typography variant="caption" sx={{ opacity: 0.9 }}>
                                             Chọn dịch vụ phù hợp cho thú cưng
@@ -471,61 +506,116 @@ const PetsListContent = () => {
                                         <Typography variant="body1" sx={{ color: COLORS.TEXT.SECONDARY }}>Không tìm thấy dịch vụ phù hợp.</Typography>
                                     </Box>
                                 ) : (
-                                    <Grid container spacing={2} sx={{ py: 1 }}>
-                                        {servicesForPet.map((svc) => (
-                                            <Grid item xs={12} sm={6} key={svc.id}>
-                                                <Card sx={{
-                                                    display: 'flex',
-                                                    flexDirection: 'column',
-                                                    height: '100%',
-                                                    borderRadius: 2,
-                                                    overflow: 'hidden',
-                                                    boxShadow: 6,
-                                                    transition: 'transform 180ms ease, box-shadow 180ms ease',
-                                                    '&:hover': { transform: 'translateY(-6px)', boxShadow: 12 }
-                                                }}>
-                                                    <Box sx={{ position: 'relative' }}>
-                                                        <Box component="img"
-                                                            src={svc.image_url || (svc.thumbnails && svc.thumbnails[0]) || 'https://via.placeholder.com/400x200?text=Service'}
-                                                            alt={svc.name}
-                                                            sx={{ width: '100%', height: 140, objectFit: 'cover' }}
-                                                        />
-                                                        {/* Lỗi formatPrice được gọi ở đây */}
-                                                        <Chip label={formatPrice(svc.base_price || svc.price || 0)} size="small" sx={{
-                                                            position: 'absolute', top: 10, left: 12, background: 'rgba(0,0,0,0.6)', color: '#fff', fontWeight: 700
-                                                        }} />
-                                                    </Box>
-                                                    <CardContent sx={{ flex: 1 }}>
-                                                        <Typography variant="subtitle1" sx={{ fontWeight: 800, mb: 0.5 }}>{svc.name}</Typography>
-                                                        <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, mb: 1 }}>
-                                                            {svc.description}
-                                                        </Typography>
-                                                        <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1 }}>
-                                                            <Schedule sx={{ fontSize: 16, color: COLORS.PRIMARY[500] }} />
-                                                            <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY }}>
-                                                                {svc.duration_minutes || 0} phút
-                                                            </Typography>
-                                                        </Stack>
-                                                    </CardContent>
-                                                    <Box sx={{ p: 2, pt: 0 }}>
-                                                        <Stack direction="row" spacing={1}>
-                                                            <Button variant="contained" sx={{ flex: 1 }} onClick={() => {
-                                                                // Open booking date modal for this service
-                                                                setSelectedServiceForBooking(svc);
-                                                                setBookingDateModalOpen(true);
-                                                                setServicesModalOpen(false);
-                                                            }}>
-                                                                Đặt dịch vụ
-                                                            </Button>
-                                                            <Button variant="outlined" sx={{ px: 2 }} onClick={() => { /* show details */ }}>
-                                                                Xem
-                                                            </Button>
-                                                        </Stack>
-                                                    </Box>
-                                                </Card>
-                                            </Grid>
-                                        ))}
-                                    </Grid>
+                                    <Box sx={{
+                                        display: 'grid',
+                                        gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' },
+                                        gap: 2,
+                                        py: 1,
+                                        alignItems: 'stretch'
+                                    }}>
+    {servicesForPet.map((svc) => (
+        <Box key={svc.id} sx={{ display: 'flex' }}>
+            <Card sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                height: '100%',
+                minHeight: 420,
+                width: '100%',
+                borderRadius: 2,
+                overflow: 'hidden',
+                boxShadow: 3,
+                border: `1px solid ${COLORS.BORDER.LIGHT}`,
+                transition: 'all 0.2s',
+                '&:hover': { transform: 'translateY(-4px)', boxShadow: 8 }
+            }}>
+                {/* 1. KHUNG ẢNH CỐ ĐỊNH CAO 160PX */}
+                <Box sx={{ position: 'relative', height: '160px', width: '100%', flexShrink: 0 }}>
+                    <Box component="img"
+                        src={svc.image_url || (svc.thumbnails && svc.thumbnails[0]) || 'https://via.placeholder.com/400x200?text=Service'}
+                        alt={svc.name}
+                        sx={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover'
+                        }}
+                    />
+                    <Chip
+                        label={formatPrice(svc.base_price || svc.price || 0)}
+                        size="small"
+                        sx={{
+                            position: 'absolute', top: 10, left: 12,
+                            background: 'rgba(0,0,0,0.7)', color: '#fff', fontWeight: 700,
+                            backdropFilter: 'blur(4px)'
+                        }}
+                    />
+                </Box>
+
+                {/* 2. NỘI DUNG CHÍNH */}
+                <CardContent sx={{
+                    flex: '1 1 auto',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    p: 2,
+                    pb: 1
+                }}>
+
+                    <Typography variant="subtitle1" sx={{
+                        fontWeight: 800,
+                        fontSize: '1rem',
+                        lineHeight: '24px',
+                        height: '48px',
+                        mb: 1,
+                        overflow: 'hidden',
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                    }}>
+                        {svc.name}
+                    </Typography>
+
+                    <Typography variant="body2" sx={{
+                        color: COLORS.TEXT.SECONDARY,
+                        fontSize: '0.875rem',
+                        lineHeight: '20px',
+                        height: '60px',
+                        mb: 1,
+                        overflow: 'hidden',
+                        display: '-webkit-box',
+                        WebkitLineClamp: 3,
+                        WebkitBoxOrient: 'vertical',
+                    }}>
+                        {svc.description || "Dịch vụ chất lượng cao dành cho thú cưng của bạn. Vui lòng liên hệ để biết thêm chi tiết."}
+                    </Typography>
+
+                    <Box sx={{ mt: 'auto' }}>
+                        <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+                            <Schedule sx={{ fontSize: 16, color: COLORS.PRIMARY[500] }} />
+                            <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY, fontWeight: 600 }}>
+                                {svc.duration_minutes || 30} phút
+                            </Typography>
+                        </Stack>
+
+                        <Stack direction="row" spacing={1}>
+                            <Button
+                                variant="contained"
+                                fullWidth
+                                disableElevation
+                                onClick={() => {
+                                    setSelectedServiceForBooking(svc);
+                                    setBookingDateModalOpen(true);
+                                    setServicesModalOpen(false);
+                                }}
+                                sx={{ fontWeight: 700, py: 1 }}
+                            >
+                                Đặt ngay
+                            </Button>
+                        </Stack>
+                    </Box>
+                </CardContent>
+            </Card>
+        </Box>
+    ))}
+</Box>
                                 )}
                             </DialogContent>
                             <DialogActions>
@@ -575,16 +665,22 @@ const PetsListContent = () => {
                             </CardContent>
                         </Card>
                     ) : (
-                        <Grid container spacing={3} sx={{ alignItems: 'stretch' }}>
+                        <Box sx={{
+                            display: 'grid',
+                            gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)' },
+                            gap: 3,
+                            alignItems: 'stretch'
+                        }}>
                             {filteredPets.map((pet) => (
-                                <Grid key={pet.id} sx={{ 
-                                    width: { xs: '100%', sm: 'calc(50% - 12px)', md: 'calc(33.333% - 16px)' },
+                                <Box key={pet.id} sx={{
                                     display: 'flex',
-                                    flexDirection: 'column'
+                                    flexDirection: 'column',
+                                    width: '100%'
                                 }}>
                                     <Card
-                                        onClick={() => handlePetClick(pet)}
+                                        onClick={() => handlePetClickById(pet?.id, pet?.name)}
                                         sx={{
+                                            position: 'relative',
                                             cursor: 'pointer',
                                             borderRadius: 4,
                                             boxShadow: 6,
@@ -611,13 +707,14 @@ const PetsListContent = () => {
                                                 backgroundColor: alpha(COLORS.ERROR[100], 0.3)
                                             }}
                                         />
-                                        <CardContent sx={{ 
-                                            flexGrow: 1, 
-                                            p: 2.5,
-                                            display: 'flex',
-                                            flexDirection: 'column'
-                                        }}>
-                                            <Box sx={{ position: 'absolute', inset: 0, zIndex: 1 }} />
+                                        <CardContent
+                                            sx={{
+                                                flexGrow: 1,
+                                                p: 2.5,
+                                                display: 'flex',
+                                                flexDirection: 'column'
+                                            }}>
+                                            <Box sx={{ position: 'absolute', inset: 0, zIndex: 1, pointerEvents: 'none' }} />
                                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
                                                 <Typography variant="h6" sx={{
                                                     fontWeight: 800,
@@ -760,9 +857,9 @@ const PetsListContent = () => {
                                             </Box>
                                         </CardContent>
                                     </Card>
-                                </Grid>
+                                </Box>
                             ))}
-                        </Grid>
+                        </Box>
                     )}
                 </Container>
             </Box>

@@ -360,7 +360,7 @@ const BookingDateModal = ({ open, onClose, service, onConfirm }) => {
                                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                                         <People sx={{ fontSize: 18, color: item.isAvailable ? COLORS.INFO[500] : COLORS.GRAY[400] }} />
                                                         <Typography variant="body2" color="text.secondary">
-                                                            Sức chứa tối đa: <strong>{item.slot.max_capacity}</strong> {service?.petRequired ? 'chỗ' : 'người'}
+                                                            Sức chứa tối đa: <strong>{item.slot.max_capacity}</strong> chỗ
                                                         </Typography>
                                                     </Box>
                                                 )}

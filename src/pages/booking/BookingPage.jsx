@@ -125,7 +125,7 @@ const BookingPage = () => {
         loadInitialData();
     }, []);
 
-    const loadInitialData = async () => {
+    const loadInitialData = async (overrideStartTime = null, overrideEndTime = null) => {
         try {
             setLoading(true);
 
@@ -155,8 +155,10 @@ const BookingPage = () => {
             const token = localStorage.getItem('authToken');
             let url = 'https://petcafes.azurewebsites.net/api/services';
             const params = new URLSearchParams();
-            if (filterStartTime) params.append('start_time', `${filterStartTime}:00`);
-            if (filterEndTime) params.append('end_time', `${filterEndTime}:00`);
+            const startToUse = overrideStartTime ?? filterStartTime;
+            const endToUse = overrideEndTime ?? filterEndTime;
+            if (startToUse) params.append('start_time', `${startToUse}:00`);
+            if (endToUse) params.append('end_time', `${endToUse}:00`);
             const queryString = params.toString();
             if (queryString) url += `?${queryString}`;
             const response = await fetch(url, {
@@ -720,8 +722,8 @@ const BookingPage = () => {
                                                     onClick={() => {
                                                         setFilterStartTime(start);
                                                         setFilterEndTime(end);
-                                                        // reload services with the selected time filter
-                                                        loadInitialData();
+                                                        // reload services with the selected time filter (pass overrides to avoid stale state)
+                                                        loadInitialData(start, end);
                                                     }}
                                                     sx={{
                                                         minWidth: 110,
@@ -745,6 +747,29 @@ const BookingPage = () => {
                                         }) : (
                                             <Typography sx={{ color: COLORS.TEXT.SECONDARY, fontStyle: 'italic' }}>Không có khung giờ</Typography>
                                         )}
+                                        {/* Clear filters button */}
+                                        <Button
+                                            onClick={() => {
+                                                setFilterStartTime('');
+                                                setFilterEndTime('');
+                                                // call with empty overrides so API is not sent time params
+                                                loadInitialData('', '');
+                                            }}
+                                            startIcon={<Clear />}
+                                            sx={{
+                                                ml: 1,
+                                                borderRadius: 6,
+                                                minWidth: 96,
+                                                color: COLORS.PRIMARY[600],
+                                                border: `1px solid ${alpha(COLORS.PRIMARY[300], 0.6)}`,
+                                                background: 'transparent',
+                                                '&:hover': {
+                                                    backgroundColor: alpha(COLORS.PRIMARY[50], 0.9)
+                                                }
+                                            }}
+                                        >
+                                            Xóa
+                                        </Button>
                                     </Box>
                                     {/* Search and clear buttons removed as requested */}
                                 </Box>
