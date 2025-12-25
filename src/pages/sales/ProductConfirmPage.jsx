@@ -36,7 +36,7 @@ const ProductConfirmPage = () => {
                                 {items.map(item => (
                                     <Box key={item.id} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                         <Typography sx={{ fontWeight: 600 }}>{item.name} × {item.quantity}</Typography>
-                                        <Typography sx={{ color: COLORS.TEXT.SECONDARY }}>{(item.price * item.quantity).toLocaleString('vi-VN')} ₫</Typography>
+                                        <Typography sx={{ color: COLORS.TEXT.SECONDARY }}>{(item.price * item.quantity).toLocaleString('vi-VN')} VNĐ</Typography>
                                     </Box>
                                 ))}
                             </Stack>
@@ -45,7 +45,7 @@ const ProductConfirmPage = () => {
                         <Divider sx={{ mb: 2 }} />
                         <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
                             <Typography>Tổng cộng</Typography>
-                            <Typography sx={{ fontWeight: 800, color: COLORS.ERROR[600] }}>{total.toLocaleString('vi-VN')} ₫</Typography>
+                            <Typography sx={{ fontWeight: 800, color: COLORS.ERROR[600] }}>{total.toLocaleString('vi-VN')} VNĐ</Typography>
                         </Stack>
                         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
                             <Button variant="outlined" color="error" onClick={() => navigate('/sales/sales')}>Quay lại chỉnh sửa</Button>

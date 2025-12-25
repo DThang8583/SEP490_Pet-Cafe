@@ -721,7 +721,7 @@ const ServiceBookingConfirmPage = () => {
                                         InputProps={{
                                             startAdornment: (
                                                 <InputAdornment position="start">
-                                                    <Typography sx={{ color: COLORS.ERROR[500], fontWeight: 600 }}>₫</Typography>
+                                                    <Typography sx={{ color: COLORS.ERROR[500], fontWeight: 600 }}>VNĐ</Typography>
                                                 </InputAdornment>
                                             ),
                                         }}
@@ -749,7 +749,7 @@ const ServiceBookingConfirmPage = () => {
                                         InputProps={{
                                             startAdornment: (
                                                 <InputAdornment position="start">
-                                                    <Typography sx={{ color: COLORS.ERROR[500], fontWeight: 600 }}>₫</Typography>
+                                                    <Typography sx={{ color: COLORS.ERROR[500], fontWeight: 600 }}>VNĐ</Typography>
                                                 </InputAdornment>
                                             ),
                                         }}

@@ -303,7 +303,7 @@ const CartPage = () => {
                 <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 3 }}>
                     <Stack direction="row" spacing={1} alignItems="center">
                         <Button startIcon={<ArrowBack />} onClick={() => navigate(-1)} color="error" variant="text">Quay lại</Button>
-                        <Typography variant="h4" sx={{ fontWeight: 700, color: COLORS.ERROR[600], letterSpacing: '-0.02em', lineHeight: 1.2 }}>Giỏ hàng</Typography>
+                        <Typography variant="h4" sx={{ fontWeight: 700, color: COLORS.ERROR[600], letterSpacing: '-0.02em', lineHeight: 1.2 }}>Xác nhận đơn hàng</Typography>
                     </Stack>
                     <Chip color="error" label={`${items.length} mặt hàng`} />
                 </Stack>
@@ -318,7 +318,7 @@ const CartPage = () => {
                                     <Box key={item.id} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                         <Box>
                                             <Typography sx={{ fontWeight: 500, fontSize: '1rem', lineHeight: 1.5 }}>{item.name}</Typography>
-                                            <Typography sx={{ color: COLORS.TEXT.SECONDARY, fontSize: '0.9375rem', lineHeight: 1.5 }}>{item.price.toLocaleString('vi-VN')} ₫</Typography>
+                                            <Typography sx={{ color: COLORS.TEXT.SECONDARY, fontSize: '0.9375rem', lineHeight: 1.5 }}>{item.price.toLocaleString('vi-VN')} VNĐ</Typography>
                                         </Box>
                                         <Stack direction="row" alignItems="center" spacing={1}>
                                             <IconButton size="small" onClick={() => decreaseQty(item.id)}><Remove /></IconButton>
@@ -334,7 +334,7 @@ const CartPage = () => {
                         <Divider sx={{ mb: 2 }} />
                         <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
                             <Typography sx={{ fontWeight: 500, fontSize: '1.125rem', lineHeight: 1.5 }}>Tổng cộng</Typography>
-                            <Typography sx={{ fontWeight: 700, fontSize: '1.25rem', color: COLORS.ERROR[600], letterSpacing: '-0.01em' }}>{total.toLocaleString('vi-VN')} ₫</Typography>
+                            <Typography sx={{ fontWeight: 700, fontSize: '1.25rem', color: COLORS.ERROR[600], letterSpacing: '-0.01em' }}>{total.toLocaleString('vi-VN')} VNĐ</Typography>
                         </Stack>
 
                         {/* Customer Information Form - Only show if cart has services */}

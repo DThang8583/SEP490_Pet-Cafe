@@ -418,7 +418,7 @@ const SalesPage = () => {
                                         <CardContent sx={{ display: 'flex', flexDirection: 'column', flexGrow: 1 }}>
                                             <Typography variant="h6" sx={{ fontWeight: 600, fontSize: '1.125rem', mb: 0.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', minHeight: 48, lineHeight: 1.4, letterSpacing: '-0.01em' }}>{p.name}</Typography>
                                             <Typography sx={{ color: COLORS.TEXT.SECONDARY, fontSize: '0.9375rem', mb: 1, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', minHeight: 40, lineHeight: 1.5, fontWeight: 400 }}>{p.description}</Typography>
-                                            <Typography sx={{ fontWeight: 700, fontSize: '1.25rem', color: COLORS.ERROR[600], mb: 1, letterSpacing: '-0.01em' }}>{p.price.toLocaleString('vi-VN')} ₫</Typography>
+                                            <Typography sx={{ fontWeight: 700, fontSize: '1.25rem', color: COLORS.ERROR[600], mb: 1, letterSpacing: '-0.01em' }}>{p.price.toLocaleString('vi-VN')} VNĐ</Typography>
                                             {dailyLimit != null && (
                                                 <Typography sx={{ fontSize: '0.85rem', color: COLORS.TEXT.SECONDARY, mb: 0.5 }}>
                                                     Số lượng bán trong ngày: <strong>{dailyLimit}</strong>{soldToday ? ` • Đã bán: ${soldToday}` : ''}{inCart ? ` • Trong giỏ: ${inCart}` : ''}{remaining != null ? ` • Còn lại: ${remaining}` : ''}
@@ -459,7 +459,7 @@ const SalesPage = () => {
                             <Box component="img" src={qrData.url} alt="QR" sx={{ width: 220, height: 220, borderRadius: 2, border: `2px solid ${COLORS.ERROR[100]}` }} />
                         )}
                         <Typography>Mã hóa đơn: <b>{qrData.invoiceId}</b></Typography>
-                        <Typography>Tổng tiền: <b style={{ color: COLORS.ERROR[600] }}>{qrData.total.toLocaleString('vi-VN')} ₫</b></Typography>
+                        <Typography>Tổng tiền: <b style={{ color: COLORS.ERROR[600] }}>{qrData.total.toLocaleString('vi-VN')} VNĐ</b></Typography>
                         <Typography sx={{ color: COLORS.TEXT.SECONDARY, fontSize: 14 }}>Sau khi khách thanh toán, vui lòng xác nhận trên hệ thống.</Typography>
                     </Stack>
                 </DialogContent>

@@ -18,7 +18,7 @@ import { COLORS } from "../../constants/colors";
 import { formatPrice } from "../../utils/formatPrice";
 import { ArrowBack, ReceiptLong, CalendarToday, AccessTime, LocationOn, Pets, TaskAlt, PendingActions, CreditCard, Paid, QrCode2 } from "@mui/icons-material";
 
-const formatVnd = (v) => (Number(v || 0)).toLocaleString("vi-VN") + " ₫";
+const formatVnd = (v) => (Number(v || 0)).toLocaleString("vi-VN") + " VNĐ";
 const formatPaymentMethod = (m) => {
     if (!m) return "--";
     if (m === "AT_COUNTER" || m === "CASH") return "Tiền mặt";
