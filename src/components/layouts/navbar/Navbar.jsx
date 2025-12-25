@@ -175,7 +175,6 @@ const Navbar = () => {
                 </Badge>
             )
         },
-        { label: 'Thông báo nghỉ phép', path: '/sales/notifications/leave', icon: <Notifications /> },
     ], [unreadCount, notificationsSeen]);    
     
 
