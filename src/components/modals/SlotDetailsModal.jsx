@@ -69,6 +69,22 @@ const SlotDetailsModal = ({
         return { total, available, unavailable, maintenance, cancelled };
     }, [taskSlots]);
 
+    // Determine if any slot has a specific_date to decide showing the column
+    const hasSpecificDate = useMemo(() => {
+        return taskSlots.some(s => !!s.specific_date);
+    }, [taskSlots]);
+
+    // Helper to format ISO date -> dd/mm/yyyy
+    const formatSpecificDate = useCallback((iso) => {
+        if (!iso) return '';
+        try {
+            const d = new Date(iso);
+            return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        } catch (e) {
+            return iso;
+        }
+    }, []);
+
     // Memoize status map
     const statusMap = useMemo(() => ({
         'AVAILABLE': { label: 'Có sẵn', color: COLORS.SUCCESS[700], bg: COLORS.SUCCESS[50] },
@@ -238,21 +254,23 @@ const SlotDetailsModal = ({
                     <TableContainer component={Paper} variant="outlined">
                         <Table size="small">
                             <TableHead sx={{ bgcolor: alpha(COLORS.GRAY[100], 0.5) }}>
-                                <TableRow>
-                                    <TableCell width="3%">STT</TableCell>
-                                    <TableCell width="8%">Ngày</TableCell>
-                                    <TableCell width="10%">Thời gian</TableCell>
-                                    <TableCell width="12%">Team</TableCell>
-                                    <TableCell width="12%">Khu vực</TableCell>
-                                    <TableCell width="12%">Nhóm Pet</TableCell>
-                                    <TableCell width="10%" align="center">Sức chứa</TableCell>
-                                    {taskData.is_public && <TableCell width="10%" align="right">Giá</TableCell>}
-                                    <TableCell width="10%" align="center">Trạng thái</TableCell>
-                                    <TableCell width="8%" align="center">Ghi chú</TableCell>
-                                    {showActionsColumn && (
-                                        <TableCell width="8%" align="center">Thao tác</TableCell>
-                                    )}
-                                </TableRow>
+                            <TableRow>
+                                <TableCell width="3%">STT</TableCell>
+                                <TableCell width="8%">Ngày</TableCell>
+                                {hasSpecificDate && <TableCell width="10%">Ngày cụ thể</TableCell>}
+                                <TableCell width="10%">Thời gian</TableCell>
+                                <TableCell width="12%">Team</TableCell>
+                                <TableCell width="12%">Khu vực</TableCell>
+                                <TableCell width="12%">Nhóm Pet</TableCell>
+                                <TableCell width="12%">Thú cưng</TableCell>
+                                <TableCell width="10%" align="center">Sức chứa</TableCell>
+                                {taskData.is_public && <TableCell width="10%" align="right">Giá</TableCell>}
+                                <TableCell width="10%" align="center">Trạng thái</TableCell>
+                                <TableCell width="8%" align="center">Ghi chú</TableCell>
+                                {showActionsColumn && (
+                                    <TableCell width="8%" align="center">Thao tác</TableCell>
+                                )}
+                            </TableRow>
                             </TableHead>
                             <TableBody>
                                 {taskSlots.map((slot, index) => (
@@ -275,6 +293,17 @@ const SlotDetailsModal = ({
                                                 {slot.start_time} - {slot.end_time}
                                             </Typography>
                                         </TableCell>
+
+                                        {/* Ngày cụ thể (nếu có) */}
+                                        {hasSpecificDate && (
+                                            <TableCell>
+                                                {slot.specific_date ? (
+                                                    <Typography variant="body2">{formatSpecificDate(slot.specific_date)}</Typography>
+                                                ) : (
+                                                    <Typography variant="body2" color="text.secondary">—</Typography>
+                                                )}
+                                            </TableCell>
+                                        )}
 
                                         {/* Team */}
                                         <TableCell>
@@ -308,6 +337,19 @@ const SlotDetailsModal = ({
                                                 <Tooltip title={slot.pet_group.description || ''}>
                                                     <Typography variant="body2" noWrap>
                                                         {slot.pet_group.name}
+                                                    </Typography>
+                                                </Tooltip>
+                                            ) : (
+                                                <Typography variant="body2" color="text.secondary">—</Typography>
+                                            )}
+                                        </TableCell>
+
+                                        {/* Pet (specific pet assigned) */}
+                                        <TableCell>
+                                            {slot.pet ? (
+                                                <Tooltip title={slot.pet.breed || slot.pet.description || ''}>
+                                                    <Typography variant="body2" noWrap>
+                                                        {slot.pet.name || slot.pet.full_name || slot.pet.display_name || slot.pet.id}
                                                     </Typography>
                                                 </Tooltip>
                                             ) : (
