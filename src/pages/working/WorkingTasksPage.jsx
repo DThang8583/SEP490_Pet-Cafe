@@ -817,7 +817,17 @@ const WorkingTasksPage = () => {
     return (
         <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: COLORS.BACKGROUND.NEUTRAL, minHeight: '100%' }}>
             <Stack spacing={3}>
-                <PageTitle title="Nhiệm vụ hằng ngày" subtitle="Xem và quản lý các nhiệm vụ hằng ngày của các đội nhóm bạn tham gia. Chọn nhóm và ngày để xem chi tiết nhiệm vụ, cập nhật tiến độ trong ca làm." center={false} />
+                <Box>
+                    <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 1 }}>
+                        <Assignment sx={{ fontSize: 32, color: COLORS.PRIMARY[600] }} />
+                        <Typography variant="h4" fontWeight={700}>
+                            Nhiệm vụ hằng ngày
+                        </Typography>
+                    </Stack>
+                    <Typography variant="body2" color="text.secondary">
+                        Xem và quản lý các nhiệm vụ hằng ngày của các đội nhóm bạn tham gia. Chọn nhóm và ngày để xem chi tiết nhiệm vụ, cập nhật tiến độ trong ca làm.
+                    </Typography>
+                </Box>
 
                 <Paper
                     elevation={0}

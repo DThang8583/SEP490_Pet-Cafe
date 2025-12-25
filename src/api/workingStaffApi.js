@@ -1,6 +1,6 @@
 import apiClient from '../config/config';
 import { authApi } from './authApi';
-import { getDailySchedules } from './dailyScheduleApi';
+import { getAllDailySchedules } from './dailyScheduleApi';
 import { getDailyTasksFromAPI, updateDailyTaskStatus as updateDailyTaskStatusAPI } from './dailyTasksApi';
 import { getTeams, getTeamMembers, getTeamWorkShifts } from './teamApi';
 
@@ -129,10 +129,10 @@ const workingStaffApi = {
 
             // Gọi getDailySchedules cho từng team và merge kết quả
             const schedulePromises = teams.map(team =>
-                getDailySchedules({
+                getAllDailySchedules({
                     TeamId: team.id,
                     page_index: 0,
-                    page_size: 100,
+                    page_size: 200,
                     FromDate: filterDate,
                     ToDate: filterDate
                 }).catch(error => {

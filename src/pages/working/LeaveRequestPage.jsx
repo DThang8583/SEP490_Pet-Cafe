@@ -13,13 +13,16 @@ import {
     Chip,
     TextField,
     MenuItem,
+    Stack,
+    Avatar,
     Toolbar
 } from '@mui/material';
 import Loading from '../../components/loading/Loading';
 import Pagination from '../../components/common/Pagination';
-import PageTitle from '../../components/common/PageTitle';
+import { EventAvailable } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { getLeaveRequests } from '../../api/leaveRequestApi';
+import { COLORS } from '../../constants/colors';
 import workingStaffApi from '../../api/workingStaffApi';
 
 const LEAVE_TYPE_LABELS = {
@@ -231,7 +234,21 @@ const LeaveRequestPage = () => {
 
     return (
         <Box sx={{ p: 3 }}>
-            <PageTitle title="Đơn nghỉ phép" subtitle="Tạo và quản lý đơn nghỉ phép của bạn" center={false} />
+            <Box>
+                <Stack direction="row" spacing={2.5} alignItems="center" sx={{ mb: 1 }}>
+                    <Avatar sx={{ bgcolor: COLORS.PRIMARY[600], width: 56, height: 56 }}>
+                        <EventAvailable sx={{ fontSize: 28, color: 'white' }} />
+                    </Avatar>
+                    <Box>
+                        <Typography variant="h4" sx={{ fontWeight: 700 }}>
+                            Đơn nghỉ phép
+                        </Typography>
+                        <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
+                            Tạo và quản lý đơn nghỉ phép của bạn
+                        </Typography>
+                    </Box>
+                </Stack>
+            </Box>
             <Box sx={{ display: 'flex', gap: 2, mb: 3, justifyContent: 'flex-end' }}>
                 <Button
                     variant="contained"

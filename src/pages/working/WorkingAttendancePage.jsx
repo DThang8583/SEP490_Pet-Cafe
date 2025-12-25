@@ -3,7 +3,7 @@ import { Box, Paper, Typography, Stack, TextField, MenuItem, Chip, Button, Table
 import { ChecklistRtl, CheckCircle, AccessTime, Block, Person, Groups, Event, Close, Edit, CalendarToday, ChevronLeft, ChevronRight } from '@mui/icons-material';
 import workingStaffApi from '../../api/workingStaffApi';
 import { COLORS } from '../../constants/colors';
-import { getDailySchedules } from '../../api/dailyScheduleApi';
+import { getAllDailySchedules } from '../../api/dailyScheduleApi';
 import apiClient from '../../config/config';
 import { WEEKDAY_LABELS, WEEKDAYS } from '../../api/workShiftApi';
 import Loading from '../../components/loading/Loading';
@@ -106,6 +106,44 @@ const getDayKeyFromDate = (dateString) => {
     return WEEKDAYS[index];
 };
 
+const buildWeeksForMonth = (year, month) => {
+    const result = [];
+    if (year === undefined || year === null || month === undefined || month === null) {
+        return result;
+    }
+
+    const firstOfMonth = new Date(year, month, 1);
+    const lastOfMonth = new Date(year, month + 1, 0);
+
+    const firstDayOfWeek = firstOfMonth.getDay();
+    const diffToMonday = (firstDayOfWeek === 0 ? -6 : 1 - firstDayOfWeek);
+    const currentMonday = new Date(firstOfMonth);
+    currentMonday.setDate(firstOfMonth.getDate() + diffToMonday);
+
+    let index = 1;
+    while (currentMonday <= lastOfMonth) {
+        const weekStart = new Date(currentMonday);
+        const weekEnd = new Date(currentMonday);
+        weekEnd.setDate(weekEnd.getDate() + 6);
+
+        const fromDate = weekStart < firstOfMonth ? firstOfMonth : weekStart;
+        const toDate = weekEnd > lastOfMonth ? lastOfMonth : weekEnd;
+
+        const fromStr = fromDate.toISOString().split('T')[0];
+        const toStr = toDate.toISOString().split('T')[0];
+
+        const formatVN = (d) => d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
+        const label = `Tuần ${index} (${formatVN(fromDate)} - ${formatVN(toDate)})`;
+
+        result.push({ id: String(index), from: fromStr, to: toStr, label, fromDate, toDate });
+
+        currentMonday.setDate(currentMonday.getDate() + 7);
+        index += 1;
+    }
+
+    return result;
+};
+
 const normalizeDateOnly = (dateString) => {
     if (!dateString) return null;
     const date = new Date(dateString);
@@ -173,12 +211,15 @@ const WorkingAttendancePage = () => {
     const isLeader = profileData.leader;
     const [teams, setTeams] = useState([]);
     const [attendance, setAttendance] = useState([]);
+    const [fromDate, setFromDate] = useState('');
+    const [toDate, setToDate] = useState('');
+    const [selectedWeekId, setSelectedWeekId] = useState(null);
     const [loading, setLoading] = useState(true);
     const [snackbar, setSnackbar] = useState(null);
     const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
     const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth());
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-    const [viewMode, setViewMode] = useState('day');
+    const [viewMode, setViewMode] = useState('week');
     const [attendanceDialog, setAttendanceDialog] = useState(null);
     const [activeDayTab, setActiveDayTab] = useState({});
     const [pendingChanges, setPendingChanges] = useState({});
@@ -192,7 +233,7 @@ const WorkingAttendancePage = () => {
         }
 
         const schedulePromises = teamIds.map((teamId) =>
-            getDailySchedules({
+            getAllDailySchedules({
                 ...params,
                 TeamId: teamId
             }).catch((error) => {
@@ -202,6 +243,8 @@ const WorkingAttendancePage = () => {
         );
 
         const responses = await Promise.all(schedulePromises);
+        // Log raw responses for debugging pagination / data issues
+        console.log('[WorkingAttendance] dailySchedule responses:', responses);
 
         let combined = [];
         responses.forEach((response) => {
@@ -209,6 +252,10 @@ const WorkingAttendancePage = () => {
                 combined.push(...response.data);
             }
         });
+
+        // Log combined result summary
+        console.log('[WorkingAttendance] combined schedules length:', combined.length);
+        console.log('[WorkingAttendance] combined schedules sample:', combined.slice(0, 10));
 
         return combined;
     }, []);
@@ -275,8 +322,22 @@ const WorkingAttendancePage = () => {
 
     // Calculate date range for month view
     const dateRange = useMemo(() => {
-        if (viewMode === 'day') {
-            return { fromDate: selectedDate, toDate: selectedDate };
+        if (viewMode === 'week') {
+            if (fromDate && toDate) {
+                return { fromDate, toDate };
+            }
+            // fallback: compute week bounds from selectedDate
+            const d = selectedDate ? new Date(selectedDate) : new Date();
+            const day = d.getDay();
+            const diffToMonday = (day === 0 ? -6 : 1 - day);
+            const monday = new Date(d);
+            monday.setDate(d.getDate() + diffToMonday);
+            const sunday = new Date(monday);
+            sunday.setDate(monday.getDate() + 6);
+            return {
+                fromDate: monday.toISOString().split('T')[0],
+                toDate: sunday.toISOString().split('T')[0]
+            };
         } else {
             const firstDay = new Date(selectedYear, selectedMonth, 1);
             const lastDay = new Date(selectedYear, selectedMonth + 1, 0);
@@ -285,7 +346,7 @@ const WorkingAttendancePage = () => {
                 toDate: lastDay.toISOString().split('T')[0]
             };
         }
-    }, [viewMode, selectedDate, selectedMonth, selectedYear]);
+    }, [viewMode, selectedDate, selectedMonth, selectedYear, fromDate, toDate]);
 
     // Load attendance data for teams user belongs to
     useEffect(() => {
@@ -302,13 +363,12 @@ const WorkingAttendancePage = () => {
 
                 const baseParams = {
                     page_index: 0,
-                    page_size: 1000,
-                    FromDate: dateRange.fromDate
+                    page_size: 1000
                 };
 
-                if (dateRange.toDate !== dateRange.fromDate) {
-                    baseParams.ToDate = dateRange.toDate;
-                }
+                // include date range filters (if present)
+                if (dateRange.fromDate) baseParams.FromDate = dateRange.fromDate;
+                if (dateRange.toDate) baseParams.ToDate = dateRange.toDate;
 
                 let allSchedules = await fetchSchedulesForTeams(teamIds, baseParams);
 
@@ -452,7 +512,7 @@ const WorkingAttendancePage = () => {
 
                 const shiftDays = [];
 
-                if (viewMode === 'day') {
+                if (viewMode === 'week') {
                     const selected = new Date(selectedDate);
                     const selectedDayIndex = selected.getDay();
                     const adjustedIndex = selectedDayIndex === 0 ? 6 : selectedDayIndex - 1;
@@ -927,15 +987,13 @@ const WorkingAttendancePage = () => {
 
             // Reload data để hiển thị thông tin mới nhất
             const teamIds = teams.map(team => team.id).filter(Boolean);
-            if (teamIds.length > 0) {
-                const updatedSchedules = await fetchSchedulesForTeams(teamIds, {
-                    page_index: 0,
-                    page_size: 1000,
-                    FromDate: dateRange.fromDate,
-                    ToDate: dateRange.toDate
-                });
-                setAttendance(updatedSchedules);
-            }
+                if (teamIds.length > 0) {
+                    const updatedSchedules = await fetchSchedulesForTeams(teamIds, {
+                        page_index: 0,
+                        page_size: 1000
+                    });
+                    setAttendance(updatedSchedules);
+                }
 
             // Hiển thị AlertModal thành công
             setAlert({
@@ -987,9 +1045,7 @@ const WorkingAttendancePage = () => {
             if (teamIds.length > 0) {
                 const updatedSchedules = await fetchSchedulesForTeams(teamIds, {
                     page_index: 0,
-                    page_size: 1000,
-                    FromDate: dateRange.fromDate,
-                    ToDate: dateRange.toDate
+                    page_size: 1000
                 });
                 setAttendance(updatedSchedules);
             }
@@ -1141,6 +1197,60 @@ const WorkingAttendancePage = () => {
         }
     };
 
+    // Week navigation handlers for week view
+    const changeSelectedDateByDays = useCallback((days) => {
+        try {
+            const base = selectedDate ? new Date(selectedDate) : new Date();
+            base.setDate(base.getDate() + days);
+            const next = base.toISOString().split('T')[0];
+            startTransition(() => setSelectedDate(next));
+        } catch (e) {
+            console.error('[WorkingAttendance] changeSelectedDateByDays error:', e);
+        }
+    }, [selectedDate, startTransition]);
+
+    const handlePrevWeek = useCallback(() => {
+        changeSelectedDateByDays(-7);
+    }, [changeSelectedDateByDays]);
+
+    const handleNextWeek = useCallback(() => {
+        changeSelectedDateByDays(7);
+    }, [changeSelectedDateByDays]);
+
+    const handleThisWeek = useCallback(() => {
+        const today = new Date();
+        const todayStr = today.toISOString().split('T')[0];
+        startTransition(() => setSelectedDate(todayStr));
+    }, [startTransition]);
+    
+    // Whenever selectedDate changes, update fromDate/toDate to the week's bounds
+    useEffect(() => {
+        if (!selectedDate) return;
+        try {
+            const d = new Date(selectedDate);
+            const day = d.getDay();
+            const diffToMonday = (day === 0 ? -6 : 1 - day);
+            const monday = new Date(d);
+            monday.setDate(d.getDate() + diffToMonday);
+            const sunday = new Date(monday);
+            sunday.setDate(monday.getDate() + 6);
+            const fromStr = monday.toISOString().split('T')[0];
+            const toStr = sunday.toISOString().split('T')[0];
+            setFromDate(fromStr);
+            setToDate(toStr);
+        } catch (e) {
+            console.error('[WorkingAttendance] compute week bounds error:', e);
+        }
+    }, [selectedDate]);
+
+    // Build weeks for current month/year and compute current week label
+    const weeksInMonth = useMemo(() => buildWeeksForMonth(selectedYear, selectedMonth), [selectedYear, selectedMonth]);
+    const currentWeekLabel = useMemo(() => {
+        if (!fromDate || !toDate || !weeksInMonth.length) return '';
+        const w = weeksInMonth.find(wk => wk.from === fromDate && wk.to === toDate) || weeksInMonth.find(wk => fromDate >= wk.from && fromDate <= wk.to) || weeksInMonth[0];
+        return w ? `Tuần ${w.id}` : '';
+    }, [fromDate, toDate, weeksInMonth]);
+
     // Show fullScreen loading like manager pages
     if (loading) {
         return <Loading message="Đang tải dữ liệu điểm danh..." fullScreen />;
@@ -1171,14 +1281,16 @@ const WorkingAttendancePage = () => {
                             <ChecklistRtl sx={{ fontSize: 28 }} />
                         </Avatar>
                         <Box flex={1}>
-                            <PageTitle
-                                title="Điểm danh"
-                                subtitle={isLeader
-                                    ? 'Quản lý và đánh dấu điểm danh cho các thành viên trong team theo từng ca làm việc'
-                                    : 'Xem trạng thái điểm danh của bạn trong team theo từng ngày/tháng'}
-                                center={false}
-                            />
-                            
+                            <Stack spacing={0.5}>
+                                <Typography variant="h4" sx={{ fontWeight: 700 }}>
+                                    Điểm danh
+                                </Typography>
+                                <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
+                                    {isLeader
+                                        ? 'Quản lý và đánh dấu điểm danh cho các thành viên trong team theo từng ca làm việc'
+                                        : 'Xem trạng thái điểm danh của bạn trong team theo từng tuần/tháng'}
+                                </Typography>
+                            </Stack>
                         </Box>
                     </Stack>
                 </Box>
@@ -1347,26 +1459,47 @@ const WorkingAttendancePage = () => {
                                     }}
                                     label="Chế độ xem"
                                 >
-                                    <MenuItem value="day">Theo ngày</MenuItem>
+                                    <MenuItem value="week">Theo tuần</MenuItem>
                                     <MenuItem value="month">Theo tháng</MenuItem>
                                 </Select>
                             </FormControl>
 
-                            {viewMode === 'day' ? (
-                                <TextField
-                                    type="date"
-                                    label="Ngày"
-                                    value={selectedDate}
-                                    onChange={(e) => {
-                                        const value = e.target.value;
-                                        startTransition(() => setSelectedDate(value));
-                                    }}
-                                    fullWidth
-                                    InputLabelProps={{ shrink: true }}
-                                    InputProps={{
-                                        startAdornment: <CalendarToday sx={{ mr: 1, color: COLORS.TEXT.SECONDARY }} />
-                                    }}
-                                />
+                            {viewMode === 'week' ? (
+                                <Stack direction="row" spacing={1} alignItems="center">
+                                    <IconButton
+                                        size="small"
+                                        onClick={handlePrevWeek}
+                                        sx={{ border: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.3)}` }}
+                                    >
+                                        <ChevronLeft />
+                                    </IconButton>
+                                    <Box sx={{ px: 2, py: 1, borderRadius: 1, border: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.3)}`, bgcolor: 'white', minWidth: 220 }}>
+                                        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                                            {currentWeekLabel || 'Tuần'}
+                                        </Typography>
+                                        {fromDate && toDate && (
+                                            <Typography variant="caption" color="text.secondary">
+                                                {new Date(fromDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })} -{' '}
+                                                {new Date(toDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                                            </Typography>
+                                        )}
+                                    </Box>
+                                    <IconButton
+                                        size="small"
+                                        onClick={handleNextWeek}
+                                        sx={{ border: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.3)}` }}
+                                    >
+                                        <ChevronRight />
+                                    </IconButton>
+                                    <Button
+                                        onClick={handleThisWeek}
+                                        variant="outlined"
+                                        size="small"
+                                        sx={{ textTransform: 'none', ml: 1 }}
+                                    >
+                                        Tuần này
+                                    </Button>
+                                </Stack>
                             ) : (
                                 <Stack direction="row" spacing={1.5} alignItems="center" flex={1}>
                                     <IconButton
@@ -1610,7 +1743,7 @@ const WorkingAttendancePage = () => {
                                                                             const selectedDayKey = WEEKDAYS[adjustedSelectedIndex];
                                                                             const isActive = activeDayTab[tabKey] !== undefined
                                                                                 ? activeDayTab[tabKey]
-                                                                                : (viewMode === 'day' ? dayKey === selectedDayKey : tabIdx === 0);
+                                                                                : (viewMode === 'week' ? dayKey === selectedDayKey : tabIdx === 0);
                                                                             return (
                                                                                 <Button
                                                                                     key={dayKey}
@@ -1681,7 +1814,7 @@ const WorkingAttendancePage = () => {
                                                                     const selectedDayKey = WEEKDAYS[adjustedSelectedIndex];
                                                                     const isActive = activeDayTab[tabKey] !== undefined
                                                                         ? activeDayTab[tabKey]
-                                                                        : (viewMode === 'day' ? dayKey === selectedDayKey : dayIdx === 0);
+                                                                        : (viewMode === 'week' ? dayKey === selectedDayKey : dayIdx === 0);
 
                                                                     return (
                                                                         <Box key={dayKey} sx={{ display: isActive ? 'block' : 'none' }}>

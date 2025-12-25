@@ -4,7 +4,7 @@ import { alpha } from '@mui/material/styles';
 import { Groups, Event, AccessTime, Person, PeopleAlt, LocalFireDepartment } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 import Loading from '../../components/loading/Loading';
-import PageTitle from '../../components/common/PageTitle';
+// Use manager-style header (Stack with icon + h4) for consistency with manager pages
 import workingStaffApi from '../../api/workingStaffApi';
 import { WEEKDAY_LABELS, WEEKDAYS } from '../../api/workShiftApi';
 
@@ -288,7 +288,15 @@ const WorkingTeamsPage = () => {
         <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: COLORS.BACKGROUND.NEUTRAL, minHeight: '100%' }}>
             <Stack spacing={3}>
                 <Box>
-                    <PageTitle title="Lịch & nhóm của tôi" subtitle="Xem nhanh các nhóm bạn tham gia, ca làm theo từng ngày và thông tin leader, thành viên." center={false} />
+                    <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 1 }}>
+                        <Groups sx={{ fontSize: 32, color: COLORS.PRIMARY[600] }} />
+                        <Typography variant="h4" fontWeight={700}>
+                            Lịch & nhóm của tôi
+                        </Typography>
+                    </Stack>
+                    <Typography variant="body2" color="text.secondary">
+                        Xem nhanh các nhóm bạn tham gia, ca làm theo từng ngày và thông tin leader, thành viên.
+                    </Typography>
                 </Box>
 
                 <Paper sx={{ p: 3, borderRadius: 4 }}>

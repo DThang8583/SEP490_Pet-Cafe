@@ -106,6 +106,60 @@ export const getDailySchedules = async (params = {}) => {
     }
 };
 
+/**
+ * Fetch all pages of daily schedules for a team by iterating over pagination.
+ * Returns merged array of all items across pages.
+ * @param {Object} params - same params as getDailySchedules (TeamId required)
+ * @returns {Promise<Object>} { success: true, data: [...], pagination: {...} }
+ */
+export const getAllDailySchedules = async (params = {}) => {
+    const {
+        page_size = 100,
+        page_index = 0
+    } = params;
+
+    try {
+        if (!params.TeamId) {
+            throw new Error('TeamId is required to fetch daily schedules');
+        }
+
+        let currentPage = page_index;
+        const allData = [];
+        while (true) {
+            // Reuse existing function to fetch a single page
+            // It returns { success, data, pagination }
+            // eslint-disable-next-line no-await-in-loop
+            const resp = await getDailySchedules({ ...params, page_index: currentPage, page_size });
+            if (!resp || resp.success === false) break;
+            const pageData = resp.data || [];
+            allData.push(...pageData);
+            const pagination = resp.pagination || {};
+            if (!pagination.has_next) break;
+            currentPage += 1;
+        }
+
+        return {
+            success: true,
+            data: allData,
+            pagination: {
+                total_items_count: allData.length,
+                page_size,
+                total_pages_count: Math.max(1, Math.ceil(allData.length / page_size)),
+                page_index: 0,
+                has_next: false,
+                has_previous: false
+            }
+        };
+    } catch (error) {
+        console.error('Failed to fetch all daily schedules from API:', error);
+        const errorMessage = error.response?.data?.message ||
+            error.response?.data?.error ||
+            error.message ||
+            'Không thể tải danh sách điểm danh';
+        throw new Error(errorMessage);
+    }
+};
+
 const dailyScheduleApi = {
     getDailySchedules
 };

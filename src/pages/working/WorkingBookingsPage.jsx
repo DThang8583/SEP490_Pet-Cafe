@@ -480,24 +480,31 @@ const WorkingBookingsPage = () => {
                 {/* Header */}
                 <Box>
                     <Stack direction="row" spacing={2} alignItems="center" justifyContent="space-between">
-                    <Stack direction="row" spacing={2} alignItems="center">
-                        <Box
-                            sx={{
-                                width: 48,
-                                height: 48,
-                                borderRadius: 2,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                background: `linear-gradient(135deg, ${COLORS.PRIMARY[400]}, ${COLORS.PRIMARY[600]})`,
-                                boxShadow: `0 10px 24px ${COLORS.SHADOW.DARK}33`
-                            }}
-                        >
-                            <ReceiptLong sx={{ color: 'white', fontSize: 26 }} />
-                        </Box>
-                        <Box>
-                                <PageTitle title="Xem Booking" subtitle="Theo dõi lịch booking dịch vụ của các nhóm mà bạn đang tham gia, hỗ trợ xử lý và cập nhật trạng thái nhanh chóng" center={false} />
-                        </Box>
+                        <Stack direction="row" spacing={2} alignItems="center">
+                            <Box
+                                sx={{
+                                    width: 48,
+                                    height: 48,
+                                    borderRadius: 2,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    background: `linear-gradient(135deg, ${COLORS.PRIMARY[400]}, ${COLORS.PRIMARY[600]})`,
+                                    boxShadow: `0 10px 24px ${COLORS.SHADOW.DARK}33`
+                                }}
+                            >
+                                <ReceiptLong sx={{ color: 'white', fontSize: 26 }} />
+                            </Box>
+                            <Box>
+                                <Stack spacing={0.5}>
+                                    <Typography variant="h4" fontWeight={700}>
+                                        Xem Booking
+                                    </Typography>
+                                    <Typography variant="body2" color="text.secondary">
+                                        Theo dõi lịch booking dịch vụ của các nhóm mà bạn đang tham gia, hỗ trợ xử lý và cập nhật trạng thái nhanh chóng
+                                    </Typography>
+                                </Stack>
+                            </Box>
                         </Stack>
                     </Stack>
                 </Box>
