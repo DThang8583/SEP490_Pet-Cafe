@@ -16,9 +16,9 @@ import {
     Chip,
     CircularProgress,
     Button,
+    TextField,
     Stack,
     Avatar,
-    TextField,
     Toolbar
 } from '@mui/material';
 import Loading from '../../components/loading/Loading';
@@ -63,7 +63,7 @@ const TeamLeaveRequestsPage = () => {
     const profile = workingStaffApi.getProfile();
     const [teams, setTeams] = useState([]);
     const [selectedTeamId, setSelectedTeamId] = useState('');
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
     const [allRequests, setAllRequests] = useState([]);
     // filters
     const [statusFilter, setStatusFilter] = useState('');
@@ -196,7 +196,7 @@ const TeamLeaveRequestsPage = () => {
     const totalPages = Math.max(1, Math.ceil(totalItems / rowsPerPage));
     const paged = filteredRequests.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
     if (loading) {
-        return <Loading message="Đang tải danh sách đơn nghỉ phép..." fullScreen variant="dots" />;
+        return <Loading message="Đang tải danh sách đơn nghỉ phép..." fullScreen />;
     }
 
     return (

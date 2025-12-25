@@ -3,6 +3,7 @@ import { Dialog, DialogTitle, DialogContent, DialogActions, Button, TextField, T
 import { Close, Restaurant, CloudUpload, Delete } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 import categoriesApi from '../../api/categoriesApi';
+import { formatPrice } from '../../utils/formatPrice';
 
 const AddProductModal = ({ open, onClose, onSave, editingProduct = null }) => {
     const [formData, setFormData] = useState({
@@ -103,14 +104,7 @@ const AddProductModal = ({ open, onClose, onSave, editingProduct = null }) => {
         return '';
     };
 
-    const formatCurrency = (value) => {
-        if (!value || value === '') return '';
-        const numValue = value.toString().replace(/[^\d]/g, '');
-        if (!numValue) return '';
-        const num = parseInt(numValue, 10);
-        if (isNaN(num) || num === 0) return '';
-        return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-    };
+    // formatPrice imported from utils returns string like "40.000 VNĐ"
 
     const handleChange = (field, value) => {
         let processedValue = value;
@@ -336,11 +330,11 @@ const AddProductModal = ({ open, onClose, onSave, editingProduct = null }) => {
                                         touched.price && errors.price
                                             ? errors.price
                                             : formData.price
-                                                ? `Giá: ${formatCurrency(formData.price)}₫`
+                                                ? `Giá: ${formatPrice(Number(formData.price))}`
                                                 : ''
                                     }
                                     InputProps={{
-                                        endAdornment: <InputAdornment position="end">₫</InputAdornment>
+                                        endAdornment: <InputAdornment position="end">VNĐ</InputAdornment>
                                     }}
                                     placeholder="50000"
                                 />
@@ -359,11 +353,11 @@ const AddProductModal = ({ open, onClose, onSave, editingProduct = null }) => {
                                         touched.cost && errors.cost
                                             ? errors.cost
                                             : formData.cost
-                                                ? `Giá: ${formatCurrency(formData.cost)}₫`
+                                                ? `Giá: ${formatPrice(Number(formData.cost))}`
                                                 : ''
                                     }
                                     InputProps={{
-                                        endAdornment: <InputAdornment position="end">₫</InputAdornment>
+                                        endAdornment: <InputAdornment position="end">VNĐ</InputAdornment>
                                     }}
                                     placeholder="30000"
                                 />

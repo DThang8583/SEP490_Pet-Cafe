@@ -12,9 +12,9 @@ import {
     Paper,
     Chip,
     TextField,
-    MenuItem,
     Stack,
     Avatar,
+    MenuItem,
     Toolbar
 } from '@mui/material';
 import Loading from '../../components/loading/Loading';
@@ -22,8 +22,8 @@ import Pagination from '../../components/common/Pagination';
 import { EventAvailable } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { getLeaveRequests } from '../../api/leaveRequestApi';
-import { COLORS } from '../../constants/colors';
 import workingStaffApi from '../../api/workingStaffApi';
+import { COLORS } from '../../constants/colors';
 
 const LEAVE_TYPE_LABELS = {
     ADVANCE: 'Nghỉ trước',
