@@ -118,6 +118,12 @@ const FeedbackModal = ({ open, onClose, booking }) => {
       }
 
       setIsEditing(false);
+      // Close modal after successful submit
+      try {
+        onClose();
+      } catch (e) {
+        // ignore
+      }
     } catch (err) {
       setErrors({ submit: err.message || 'Lỗi khi lưu đánh giá' });
     } finally {

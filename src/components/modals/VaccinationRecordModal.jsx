@@ -194,18 +194,6 @@ const VaccinationRecordModal = ({
                         <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
                             Thú cưng: {vaccinationSchedule.pet?.name || vaccinationSchedule.pet_id || 'N/A'}
                         </Typography>
-                        <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
-                            Ngày tiêm dự kiến: {(() => {
-                                if (!vaccinationSchedule.scheduled_date) return 'N/A';
-                                // Extract date directly from ISO string to avoid timezone conversion
-                                const match = vaccinationSchedule.scheduled_date.match(/^(\d{4})-(\d{2})-(\d{2})/);
-                                if (match) {
-                                    const [, year, month, day] = match;
-                                    return `${day}/${month}/${year}`;
-                                }
-                                return 'N/A';
-                            })()}
-                        </Typography>
                     </Box>
 
                     {/* Vaccination Date */}

@@ -10,7 +10,7 @@ import { Edit, MoreVert, Visibility, VisibilityOff, People, WorkOutline } from '
 import employeeApi from '../../api/employeeApi';
 
 const formatSalary = (salary) => {
-    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(salary);
+    return new Intl.NumberFormat('vi-VN').format(salary) + ' VNĐ';
 };
 
 // Helper to get the display role from employee data

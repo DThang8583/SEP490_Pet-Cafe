@@ -1,16 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Card, CardContent, CardMedia, Typography, Button, Chip, Box,
     Stack, IconButton, Tooltip, Dialog, DialogTitle, DialogContent,
     DialogActions, alpha, Zoom, Divider, Grid, Paper
 } from '@mui/material';
+import { Avatar } from '@mui/material';
 import {
-    Schedule, LocationOn, Star, Favorite, FavoriteBorder,
-    Info, AccessTime, AttachMoney, Pets, LocalHospital,
+    Schedule, LocationOn, Star, StarBorder, Favorite, FavoriteBorder,
+    Info, AccessTime, Pets, LocalHospital,
     School, Spa, Loyalty, CalendarToday, People, Note, Close
 } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 import { WEEKDAY_LABELS } from '../../api/slotApi';
+import Loading from '../loading/Loading';
 
 const ServiceCard = ({ service, onSelect, onCardClick, showFavorite = true }) => {
     const [isFavorite, setIsFavorite] = useState(false);
@@ -80,12 +82,11 @@ const ServiceCard = ({ service, onSelect, onCardClick, showFavorite = true }) =>
         }
     };
 
-    // Format price
+    // Format price (show VNĐ)
     const formatPrice = (price) => {
-        return new Intl.NumberFormat('vi-VN', {
-            style: 'currency',
-            currency: 'VND'
-        }).format(price);
+        const num = Number(price || 0);
+        if (Number.isNaN(num)) return '0 VNĐ';
+        return new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 }).format(num) + ' VNĐ';
     };
 
     // Format duration
@@ -104,6 +105,41 @@ const ServiceCard = ({ service, onSelect, onCardClick, showFavorite = true }) =>
         setIsFavorite(!isFavorite);
         // TODO: Call API to update favorite status
     };
+    
+    // Feedbacks state & loader
+    const [feedbacks, setFeedbacks] = useState([]);
+    const [loadingFeedbacks, setLoadingFeedbacks] = useState(false);
+
+    const loadFeedbacks = async () => {
+        if (!service?.id) {
+            setFeedbacks([]);
+            return;
+        }
+        setLoadingFeedbacks(true);
+        try {
+            const token = localStorage.getItem('authToken');
+            const url = `https://petcafes.azurewebsites.net/api/feedbacks?service_id=${service.id}`;
+            const resp = await fetch(url, {
+                headers: token ? { Authorization: `Bearer ${token}` } : {}
+            });
+            if (!resp.ok) throw new Error('Failed to fetch feedbacks');
+            const json = await resp.json();
+            setFeedbacks(Array.isArray(json?.data) ? json.data : []);
+        } catch (err) {
+            console.error('Error loading feedbacks:', err);
+            setFeedbacks([]);
+        } finally {
+            setLoadingFeedbacks(false);
+        }
+    };
+
+    useEffect(() => {
+        if (showDetails && service?.id) {
+            loadFeedbacks();
+        } else if (!showDetails) {
+            setFeedbacks([]);
+        }
+    }, [showDetails, service]);
 
     const categoryColor = getCategoryColor(service.category);
 
@@ -230,10 +266,15 @@ const ServiceCard = ({ service, onSelect, onCardClick, showFavorite = true }) =>
                         )}
 
                         {service.rating && (
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <Star sx={{ fontSize: 16, color: COLORS.WARNING[500] }} />
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3 }}>
+                                    {Array.from({ length: 5 }).map((_, i) => {
+                                        const filled = (service.rating || 0) > i;
+                                        return filled ? <Star key={i} sx={{ fontSize: 16, color: COLORS.WARNING[500] }} /> : <StarBorder key={i} sx={{ fontSize: 16, color: COLORS.WARNING[300] }} />;
+                                    })}
+                                </Box>
                                 <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
-                                    Đánh giá: <strong>{service.rating}/5</strong> ({service.reviewCount || 0} đánh giá)
+                                    {service.reviewCount ? ` (${service.reviewCount} đánh giá)` : ''}
                                 </Typography>
                             </Box>
                         )}
@@ -373,7 +414,6 @@ const ServiceCard = ({ service, onSelect, onCardClick, showFavorite = true }) =>
                                         }}
                                     >
                                         <Stack direction="row" alignItems="center" justifyContent="center" spacing={1} sx={{ mb: 0.5 }}>
-                                            <AttachMoney sx={{ fontSize: 18, color: COLORS.ERROR[600] }} />
                                             <Typography variant="caption" sx={{
                                                 color: COLORS.ERROR[700],
                                                 fontWeight: 600,
@@ -478,6 +518,41 @@ const ServiceCard = ({ service, onSelect, onCardClick, showFavorite = true }) =>
                                                             </Box>
                                                         )}
                                 </Stack>
+
+                        {/* Feedbacks Section */}
+                        <Box sx={{ px: 0, pb: 3 }}>
+                            <Typography variant="h6" fontWeight={600} gutterBottom sx={{ mb: 2, color: COLORS.PRIMARY[700] }}>
+                                Đánh giá ({feedbacks.length})
+                            </Typography>
+                            {loadingFeedbacks ? (
+                                <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+                                    <Loading />
+                                </Box>
+                            ) : feedbacks.length === 0 ? (
+                                <Typography variant="body2" color="text.secondary">Chưa có đánh giá cho dịch vụ này.</Typography>
+                            ) : (
+                                <Stack spacing={2}>
+                                    {feedbacks.map((f) => (
+                                        <Paper key={f.id} elevation={0} sx={{ p: 2, borderRadius: 2, border: `1px solid ${COLORS.GRAY[200]}` }}>
+                                            <Stack direction="row" spacing={2} alignItems="center">
+                                                <Avatar src={f.customer?.avatar_url} alt={f.customer?.full_name} />
+                                                <Box sx={{ flex: 1 }}>
+                                                    <Typography fontWeight={700}>{f.customer?.full_name || 'Khách hàng'}</Typography>
+                                                    <Typography variant="caption" color="text.secondary">{f.feedback_date ? new Date(f.feedback_date).toLocaleString('vi-VN') : ''}</Typography>
+                                                </Box>
+                                                <Box sx={{ display: 'flex', gap: 0.3 }}>
+                                                    {Array.from({ length: 5 }).map((_, i) => {
+                                                        const filled = (f.rating || 0) > i;
+                                                        return filled ? <Star key={i} sx={{ fontSize: 16, color: COLORS.WARNING[500] }} /> : <StarBorder key={i} sx={{ fontSize: 16, color: COLORS.WARNING[300] }} />;
+                                                    })}
+                                                </Box>
+                                            </Stack>
+                                            {f.comment ? <Typography sx={{ mt: 1, color: COLORS.TEXT.SECONDARY }}>{f.comment}</Typography> : null}
+                                        </Paper>
+                                    ))}
+                                </Stack>
+                            )}
+                        </Box>
 
                         {/* Task information removed */}
 
