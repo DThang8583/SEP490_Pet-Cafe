@@ -7,6 +7,7 @@ import { getAllPets } from '../../api/petsApi';
 import { getAllVaccinationSchedules } from '../../api/vaccinationSchedulesApi';
 import { getAllSpecies } from '../../api/petSpeciesApi';
 import VaccinationRecordModal from '../../components/modals/VaccinationRecordModal';
+import PageTitle from '../../components/common/PageTitle';
 
 const formatDate = (dateString) => {
     if (!dateString) return '—';
@@ -189,24 +190,21 @@ const WorkingVaccinationRecordsPage = () => {
             <Stack spacing={4}>
                 {/* Header */}
                 <Box>
-                    <Stack direction="row" spacing={2.5} alignItems="flex-start">
-                        <Avatar
-                            sx={{
-                                bgcolor: COLORS.INFO[500],
-                                width: 56,
-                                height: 56,
-                                boxShadow: `0 4px 12px ${alpha(COLORS.INFO[500], 0.3)}`
-                            }}
-                        >
-                            <Vaccines sx={{ fontSize: 28 }} />
-                        </Avatar>
-                        <Box flex={1}>
-                            <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.TEXT.PRIMARY, mb: 1 }}>
-                                Hồ sơ tiêm phòng
-                            </Typography>
-                            <Typography variant="body1" sx={{ color: COLORS.TEXT.SECONDARY, lineHeight: 1.6 }}>
-                                Quản lý và cập nhật hồ sơ tiêm phòng cho thú cưng
-                            </Typography>
+                    <Stack direction="row" spacing={2.5} alignItems="center" justifyContent="space-between">
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                            <Avatar
+                                sx={{
+                                    bgcolor: COLORS.INFO[500],
+                                    width: 56,
+                                    height: 56,
+                                    boxShadow: `0 4px 12px ${alpha(COLORS.INFO[500], 0.3)}`
+                                }}
+                            >
+                                <Vaccines sx={{ fontSize: 28 }} />
+                            </Avatar>
+                            <Box>
+                                <PageTitle title="Hồ sơ tiêm phòng" subtitle="Quản lý và cập nhật hồ sơ tiêm phòng cho thú cưng" center={false} />
+                            </Box>
                         </Box>
                         <Button
                             variant="contained"

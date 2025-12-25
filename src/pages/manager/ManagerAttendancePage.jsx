@@ -4,6 +4,7 @@ import { COLORS } from '../../constants/colors';
 import Loading from '../../components/loading/Loading';
 import Pagination from '../../components/common/Pagination';
 import AlertModal from '../../components/modals/AlertModal';
+import ConfirmModal from '../../components/modals/ConfirmModal';
 import dailyScheduleApi from '../../api/dailyScheduleApi';
 import { getTeams, getTeamMembers, getTeamWorkShifts } from '../../api/teamApi';
 import { WEEKDAYS } from '../../api/workShiftApi';
@@ -14,17 +15,19 @@ const STATUS_LABELS = {
     PENDING: 'Chờ điểm danh',
     PRESENT: 'Có mặt',
     ABSENT: 'Vắng mặt',
+    EXCUSED: 'Vắng có phép',
     LATE: 'Đi muộn',
     EARLY_LEAVE: 'Về sớm'
 };
 
 // Thứ tự hiển thị trạng thái trong menu MoreVert (ưu tiên các trạng thái thực tế)
-const STATUS_ORDER = ['PRESENT', 'ABSENT', 'EARLY_LEAVE', 'LATE', 'PENDING'];
+const STATUS_ORDER = ['PRESENT', 'ABSENT', 'EXCUSED', 'EARLY_LEAVE', 'LATE', 'PENDING'];
 
 const STATUS_COLORS = {
     PENDING: { bg: alpha(COLORS.WARNING[100], 0.8), color: COLORS.WARNING[700] },
     PRESENT: { bg: alpha(COLORS.SUCCESS[100], 0.8), color: COLORS.SUCCESS[700] },
     ABSENT: { bg: alpha(COLORS.ERROR[100], 0.8), color: COLORS.ERROR[700] },
+    EXCUSED: { bg: alpha(COLORS.INFO[100], 0.8), color: COLORS.INFO[700] },
     LATE: { bg: alpha(COLORS.INFO[100], 0.8), color: COLORS.INFO[700] },
     EARLY_LEAVE: { bg: alpha(COLORS.WARNING[100], 0.8), color: COLORS.WARNING[700] }
 };
@@ -235,6 +238,7 @@ const buildStatistics = (allSchedules) => {
     let pending = 0;
     let present = 0;
     let absent = 0;
+    let excused = 0;
     let late = 0;
     let earlyLeave = 0;
 
@@ -250,6 +254,9 @@ const buildStatistics = (allSchedules) => {
             case 'ABSENT':
                 absent++;
                 break;
+            case 'EXCUSED':
+                excused++;
+                break;
             case 'LATE':
                 late++;
                 break;
@@ -264,6 +271,7 @@ const buildStatistics = (allSchedules) => {
         pending,
         present,
         absent,
+        excused,
         late,
         earlyLeave
     };
@@ -329,6 +337,7 @@ const StatisticsSection = memo(({ statistics }) => (
             { label: 'Chờ điểm danh', value: statistics.pending, color: COLORS.WARNING[500], valueColor: COLORS.WARNING[700] },
             { label: 'Có mặt', value: statistics.present, color: COLORS.SUCCESS[500], valueColor: COLORS.SUCCESS[700] },
             { label: 'Vắng mặt', value: statistics.absent, color: COLORS.ERROR[500], valueColor: COLORS.ERROR[700] },
+            { label: 'Vắng có phép', value: statistics.excused, color: COLORS.INFO[500], valueColor: COLORS.INFO[700] },
             { label: 'Đi muộn', value: statistics.late, color: COLORS.INFO[500], valueColor: COLORS.INFO[700] },
             { label: 'Về sớm', value: statistics.earlyLeave, color: COLORS.WARNING[500], valueColor: COLORS.WARNING[700] }
         ].map((stat, index) => {
@@ -744,6 +753,9 @@ const ManagerAttendancePage = () => {
     const [hasInitialLoad, setHasInitialLoad] = useState(false);
     const [error, setError] = useState('');
     const [alert, setAlert] = useState({ open: false, title: 'Thông báo', message: '', type: 'info' });
+    const [confirmOpen, setConfirmOpen] = useState(false);
+    const [confirmPayload, setConfirmPayload] = useState(null); // { schedule, statusKey }
+    const [isConfirming, setIsConfirming] = useState(false);
     const [schedules, setSchedules] = useState([]);
     const [pagination, setPagination] = useState(null);
 
@@ -1395,6 +1407,7 @@ const ManagerAttendancePage = () => {
                             >
                                 <MenuItem value="all">Tất cả</MenuItem>
                                 <MenuItem value="PENDING">Chờ điểm danh</MenuItem>
+                                <MenuItem value="EXCUSED">Vắng có phép</MenuItem>
                                 <MenuItem value="PRESENT">Có mặt</MenuItem>
                                 <MenuItem value="ABSENT">Vắng mặt</MenuItem>
                                 <MenuItem value="LATE">Đi muộn</MenuItem>
@@ -1501,13 +1514,11 @@ const ManagerAttendancePage = () => {
                                 onClick={async () => {
                                     const current = actionMenu.schedule;
                                     handleActionMenuClose();
-                                    if (current) {
-                                        if (
-                                            ['ABSENT', 'EARLY_LEAVE'].includes(statusKey) &&
-                                            !window.confirm(`Xác nhận đánh dấu "${statusLabel}" cho ${current.employee?.full_name || 'nhân viên'}?`)
-                                        ) {
-                                            return;
-                                        }
+                                    if (!current) return;
+                                    if (['ABSENT', 'EARLY_LEAVE'].includes(statusKey)) {
+                                        setConfirmPayload({ schedule: current, statusKey });
+                                        setConfirmOpen(true);
+                                    } else {
                                         await handleUpdateStatus(current, statusKey);
                                     }
                                 }}
@@ -1517,6 +1528,27 @@ const ManagerAttendancePage = () => {
                         );
                     }).filter(Boolean)}
                 </Menu>
+                <ConfirmModal
+                    isOpen={confirmOpen}
+                    onClose={() => { setConfirmOpen(false); setConfirmPayload(null); }}
+                    onConfirm={async () => {
+                        if (!confirmPayload) return;
+                        setIsConfirming(true);
+                        try {
+                            await handleUpdateStatus(confirmPayload.schedule, confirmPayload.statusKey);
+                        } finally {
+                            setIsConfirming(false);
+                            setConfirmOpen(false);
+                            setConfirmPayload(null);
+                        }
+                    }}
+                    title="Xác nhận"
+                    message={confirmPayload ? `Xác nhận đánh dấu "${STATUS_LABELS[confirmPayload.statusKey] || confirmPayload.statusKey}" cho ${confirmPayload.schedule?.employee?.full_name || 'nhân viên'}?` : 'Xác nhận hành động?'}
+                    confirmText="Xác nhận"
+                    cancelText="Hủy"
+                    type="warning"
+                    isLoading={isConfirming}
+                />
 
                 {/* Pagination */}
                 {deferredPagination && deferredPagination.total_items_count > 0 && (

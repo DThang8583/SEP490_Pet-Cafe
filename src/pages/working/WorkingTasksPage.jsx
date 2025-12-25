@@ -5,6 +5,7 @@ import workingStaffApi from '../../api/workingStaffApi';
 import { COLORS } from '../../constants/colors';
 import Loading from '../../components/loading/Loading';
 import { useLocation } from 'react-router-dom';
+import PageTitle from '../../components/common/PageTitle';
 import DailyTaskDetailsModal from '../../components/modals/DailyTaskDetailsModal';
 import VaccinationRecordModal from '../../components/modals/VaccinationRecordModal';
 import HealthRecordModal from '../../components/modals/HealthRecordModal';
@@ -816,14 +817,7 @@ const WorkingTasksPage = () => {
     return (
         <Box sx={{ p: { xs: 2, md: 4 }, bgcolor: COLORS.BACKGROUND.NEUTRAL, minHeight: '100%' }}>
             <Stack spacing={3}>
-                <Box>
-                    <Typography variant="h4" sx={{ fontWeight: 800 }}>
-                        Nhiệm vụ hằng ngày
-                    </Typography>
-                    <Typography variant="body1" sx={{ color: COLORS.TEXT.SECONDARY }}>
-                        Xem và quản lý các nhiệm vụ hằng ngày của các đội nhóm bạn tham gia. Chọn nhóm và ngày để xem chi tiết nhiệm vụ, cập nhật tiến độ trong ca làm.
-                    </Typography>
-                </Box>
+                <PageTitle title="Nhiệm vụ hằng ngày" subtitle="Xem và quản lý các nhiệm vụ hằng ngày của các đội nhóm bạn tham gia. Chọn nhóm và ngày để xem chi tiết nhiệm vụ, cập nhật tiến độ trong ca làm." center={false} />
 
                 <Paper
                     elevation={0}

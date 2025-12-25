@@ -8,6 +8,7 @@ import apiClient from '../../config/config';
 import { WEEKDAY_LABELS, WEEKDAYS } from '../../api/workShiftApi';
 import Loading from '../../components/loading/Loading';
 import AlertModal from '../../components/modals/AlertModal';
+import PageTitle from '../../components/common/PageTitle';
 
 const STATUS_OPTIONS = [
     { value: 'PENDING', label: 'Chưa điểm danh', icon: <AccessTime fontSize="small" />, color: 'warning' },
@@ -110,6 +111,17 @@ const normalizeDateOnly = (dateString) => {
     const date = new Date(dateString);
     if (Number.isNaN(date.getTime())) return null;
     return date.toISOString().split('T')[0];
+};
+
+// Normalize any date/string/object to YYYY-MM-DD based on UTC to avoid local timezone shifts
+const toUTCDateKey = (input) => {
+    if (!input) return null;
+    const d = new Date(input);
+    if (Number.isNaN(d.getTime())) return null;
+    const YYYY = d.getUTCFullYear();
+    const MM = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const DD = String(d.getUTCDate()).padStart(2, '0');
+    return `${YYYY}-${MM}-${DD}`;
 };
 
 // Kiểm tra một ngày có phải là ngày hôm nay (theo thời gian thực) hay không
@@ -306,7 +318,9 @@ const WorkingAttendancePage = () => {
                     return scheduleTeamId && validTeamIds.has(scheduleTeamId);
                 });
 
-                if (mounted) setAttendance(allSchedules);
+                if (mounted) {
+                    setAttendance(allSchedules);
+                }
             } catch (error) {
                 console.error('Failed to load attendance', error);
                 if (mounted) setSnackbar({ message: 'Không thể tải dữ liệu điểm danh', severity: 'error' });
@@ -485,28 +499,56 @@ const WorkingAttendancePage = () => {
                                     schedule: existingRecord || null,
                                     teamMemberId
                                 };
-                            });
+                            }).filter(Boolean);
+
+                            // Include any attendance records returned by API that don't map to allMembers
+                            // (e.g., members marked out-of-team). This ensures leader sees those records too.
+                            const memberIdSet = new Set((allMembers || []).map(m => m.id || m.account_id).filter(Boolean));
+                            const unmatched = deferredAttendance.filter((schedule) => {
+                                const scheduleTeamId = schedule.team_member?.team_id || schedule.team_id;
+                                const scheduleShiftId = schedule.work_shift_id || schedule.work_shift?.id;
+                                const scheduleDateKey = toUTCDateKey(schedule.date);
+                                const targetDateKey = toUTCDateKey(dateStr);
+                                const scheduleEmployeeId = schedule.employee_id || schedule.employee?.id || schedule.team_member?.employee_id;
+                                return scheduleTeamId === team.id && scheduleShiftId === shift.id && scheduleDateKey === targetDateKey && !memberIdSet.has(scheduleEmployeeId);
+                            }).map((s) => ({
+                                member: s.employee || { full_name: s.employee_name || 'N/A', id: s.employee_id || s.team_member?.employee_id },
+                                date: dateStr,
+                                schedule: s,
+                                teamMemberId: s.team_member_id || s.team_member?.id || null
+                            }));
+
+                            if (unmatched.length > 0) {
+                                dayMembers = [...dayMembers, ...unmatched];
+                            }
                         } else {
-                            dayMembers = deferredAttendance
-                                .filter((schedule) => {
-                                    const scheduleTeamId = schedule.team_member?.team_id || schedule.team_id;
-                                    const scheduleShiftId = schedule.work_shift_id || schedule.work_shift?.id;
-                                    const scheduleDate = schedule.date ? new Date(schedule.date).toISOString().split('T')[0] : null;
-                                    return (
-                                        scheduleTeamId === team.id &&
-                                        scheduleShiftId === shift.id &&
-                                        scheduleDate === dateStr
-                                    );
-                                })
-                                .map((existingRecord) => {
+                            const matches = deferredAttendance.filter((schedule) => {
+                                const scheduleTeamId = schedule.team_member?.team_id || schedule.team_id;
+                                const scheduleShiftId = schedule.work_shift_id || schedule.work_shift?.id;
+                                const scheduleDateKey = toUTCDateKey(schedule.date);
+                                const targetDateKey = toUTCDateKey(dateStr);
+                                return (
+                                    scheduleTeamId === team.id &&
+                                    scheduleShiftId === shift.id &&
+                                    scheduleDateKey === targetDateKey
+                                );
+                            });
+                            
+                            dayMembers = matches.map((existingRecord) => {
                                     const scheduleEmployeeId = existingRecord.employee_id || existingRecord.employee?.id || existingRecord.team_member?.employee_id;
                                     const scheduleAccountId = existingRecord.employee?.account_id;
 
-                                    const member = allMembers.find(m =>
+                                    let member = allMembers.find(m =>
                                         m.id === scheduleEmployeeId ||
                                         m.account_id === scheduleAccountId ||
                                         m.account_id === scheduleEmployeeId
-                                    ) || existingRecord.employee || { full_name: 'N/A', id: scheduleEmployeeId };
+                                    );
+                                    if (!member && existingRecord && existingRecord.employee) {
+                                        member = existingRecord.employee;
+                                    }
+                                    if (!member) {
+                                        member = { full_name: 'N/A', id: scheduleEmployeeId };
+                                    }
 
                                     const teamMemberId = existingRecord.team_member_id || existingRecord.team_member?.id;
 
@@ -517,6 +559,7 @@ const WorkingAttendancePage = () => {
                                         teamMemberId
                                     };
                                 });
+                                
                         }
 
                         shiftDays.push({
@@ -573,29 +616,67 @@ const WorkingAttendancePage = () => {
                                     };
                                 });
                             }).flat().filter(Boolean);
+
+                            // Include any attendance records returned by API that don't map to allMembers
+                            // (e.g., members marked out-of-team). Ensure we don't duplicate entries already added.
+                            const memberIdSet = new Set((allMembers || []).map(m => m.id || m.account_id).filter(Boolean));
+                            const existingKeys = new Set((dayMembers || []).map(dm => `${dm.member?.id || dm.member?.account_id}-${dm.date}`));
+
+                            const unmatched = deferredAttendance.filter((schedule) => {
+                                const scheduleTeamId = schedule.team_member?.team_id || schedule.team_id;
+                                const scheduleShiftId = schedule.work_shift_id || schedule.work_shift?.id;
+                                const scheduleDateKey = toUTCDateKey(schedule.date);
+                                // check if schedule date is within this date's list
+                                const targetDatesSet = new Set(dates.map(d => d.toISOString().split('T')[0]));
+                                const scheduleDateStr = schedule.date ? new Date(schedule.date).toISOString().split('T')[0] : null;
+                                const scheduleEmployeeId = schedule.employee_id || schedule.employee?.id || schedule.team_member?.employee_id;
+                                return scheduleTeamId === team.id && scheduleShiftId === shift.id && scheduleDateStr && targetDatesSet.has(scheduleDateStr) && !memberIdSet.has(scheduleEmployeeId);
+                            }).map((s) => {
+                                const scheduleDateStr = s.date ? new Date(s.date).toISOString().split('T')[0] : null;
+                                const member = s.employee || { full_name: s.employee_name || 'N/A', id: s.employee_id || s.team_member?.employee_id };
+                                const key = `${member.id || member.account_id}-${scheduleDateStr}`;
+                                if (existingKeys.has(key)) return null;
+                                existingKeys.add(key);
+                                return {
+                                    member,
+                                    date: scheduleDateStr,
+                                    schedule: s,
+                                    teamMemberId: s.team_member_id || s.team_member?.id || null
+                                };
+                            }).filter(Boolean);
+
+                            if (unmatched.length > 0) {
+                                dayMembers = [...dayMembers, ...unmatched];
+                            }
                         } else {
-                            dayMembers = deferredAttendance
-                                .filter((schedule) => {
-                                    const scheduleTeamId = schedule.team_member?.team_id || schedule.team_id;
-                                    const scheduleShiftId = schedule.work_shift_id || schedule.work_shift?.id;
-                                    const scheduleDate = schedule.date ? new Date(schedule.date).toISOString().split('T')[0] : null;
+                            const matches = deferredAttendance.filter((schedule) => {
+                                const scheduleTeamId = schedule.team_member?.team_id || schedule.team_id;
+                                const scheduleShiftId = schedule.work_shift_id || schedule.work_shift?.id;
+                                const scheduleDateKey = toUTCDateKey(schedule.date);
 
-                                    if (scheduleTeamId !== team.id || scheduleShiftId !== shift.id) {
-                                        return false;
-                                    }
+                                if (scheduleTeamId !== team.id || scheduleShiftId !== shift.id) {
+                                    return false;
+                                }
 
-                                    return dates.some(date => date.toISOString().split('T')[0] === scheduleDate);
-                                })
-                                .map((existingRecord) => {
+                                return dates.some(date => toUTCDateKey(date) === scheduleDateKey);
+                            });
+                            
+                            dayMembers = matches.map((existingRecord) => {
                                     const scheduleEmployeeId = existingRecord.employee_id || existingRecord.employee?.id || existingRecord.team_member?.employee_id;
                                     const scheduleAccountId = existingRecord.employee?.account_id;
                                     const scheduleDate = existingRecord.date ? new Date(existingRecord.date).toISOString().split('T')[0] : null;
 
-                                    const member = allMembers.find(m =>
+                                    let member = allMembers.find(m =>
                                         m.id === scheduleEmployeeId ||
                                         m.account_id === scheduleAccountId ||
                                         m.account_id === scheduleEmployeeId
-                                    ) || existingRecord.employee || { full_name: 'N/A', id: scheduleEmployeeId };
+                                    );
+                                    if (!member && existingRecord && existingRecord.employee) {
+                                        member = existingRecord.employee;
+                                    }
+                                    if (!member) {
+                                        member = { full_name: 'N/A', id: scheduleEmployeeId };
+                                    }
 
                                     const teamMemberId = existingRecord.team_member_id || existingRecord.team_member?.id;
 
@@ -1060,6 +1141,11 @@ const WorkingAttendancePage = () => {
         }
     };
 
+    // Show fullScreen loading like manager pages
+    if (loading) {
+        return <Loading message="Đang tải dữ liệu điểm danh..." fullScreen />;
+    }
+
     return (
         <Box
             sx={{
@@ -1085,14 +1171,14 @@ const WorkingAttendancePage = () => {
                             <ChecklistRtl sx={{ fontSize: 28 }} />
                         </Avatar>
                         <Box flex={1}>
-                            <Typography variant="h4" sx={{ fontWeight: 800, color: COLORS.TEXT.PRIMARY, mb: 1 }}>
-                                Điểm danh
-                            </Typography>
-                            <Typography variant="body1" sx={{ color: COLORS.TEXT.SECONDARY, lineHeight: 1.6 }}>
-                                {isLeader
+                            <PageTitle
+                                title="Điểm danh"
+                                subtitle={isLeader
                                     ? 'Quản lý và đánh dấu điểm danh cho các thành viên trong team theo từng ca làm việc'
                                     : 'Xem trạng thái điểm danh của bạn trong team theo từng ngày/tháng'}
-                            </Typography>
+                                center={false}
+                            />
+                            
                         </Box>
                     </Stack>
                 </Box>
@@ -1599,6 +1685,7 @@ const WorkingAttendancePage = () => {
 
                                                                     return (
                                                                         <Box key={dayKey} sx={{ display: isActive ? 'block' : 'none' }}>
+                                                                            
 
                                                                             {displayData.length === 0 ? (
                                                                                 <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, pl: 6 }}>
@@ -1666,6 +1753,7 @@ const WorkingAttendancePage = () => {
                                                                                                 </TableRow>
                                                                                             </TableHead>
                                                                                             <TableBody>
+                        
                                                                                                 {displayData.map((item, idx) => {
                                                                                                     const isMemberView = item.member !== undefined;
                                                                                                     const member = isMemberView ? item.member : (item.employee || item.team_member?.employee || {});

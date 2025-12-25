@@ -1,18 +1,19 @@
-import React, { useEffect, useState } from 'react';
-import { Box, Paper, Typography, TextField, MenuItem, Button, Snackbar, Alert, FormControl, Select } from '@mui/material';
+import React, { useEffect, useState, useRef } from 'react';
+import { Box, Paper, Typography, TextField, MenuItem, Button, Snackbar, Alert, FormControl, Select, IconButton } from '@mui/material';
 import { alpha } from '@mui/material/styles';
-import { Send } from '@mui/icons-material';
+import { Send, ArrowBack } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
 import workingStaffApi from '../../api/workingStaffApi';
 import { createLeaveRequest } from '../../api/leaveRequestApi';
 import { getAllEmployees } from '../../api/employeeApi';
 import COLORS from '../../constants/colors';
+import PageTitle from '../../components/common/PageTitle';
+import AlertModal from '../../components/modals/AlertModal';
 
+// Official backend-supported leave types: ADVANCE
+// EMERGENCY no longer used; default to ADVANCE and do not show choice to user.
 const LEAVE_TYPE_OPTIONS = [
-    { value: 'PERSONAL', label: 'Nghỉ phép cá nhân' },
-    { value: 'SICK', label: 'Nghỉ ốm' },
-    { value: 'ANNUAL', label: 'Nghỉ phép năm' },
-    { value: 'EMERGENCY', label: 'Nghỉ khẩn cấp' },
-    { value: 'OTHER', label: 'Khác' }
+    { value: 'ADVANCE', label: 'Nghỉ trước' }
 ];
 
 const formatDate = (date) => {
@@ -27,6 +28,8 @@ const formatDate = (date) => {
 
 const WorkingLeaveRequestPage = () => {
     const profile = workingStaffApi.getProfile();
+    const profileSubRole = (profile?.sub_role || profile?.subRole || profile?.role || profile?.account?.role || '') || '';
+    const navigate = useNavigate();
     const [employees, setEmployees] = useState([]);
     const [teams, setTeams] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -36,13 +39,18 @@ const WorkingLeaveRequestPage = () => {
     const [formData, setFormData] = useState({
         employee_id: profile?.id || profile?.employee_id || profile?.account_id || '',
         leave_date: '',
-        leave_type: '',
+        leave_type: 'ADVANCE',
         replacement_employee_id: '',
         team_ids: [],
         reason: ''
     });
+    const [dateError, setDateError] = useState('');
 
     const [selectedReplacement, setSelectedReplacement] = useState(null);
+    const leaveDateInputRef = useRef(null);
+    
+    const [alertOpen, setAlertOpen] = useState(false);
+    const [alertProps, setAlertProps] = useState({ title: 'Thông báo', message: '', type: 'info', okText: 'OK' });
 
     // Load teams that user belongs to
     useEffect(() => {
@@ -107,7 +115,37 @@ const WorkingLeaveRequestPage = () => {
                     const filtered = allEmployees.filter(emp => {
                         const empId = emp.id || emp.employee_id || emp.account_id;
                         const currentId = formData.employee_id;
-                        return empId !== currentId;
+                        // Exclude current user
+                        if (empId === currentId) return false;
+
+                        // Build a combined role string from multiple possible fields, including nested account.role
+                        const possibleRoles = [
+                            emp.sub_role,
+                            emp.role,
+                            emp.subRole,
+                            emp.account && emp.account.role,
+                            emp.account && emp.account?.role
+                        ].filter(Boolean).map(r => String(r).toLowerCase()).join(' ');
+
+                        if (possibleRoles.includes('manager') || possibleRoles.includes('admin')) return false;
+
+                        // Exclude explicitly inactive employees (check both employee and account active flags)
+                        if (emp.is_active === false) return false;
+                        if (emp.account && emp.account.is_active === false) return false;
+
+                        // Enforce same sub_role as requester when requester's sub_role is known
+                        try {
+                            const candidateSubRole = String(emp.sub_role || emp.subRole || emp.role || emp.account?.role || '').trim();
+                            if (profileSubRole && candidateSubRole) {
+                                if (candidateSubRole.toLowerCase() !== String(profileSubRole).toLowerCase()) {
+                                    return false;
+                                }
+                            }
+                        } catch (err) {
+                            // ignore and proceed (don't block on parsing issues)
+                        }
+
+                        return true;
                     });
                     setEmployees(filtered);
                 }
@@ -141,13 +179,143 @@ const WorkingLeaveRequestPage = () => {
     }, [formData.replacement_employee_id, employees]);
 
     const handleInputChange = (field, value) => {
+        // For leave_date we expect native date value (yyyy-mm-dd) from type="date" picker
+        if (field === 'leave_date') {
+            setFormData(prev => ({ ...prev, [field]: value }));
+            return;
+        }
+
         setFormData(prev => ({
             ...prev,
             [field]: value
         }));
     };
 
+    // Validate dd/mm/yyyy strictly
+    const isValidDDMMYYYY = (s) => {
+        if (!s || typeof s !== 'string') return false;
+        const parts = s.split('/');
+        if (parts.length !== 3) return false;
+        const d = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10);
+        const y = parseInt(parts[2], 10);
+        if (Number.isNaN(d) || Number.isNaN(m) || Number.isNaN(y)) return false;
+        if (y < 1900 || y > 2100) return false;
+        if (m < 1 || m > 12) return false;
+        const test = new Date(y, m - 1, d);
+        return test.getFullYear() === y && test.getMonth() === (m - 1) && test.getDate() === d;
+    };
+
+    // Return true if date (ISO yyyy-mm-dd or dd/mm/yyyy) is at least n days after today
+    const isAtLeastNDaysFromToday = (rawDate, n) => {
+        if (!rawDate) return false;
+        let parsedDate;
+        try {
+            if (rawDate.includes('-')) {
+                parsedDate = new Date(rawDate);
+            } else if (rawDate.includes('/')) {
+                const parts = rawDate.split('/');
+                if (parts.length !== 3) return false;
+                const day = parseInt(parts[0], 10);
+                const month = parseInt(parts[1], 10) - 1;
+                const year = parseInt(parts[2], 10);
+                parsedDate = new Date(year, month, day);
+            } else {
+                return false;
+            }
+            if (Number.isNaN(parsedDate.getTime())) return false;
+            // Normalize both dates to local date (midnight)
+            const today = new Date();
+            today.setHours(0,0,0,0);
+            const minDate = new Date(today);
+            minDate.setDate(minDate.getDate() + n);
+            parsedDate.setHours(0,0,0,0);
+            return parsedDate >= minDate;
+        } catch (err) {
+            return false;
+        }
+    };
+
+    const validateDateOnBlur = () => {
+        const raw = (formData.leave_date || '').trim();
+        if (!raw) return true;
+        // accept ISO or dd/mm/yyyy
+        if (raw.includes('-')) {
+            const dt = new Date(raw);
+            if (Number.isNaN(dt.getTime())) {
+                setSnackbar({ message: 'Ngày không hợp lệ. Vui lòng nhập theo dd/mm/yyyy hoặc chọn ngày.', severity: 'error' });
+                return false;
+            }
+            // keep ISO (yyyy-mm-dd) for date input value
+            const isoDate = dt.toISOString().split('T')[0];
+            // enforce minimum 3 days ahead
+            if (!isAtLeastNDaysFromToday(isoDate, 3)) {
+                const today = new Date();
+                today.setHours(0,0,0,0);
+                const min = new Date(today);
+                min.setDate(min.getDate() + 3);
+                const minStr = `${String(min.getDate()).padStart(2,'0')}/${String(min.getMonth()+1).padStart(2,'0')}/${min.getFullYear()}`;
+                setSnackbar({ message: `Ngày nghỉ phải cách ngày hiện tại ít nhất 3 ngày. Vui lòng chọn từ ${minStr} trở đi.`, severity: 'error' });
+                setDateError(`Ngày nghỉ phải từ ${minStr} trở đi`);
+                return false;
+            }
+            setFormData(prev => ({ ...prev, leave_date: isoDate }));
+            setDateError('');
+            return true;
+        }
+        // If user typed 8 continuous digits like 29122025, format to dd/mm/yyyy
+        if (/^\d{8}$/.test(raw)) {
+            const d = raw.slice(0,2);
+            const m = raw.slice(2,4);
+            const y = raw.slice(4);
+            const formatted = `${d}/${m}/${y}`;
+            if (isValidDDMMYYYY(formatted)) {
+                // convert dd/mm/yyyy to ISO yyyy-mm-dd for input value
+                const yy = formatted.split('/')[2];
+                const mm = formatted.split('/')[1];
+                const dd = formatted.split('/')[0];
+                const iso = `${yy}-${mm}-${dd}`;
+                // enforce minimum 3 days ahead
+                if (!isAtLeastNDaysFromToday(formatted, 3)) {
+                    const today = new Date();
+                    today.setHours(0,0,0,0);
+                    const min = new Date(today);
+                    min.setDate(min.getDate() + 3);
+                    const minStr = `${String(min.getDate()).padStart(2,'0')}/${String(min.getMonth()+1).padStart(2,'0')}/${min.getFullYear()}`;
+                    setSnackbar({ message: `Ngày nghỉ phải cách ngày hiện tại ít nhất 3 ngày. Vui lòng chọn từ ${minStr} trở đi.`, severity: 'error' });
+                    setDateError(`Ngày nghỉ phải từ ${minStr} trở đi`);
+                    return false;
+                }
+                setFormData(prev => ({ ...prev, leave_date: iso }));
+                setDateError('');
+                return true;
+            } else {
+                setSnackbar({ message: 'Ngày không hợp lệ. Vui lòng nhập theo dd/mm/yyyy (ví dụ: 23/12/2025).', severity: 'error' });
+                return false;
+            }
+        }
+
+        if (!isValidDDMMYYYY(raw)) {
+            setSnackbar({ message: 'Ngày không hợp lệ. Vui lòng nhập theo dd/mm/yyyy (ví dụ: 23/12/2025).', severity: 'error' });
+            return false;
+        }
+        // final check for dd/mm/yyyy formatted raw string
+        if (!isAtLeastNDaysFromToday(raw, 3)) {
+            const today = new Date();
+            today.setHours(0,0,0,0);
+            const min = new Date(today);
+            min.setDate(min.getDate() + 3);
+            const minStr = `${String(min.getDate()).padStart(2,'0')}/${String(min.getMonth()+1).padStart(2,'0')}/${min.getFullYear()}`;
+            setSnackbar({ message: `Ngày nghỉ phải cách ngày hiện tại ít nhất 3 ngày. Vui lòng chọn từ ${minStr} trở đi.`, severity: 'error' });
+            setDateError(`Ngày nghỉ phải từ ${minStr} trở đi`);
+            return false;
+        }
+        setDateError('');
+        return true;
+    };
+
     const handleSubmit = async () => {
+        if (submitting) return; // prevent double submissions
         if (!formData.leave_date.trim()) {
             setSnackbar({ message: 'Vui lòng nhập ngày nghỉ', severity: 'error' });
             return;
@@ -156,28 +324,46 @@ const WorkingLeaveRequestPage = () => {
             setSnackbar({ message: 'Vui lòng nhập lý do nghỉ', severity: 'error' });
             return;
         }
-        if (!formData.leave_type.trim()) {
-            setSnackbar({ message: 'Vui lòng nhập loại nghỉ phép', severity: 'error' });
-            return;
-        }
+        // leave_type is defaulted to 'ADVANCE' and not selectable by user
 
         setSubmitting(true);
         try {
             let leaveDateISO = '';
             try {
-                const dateParts = formData.leave_date.trim().split('/');
+                const raw = formData.leave_date.trim();
+                // Accept ISO (yyyy-mm-dd or full ISO) or dd/mm/yyyy
+                if (raw.includes('-')) {
+                    const parsedDate = new Date(raw);
+                    if (Number.isNaN(parsedDate.getTime())) throw new Error('Invalid date');
+                    parsedDate.setHours(12, 0, 0, 0);
+                    leaveDateISO = parsedDate.toISOString();
+                } else {
+                    const dateParts = raw.split('/');
                 if (dateParts.length === 3) {
                     const day = parseInt(dateParts[0], 10);
                     const month = parseInt(dateParts[1], 10) - 1;
                     const year = parseInt(dateParts[2], 10);
                     const parsedDate = new Date(year, month, day);
+                        if (Number.isNaN(parsedDate.getTime())) throw new Error('Invalid date');
                     parsedDate.setHours(12, 0, 0, 0);
                     leaveDateISO = parsedDate.toISOString();
                 } else {
                     throw new Error('Invalid date format');
+                    }
+                }
+                // enforce minimum 3 days ahead (use local date comparison)
+                if (!isAtLeastNDaysFromToday(formData.leave_date, 3)) {
+                    const today = new Date();
+                    today.setHours(0,0,0,0);
+                    const min = new Date(today);
+                    min.setDate(min.getDate() + 3);
+                    const minStr = `${String(min.getDate()).padStart(2,'0')}/${String(min.getMonth()+1).padStart(2,'0')}/${min.getFullYear()}`;
+                    setSnackbar({ message: `Ngày nghỉ phải cách ngày hiện tại ít nhất 3 ngày. Vui lòng chọn từ ${minStr} trở đi.`, severity: 'error' });
+                    setSubmitting(false);
+                    return;
                 }
             } catch (error) {
-                setSnackbar({ message: 'Vui lòng nhập ngày nghỉ đúng định dạng dd/mm/yyyy', severity: 'error' });
+                setSnackbar({ message: 'Vui lòng nhập ngày nghỉ đúng định dạng dd/mm/yyyy hoặc chọn ngày', severity: 'error' });
                 setSubmitting(false);
                 return;
             }
@@ -189,17 +375,51 @@ const WorkingLeaveRequestPage = () => {
                 reason: formData.reason.trim(),
                 leave_type: formData.leave_type.trim()
             };
-
+            // Prevent accidental duplicate submissions from UI (same payload in progress)
+            let didSetGlobalFlag = false;
+            try {
+                const payloadKey = JSON.stringify(requestData);
+                if (window._leaveRequestInProgress && window._lastLeaveRequestKey === payloadKey) {
+                    // duplicate attempt while previous identical request still in progress
+                    setAlertProps({
+                        title: 'Đang gửi đơn',
+                        message: 'Đơn này đang được gửi. Vui lòng chờ trong giây lát.',
+                        type: 'info',
+                        okText: 'Đóng'
+                    });
+                    setAlertOpen(true);
+                    setSubmitting(false);
+                    return;
+                } else {
+                    window._leaveRequestInProgress = true;
+                    window._lastLeaveRequestKey = payloadKey;
+                    didSetGlobalFlag = true;
+                    // debug log to help trace duplicate submissions in Network/Console
+                    // eslint-disable-next-line no-console
+                    console.debug('[leave-request] sending', requestData);
             await createLeaveRequest(requestData);
-            setSnackbar({
-                message: 'Gửi đơn xin nghỉ phép thành công',
-                severity: 'success'
-            });
+                }
+            } finally {
+                // Only clear the global-in-progress flag if THIS invocation set it.
+                if (didSetGlobalFlag) {
+                    window._leaveRequestInProgress = false;
+                }
+            }
 
+            // Show success modal
+            setAlertProps({
+                title: 'Gửi đơn thành công',
+                message: 'Đã gửi đơn xin nghỉ phép. Vui lòng chờ phê duyệt.',
+                type: 'success',
+                okText: 'Đóng'
+            });
+            setAlertOpen(true);
+
+            // Reset form (leave_type stays ADVANCE)
             setFormData({
                 employee_id: profile?.id || profile?.employee_id || profile?.account_id || '',
                 leave_date: '',
-                leave_type: '',
+                leave_type: 'ADVANCE',
                 replacement_employee_id: '',
                 team_ids: [],
                 reason: ''
@@ -207,10 +427,15 @@ const WorkingLeaveRequestPage = () => {
             setSelectedReplacement(null);
         } catch (error) {
             console.error('Failed to submit leave request:', error);
-            setSnackbar({
-                message: error.message || 'Không thể gửi đơn xin nghỉ phép',
-                severity: 'error'
+            // Prefer server-provided message when available
+            const serverMessage = error.response?.data?.message || error.response?.data || error.message || 'Không thể gửi đơn xin nghỉ phép';
+            setAlertProps({
+                title: 'Lỗi khi gửi đơn',
+                message: String(serverMessage),
+                type: 'error',
+                okText: 'Đóng'
             });
+            setAlertOpen(true);
         } finally {
             setSubmitting(false);
         }
@@ -219,6 +444,32 @@ const WorkingLeaveRequestPage = () => {
     return (
         <Box sx={{ minHeight: '100vh', bgcolor: '#f3f4f6', py: 4 }}>
             <Box sx={{ width: '100%', px: { xs: 2, md: 6, lg: 8, xl: 10 } }}>
+                {/* Back button outside the document card */}
+                <Box sx={{ mb: 3, display: 'flex', alignItems: 'center' }}>
+                    <Button
+                        startIcon={<ArrowBack sx={{ fontSize: 24 }} />}
+                        onClick={() => navigate(-1)}
+                        variant="contained"
+                        sx={{
+                            fontSize: '1.125rem',
+                            fontWeight: 800,
+                            px: 3,
+                            py: 1.25,
+                            borderRadius: 3,
+                            textTransform: 'none',
+                            bgcolor: COLORS.PRIMARY[600],
+                            color: 'white',
+                            minHeight: 48,
+                            boxShadow: `0 6px 18px ${alpha(COLORS.PRIMARY[300], 0.2)}`,
+                            '&:hover': {
+                                bgcolor: COLORS.PRIMARY[700]
+                            }
+                        }}
+                    >
+                        Quay lại
+                    </Button>
+                </Box>
+
                 <Paper
                     elevation={0}
                     sx={{
@@ -235,20 +486,9 @@ const WorkingLeaveRequestPage = () => {
                     }}
                 >
                     <Box sx={{ px: { xs: 3, md: 6 }, pb: 4 }}>
+                        {/* removed inner back button (moved outside paper) */}
                         <Box sx={{ textAlign: 'center', py: 4 }}>
-                            <Typography
-                                variant="h3"
-                                sx={{
-                                    fontWeight: 700,
-                                    textTransform: 'uppercase',
-                                    letterSpacing: 3,
-                                    color: '#000',
-                                    fontSize: '3rem',
-                                    fontFamily: 'Times, serif'
-                                }}
-                            >
-                                ĐƠN XIN NGHỈ PHÉP
-                            </Typography>
+                            <PageTitle title="ĐƠN XIN NGHỈ PHÉP" subtitle="" center={true} />
                         </Box>
 
                         <Box>
@@ -405,9 +645,11 @@ const WorkingLeaveRequestPage = () => {
                                             </Typography>
                                             <TextField
                                                 variant="standard"
-                                                value={formData.leave_date}
+                                                type="date"
+                                                value={formData.leave_date || ''}
                                                 onChange={(e) => handleInputChange('leave_date', e.target.value)}
-                                                placeholder="dd/mm/yyyy"
+                                                onBlur={() => validateDateOnBlur()}
+                                                InputLabelProps={{ shrink: true }}
                                                 InputProps={{
                                                     disableUnderline: true,
                                                     sx: {
@@ -425,71 +667,19 @@ const WorkingLeaveRequestPage = () => {
                                                     borderBottom: '1px dotted #9ca3af',
                                                     '& .MuiInputBase-root': {
                                                         minHeight: '1.5rem'
+                                                    },
+                                                    '& input[type="date"]': {
+                                                        py: 0.5
                                                     }
                                                 }}
                                             />
+                                            {dateError && (
+                                                <Typography variant="caption" color="error" sx={{ mt: 0.5, ml: 0 }}>
+                                                    {dateError}
+                                                </Typography>
+                                            )}
                                         </Box>
-                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                            <Typography
-                                                sx={{
-                                                    fontWeight: 600,
-                                                    width: '160px',
-                                                    fontSize: '1.25rem',
-                                                    color: '#000',
-                                                    fontFamily: 'Times, serif'
-                                                }}
-                                            >
-                                                Loại nghỉ phép:
-                                            </Typography>
-                                            <FormControl
-                                                variant="standard"
-                                                sx={{
-                                                    flex: 1,
-                                                    borderBottom: '1px dotted #9ca3af',
-                                                    '& .MuiInput-underline:before': {
-                                                        borderBottom: 'none'
-                                                    },
-                                                    '& .MuiInput-underline:hover:before': {
-                                                        borderBottom: 'none'
-                                                    },
-                                                    '& .MuiInput-underline:after': {
-                                                        borderBottom: 'none'
-                                                    }
-                                                }}
-                                            >
-                                                <Select
-                                                    value={formData.leave_type}
-                                                    onChange={(e) => handleInputChange('leave_type', e.target.value)}
-                                                    displayEmpty
-                                                    disableUnderline
-                                                    sx={{
-                                                        fontSize: '1.25rem',
-                                                        color: '#000',
-                                                        fontFamily: 'Times, serif',
-                                                        '& .MuiSelect-select': {
-                                                            padding: 0,
-                                                            pb: 0.5,
-                                                            minHeight: '1.5rem'
-                                                        },
-                                                        '&:before': {
-                                                            borderBottom: 'none'
-                                                        },
-                                                        '&:after': {
-                                                            borderBottom: 'none'
-                                                        }
-                                                    }}
-                                                >
-                                                    <MenuItem value="">
-                                                        <em style={{ color: '#9ca3af' }}>Chọn loại nghỉ phép</em>
-                                                    </MenuItem>
-                                                    {LEAVE_TYPE_OPTIONS.map((option) => (
-                                                        <MenuItem key={option.value} value={option.value}>
-                                                            {option.label}
-                                                        </MenuItem>
-                                                    ))}
-                                                </Select>
-                                            </FormControl>
-                                        </Box>
+                                        {/* Loại nghỉ phép: mặc định ADVANCE (Nghỉ trước) — không hiển thị lựa chọn cho user */}
                                         <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
                                             <Typography
                                                 sx={{
@@ -875,11 +1065,12 @@ const WorkingLeaveRequestPage = () => {
                         Hủy
                     </Button>
                     <Button
+                        type="button"
                         variant="contained"
                         size="large"
                         startIcon={<Send />}
-                        onClick={handleSubmit}
-                        disabled={submitting || !formData.leave_date.trim() || !formData.reason.trim() || !formData.leave_type.trim()}
+                        onClick={() => handleSubmit()}
+                        disabled={submitting || !formData.leave_date.trim() || !formData.reason.trim() || !!dateError}
                         sx={{
                             borderRadius: 3,
                             textTransform: 'none',
@@ -917,7 +1108,21 @@ const WorkingLeaveRequestPage = () => {
                     >
                         {submitting ? 'Đang gửi...' : 'Gửi đơn'}
                     </Button>
-                </Box>
+
+                <AlertModal
+                    isOpen={alertOpen}
+                    onClose={() => {
+                        setAlertOpen(false);
+                        // After successful submission, navigate back to leave requests list
+                        if (alertProps.type === 'success') {
+                            navigate('/staff/leave-requests');
+                        }
+                    }}
+                    title={alertProps.title}
+                    message={alertProps.message}
+                    type={alertProps.type}
+                    okText={alertProps.okText || 'OK'}
+                />
             </Box>
 
             <Snackbar
@@ -928,6 +1133,7 @@ const WorkingLeaveRequestPage = () => {
             >
                 {snackbar && <Alert severity={snackbar.severity}>{snackbar.message}</Alert>}
             </Snackbar>
+        </Box>
         </Box>
     );
 };
