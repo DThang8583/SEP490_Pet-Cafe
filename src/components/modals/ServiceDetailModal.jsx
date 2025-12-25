@@ -316,7 +316,16 @@ const ServiceDetailModal = ({ open, onClose, service }) => {
                                                     <Typography variant="caption" color="text.secondary">{f.feedback_date ? new Date(f.feedback_date).toLocaleString('vi-VN') : ''}</Typography>
                                                 </Box>
                                                 <Stack direction="row" spacing={1} alignItems="center">
-                                                    <Chip label={`${f.rating || 0}/5`} color="primary" size="small" sx={{ fontWeight: 700 }} />
+                                                    <Box sx={{ display: 'flex', gap: 0.3 }}>
+                                                        {Array.from({ length: 5 }).map((_, i) => {
+                                                            const filled = (f.rating || 0) > i;
+                                                            return filled ? (
+                                                                <StarIcon key={i} sx={{ fontSize: 16, color: COLORS.WARNING[500] }} />
+                                                            ) : (
+                                                                <StarBorderIcon key={i} sx={{ fontSize: 16, color: COLORS.WARNING[300] }} />
+                                                            );
+                                                        })}
+                                                    </Box>
                                                     <IconButton
                                                         size="small"
                                                         onClick={() => deleteFeedback(f.id)}
