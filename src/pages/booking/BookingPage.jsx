@@ -93,6 +93,7 @@ const BookingPage = () => {
     const [filterStartTime, setFilterStartTime] = useState('');
     const [filterEndTime, setFilterEndTime] = useState('');
     const [availableTimeRanges, setAvailableTimeRanges] = useState([]);
+    const [allTimeRanges, setAllTimeRanges] = useState([]);
 
     const steps = ['Chọn dịch vụ', 'Điền thông tin', 'Thanh toán', 'Xác nhận'];
 
@@ -214,6 +215,45 @@ const BookingPage = () => {
 
             console.log('Mapped services:', apiServices);
             setServices(apiServices);
+            // If a service was preselected (from Pets page), set it as selected and open the form
+            try {
+                const pre = localStorage.getItem('preselectService');
+                if (pre) {
+                    const parsed = JSON.parse(pre);
+                    if (parsed?.serviceId) {
+                        const svc = apiServices.find(s => s.id === parsed.serviceId);
+                        if (svc) {
+                            setSelectedService(svc);
+                            setBookingData(prev => ({ ...prev, service: svc }));
+                            setCurrentStep(1);
+                        }
+                    }
+                    localStorage.removeItem('preselectService');
+                }
+                // Also support preselectBooking which includes slotId and date
+                const preBooking = localStorage.getItem('preselectBooking');
+                if (preBooking) {
+                    const parsedB = JSON.parse(preBooking);
+                    if (parsedB?.serviceId) {
+                        const svcB = apiServices.find(s => s.id === parsedB.serviceId);
+                        if (svcB) {
+                            setSelectedService(svcB);
+                            setBookingData(prev => ({
+                                ...prev,
+                                service: svcB,
+                                slotId: parsedB.slotId || prev.slotId,
+                                slot: svcB.slots?.find(sl => sl.id === parsedB.slotId) || prev.slot,
+                                date: parsedB.date || prev.date,
+                                selectedDate: parsedB.date || prev.selectedDate
+                            }));
+                            setCurrentStep(1);
+                        }
+                    }
+                    localStorage.removeItem('preselectBooking');
+                }
+            } catch (e) {
+                console.warn('Error applying preselectService', e);
+            }
 
             // Extract unique available time ranges from slots for quick filter selection
             try {
@@ -230,6 +270,21 @@ const BookingPage = () => {
                 });
                 const ranges = Array.from(timeMap.values());
                 setAvailableTimeRanges(ranges);
+                // Merge ranges into the full set so filter buttons remain visible even when API returns filtered results
+                try {
+                    const merged = new Map();
+                    (allTimeRanges || []).forEach(r => {
+                        const k = `${r.start}-${r.end}`;
+                        merged.set(k, r);
+                    });
+                    ranges.forEach(r => {
+                        const k = `${r.start}-${r.end}`;
+                        if (!merged.has(k)) merged.set(k, r);
+                    });
+                    setAllTimeRanges(Array.from(merged.values()));
+                } catch (e) {
+                    setAllTimeRanges(ranges);
+                }
             } catch (e) {
                 console.warn('Error extracting available time ranges', e);
                 setAvailableTimeRanges([]);
@@ -652,7 +707,7 @@ const BookingPage = () => {
                                 <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'flex-end', justifyContent: 'flex-end' }}>
                                     {/* Time range quick pick buttons (replace selects) */}
                                     <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap', maxWidth: 520 }}>
-                                        {availableTimeRanges && availableTimeRanges.length > 0 ? availableTimeRanges.map((r) => {
+                                        {allTimeRanges && allTimeRanges.length > 0 ? allTimeRanges.map((r) => {
                                             const start = r.start?.slice(0,5) || '';
                                             const end = r.end?.slice(0,5) || '';
                                             const label = `${start} - ${end}`;
@@ -663,6 +718,7 @@ const BookingPage = () => {
                                                     onClick={() => {
                                                         setFilterStartTime(start);
                                                         setFilterEndTime(end);
+                                                        // reload services with the selected time filter
                                                         loadInitialData();
                                                     }}
                                                     sx={{

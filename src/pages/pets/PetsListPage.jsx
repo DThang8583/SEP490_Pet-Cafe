@@ -16,12 +16,51 @@ import {
     CircularProgress,
     Alert,
     Button,
-    Paper
+    Paper,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    IconButton
 } from '@mui/material';
-import { Search, Pets, Cake, LocalCafe, Cake as SpeciesIcon, Wc, Palette, Scale, Favorite, HealthAndSafety, CalendarToday, FilterList } from '@mui/icons-material';
+import { Search, Pets, Cake, LocalCafe, Cake as SpeciesIcon, Wc, Palette, Scale, Favorite, HealthAndSafety, CalendarToday, FilterList, AttachMoney, Schedule, Close } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
+import { formatPrice } from '../../utils/formatPrice';
+import BookingDateModal from '../../components/modals/BookingDateModal';
 
-const PetsListPage = () => {
+// Error Boundary to catch runtime errors inside this page
+class ErrorBoundary extends React.Component {
+    constructor(props) {
+        super(props);
+        this.state = { hasError: false, error: null };
+    }
+
+    static getDerivedStateFromError(error) {
+        return { hasError: true, error };
+    }
+
+    componentDidCatch(error, errorInfo) {
+        console.error('Error caught by PetsListPage boundary:', error, errorInfo);
+    }
+
+    render() {
+        if (this.state.hasError) {
+            return (
+                <Box sx={{ p: 4, textAlign: 'center' }}>
+                    <Typography variant="h6" color="error">
+                        Có lỗi xảy ra trong trang Pets. Vui lòng thử tải lại.
+                    </Typography>
+                    <Button onClick={() => window.location.reload()}>
+                        Tải lại trang
+                    </Button>
+                </Box>
+            );
+        }
+        return this.props.children;
+    }
+}
+
+const PetsListContent = () => {
     const [pets, setPets] = useState([]);
     const [groups, setGroups] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -29,6 +68,13 @@ const PetsListPage = () => {
     const [error, setError] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedGroupId, setSelectedGroupId] = useState(null);
+    const [servicesModalOpen, setServicesModalOpen] = useState(false);
+    const [servicesForPet, setServicesForPet] = useState([]);
+    const [servicesLoading, setServicesLoading] = useState(false);
+    const [servicesError, setServicesError] = useState('');
+    const [selectedPetForServices, setSelectedPetForServices] = useState(null);
+    const [bookingDateModalOpen, setBookingDateModalOpen] = useState(false);
+    const [selectedServiceForBooking, setSelectedServiceForBooking] = useState(null);
 
     // Load pet groups
     useEffect(() => {
@@ -82,6 +128,46 @@ const PetsListPage = () => {
             console.log('[PetsListPage] First group name:', groups[0]?.name);
         }
     }, [groups]);
+
+    // Fetch services matching a pet's species and open modal
+    const handlePetClick = async (pet) => {
+        try {
+            setSelectedPetForServices(pet);
+            setServicesLoading(true);
+            setServicesError('');
+
+            const token = localStorage.getItem('authToken');
+            const res = await fetch('https://petcafes.azurewebsites.net/api/services', {
+                headers: {
+                    'Authorization': token ? `Bearer ${token}` : '',
+                    'Accept': 'application/json'
+                }
+            });
+            if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+            const json = await res.json();
+            const allServices = Array.isArray(json?.data) ? json.data : [];
+
+            // determine pet species id from pet object (several possible fields)
+            const petSpeciesId = pet?.species?.id || pet?.pet_species_id || pet?.group?.pet_species_id || null;
+
+            const matchedServices = allServices.filter(svc => {
+                // service may have slots with pet_group.pet_species_id
+                if (!svc?.slots || svc.slots.length === 0) return false;
+                return svc.slots.some(slot => {
+                    const pgSpecies = slot?.pet_group?.pet_species_id || slot?.pet?.species?.id || null;
+                    return petSpeciesId && pgSpecies && pgSpecies === petSpeciesId;
+                });
+            });
+
+            setServicesForPet(matchedServices);
+            setServicesModalOpen(true);
+        } catch (e) {
+            console.error('Error fetching services for pet:', e);
+            setServicesError(e.message || 'Lỗi khi tải dịch vụ');
+        } finally {
+            setServicesLoading(false);
+        }
+    };
 
     // Load pets based on selected group
     useEffect(() => {
@@ -170,6 +256,7 @@ const PetsListPage = () => {
     }
 
     return (
+        <ErrorBoundary>
         <Fade in timeout={800}>
             <Box sx={{
                 py: { xs: 2, md: 4 },
@@ -347,6 +434,121 @@ const PetsListPage = () => {
                             }}
                         />
                     </Box>
+                            {/* Services modal for selected pet */}
+                            <Dialog open={servicesModalOpen} onClose={() => setServicesModalOpen(false)} maxWidth="md" fullWidth>
+                            <DialogTitle sx={{ p: 0 }}>
+                                <Box sx={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    px: 3,
+                                    py: 2,
+                                    background: `linear-gradient(90deg, ${COLORS.PRIMARY[600]} 0%, ${COLORS.SECONDARY[500]} 100%)`,
+                                    color: '#fff'
+                                }}>
+                                    <Box>
+                                        <Typography variant="h6" sx={{ fontWeight: 800 }}>
+                                            {selectedPetForServices ? `Dịch vụ cho ${selectedPetForServices.name}` : 'Dịch vụ'}
+                                        </Typography>
+                                        <Typography variant="caption" sx={{ opacity: 0.9 }}>
+                                            Chọn dịch vụ phù hợp cho thú cưng
+                                        </Typography>
+                                    </Box>
+                                    <IconButton onClick={() => setServicesModalOpen(false)} sx={{ color: '#fff' }}>
+                                        <Close />
+                                    </IconButton>
+                                </Box>
+                            </DialogTitle>
+                            <DialogContent dividers sx={{ background: COLORS.BACKGROUND.DEFAULT }}>
+                                {servicesLoading ? (
+                                    <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                                        <CircularProgress />
+                                    </Box>
+                                ) : servicesError ? (
+                                    <Alert severity="error">{servicesError}</Alert>
+                                ) : servicesForPet.length === 0 ? (
+                                    <Box sx={{ py: 4, textAlign: 'center' }}>
+                                        <Typography variant="body1" sx={{ color: COLORS.TEXT.SECONDARY }}>Không tìm thấy dịch vụ phù hợp.</Typography>
+                                    </Box>
+                                ) : (
+                                    <Grid container spacing={2} sx={{ py: 1 }}>
+                                        {servicesForPet.map((svc) => (
+                                            <Grid item xs={12} sm={6} key={svc.id}>
+                                                <Card sx={{
+                                                    display: 'flex',
+                                                    flexDirection: 'column',
+                                                    height: '100%',
+                                                    borderRadius: 2,
+                                                    overflow: 'hidden',
+                                                    boxShadow: 6,
+                                                    transition: 'transform 180ms ease, box-shadow 180ms ease',
+                                                    '&:hover': { transform: 'translateY(-6px)', boxShadow: 12 }
+                                                }}>
+                                                    <Box sx={{ position: 'relative' }}>
+                                                        <Box component="img"
+                                                            src={svc.image_url || (svc.thumbnails && svc.thumbnails[0]) || 'https://via.placeholder.com/400x200?text=Service'}
+                                                            alt={svc.name}
+                                                            sx={{ width: '100%', height: 140, objectFit: 'cover' }}
+                                                        />
+                                                        {/* Lỗi formatPrice được gọi ở đây */}
+                                                        <Chip label={formatPrice(svc.base_price || svc.price || 0)} size="small" sx={{
+                                                            position: 'absolute', top: 10, left: 12, background: 'rgba(0,0,0,0.6)', color: '#fff', fontWeight: 700
+                                                        }} />
+                                                    </Box>
+                                                    <CardContent sx={{ flex: 1 }}>
+                                                        <Typography variant="subtitle1" sx={{ fontWeight: 800, mb: 0.5 }}>{svc.name}</Typography>
+                                                        <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, mb: 1 }}>
+                                                            {svc.description}
+                                                        </Typography>
+                                                        <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1 }}>
+                                                            <Schedule sx={{ fontSize: 16, color: COLORS.PRIMARY[500] }} />
+                                                            <Typography variant="caption" sx={{ color: COLORS.TEXT.SECONDARY }}>
+                                                                {svc.duration_minutes || 0} phút
+                                                            </Typography>
+                                                        </Stack>
+                                                    </CardContent>
+                                                    <Box sx={{ p: 2, pt: 0 }}>
+                                                        <Stack direction="row" spacing={1}>
+                                                            <Button variant="contained" sx={{ flex: 1 }} onClick={() => {
+                                                                // Open booking date modal for this service
+                                                                setSelectedServiceForBooking(svc);
+                                                                setBookingDateModalOpen(true);
+                                                                setServicesModalOpen(false);
+                                                            }}>
+                                                                Đặt dịch vụ
+                                                            </Button>
+                                                            <Button variant="outlined" sx={{ px: 2 }} onClick={() => { /* show details */ }}>
+                                                                Xem
+                                                            </Button>
+                                                        </Stack>
+                                                    </Box>
+                                                </Card>
+                                            </Grid>
+                                        ))}
+                                    </Grid>
+                                )}
+                            </DialogContent>
+                            <DialogActions>
+                                <Button onClick={() => setServicesModalOpen(false)} variant="text">Đóng</Button>
+                            </DialogActions>
+                            </Dialog>
+                        {/* BookingDateModal for selecting date/slot for selectedServiceForBooking */}
+                        <BookingDateModal
+                            open={bookingDateModalOpen}
+                            onClose={() => { setBookingDateModalOpen(false); setSelectedServiceForBooking(null); }}
+                            service={selectedServiceForBooking}
+                            onConfirm={(slot, date) => {
+                                try {
+                                    const preselect = { serviceId: selectedServiceForBooking?.id, slotId: slot?.id, date };
+                                    localStorage.setItem('preselectBooking', JSON.stringify(preselect));
+                                    setBookingDateModalOpen(false);
+                                    // Navigate to booking page which will read preselectBooking
+                                    window.location.href = '/booking';
+                                } catch (e) {
+                                    console.error('Error preselecting booking', e);
+                                }
+                            }}
+                        />
 
                     {/* Error Alert */}
                     {error && (
@@ -380,21 +582,25 @@ const PetsListPage = () => {
                                     display: 'flex',
                                     flexDirection: 'column'
                                 }}>
-                                    <Card sx={{
-                                        borderRadius: 4,
-                                        boxShadow: 6,
-                                        border: `1px solid ${COLORS.BORDER.LIGHT}`,
-                                        backgroundColor: COLORS.BACKGROUND.PAPER,
-                                        height: '100%',
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        overflow: 'hidden',
-                                        transition: 'transform 120ms ease, box-shadow 120ms ease',
-                                        '&:hover': {
-                                            transform: 'translateY(-4px)',
-                                            boxShadow: 10
-                                        }
-                                    }}>
+                                    <Card
+                                        onClick={() => handlePetClick(pet)}
+                                        sx={{
+                                            cursor: 'pointer',
+                                            borderRadius: 4,
+                                            boxShadow: 6,
+                                            border: `1px solid ${COLORS.BORDER.LIGHT}`,
+                                            backgroundColor: COLORS.BACKGROUND.PAPER,
+                                            height: '100%',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            overflow: 'hidden',
+                                            transition: 'transform 120ms ease, box-shadow 120ms ease',
+                                            '&:hover': {
+                                                transform: 'translateY(-4px)',
+                                                boxShadow: 10
+                                            }
+                                        }}
+                                    >
                                         <CardMedia
                                             component="img"
                                             height="200"
@@ -411,6 +617,7 @@ const PetsListPage = () => {
                                             display: 'flex',
                                             flexDirection: 'column'
                                         }}>
+                                            <Box sx={{ position: 'absolute', inset: 0, zIndex: 1 }} />
                                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
                                                 <Typography variant="h6" sx={{
                                                     fontWeight: 800,
@@ -560,7 +767,14 @@ const PetsListPage = () => {
                 </Container>
             </Box>
         </Fade>
+        </ErrorBoundary>
     );
 };
 
-export default PetsListPage;
+export default function PetsListPage() {
+    return (
+        <ErrorBoundary>
+            <PetsListContent />
+        </ErrorBoundary>
+    );
+}
