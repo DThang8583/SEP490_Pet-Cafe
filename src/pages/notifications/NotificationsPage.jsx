@@ -5,7 +5,6 @@ import {
 } from "@mui/material";
 import { Notifications, CheckCircle, Schedule, Error as ErrorIcon, Info } from "@mui/icons-material";
 import { COLORS } from "../../constants/colors";
-
 const NotificationsPage = () => {
     const [notifications, setNotifications] = useState([]);
     const [page, setPage] = useState(1);
@@ -15,6 +14,8 @@ const NotificationsPage = () => {
     const [hasNext, setHasNext] = useState(false);
     const [totalItems, setTotalItems] = useState(0);
 
+
+    // API
     const loadNotifications = async (pageIndex) => {
         setLoading(true);
         setError("");

@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AppBar, Toolbar, Typography, Button, Box, IconButton, Avatar, Menu, MenuItem, useTheme, alpha, Container, Stack, Drawer, List, ListItemButton, ListItemIcon, ListItemText, Divider, Tooltip, ListSubheader, useMediaQuery, Badge } from '@mui/material';
-import { LocalCafe, Restaurant, ConfirmationNumber, LocationOn, AccountCircle, Menu as MenuIcon, Close, Pets, Schedule, Dashboard, People, Groups, Assignment, DesignServices, Inventory2, Logout, Vaccines, ShoppingCart, ReceiptLong, HealthAndSafety, Person, ChecklistRtl, AssignmentTurnedIn, Description, CheckCircle, Fastfood, TrendingUp, Notifications } from '@mui/icons-material';
+import { LocalCafe, Restaurant, ConfirmationNumber, LocationOn, AccountCircle, Menu as MenuIcon, Close, Pets, Schedule, Dashboard, People, Groups, Assignment, DesignServices, Inventory2, Logout, Vaccines, ShoppingCart, ReceiptLong, HealthAndSafety, Person, ChecklistRtl, AssignmentTurnedIn, Description, CheckCircle, Fastfood, TrendingUp, Notifications, EventAvailable } from '@mui/icons-material';
 import { COLORS } from '../../../constants/colors';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { authApi } from '../../../api/authApi';
+import workingStaffApi from '../../../api/workingStaffApi';
 import { notificationApi } from '../../../api/notificationApi';
 import { useSignalR } from '../../../utils/SignalRContext';
 
@@ -23,14 +24,43 @@ const Navbar = () => {
     const [unreadCount, setUnreadCount] = useState(0);
     const { notification: signalRNotification } = useSignalR();
 
+    const [notificationsSeen, setNotificationsSeen] = useState(
+        localStorage.getItem('notifications_seen') === 'true'
+    );
+    
+
     useEffect(() => {
         try {
             const role = authApi.getUserRole?.() || null;
             setIsManager(role === 'manager');
             setIsSales(role === 'sales_staff');
             setIsWorkingStaff(role === 'working_staff');
+
             const currentUser = authApi.getCurrentUser?.();
-            setIsLeader(!!(currentUser?.permissions?.includes('shift_management') || currentUser?.permissions?.includes('team_lead')));
+            const permFlag = !!(currentUser?.permissions?.includes('shift_management') || currentUser?.permissions?.includes('team_lead'));
+            setIsLeader(permFlag);
+
+            // Additionally verify leader status by checking teams where the user is leader
+            (async () => {
+                try {
+                    const candidateIds = [
+                        currentUser?.id,
+                        currentUser?.employee_id,
+                        currentUser?.account_id,
+                        currentUser?.account?.id
+                    ].filter(Boolean);
+                    if (candidateIds.length === 0) return;
+                    const myTeams = await workingStaffApi.getMyTeams();
+                    const isLeaderByTeam = Array.isArray(myTeams) && myTeams.some(team => {
+                        const leaderAccountId = team.leader?.account_id;
+                        return (team.leader_id && candidateIds.includes(team.leader_id)) ||
+                            (leaderAccountId && candidateIds.includes(leaderAccountId));
+                    });
+                    setIsLeader(prev => prev || !!isLeaderByTeam);
+                } catch (err) {
+                    console.warn('[Navbar] failed to detect leader by teams', err);
+                }
+            })();
         } catch (_) {
             const storedRole = localStorage.getItem('userRole');
             setIsManager(storedRole === 'manager');
@@ -86,12 +116,23 @@ const Navbar = () => {
     // Update unread count when new notification arrives via SignalR
     useEffect(() => {
         if (signalRNotification) {
-            // Không cần check accountId vì user đã join đúng group
-            // Nếu nhận được notification thì chắc chắn là của user này
-            console.log('[Navbar] New notification received, incrementing count');
+            console.log('[Navbar] New notification received');
+    
             setUnreadCount(prev => prev + 1);
+    
+            // 🔥 QUAN TRỌNG
+            localStorage.setItem('notifications_seen', 'false');
+            setNotificationsSeen(false);
         }
     }, [signalRNotification]);
+
+    useEffect(() => {
+        if (location.pathname === '/notifications') {
+            localStorage.setItem('notifications_seen', 'true');
+            setNotificationsSeen(true);
+        }
+    }, [location.pathname]);
+    
 
     // Keep sidebar width synchronized globally for layouts without changing hook order
     useEffect(() => {
@@ -124,12 +165,18 @@ const Navbar = () => {
         {
             path: '/notifications',
             icon: (
-                <Badge badgeContent={unreadCount > 0 ? unreadCount : 0} color="error" max={99}>
+                <Badge
+                    badgeContent={unreadCount}
+                    color="error"
+                    max={99}
+                    invisible={unreadCount === 0 || notificationsSeen}
+                >
                     <Notifications />
                 </Badge>
             )
         },
-    ], [unreadCount]);
+    ], [unreadCount, notificationsSeen]);    
+    
 
     const isActive = (path) => location.pathname === path;
 
@@ -145,6 +192,7 @@ const Navbar = () => {
         { label: 'Dịch vụ', icon: <DesignServices />, path: '/manager/services' },
         { label: 'Sản phẩm', icon: <ShoppingCart />, path: '/manager/products' },
         { label: 'Thông báo', icon: <Notifications />, path: '/manager/notifications' },
+        { label: 'Đơn nghỉ phép', icon: <EventAvailable />, path: '/manager/leave-requests' },
         { label: 'Tài khoản', icon: <AccountCircle />, path: '/profile' }
     ]), []);
 
@@ -165,12 +213,13 @@ const Navbar = () => {
         { label: 'Nhiệm vụ hằng ngày', icon: <Assignment />, path: '/staff/daily-tasks' },
         { label: 'Điểm danh', icon: <ChecklistRtl />, path: '/staff/attendance' },
         { label: 'Xem Booking', icon: <ReceiptLong />, path: '/staff/bookings' },
-        // Đơn xin nghỉ phép đã ngừng sử dụng nên ẩn khỏi menu
+        // Optional work shifts is managed by Manager during staff creation; not shown to working_staff
+        { label: 'Đơn nghỉ phép', icon: <EventAvailable />, path: '/staff/leave-requests' },
+        { label: 'Thông báo', icon: <Notifications />, path: '/staff/notifications' },
     ]), []);
 
     const leaderItems = useMemo(() => ([
-        { label: 'Trung tâm nhiệm vụ', icon: <AssignmentTurnedIn />, path: '/staff/leader/task-center' },
-        { label: 'Khách đặt lịch', icon: <ReceiptLong />, path: '/staff/leader/bookings' }
+        { label: 'Đơn nghỉ phép nhóm', icon: <EventAvailable />, path: '/staff/leader/leave-requests' }
     ]), []);
 
     const handleLogout = async () => {
@@ -321,7 +370,7 @@ const Navbar = () => {
                                     {!collapsed && (
                                         <ListItemText
                                             primary={
-                                                item.path === '/manager/notifications'
+                                                (item.path === '/manager/notifications' || item.path === '/staff/notifications')
                                                     ? `${item.label} (${unreadCount})`
                                                     : item.label
                                             }

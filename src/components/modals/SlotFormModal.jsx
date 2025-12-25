@@ -15,7 +15,7 @@ const SLOT_STATUS = {
     CANCELLED: 'CANCELLED'
 };
 
-const SlotFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, mode = 'create', areas = [], petGroups = [], teams = [] }) => {
+const SlotFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, mode = 'create', areas = [], petGroups = [], teams = [], suppressAlert = false }) => {
     const [formData, setFormData] = useState({
         task_id: '',
         area_id: '',
@@ -667,14 +667,15 @@ const SlotFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, 
 
             await onSubmit(submitData);
 
-            // Show success alert
-            // AlertModal sẽ tự đóng form modal khi user click "Đã hiểu"
-            setAlertModal({
-                open: true,
-                type: 'success',
-                title: 'Thành công',
-                message: mode === 'edit' ? 'Cập nhật ca làm việc thành công!' : 'Tạo ca làm việc thành công!'
-            });
+            // Show success alert (unless parent suppresses it)
+            if (!suppressAlert) {
+                setAlertModal({
+                    open: true,
+                    type: 'success',
+                    title: 'Thành công',
+                    message: mode === 'edit' ? 'Cập nhật ca làm việc thành công!' : 'Tạo ca làm việc thành công!'
+                });
+            }
         } catch (error) {
             // Extract error message từ backend response
             let errorMessage = error.message || 'Có lỗi xảy ra khi lưu ca làm việc. Vui lòng thử lại.';
@@ -709,12 +710,14 @@ const SlotFormModal = ({ open, onClose, onSubmit, taskData, initialData = null, 
             }
 
             // Show error alert với chi tiết từ backend
-            setAlertModal({
-                open: true,
-                type: 'error',
-                title: mode === 'edit' ? 'Lỗi cập nhật ca làm việc' : 'Lỗi tạo ca làm việc',
-                message: errorMessage
-            });
+            if (!suppressAlert) {
+                setAlertModal({
+                    open: true,
+                    type: 'error',
+                    title: mode === 'edit' ? 'Lỗi cập nhật ca làm việc' : 'Lỗi tạo ca làm việc',
+                    message: errorMessage
+                });
+            }
 
             // Also set inline error for backward compatibility
             setErrors({

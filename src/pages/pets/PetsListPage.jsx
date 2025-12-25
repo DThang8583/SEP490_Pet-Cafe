@@ -124,8 +124,10 @@ const PetsListPage = () => {
                     console.log('[PetsListPage] All pets:', allPets);
                 }
                 
-                // Filter only active pets
-                const activePets = allPets.filter(pet => pet?.is_active && !pet?.is_deleted);
+                // Filter only active and healthy pets
+                const activePets = allPets.filter(pet =>
+                    pet?.is_active && !pet?.is_deleted && (pet?.health_status === 'HEALTHY')
+                );
                 console.log('[PetsListPage] Active pets:', activePets);
                 
                 setPets(activePets);
@@ -182,9 +184,30 @@ const PetsListPage = () => {
                         <Stack direction="row" spacing={1.5} alignItems="center">
                             <Pets sx={{ fontSize: 40, color: COLORS.ERROR[500] }} />
                             <Box>
-                                <Typography variant="h4" sx={{ fontWeight: 900, color: COLORS.ERROR[600] }}>
+                                <Typography
+                                    variant="h4"
+                                    sx={{
+                                        fontWeight: 900,
+                                        background: `linear-gradient(90deg, ${COLORS.ERROR[500]} 0%, ${COLORS.SECONDARY[600]} 40%, ${COLORS.PRIMARY[400]} 80%)`,
+                                        backgroundClip: 'text',
+                                        WebkitBackgroundClip: 'text',
+                                        WebkitTextFillColor: 'transparent',
+                                        fontSize: { xs: '1.4rem', md: '1.8rem' },
+                                        textShadow: `0 6px 18px ${alpha(COLORS.SECONDARY[400], 0.08)}`,
+                                        backgroundSize: '200% 100%',
+                                        animation: 'headerShimmer 6s linear infinite',
+                                        position: 'relative'
+                                    }}
+                                >
                                     Danh sách chó mèo
                                 </Typography>
+                                <style>{`
+                                    @keyframes headerShimmer {
+                                        0% { background-position: 0% 50%; }
+                                        50% { background-position: 100% 50%; }
+                                        100% { background-position: 0% 50%; }
+                                    }
+                                `}</style>
                                 <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, mt: 0.5 }}>
                                     Khám phá những người bạn bốn chân đáng yêu
                                 </Typography>
@@ -194,7 +217,16 @@ const PetsListPage = () => {
                             <Chip
                                 color="error"
                                 label={`Tổng: ${filteredPets.length} thú cưng`}
-                                sx={{ fontWeight: 700, borderRadius: 2, fontSize: '0.95rem', py: 1.5, px: 2 }}
+                                sx={{ 
+                                    fontWeight: 700, 
+                                    borderRadius: 2, 
+                                    fontSize: '0.95rem', 
+                                    py: 1.25, 
+                                    px: 2.5, 
+                                    boxShadow: `0 12px 30px ${alpha(COLORS.ERROR[500],0.14)}`,
+                                    background: `linear-gradient(90deg, ${COLORS.ERROR[500]} 0%, ${COLORS.SECONDARY[500]} 100%)`,
+                                    color: '#fff'
+                                }}
                             />
                         )}
                     </Stack>
@@ -227,9 +259,11 @@ const PetsListPage = () => {
                                         textTransform: 'none',
                                         px: 3,
                                         py: 1,
-                                        boxShadow: selectedGroupId === null ? 4 : 0,
+                                        boxShadow: selectedGroupId === null ? 6 : 0,
+                                        background: selectedGroupId === null ? `linear-gradient(90deg, ${COLORS.ERROR[500]} 0%, ${COLORS.SECONDARY[500]} 100%)` : 'transparent',
+                                        color: selectedGroupId === null ? '#fff' : COLORS.ERROR[600],
                                         '&:hover': {
-                                            boxShadow: selectedGroupId === null ? 6 : 2
+                                            boxShadow: selectedGroupId === null ? 8 : 2
                                         }
                                     }}
                                 >
@@ -238,12 +272,10 @@ const PetsListPage = () => {
                                 {groups.length > 0 ? (
                                     groups.map((group) => {
                                         const groupName = group.name || 'Nhóm không tên';
-                                        console.log('[PetsListPage] Rendering group button:', { id: group.id, name: groupName, hasName: !!group.name });
+                                        const isSelected = selectedGroupId === group.id;
                                         return (
                                             <Button
                                                 key={group.id}
-                                                variant={selectedGroupId === group.id ? 'contained' : 'outlined'}
-                                                color="error"
                                                 onClick={() => setSelectedGroupId(group.id)}
                                                 startIcon={group.image_url ? (
                                                     <Box
@@ -265,9 +297,12 @@ const PetsListPage = () => {
                                                     textTransform: 'none',
                                                     px: 3,
                                                     py: 1,
-                                                    boxShadow: selectedGroupId === group.id ? 4 : 0,
+                                                    boxShadow: isSelected ? `0 12px 30px ${alpha(COLORS.ERROR[500],0.14)}` : 0,
+                                                    background: isSelected ? `linear-gradient(90deg, ${COLORS.ERROR[500]} 0%, ${COLORS.SECONDARY[500]} 100%)` : 'transparent',
+                                                    color: isSelected ? '#fff' : COLORS.ERROR[600],
+                                                    border: isSelected ? 'none' : `1px solid ${alpha(COLORS.GRAY[300],0.2)}`,
                                                     '&:hover': {
-                                                        boxShadow: selectedGroupId === group.id ? 6 : 2
+                                                        boxShadow: isSelected ? `0 16px 40px ${alpha(COLORS.ERROR[500],0.18)}` : 2
                                                     }
                                                 }}
                                             >

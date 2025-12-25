@@ -4,19 +4,21 @@ import {
     Button, Chip, Stack, Dialog, DialogTitle, DialogContent, DialogActions,
     Stepper, Step, StepLabel, Alert, alpha, Fade, Zoom, Grow,
     Table, TableHead, TableRow, TableCell, TableBody, TableContainer,
-    Paper
+    Paper, TextField
 } from '@mui/material';
+import { FormControl, InputLabel, Select, MenuItem } from '@mui/material';
 import {
     Pets, Schedule, Payment, CheckCircle, Star,
     AccessTime, LocationOn, Person, Phone, Email, School, LocalHospital, CalendarToday,
-    Store, Business, Restaurant, LocalCafe, Spa, LocalActivity, Loyalty, People, Note
+    Store, Business, Restaurant, LocalCafe, Spa, LocalActivity, Loyalty, People, Note,
+    Search, Clear
 } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 import { authApi, customerApi } from '../../api/authApi';
 import serviceApi from '../../api/serviceApi';
 import { bookingApi } from '../../api/bookingApi';
 import { notificationApi } from '../../api/notificationApi';
-import { feedbackApi } from '../../api/feedbackApi';
+import feedbackApi from '../../api/feedbackApi';
 import AlertModal from '../../components/modals/AlertModal';
 
 // Utility function
@@ -88,9 +90,35 @@ const BookingPage = () => {
     const [serviceForDateSelection, setServiceForDateSelection] = useState(null);
     const [selectedDate, setSelectedDate] = useState('');
     const [selectedSlot, setSelectedSlot] = useState(null);
+    const [filterStartTime, setFilterStartTime] = useState('');
+    const [filterEndTime, setFilterEndTime] = useState('');
+    const [availableTimeRanges, setAvailableTimeRanges] = useState([]);
 
     const steps = ['Chọn dịch vụ', 'Điền thông tin', 'Thanh toán', 'Xác nhận'];
 
+    // Reusable style for search buttons to keep UI consistent
+    const searchButtonSx = {
+        px: 3.5,
+        py: 1.1,
+        minHeight: 44,
+        borderRadius: 2,
+        color: 'white',
+        backgroundImage: `linear-gradient(90deg, ${COLORS.PRIMARY[500]} 0%, ${COLORS.PRIMARY[600]} 50%, ${COLORS.SECONDARY[500]} 100%)`,
+        backgroundSize: '200% 100%',
+        animation: 'filterBtnShift 4s ease-in-out infinite',
+        boxShadow: `0 10px 30px ${alpha(COLORS.PRIMARY[500], 0.18)}`,
+        transition: 'transform 220ms ease, box-shadow 220ms ease',
+        '&:hover': {
+            transform: 'translateY(-3px)',
+            boxShadow: `0 14px 36px ${alpha(COLORS.PRIMARY[500], 0.22)}`
+        },
+        '& .MuiButton-startIcon': { mr: 1.2 },
+        '@keyframes filterBtnShift': {
+            '0%': { backgroundPosition: '0% 50%' },
+            '50%': { backgroundPosition: '100% 50%' },
+            '100%': { backgroundPosition: '0% 50%' }
+        }
+    };
     // Load data on component mount
     useEffect(() => {
         loadInitialData();
@@ -121,10 +149,16 @@ const BookingPage = () => {
                 console.log('User role check passed:', currentUserCheck.name);
             }
 
-            // Load available services from API
+            // Load available services from API (include optional time filters)
             console.log('Loading services...');
             const token = localStorage.getItem('authToken');
-            const response = await fetch('https://petcafes.azurewebsites.net/api/services', {
+            let url = 'https://petcafes.azurewebsites.net/api/services';
+            const params = new URLSearchParams();
+            if (filterStartTime) params.append('start_time', `${filterStartTime}:00`);
+            if (filterEndTime) params.append('end_time', `${filterEndTime}:00`);
+            const queryString = params.toString();
+            if (queryString) url += `?${queryString}`;
+            const response = await fetch(url, {
                 headers: {
                     'Authorization': token ? `Bearer ${token}` : '',
                     'Accept': 'application/json'
@@ -181,6 +215,26 @@ const BookingPage = () => {
             console.log('Mapped services:', apiServices);
             setServices(apiServices);
 
+            // Extract unique available time ranges from slots for quick filter selection
+            try {
+                const timeMap = new Map();
+                apiServices.forEach(svc => {
+                    (svc.slots || []).forEach(slot => {
+                        if (slot && !slot.is_deleted && slot.service_status === 'AVAILABLE') {
+                            const key = `${slot.start_time}-${slot.end_time}`;
+                            if (!timeMap.has(key)) {
+                                timeMap.set(key, { start: slot.start_time, end: slot.end_time });
+                            }
+                        }
+                    });
+                });
+                const ranges = Array.from(timeMap.values());
+                setAvailableTimeRanges(ranges);
+            } catch (e) {
+                console.warn('Error extracting available time ranges', e);
+                setAvailableTimeRanges([]);
+            }
+
             setLoading(false);
         } catch (err) {
             console.error('LoadInitialData error:', err);
@@ -217,9 +271,20 @@ const BookingPage = () => {
     const sortedServices = (services || []).sort((a, b) => {
         if (!a || !b) return 0;
 
-        // Check if services are available
-        const aAvailable = a.petRequired === true || (a.petRequired === false && isCafeServiceAvailable(a));
-        const bAvailable = b.petRequired === true || (b.petRequired === false && isCafeServiceAvailable(b));
+        // Check if services are available (consistent with filtering logic)
+        let aAvailable = false;
+        if (a.petRequired === true) {
+            aAvailable = a.slots && a.slots.length > 0;
+        } else {
+            aAvailable = true; // Services without pet groups are always considered available
+        }
+
+        let bAvailable = false;
+        if (b.petRequired === true) {
+            bAvailable = b.slots && b.slots.length > 0;
+        } else {
+            bAvailable = true; // Services without pet groups are always considered available
+        }
 
         // Only sort available services
         if (!aAvailable && bAvailable) return 1;
@@ -236,8 +301,11 @@ const BookingPage = () => {
 
     // Filter out unavailable services before creating rows
     const availableServices = sortedServices.filter(service => {
-        if (service.petRequired === true) return true; // Pet care services are always available
-        if (service.petRequired === false) return isCafeServiceAvailable(service); // Check cafe services
+        if (service.petRequired === true) {
+            // Pet care services: show if they have slots
+            return service.slots && service.slots.length > 0;
+        }
+        // Services without pet groups: always show (they might not have slots yet)
         return true;
     });
 
@@ -468,18 +536,26 @@ const BookingPage = () => {
                                     variant="h2"
                                     sx={{
                                         fontWeight: 'bold',
-                                        background: `linear-gradient(135deg, ${COLORS.ERROR[500]} 0%, ${COLORS.SECONDARY[600]} 100%)`,
+                                        background: `linear-gradient(90deg, ${COLORS.ERROR[500]} 0%, ${COLORS.SECONDARY[600]} 40%, ${COLORS.PRIMARY[400]} 80%)`,
                                         backgroundClip: 'text',
                                         WebkitBackgroundClip: 'text',
                                         WebkitTextFillColor: 'transparent',
                                         mb: 0.5,
                                         fontFamily: '"Comic Sans MS", cursive',
-                                        fontSize: '1.8rem',
+                                        fontSize: { xs: '1.5rem', md: '1.9rem' },
                                         textAlign: 'center',
-                                        letterSpacing: '-0.02em'
+                                        letterSpacing: '-0.02em',
+                                        textShadow: `0 6px 18px ${alpha(COLORS.SECONDARY[400], 0.12)}`,
+                                        position: 'relative',
+                                        // shimmer animation
+                                        backgroundSize: '200% 100%',
+                                        animation: 'headerShimmer 6s linear infinite'
                                     }}
                                 >
-                                    🐾 Đặt dịch vụ Pet Cafe
+                                    <Box component="span" sx={{ display: 'inline-block', mr: 1 }}>
+                                        🐾
+                                    </Box>
+                                    Đặt dịch vụ Pet Cafe
                                 </Typography>
                                 <Typography
                                     variant="h6"
@@ -502,7 +578,20 @@ const BookingPage = () => {
                                     backgroundColor: COLORS.BACKGROUND.DEFAULT,
                                     borderRadius: 4,
                                     border: `2px solid ${alpha(COLORS.ERROR[200], 0.3)}`,
-                                    boxShadow: `0 8px 32px ${alpha(COLORS.ERROR[200], 0.2)}`
+                                    boxShadow: `0 10px 40px ${alpha(COLORS.ERROR[200], 0.22)}`,
+                                    position: 'relative',
+                                    overflow: 'visible',
+                                    // shimmer around stepper
+                                    '&:after': {
+                                        content: "''",
+                                        position: 'absolute',
+                                        inset: -6,
+                                        borderRadius: 8,
+                                        background: `linear-gradient(90deg, ${alpha(COLORS.ERROR[100],0.4)}, ${alpha(COLORS.PRIMARY[100],0.2)}, ${alpha(COLORS.SECONDARY[100],0.3)})`,
+                                        filter: 'blur(12px)',
+                                        zIndex: 0,
+                                        opacity: 0.9
+                                    }
                                 }}>
                                     <Stepper activeStep={currentStep} alternativeLabel>
                                         {steps.map((label, index) => (
@@ -528,6 +617,15 @@ const BookingPage = () => {
                         </Fade>
                     )}
 
+                    {/* keyframes for header shimmer */}
+                    <style>{`
+                        @keyframes headerShimmer {
+                            0% { background-position: 0% 50%; }
+                            50% { background-position: 100% 50%; }
+                            100% { background-position: 0% 50%; }
+                        }
+                    `}</style>
+
                     {/* Step 0: Service Selection */}
                     {currentStep === 0 && (
                         <Fade in={true} timeout={1000} unmountOnExit={false}>
@@ -549,6 +647,50 @@ const BookingPage = () => {
                                         Xem lịch sử đặt lịch
                                     </Button>
                                 </Box>
+
+                                {/* Time filters */}
+                                <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'flex-end', justifyContent: 'flex-end' }}>
+                                    {/* Time range quick pick buttons (replace selects) */}
+                                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap', maxWidth: 520 }}>
+                                        {availableTimeRanges && availableTimeRanges.length > 0 ? availableTimeRanges.map((r) => {
+                                            const start = r.start?.slice(0,5) || '';
+                                            const end = r.end?.slice(0,5) || '';
+                                            const label = `${start} - ${end}`;
+                                            const isActive = filterStartTime === start && filterEndTime === end;
+                                            return (
+                                                <Button
+                                                    key={`${r.start}-${r.end}`}
+                                                    onClick={() => {
+                                                        setFilterStartTime(start);
+                                                        setFilterEndTime(end);
+                                                        loadInitialData();
+                                                    }}
+                                                    sx={{
+                                                        minWidth: 110,
+                                                        px: 2,
+                                                        py: 0.6,
+                                                        borderRadius: 6,
+                                                        fontWeight: 700,
+                                                        color: isActive ? '#fff' : COLORS.TEXT.PRIMARY,
+                                                        background: isActive ? `linear-gradient(135deg, ${COLORS.PRIMARY[600]} 0%, ${COLORS.PRIMARY[500]} 100%)` : alpha(COLORS.PRIMARY[50], 0.9),
+                                                        boxShadow: isActive ? `0 12px 30px ${alpha(COLORS.PRIMARY[500], 0.24)}` : `0 6px 18px ${alpha(COLORS.GRAY[900], 0.03)}`,
+                                                        border: isActive ? 'none' : `1px solid ${alpha(COLORS.GRAY[300], 0.4)}`,
+                                                        '&:hover': {
+                                                            transform: 'translateY(-3px)',
+                                                            boxShadow: `0 14px 36px ${alpha(COLORS.PRIMARY[500], 0.18)}`
+                                                        }
+                                                    }}
+                                                >
+                                                    {label}
+                                                </Button>
+                                            );
+                                        }) : (
+                                            <Typography sx={{ color: COLORS.TEXT.SECONDARY, fontStyle: 'italic' }}>Không có khung giờ</Typography>
+                                        )}
+                                    </Box>
+                                    {/* Search and clear buttons removed as requested */}
+                                </Box>
+                                {/* Removed quick chips area */}
 
                                 {/* Services Grid - Fixed 3 cards per row with equal height */}
                                 {serviceRows && serviceRows.length > 0 && serviceRows.map((rowServices, rowIndex) => (

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Dialog, DialogTitle, DialogContent, DialogActions, Box, Typography, Button, IconButton, TextField, FormControl, InputLabel, Select, MenuItem, Avatar, Stack, InputAdornment, Alert, alpha, Chip, CircularProgress, Switch, FormControlLabel } from '@mui/material';
-import { Close, Person, Email, Phone, Home, PhotoCamera, Visibility, VisibilityOff, WorkOutline } from '@mui/icons-material';
+import { Close, Person, PhotoCamera, Visibility, VisibilityOff } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 import { uploadFile } from '../../api/fileApi';
 
@@ -31,6 +31,8 @@ const AddStaffModal = ({
     const [showPassword, setShowPassword] = useState(false);
     const [previewAvatar, setPreviewAvatar] = useState('');
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
+    // optional-work-shifts removed: not used anymore
+    // single-step modal (no step state)
 
     // Fixed list of skills
     const skillOptions = [
@@ -82,6 +84,8 @@ const AddStaffModal = ({
             setTouched({});
         }
     }, [isOpen, editMode, initialData]);
+
+    // optional-work-shifts loading removed
 
     // Handle API errors - display them under fields
     useEffect(() => {
@@ -349,7 +353,7 @@ const AddStaffModal = ({
         handleChange('salary', numericValue);
     };
 
-    // Handle submit
+    // Handle submit (single-step)
     const handleSubmit = () => {
         // Mark all fields as touched
         const allFields = ['full_name', 'email', 'phone', 'address', 'salary', 'sub_role', 'password'];
@@ -357,11 +361,14 @@ const AddStaffModal = ({
         allFields.forEach(field => {
             newTouched[field] = true;
         });
-        setTouched(newTouched);
+        setTouched(prev => ({ ...prev, ...newTouched }));
 
         // Validate all fields
         if (validate()) {
-            onSubmit(formData);
+        const payload = {
+            ...formData
+        };
+            onSubmit(payload);
         }
     };
 
@@ -634,51 +641,15 @@ const AddStaffModal = ({
                         }}
                     />
 
-                    {/* Active Status Switch - Chỉ hiển thị khi chỉnh sửa nhân viên */}
-                    {editMode && (
-                    <FormControlLabel
-                        control={
-                            <Switch
-                                checked={formData.is_active}
-                                onChange={(e) => handleChange('is_active', e.target.checked)}
-                                disabled={isLoading}
-                                sx={{
-                                    '& .MuiSwitch-switchBase.Mui-checked': {
-                                        color: COLORS.SUCCESS[600],
-                                    },
-                                    '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                                        backgroundColor: COLORS.SUCCESS[600],
-                                    },
-                                }}
-                            />
-                        }
-                        label={
-                            <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                                Trạng thái hoạt động
-                            </Typography>
-                        }
-                        sx={{
-                            mt: 1,
-                            mb: 1,
-                            px: 2,
-                            py: 1.5,
-                            borderRadius: 2,
-                            bgcolor: formData.is_active ? alpha(COLORS.SUCCESS[500], 0.1) : alpha(COLORS.ERROR[500], 0.1),
-                            border: `1px solid ${formData.is_active ? COLORS.SUCCESS[200] : COLORS.ERROR[200]}`,
-                            '&:hover': {
-                                bgcolor: formData.is_active ? alpha(COLORS.SUCCESS[500], 0.15) : alpha(COLORS.ERROR[500], 0.15),
-                            }
-                        }}
-                    />
-                    )}
+                    {/* Optional shifts UI removed */}
+                    
+                    {/* Active status (only shown in edit mode) */}
 
                 </Stack>
             </DialogContent>
 
             <DialogActions sx={{ px: 3, py: 2, borderTop: `1px solid ${alpha(COLORS.BORDER.DEFAULT, 0.1)}` }}>
-                <Button onClick={handleClose} disabled={isLoading}>
-                    Hủy
-                </Button>
+                <Button onClick={handleClose} disabled={isLoading}>Hủy</Button>
                 <Button
                     onClick={handleSubmit}
                     disabled={isLoading}

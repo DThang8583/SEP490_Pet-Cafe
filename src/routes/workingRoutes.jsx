@@ -8,6 +8,10 @@ import WorkingBookingsPage from "../pages/working/WorkingBookingsPage";
 import LeaderTaskCenterPage from "../pages/working/LeaderTaskCenterPage";
 import LeaderTaskDetailPage from "../pages/working/LeaderTaskDetailPage";
 import LeaderBookingsPage from "../pages/working/LeaderBookingsPage";
+import LeaveRequestPage from "../pages/working/LeaveRequestPage";
+import WorkingLeaveRequestPage from "../pages/working/WorkingLeaveRequestPage";
+import TeamLeaveRequestsPage from "../pages/working/TeamLeaveRequestsPage";
+import StaffLeaveNotificationsPage from "../pages/working/StaffLeaveNotificationsPage";
 
 const workingRoutes = (
     <>
@@ -16,11 +20,14 @@ const workingRoutes = (
         <Route path="/staff/daily-tasks" element={<WorkingTasksPage />} />
         <Route path="/staff/attendance" element={<WorkingAttendancePage />} />
         <Route path="/staff/bookings" element={<WorkingBookingsPage />} />
-
+        <Route path="/staff/leave-requests" element={<LeaveRequestPage />} />
+        <Route path="/staff/leave-requests/new" element={<WorkingLeaveRequestPage />} />
+        <Route path="/staff/notifications" element={<StaffLeaveNotificationsPage />} />
         {/* Leader only */}
         <Route path="/staff/leader/task-center" element={<LeaderTaskCenterPage />} />
         <Route path="/staff/leader/daily-tasks/:taskId" element={<LeaderTaskDetailPage />} />
         <Route path="/staff/leader/bookings" element={<LeaderBookingsPage />} />
+        <Route path="/staff/leader/leave-requests" element={<TeamLeaveRequestsPage />} />
     </>
 );
 
