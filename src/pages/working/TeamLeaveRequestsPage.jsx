@@ -81,10 +81,21 @@ const TeamLeaveRequestsPage = () => {
             try {
                 const myTeams = await workingStaffApi.getMyTeams();
                 if (!mounted) return;
-                setTeams(myTeams || []);
-                // Only set default selected team if not already selected
-                if ((!selectedTeamId || selectedTeamId === '') && myTeams && myTeams.length > 0) {
-                    setSelectedTeamId(myTeams[0].id);
+                // Only keep teams where current profile is the leader
+                const leaderTeams = (myTeams || []).filter(t => {
+                    const leaderId = t?.leader?.id || t?.leader_id || t?.created_by || t?.owner_id;
+                    return !!leaderId && (
+                        leaderId === profile?.id ||
+                        leaderId === profile?.employee?.id ||
+                        leaderId === profile?.employee_id ||
+                        leaderId === profile?.account?.id ||
+                        leaderId === profile?.account_id
+                    );
+                });
+                setTeams(leaderTeams || []);
+                // Only set default selected team if not already selected and we have leader teams
+                if ((!selectedTeamId || selectedTeamId === '') && leaderTeams && leaderTeams.length > 0) {
+                    setSelectedTeamId(leaderTeams[0].id);
                 }
             } catch (err) {
                 console.error('Failed to load teams for leader page', err);
@@ -217,28 +228,25 @@ const TeamLeaveRequestsPage = () => {
                 </Stack>
             </Box>
 
-            <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mb: 3 }}>
-                <FormControl size="small" sx={{ minWidth: 300 }}>
-                    <InputLabel id="team-select-label">Chọn nhóm</InputLabel>
-                    <Select
-                        labelId="team-select-label"
-                        value={selectedTeamId || ''}
-                        label="Chọn nhóm"
-                        onChange={(e) => setSelectedTeamId(e.target.value)}
-                    >
-                        {teams.map(t => (
-                            <MenuItem key={t.id} value={t.id}>
-                                {t.name || `Nhóm ${t.id}`}
-                            </MenuItem>
-                        ))}
-                    </Select>
-                </FormControl>
-                <Box sx={{ flex: 1 }} />
-            </Box>
-
-            {/* Filters: Status, Employee (members), FromDate, ToDate */}
-            <Paper sx={{ mb: 2, p: 2 }}>
+            {/* Team select + Filters: Status, Employee (members), FromDate, ToDate */}
+            <Paper sx={{ mb: 3, p: 2 }}>
                 <Toolbar sx={{ gap: 2, flexWrap: 'wrap', p: 0 }}>
+                    <FormControl size="small" sx={{ minWidth: 300 }}>
+                        <InputLabel id="team-select-label">Chọn nhóm</InputLabel>
+                        <Select
+                            labelId="team-select-label"
+                            value={selectedTeamId || ''}
+                            label="Chọn nhóm"
+                            onChange={(e) => setSelectedTeamId(e.target.value)}
+                        >
+                            {teams.map(t => (
+                                <MenuItem key={t.id} value={t.id}>
+                                    {t.name || `Nhóm ${t.id}`}
+                                </MenuItem>
+                            ))}
+                        </Select>
+                    </FormControl>
+
                     <FormControl size="small" sx={{ minWidth: 180 }}>
                         <InputLabel>Trạng thái</InputLabel>
                         <Select
@@ -293,6 +301,8 @@ const TeamLeaveRequestsPage = () => {
                         onChange={(e) => { setToDateFilter(e.target.value); setPage(0); }}
                         sx={{ minWidth: 160 }}
                     />
+
+                    <Box sx={{ flex: 1 }} />
                 </Toolbar>
             </Paper>
 
