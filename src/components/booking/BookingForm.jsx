@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     Box,
     Card,
@@ -41,6 +41,7 @@ const BookingForm = ({ service, bookingData: initialBookingData, onBack, onSubmi
     });
 
     const [errors, setErrors] = useState({});
+    const [bookingPetGroupDetails, setBookingPetGroupDetails] = useState(null);
 
     // Initialize selectedDate and other data from bookingData if available
     React.useEffect(() => {
@@ -52,12 +53,47 @@ const BookingForm = ({ service, bookingData: initialBookingData, onBack, onSubmi
         }
     }, [service, initialBookingData]);
 
+    // Fetch pet-group details for initial booking (to show pet names)
+    useEffect(() => {
+        const loadPetGroup = async () => {
+            try {
+                const pgId = initialBookingData?.pet_group?.id;
+                if (!pgId) {
+                    setBookingPetGroupDetails(null);
+                    return;
+                }
+                const token = localStorage.getItem('authToken');
+                const headers = token ? { Authorization: `Bearer ${token}`, Accept: 'application/json' } : { Accept: 'application/json' };
+                const resp = await fetch(`https://petcafes.azurewebsites.net/api/pet-groups/${pgId}`, { headers });
+                if (!resp.ok) {
+                    console.warn('[BookingForm] pet-group fetch failed', resp.status);
+                    setBookingPetGroupDetails(null);
+                    return;
+                }
+                const json = await resp.json();
+                const group = json?.data || json || null;
+                setBookingPetGroupDetails(group);
+            } catch (e) {
+                console.error('[BookingForm] error loading pet-group', e);
+                setBookingPetGroupDetails(null);
+            }
+        };
+
+        loadPetGroup();
+    }, [initialBookingData?.pet_group?.id]);
+
     const handleCustomerInfoChange = (field, value) => {
+        // sanitize phone input: keep digits only and limit to 10
+        let newValue = value;
+        if (field === 'phone') {
+            newValue = String(value).replace(/\D/g, '').slice(0, 10);
+        }
+
         setFormData(prev => ({
             ...prev,
             customerInfo: {
                 ...prev.customerInfo,
-                [field]: value
+                [field]: newValue
             }
         }));
 
@@ -99,6 +135,12 @@ const BookingForm = ({ service, bookingData: initialBookingData, onBack, onSubmi
 
         if (!formData.customerInfo.phone.trim()) {
             newErrors.customerInfo = { ...newErrors.customerInfo, phone: 'Vui lòng nhập số điện thoại' };
+        }
+
+        // Ensure phone is exactly 10 digits
+        const phoneVal = (formData.customerInfo.phone || '').replace(/\D/g, '');
+        if (phoneVal.length !== 10) {
+            newErrors.customerInfo = { ...newErrors.customerInfo, phone: 'Số điện thoại phải có đúng 10 chữ số' };
         }
 
         setErrors(newErrors);
@@ -403,6 +445,13 @@ const BookingForm = ({ service, bookingData: initialBookingData, onBack, onSubmi
                                                                             {initialBookingData.pet_group.description}
                                                                         </Typography>
                                                                     )}
+                                                                    {bookingPetGroupDetails?.pets && bookingPetGroupDetails.pets.length > 0 && (
+                                                                        <Box sx={{ mt: 1, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                                                                            {bookingPetGroupDetails.pets.slice(0, 6).map(pet => (
+                                                                                <Chip key={pet.id || pet.name} label={pet.name || 'Thú cưng'} size="small" sx={{ background: alpha(COLORS.SECONDARY[50], 0.7) }} />
+                                                                            ))}
+                                                                        </Box>
+                                                                    )}
                                                                 </Box>
                                                             </Box>
                                                         </Box>
@@ -482,7 +531,7 @@ const BookingForm = ({ service, bookingData: initialBookingData, onBack, onSubmi
                                 {/* Họ tên */}
                                 <TextField
                                     fullWidth
-                                    label="Họ tên *"
+                                    label="Họ tên"
                                     placeholder="Nhập tên của bạn"
                                     value={formData.customerInfo.name}
                                     onChange={(e) => handleCustomerInfoChange('name', e.target.value)}
@@ -500,10 +549,11 @@ const BookingForm = ({ service, bookingData: initialBookingData, onBack, onSubmi
                                 {/* Số điện thoại */}
                                 <TextField
                                     fullWidth
-                                    label="Số điện thoại *"
+                                    label="Số điện thoại"
                                     placeholder="Nhập số điện thoại của bạn"
                                     value={formData.customerInfo.phone}
                                     onChange={(e) => handleCustomerInfoChange('phone', e.target.value)}
+                                    inputProps={{ maxLength: 10 }}
                                     error={!!errors.customerInfo?.phone}
                                     helperText={errors.customerInfo?.phone}
                                     required

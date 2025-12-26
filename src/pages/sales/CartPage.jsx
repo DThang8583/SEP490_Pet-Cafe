@@ -346,7 +346,7 @@ const CartPage = () => {
                                 <Stack spacing={2}>
                                     <TextField
                                         fullWidth
-                                        label="Họ tên *"
+                                        label="Họ tên"
                                         placeholder="Nhập họ tên khách hàng"
                                         value={customerInfo.full_name}
                                         onChange={(e) => {
@@ -374,7 +374,7 @@ const CartPage = () => {
                                     />
                                     <TextField
                                         fullWidth
-                                        label="Số điện thoại *"
+                                        label="Số điện thoại"
                                         placeholder="Nhập số điện thoại"
                                         value={customerInfo.phone}
                                         onChange={(e) => {

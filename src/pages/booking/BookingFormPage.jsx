@@ -641,7 +641,7 @@ const BookingFormPage = () => {
                                 {/* Họ tên */}
                                 <TextField
                                     fullWidth
-                                    label="Họ tên *"
+                                    label="Họ tên"
                                     placeholder="Nhập tên của bạn"
                                     value={formData.customerInfo.name}
                                     onChange={(e) => handleCustomerInfoChange('name', e.target.value)}
@@ -659,7 +659,7 @@ const BookingFormPage = () => {
                                 {/* Số điện thoại */}
                                 <TextField
                                     fullWidth
-                                    label="Số điện thoại *"
+                                    label="Số điện thoại"
                                     placeholder="Nhập số điện thoại của bạn"
                                     value={formData.customerInfo.phone}
                                     onChange={(e) => handleCustomerInfoChange('phone', e.target.value)}

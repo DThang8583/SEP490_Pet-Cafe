@@ -30,6 +30,7 @@ const BookingDateModal = ({ open, onClose, service, onConfirm }) => {
     const [selectedSlot, setSelectedSlot] = useState(null);
     const [slots, setSlots] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [petGroupsMap, setPetGroupsMap] = useState({});
 
     // Get dates for day_of_week in next 4 weeks
     const getDatesForDayOfWeek = (dayOfWeek) => {
@@ -82,7 +83,36 @@ const BookingDateModal = ({ open, onClose, service, onConfirm }) => {
             try {
                 // Fetch all slots (use a high limit to get all slots)
                 const result = await serviceApi.getSlotsByServiceId(service.id, { page: 0, limit: 100 });
-                setSlots(result.data || []);
+                const fetchedSlots = result.data || [];
+                setSlots(fetchedSlots);
+
+                // Collect unique pet_group ids from slots and fetch details
+                try {
+                    const token = localStorage.getItem('authToken');
+                    const headers = token ? { Authorization: `Bearer ${token}`, Accept: 'application/json' } : { Accept: 'application/json' };
+                    const petGroupIds = Array.from(new Set(fetchedSlots.map(s => s?.pet_group?.id).filter(Boolean)));
+                    if (petGroupIds.length > 0) {
+                        const map = {};
+                        await Promise.all(petGroupIds.map(async (id) => {
+                            try {
+                                const resp = await fetch(`https://petcafes.azurewebsites.net/api/pet-groups/${id}`, { headers });
+                                if (!resp.ok) {
+                                    console.warn('[BookingDateModal] pet-group fetch failed', id, resp.status);
+                                    return;
+                                }
+                                const json = await resp.json();
+                                // API may return group in json.data or full object
+                                const group = json?.data || json || null;
+                                if (group) map[id] = group;
+                            } catch (e) {
+                                console.error('[BookingDateModal] error fetching pet-group', id, e);
+                            }
+                        }));
+                        setPetGroupsMap(map);
+                    }
+                } catch (e) {
+                    console.error('[BookingDateModal] error fetching pet-groups', e);
+                }
             } catch (error) {
                 console.error('[BookingDateModal] Error loading slots:', error);
                 setSlots([]);
@@ -405,6 +435,14 @@ const BookingDateModal = ({ open, onClose, service, onConfirm }) => {
                                                                     <Typography variant="body2" color="text.secondary">
                                                                         {item.slot.pet_group.description}
                                                                     </Typography>
+                                                                )}
+                                                                {/* show pet names from fetched pet-group details if available */}
+                                                                {petGroupsMap[item.slot.pet_group.id]?.pets && petGroupsMap[item.slot.pet_group.id].pets.length > 0 && (
+                                                                    <Box sx={{ mt: 1, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                                                                        {petGroupsMap[item.slot.pet_group.id].pets.slice(0, 6).map(pet => (
+                                                                            <Chip key={pet.id || pet.name} label={pet.name || 'Thú cưng'} size="small" sx={{ background: alpha(COLORS.SECONDARY[50], 0.7) }} />
+                                                                        ))}
+                                                                    </Box>
                                                                 )}
                                                             </Box>
                                                         </Box>

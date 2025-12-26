@@ -4,6 +4,7 @@ import {
     Divider, Button, Chip, alpha, Paper, Fade
 } from '@mui/material';
 import { Delete, ShoppingCart, ArrowBack, CalendarToday, AccessTime, Pets, Person, Phone, Note, LocationOn } from '@mui/icons-material';
+import Loading from '../../components/loading/Loading';
 import { COLORS } from '../../constants/colors';
 import { useNavigate } from 'react-router-dom';
 import { formatPrice } from '../../utils/formatPrice';
@@ -17,6 +18,8 @@ const BookingCartPage = () => {
     const [isDeleting, setIsDeleting] = useState(false);
     const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
     const [alert, setAlert] = useState({ open: false, message: '', type: 'info' });
+    const [isRedirecting, setIsRedirecting] = useState(false);
+    const [petGroupsMap, setPetGroupsMap] = useState({});
 
     useEffect(() => {
         try {
@@ -35,6 +38,38 @@ const BookingCartPage = () => {
         setInitialized(true);
         return () => window.removeEventListener('bookingCartUpdated', onCartUpdated);
     }, []);
+
+    // Fetch pet-group details for any pet_group ids present in items
+    useEffect(() => {
+        const loadPetGroups = async () => {
+            try {
+                const ids = Array.from(new Set(items.map(i => i.slot?.pet_group?.id || i.pet_group_id || i.pet_group?.id).filter(Boolean)));
+                if (ids.length === 0) {
+                    setPetGroupsMap({});
+                    return;
+                }
+                const token = localStorage.getItem('authToken');
+                const headers = token ? { Authorization: `Bearer ${token}`, Accept: 'application/json' } : { Accept: 'application/json' };
+                const map = {};
+                await Promise.all(ids.map(async (id) => {
+                    try {
+                        const resp = await fetch(`https://petcafes.azurewebsites.net/api/pet-groups/${id}`, { headers });
+                        if (!resp.ok) return;
+                        const json = await resp.json();
+                        const group = json?.data || json || null;
+                        if (group) map[id] = group;
+                    } catch (e) {
+                        console.warn('[BookingCart] failed to fetch pet-group', id, e);
+                    }
+                }));
+                setPetGroupsMap(map);
+            } catch (e) {
+                console.error('[BookingCart] error loading pet groups', e);
+            }
+        };
+
+        loadPetGroups();
+    }, [items]);
 
     useEffect(() => {
         if (!initialized) return;
@@ -346,8 +381,12 @@ const BookingCartPage = () => {
             window.dispatchEvent(new Event('bookingCartUpdated'));
 
             if (checkoutUrl && mappedPaymentMethod === 'ONLINE') {
-                // Chuyển hướng sang trang thanh toán QR của bên thứ 3
-                window.location.href = checkoutUrl;
+                // Show loading then redirect to third-party checkout (PayOS)
+                setIsRedirecting(true);
+                // short timeout to ensure UI updates, then navigate
+                setTimeout(() => {
+                    window.location.href = checkoutUrl;
+                }, 120);
             } else {
                 // Fallback nếu không có checkout_url
                 setAlert({ open: true, message: 'Đặt dịch vụ thành công!', type: 'success' });
@@ -363,7 +402,9 @@ const BookingCartPage = () => {
 
     return (
         <Fade in timeout={800}>
-            <Box sx={{
+            <Box>
+                {isRedirecting && <Loading fullScreen variant="cafe" message="Đang chuyển sang trang thanh toán..." />}
+                <Box sx={{
                 width: '100%',
                 maxWidth: '100%',
                 mx: 0,
@@ -408,7 +449,7 @@ const BookingCartPage = () => {
                                     fontWeight: 700,
                                     color: COLORS.INFO[700]
                                 }}>
-                                    Giỏ hàng dịch vụ
+                                   Xác nhận đơn hàng
                                 </Typography>
                             </Box>
                             <Chip
@@ -450,7 +491,7 @@ const BookingCartPage = () => {
                                 }}>
                                     <ShoppingCart sx={{ fontSize: 48, color: COLORS.INFO[400], mb: 2 }} />
                                     <Typography variant="h6" sx={{ color: COLORS.TEXT.SECONDARY, mb: 1 }}>
-                                        Chưa có dịch vụ nào trong giỏ hàng
+                                        Chưa có dịch vụ nào 
                                     </Typography>
                                     <Typography variant="body2" color="text.secondary">
                                         Hãy thêm dịch vụ từ trang đặt lịch
@@ -532,9 +573,18 @@ const BookingCartPage = () => {
                                                             {slot?.pet_group && (
                                                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                                                     <Pets sx={{ fontSize: 18, color: COLORS.INFO[600] }} />
-                                                                    <Typography variant="body2" fontWeight={600}>
-                                                                        Nhóm: {slot.pet_group.name}
-                                                                    </Typography>
+                                                                    <Box>
+                                                                        <Typography variant="body2" fontWeight={600}>
+                                                                            Nhóm: {slot.pet_group.name}
+                                                                        </Typography>
+                                                                        {petGroupsMap[slot.pet_group.id]?.pets && petGroupsMap[slot.pet_group.id].pets.length > 0 && (
+                                                                            <Box sx={{ mt: 0.5, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                                                                                {petGroupsMap[slot.pet_group.id].pets.slice(0, 6).map(pet => (
+                                                                                    <Chip key={pet.id || pet.name} label={pet.name || 'Thú cưng'} size="small" sx={{ background: alpha(COLORS.SECONDARY[50], 0.6) }} />
+                                                                                ))}
+                                                                            </Box>
+                                                                        )}
+                                                                    </Box>
                                                                 </Box>
                                                             )}
 
@@ -816,6 +866,7 @@ const BookingCartPage = () => {
                     type={alert.type}
                     okText="Đã hiểu"
                 />
+                </Box>
             </Box>
         </Fade>
     );
