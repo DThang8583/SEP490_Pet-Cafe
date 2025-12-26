@@ -280,7 +280,6 @@ const ServiceBookingDetailPage = () => {
                                     <Divider sx={{ my: 1.5 }} />
                                     <Stack spacing={1}>
                                         <Typography>Tổng: <b>{formatVnd(order.total_amount)}</b></Typography>
-                                        <Typography>Giảm giá: <b>{formatVnd(order.discount_amount)}</b></Typography>
                                         <Typography sx={{ fontSize: 18, fontWeight: 900, color: COLORS.ERROR[700] }}>
                                             Thành tiền: {formatVnd(order.final_amount)}
                                         </Typography>
