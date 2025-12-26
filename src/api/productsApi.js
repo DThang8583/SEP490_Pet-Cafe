@@ -73,8 +73,16 @@ export const getAllProducts = async (params = {}) => {
         if (IsForPets !== undefined) queryParams.IsForPets = IsForPets;
         if (MinStockQuantity !== undefined) queryParams.MinStockQuantity = MinStockQuantity;
         if (MaxStockQuantity !== undefined) queryParams.MaxStockQuantity = MaxStockQuantity;
-        if (PageIndex !== undefined) queryParams.PageIndex = PageIndex;
-        if (PageSize !== undefined) queryParams.PageSize = PageSize;
+        // Backend expects `page` and `limit` query params (page is 0-based index).
+        // Keep legacy PageIndex/PageSize for backward compatibility.
+        if (PageIndex !== undefined) {
+            queryParams.PageIndex = PageIndex;
+            queryParams.page = PageIndex; // 0-based page index expected by API
+        }
+        if (PageSize !== undefined) {
+            queryParams.PageSize = PageSize;
+            queryParams.limit = PageSize;
+        }
 
         const response = await apiClient.get('/products', {
             params: queryParams,
