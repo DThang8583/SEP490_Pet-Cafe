@@ -101,13 +101,14 @@ const ProductsTab = () => {
     }, [isActiveFilter, isForPetsFilter, minPrice, maxPrice, minCost, maxCost, minStockQuantity, maxStockQuantity, page, itemsPerPage]);
 
     // Statistics
+    // Use server pagination total for overall total if available to avoid showing only current page count
     const stats = useMemo(() => ({
-        total: products.length,
+        total: pagination?.total_items_count ?? products.length,
         active: products.filter(p => p.is_active !== false).length,
         inactive: products.filter(p => p.is_active === false).length,
         forCustomers: products.filter(p => !p.is_for_pets).length,
         forPets: products.filter(p => p.is_for_pets).length
-    }), [products]);
+    }), [products, pagination]);
 
     // Filtered products (client-side search only, pagination is server-side)
     const filteredProducts = useMemo(() => {
