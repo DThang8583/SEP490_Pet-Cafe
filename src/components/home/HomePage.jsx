@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Box, Container, Typography, Button, Grid, Card, CardContent, CardMedia, Avatar, Chip, Stack, useTheme, alpha, Fade, Zoom, IconButton, Divider, Slide, Grow } from '@mui/material';
-import { LocalCafe, Pets, Cake, Coffee, Restaurant, ConfirmationNumber, LocationOn, Star, Favorite, ArrowForward, Facebook, Instagram, Twitter, EmojiFoodBeverage, Cookie, Fastfood, WineBar, HotTub, AutoAwesome } from '@mui/icons-material';
+import { LocalCafe, Pets, Cake, Coffee, Restaurant, ConfirmationNumber, LocationOn, Star, Favorite, ArrowForward, Facebook, Instagram, Twitter, EmojiFoodBeverage, Cookie, Fastfood, WineBar, HotTub, AutoAwesome, ChevronLeft, ChevronRight, Schedule, TrendingUp } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 import { useNavigate } from 'react-router-dom';
 import { authApi } from '../../api/authApi';
+// Data now provided dynamically or via API; remove static import
+import { hero, servicesSection, menuSection, petAreasSection, testimonialsSection, quickNav, siteName } from '../../data/homeConfig';
 
 const HomePage = () => {
     const theme = useTheme();
@@ -42,116 +44,118 @@ const HomePage = () => {
     }, [navigate]);
 
 
-    const features = [
-        {
-            icon: <LocalCafe sx={{ fontSize: 40 }} />,
-            title: "Đồ uống thơm ngon",
-            description: "Cà phê, trà sữa và các loại đồ uống đặc biệt được pha chế tinh tế"
-        },
-        {
-            icon: <Pets sx={{ fontSize: 40 }} />,
-            title: "Khu vực thú cưng",
-            description: "Không gian riêng biệt cho chó và mèo với đầy đủ tiện nghi"
-        },
-        {
-            icon: <Cake sx={{ fontSize: 40 }} />,
-            title: "Bánh ngọt tươi",
-            description: "Các loại bánh ngọt, bánh kem được làm tươi hàng ngày"
-        },
-        {
-            icon: <Restaurant sx={{ fontSize: 40 }} />,
-            title: "Đồ ăn nhẹ",
-            description: "Sandwich, salad và các món ăn nhẹ bổ dưỡng"
-        }
-    ];
+    // Data arrays (empty — can be populated from API)
+    const [features, setFeatures] = useState([]);
+    const [menuItems, setMenuItems] = useState([]);
+    const [testimonials, setTestimonials] = useState([]);
+    const [apiError, setApiError] = useState('');
+    const [loadingHome, setLoadingHome] = useState(false);
+    const menuScrollRef = useRef(null);
+    const [scrollProgress, setScrollProgress] = useState(0);
+    const [canScrollLeft, setCanScrollLeft] = useState(false);
+    const [canScrollRight, setCanScrollRight] = useState(false);
+    
+    const formatPrice = (v) => {
+        if (v === null || v === undefined || v === '') return '';
+        const num = Number(v);
+        if (Number.isNaN(num)) return String(v);
+        return num.toLocaleString('vi-VN') + ' VNĐ';
+    };
 
-    const menuItems = [
-        {
-            category: "Đồ uống",
-            icon: <Coffee sx={{ fontSize: 30 }} />,
-            items: [
-                { name: "Cà phê đen", price: "25,000đ", description: "Cà phê đen truyền thống" },
-                { name: "Cappuccino", price: "35,000đ", description: "Cà phê sữa Ý thơm ngon" },
-                { name: "Latte", price: "40,000đ", description: "Cà phê sữa mềm mịn" },
-                { name: "Trà sữa trân châu", price: "30,000đ", description: "Trà sữa với trân châu đen" },
-                { name: "Sinh tố bơ", price: "45,000đ", description: "Sinh tố bơ tươi mát" }
-            ]
-        },
-        {
-            category: "Đồ ăn nhẹ",
-            icon: <Fastfood sx={{ fontSize: 30 }} />,
-            items: [
-                { name: "Sandwich gà nướng", price: "55,000đ", description: "Sandwich với gà nướng tươi" },
-                { name: "Salad rau củ", price: "40,000đ", description: "Salad tươi với nước sốt đặc biệt" },
-                { name: "Bánh mì pate", price: "25,000đ", description: "Bánh mì pate truyền thống" },
-                { name: "Pizza mini", price: "60,000đ", description: "Pizza nhỏ với nhiều topping" }
-            ]
-        },
-        {
-            category: "Bánh ngọt",
-            icon: <Cake sx={{ fontSize: 30 }} />,
-            items: [
-                { name: "Bánh kem chocolate", price: "35,000đ", description: "Bánh kem chocolate đậm đà" },
-                { name: "Tiramisu", price: "45,000đ", description: "Tiramisu Ý chính gốc" },
-                { name: "Bánh cupcake", price: "20,000đ", description: "Cupcake với kem tươi" },
-                { name: "Bánh tart trái cây", price: "50,000đ", description: "Tart với trái cây tươi" }
-            ]
-        }
-    ];
+    useEffect(() => {
+        const loadHomeData = async () => {
+            setLoadingHome(true);
+            setApiError('');
+            try {
+                const token = localStorage.getItem('authToken');
+                const headers = token ? { Authorization: `Bearer ${token}`, Accept: 'application/json' } : { Accept: 'application/json' };
 
-    const petAreas = [
-        {
-            floor: "Tầng 1",
-            name: "Khu vực chó",
-            icon: <Pets sx={{ fontSize: 40 }} />,
-            description: "Không gian rộng rãi dành cho các chú chó hoạt động và vui chơi",
-            features: [
-                "Sân chơi rộng 100m²",
-                "Hồ bơi mini cho chó",
-                "Khu vực nghỉ ngơi có mái che",
-                "Dụng cụ vui chơi an toàn",
-                "Nhân viên chăm sóc chuyên nghiệp"
-            ],
-            capacity: "Tối đa 20 chú chó",
-            price: "50,000đ/chó/giờ"
-        },
-        {
-            floor: "Tầng 2",
-            name: "Khu vực mèo",
-            icon: <Pets sx={{ fontSize: 40 }} />,
-            description: "Không gian yên tĩnh và ấm cúng dành cho các chú mèo",
-            features: [
-                "Phòng kín với điều hòa",
-                "Cây leo và kệ cao cho mèo",
-                "Khu vực nghỉ ngơi riêng tư",
-                "Đồ chơi tương tác",
-                "Nhân viên hiểu biết về mèo"
-            ],
-            capacity: "Tối đa 15 chú mèo",
-            price: "40,000đ/mèo/giờ"
-        }
-    ];
+                const svcUrl = 'https://petcafes.azurewebsites.net/api/services?page=0&limit=6';
+                const petUrl = 'https://petcafes.azurewebsites.net/api/pets?page=0&limit=6';
 
-    const testimonials = [
-        {
-            name: "Nguyễn Thị Lan",
-            avatar: "L",
-            rating: 5,
-            comment: "Pet Cafe là nơi tuyệt vời để thư giãn cùng thú cưng. Không gian rất đẹp và đồ uống ngon!"
-        },
-        {
-            name: "Trần Văn Minh",
-            avatar: "M",
-            rating: 5,
-            comment: "Con mèo của tôi rất thích khu vực dành riêng cho mèo. Nhân viên cũng rất thân thiện!"
-        },
-        {
-            name: "Lê Thị Hoa",
-            avatar: "H",
-            rating: 5,
-            comment: "Bánh ngọt ở đây rất ngon, đặc biệt là bánh kem. Sẽ quay lại nhiều lần nữa!"
-        }
-    ];
+                const [svcResp, petResp] = await Promise.all([fetch(svcUrl, { headers }), fetch(petUrl, { headers })]);
+
+                if (svcResp.ok) {
+                    const svcJson = await svcResp.json();
+                    console.debug('[HomePage] services response:', svcJson);
+                    const svcList = Array.isArray(svcJson?.data) ? svcJson.data : [];
+                    setFeatures(svcList.slice(0, 4).map(s => ({
+                        imageUrl: s.image_url || null,
+                        icon: <LocalCafe sx={{ fontSize: 40 }} />,
+                        title: s.name || 'Dịch vụ',
+                        description: s.description || ''
+                    })));
+                } else {
+                    console.warn('[HomePage] services fetch failed', svcResp.status);
+                }
+
+                if (petResp.ok) {
+                    const petJson = await petResp.json();
+                    console.debug('[HomePage] pets (for testimonials) response:', petJson);
+                    const petList = Array.isArray(petJson?.data) ? petJson.data : [];
+                    // pick up to 3 pets to show as "testimonials"
+                    setTestimonials(petList.slice(0, 3).map(p => ({
+                        name: p.name || 'Bạn bốn chân',
+                        avatarUrl: p.image_url || p.avatar_url || null,
+                        avatarLetter: (p.name || 'P')[0] || 'P',
+                        rating: 5,
+                        comment: p.special_notes || `${p.name || 'Bạn ấy'} rất thích Pet Cafe!`
+                    })));
+                } else {
+                    console.warn('[HomePage] pets fetch failed', petResp.status);
+                }
+                
+                // Fetch product categories for menu section (use same API as MenuPage)
+                try {
+                    const catUrl = 'https://petcafes.azurewebsites.net/api/product-categories';
+                    const catResp = await fetch(catUrl, { headers });
+                    if (catResp.ok) {
+                        const catJson = await catResp.json();
+                        console.debug('[HomePage] product-categories response:', catJson);
+                        const catList = Array.isArray(catJson?.data) ? catJson.data : [];
+                        setMenuItems(catList.slice(0, 6).map(cat => ({
+                            category: cat.name || 'Danh mục',
+                            imageUrl: cat.image_url || null,
+                            icon: cat.image_url ? <Box component="img" src={cat.image_url} alt={cat.name} sx={{ width: 40, height: 40, borderRadius: '50%', objectFit: 'cover' }} /> : <Cookie sx={{ fontSize: 40 }} />,
+                            items: Array.isArray(cat.products) ? cat.products.slice(0, 4).map(p => ({
+                                name: p.name || 'Món',
+                                price: p.price || '',
+                                description: p.description || '',
+                                imageUrl: p.image_url || (p.thumbnails && p.thumbnails[0]) || null
+                            })) : []
+                        })));
+                    } else {
+                        console.warn('[HomePage] product-categories fetch failed', catResp.status);
+                    }
+                } catch (catErr) {
+                    console.error('[HomePage] product-categories error', catErr);
+                }
+            } catch (err) {
+                console.error('[HomePage] loadHomeData error', err);
+                setApiError(err.message || 'Không thể tải dữ liệu trang chủ');
+            } finally {
+                setLoadingHome(false);
+            }
+        };
+
+        loadHomeData();
+    }, []);
+
+    // update scroll state when menuItems change or on resize
+    useEffect(() => {
+        const el = menuScrollRef.current;
+        const update = () => {
+            if (!el) return;
+            const max = Math.max(el.scrollWidth - el.clientWidth, 0);
+            setCanScrollLeft(el.scrollLeft > 5);
+            setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 5);
+            const prog = max > 0 ? Math.round((el.scrollLeft / max) * 100) : 0;
+            setScrollProgress(prog);
+        };
+        update();
+        window.addEventListener('resize', update);
+        return () => window.removeEventListener('resize', update);
+    }, [menuItems]);
 
     return (
         <Box sx={{
@@ -404,7 +408,7 @@ const HomePage = () => {
                                             }
                                         }}
                                     >
-                                        Pet Cafe
+                                        {siteName}
                                     </Typography>
                                     <Typography
                                         variant="h4"
@@ -424,7 +428,7 @@ const HomePage = () => {
                                             }
                                         }}
                                     >
-                                        🐾 Nơi gặp gỡ ấm áp của những người yêu thú cưng ☕
+                                        🐾 {hero.subtitleLine1} ☕
                                     </Typography>
                                     <Typography
                                         variant="h6"
@@ -436,14 +440,14 @@ const HomePage = () => {
                                             animation: 'fadeInUp 1.5s ease-out'
                                         }}
                                     >
-                                        Khám phá không gian tuyệt vời nơi bạn và thú cưng có thể thư giãn,
-                                        thưởng thức đồ uống ngon và tạo nên những kỷ niệm đáng nhớ.
+                                        {hero.subtitleLine2}
                                     </Typography>
                                     <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3}>
-                                        <Button
+                                            <Button
                                             variant="contained"
                                             size="large"
                                             startIcon={<Pets />}
+                                            onClick={() => navigate('/booking')}
                                             sx={{
                                                 py: 2.5,
                                                 px: 5,
@@ -470,7 +474,7 @@ const HomePage = () => {
                                                 }
                                             }}
                                         >
-                                            Khám phá ngay
+                                            {hero.primaryCta.label}
                                         </Button>
                                         <Button
                                             variant="outlined"
@@ -497,7 +501,7 @@ const HomePage = () => {
                                                 transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
                                             }}
                                         >
-                                            Xem menu
+                                            {hero.secondaryCta.label}
                                         </Button>
                                     </Stack>
                                 </Box>
@@ -653,7 +657,7 @@ const HomePage = () => {
                 <Container maxWidth="lg">
                     <Slide direction="up" in={isVisible} timeout={1000}>
                         <Box sx={{ textAlign: 'center', mb: 8 }}>
-                            <Typography
+                                <Typography
                                 variant="h2"
                                 component="h2"
                                 sx={{
@@ -665,9 +669,9 @@ const HomePage = () => {
                                     textShadow: `2px 2px 4px ${alpha(COLORS.ERROR[200], 0.3)}`
                                 }}
                             >
-                                🎯 Dịch vụ của chúng tôi
+                                {servicesSection.title}
                             </Typography>
-                            <Typography
+                                <Typography
                                 variant="h6"
                                 sx={{
                                     color: COLORS.TEXT.SECONDARY,
@@ -725,22 +729,45 @@ const HomePage = () => {
                                                     width: 100,
                                                     height: 100,
                                                     borderRadius: '50%',
-                                                    background: `linear-gradient(135deg, ${COLORS.ERROR[300]}, ${COLORS.SECONDARY[300]})`,
                                                     display: 'flex',
                                                     alignItems: 'center',
                                                     justifyContent: 'center',
                                                     mx: 'auto',
                                                     mb: 4,
-                                                    color: 'white',
-                                                    boxShadow: `0 15px 30px ${alpha(COLORS.ERROR[300], 0.4)}`,
-                                                    transition: 'all 0.4s ease',
-                                                    '&:hover': {
-                                                        transform: 'scale(1.1) rotate(5deg)',
-                                                        boxShadow: `0 20px 40px ${alpha(COLORS.ERROR[300], 0.6)}`
-                                                    }
+                                                    position: 'relative'
                                                 }}
                                             >
-                                                {feature.icon}
+                                                {/* outer orange ring / gradient */}
+                                                <Box sx={{
+                                                    position: 'absolute',
+                                                    inset: 0,
+                                                    borderRadius: '50%',
+                                                    background: `linear-gradient(135deg, ${COLORS.ERROR[300]}, ${COLORS.SECONDARY[300]})`,
+                                                    filter: 'blur(6px)',
+                                                    opacity: 0.85,
+                                                    zIndex: 0
+                                                }} />
+
+                                                {/* inner image or icon */}
+                                                {feature.imageUrl ? (
+                                                    <Box component="img"
+                                                        src={feature.imageUrl}
+                                                        alt={feature.title}
+                                                        sx={{
+                                                            width: 80,
+                                                            height: 80,
+                                                            borderRadius: '50%',
+                                                            objectFit: 'cover',
+                                                            zIndex: 1,
+                                                            boxShadow: `0 6px 18px ${alpha(COLORS.SHADOW?.DARK || '#000', 0.12)}`,
+                                                            border: `4px solid ${alpha(COLORS.ERROR[100], 0.35)}`
+                                                        }}
+                                                    />
+                                                ) : (
+                                                    <Box sx={{ zIndex: 1 }}>
+                                                        {feature.icon}
+                                                    </Box>
+                                                )}
                                             </Box>
                                             <Typography
                                                 variant="h6"
@@ -821,8 +848,7 @@ const HomePage = () => {
                                     animation: 'fadeInUp 2.2s ease-out'
                                 }}
                             >
-                                Khám phá các món ăn và thức uống thơm ngon tại Pet Cafe.
-                                Từ cà phê thơm lừng đến bánh ngọt tươi ngon!
+                                {menuSection.subtitle}
                             </Typography>
                             <Button
                                 variant="contained"
@@ -847,327 +873,162 @@ const HomePage = () => {
                                     transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
                                 }}
                             >
-                                Xem toàn bộ menu
+                                {menuSection.buttonLabel}
                             </Button>
                         </Box>
                     </Slide>
 
-                    <Grid container spacing={5}>
-                        {menuItems.map((category, index) => (
-                            <Grid item xs={12} md={4} key={index}>
-                                <Grow in timeout={1400 + index * 400}>
-                                    <Card
-                                        sx={{
-                                            height: '100%',
-                                            borderRadius: 6,
-                                            background: `linear-gradient(145deg, ${alpha(COLORS.BACKGROUND.DEFAULT, 0.98)}, ${alpha(COLORS.SECONDARY[50], 0.95)})`,
-                                            backdropFilter: 'blur(30px)',
-                                            border: `3px solid ${alpha(COLORS.ERROR[200], 0.4)}`,
-                                            boxShadow: `0 25px 50px ${alpha(COLORS.ERROR[200], 0.25)}`,
-                                            transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
-                                            position: 'relative',
-                                            overflow: 'hidden',
-                                            '&::before': {
-                                                content: '""',
-                                                position: 'absolute',
-                                                top: 0,
-                                                left: 0,
-                                                right: 0,
-                                                bottom: 0,
-                                                background: `linear-gradient(135deg, ${alpha(COLORS.WARNING[100], 0.1)}, ${alpha(COLORS.ERROR[100], 0.1)})`,
-                                                opacity: 0,
-                                                transition: 'opacity 0.3s ease'
-                                            },
-                                            '&:hover': {
-                                                transform: 'translateY(-15px) scale(1.02)',
-                                                boxShadow: `0 35px 70px ${alpha(COLORS.ERROR[200], 0.4)}`,
-                                                border: `3px solid ${alpha(COLORS.ERROR[300], 0.6)}`,
-                                                '&::before': {
-                                                    opacity: 1
-                                                }
-                                            }
-                                        }}
-                                    >
-                                        <CardContent sx={{ p: 5, position: 'relative', zIndex: 1 }}>
-                                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>
-                                                <Box
-                                                    sx={{
-                                                        width: 80,
-                                                        height: 80,
+                    {/* Custom horizontal slider with arrows + progress */}
+                    <Box sx={{ position: 'relative', mt: 2 }}>
+                        <IconButton
+                            onClick={() => {
+                                const el = menuScrollRef.current;
+                                if (!el) return;
+                                el.scrollBy({ left: -Math.round(el.clientWidth * 0.75), behavior: 'smooth' });
+                            }}
+                            disabled={!menuItems.length}
+                            sx={{
+                                position: 'absolute',
+                                left: 8,
+                                top: '50%',
+                                transform: 'translateY(-50%)',
+                                zIndex: 10,
+                                bgcolor: alpha(COLORS.BACKGROUND.DEFAULT, 0.9),
+                                boxShadow: `0 6px 18px ${alpha(COLORS.ERROR[200], 0.15)}`,
+                                '&:hover': { bgcolor: alpha(COLORS.BACKGROUND.DEFAULT, 1) }
+                            }}
+                        >
+                            <ChevronLeft />
+                        </IconButton>
+
+                        <Box
+                            ref={menuScrollRef}
+                            onScroll={() => {
+                                const el = menuScrollRef.current;
+                                if (!el) return;
+                                const max = Math.max(el.scrollWidth - el.clientWidth, 1);
+                                const prog = Math.round((el.scrollLeft / max) * 100);
+                                setScrollProgress(prog);
+                                setCanScrollLeft(el.scrollLeft > 5);
+                                setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 5);
+                            }}
+                            sx={{
+                                display: 'flex',
+                                gap: 3,
+                                overflowX: 'auto',
+                                scrollBehavior: 'smooth',
+                                py: 1,
+                                pb: 2,
+                                px: { xs: 1, sm: 0 },
+                                '&::-webkit-scrollbar': { height: 8 },
+                                '&::-webkit-scrollbar-track': { background: 'transparent' },
+                                '&::-webkit-scrollbar-thumb': { background: alpha(COLORS.ERROR[300], 0.6), borderRadius: 4 },
+                                '&': { scrollSnapType: 'x mandatory' }
+                            }}
+                        >
+                            {menuItems.map((category, index) => (
+                                <Box key={index} sx={{ minWidth: 300, flex: '0 0 auto', scrollSnapAlign: 'start' }}>
+                                    <Grow in timeout={1400 + index * 200}>
+                                        <Card
+                                            sx={{
+                                                height: '100%',
+                                                borderRadius: 4,
+                                                background: `linear-gradient(145deg, ${alpha(COLORS.BACKGROUND.DEFAULT, 0.98)}, ${alpha(COLORS.SECONDARY[50], 0.95)})`,
+                                                backdropFilter: 'blur(18px)',
+                                                border: `2px solid ${alpha(COLORS.ERROR[200], 0.35)}`,
+                                                boxShadow: `0 18px 36px ${alpha(COLORS.ERROR[200], 0.18)}`,
+                                                transition: 'all 0.36s ease',
+                                                overflow: 'hidden'
+                                            }}
+                                        >
+                                            <CardContent sx={{ p: 3 }}>
+                                                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                                                    <Box sx={{
+                                                        width: 64,
+                                                        height: 64,
                                                         borderRadius: '50%',
-                                                        background: `linear-gradient(135deg, ${COLORS.ERROR[300]}, ${COLORS.SECONDARY[300]})`,
+                                                        overflow: 'hidden',
+                                                        mr: 2,
                                                         display: 'flex',
                                                         alignItems: 'center',
                                                         justifyContent: 'center',
-                                                        mr: 3,
-                                                        color: 'white',
-                                                        boxShadow: `0 15px 30px ${alpha(COLORS.ERROR[300], 0.4)}`,
-                                                        transition: 'all 0.4s ease',
-                                                        '&:hover': {
-                                                            transform: 'scale(1.1) rotate(5deg)',
-                                                            boxShadow: `0 20px 40px ${alpha(COLORS.ERROR[300], 0.6)}`
-                                                        }
-                                                    }}
-                                                >
-                                                    {category.icon}
-                                                </Box>
-                                                <Typography
-                                                    variant="h5"
-                                                    sx={{
-                                                        fontWeight: 'bold',
-                                                        color: COLORS.ERROR[500],
-                                                        fontSize: '1.5rem',
-                                                        textShadow: `1px 1px 2px ${alpha(COLORS.ERROR[200], 0.3)}`
-                                                    }}
-                                                >
-                                                    {category.category}
-                                                </Typography>
-                                            </Box>
-                                            <Stack spacing={3}>
-                                                {category.items.slice(0, 3).map((item, itemIndex) => (
-                                                    <Box key={itemIndex} sx={{
-                                                        p: 3,
-                                                        borderRadius: 4,
-                                                        backgroundColor: alpha(COLORS.SECONDARY[50], 0.6),
-                                                        border: `2px solid ${alpha(COLORS.ERROR[100], 0.4)}`,
-                                                        transition: 'all 0.3s ease',
-                                                        '&:hover': {
-                                                            backgroundColor: alpha(COLORS.SECONDARY[100], 0.8),
-                                                            border: `2px solid ${alpha(COLORS.ERROR[200], 0.6)}`,
-                                                            transform: 'translateX(5px)'
-                                                        }
+                                                        background: `linear-gradient(135deg, ${COLORS.ERROR[200]}, ${COLORS.SECONDARY[200]})`
                                                     }}>
-                                                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                                                            <Typography variant="subtitle1" sx={{
-                                                                fontWeight: 'bold',
-                                                                color: COLORS.ERROR[500],
-                                                                fontSize: '1.1rem'
-                                                            }}>
-                                                                {item.name}
-                                                            </Typography>
-                                                            <Typography variant="subtitle2" sx={{
-                                                                fontWeight: 'bold',
-                                                                color: COLORS.SECONDARY[600],
-                                                                fontSize: '1rem'
-                                                            }}>
-                                                                {item.price}
-                                                            </Typography>
-                                                        </Box>
-                                                        <Typography variant="body2" sx={{
-                                                            color: COLORS.TEXT.SECONDARY,
-                                                            fontSize: '0.9rem',
-                                                            lineHeight: 1.5
-                                                        }}>
-                                                            {item.description}
-                                                        </Typography>
+                                                        {category.imageUrl ? (
+                                                            <Box component="img" src={category.imageUrl} alt={category.category} sx={{ width: 64, height: 64, objectFit: 'cover' }} />
+                                                        ) : (
+                                                            category.icon
+                                                        )}
                                                     </Box>
-                                                ))}
-                                                {category.items.length > 3 && (
-                                                    <Typography variant="body2" sx={{
-                                                        color: COLORS.ERROR[500],
-                                                        textAlign: 'center',
-                                                        fontStyle: 'italic',
-                                                        mt: 2,
-                                                        fontWeight: 'bold',
-                                                        fontSize: '1rem'
-                                                    }}>
-                                                        +{category.items.length - 3} món khác...
+                                                    <Typography variant="h6" sx={{ fontWeight: 'bold', color: COLORS.ERROR[500] }}>
+                                                        {category.category}
                                                     </Typography>
-                                                )}
-                                            </Stack>
-                                        </CardContent>
-                                    </Card>
-                                </Grow>
-                            </Grid>
-                        ))}
-                    </Grid>
-                </Container>
-            </Box>
-
-            {/* Pet Areas Section */}
-            <Box sx={{ py: 8, backgroundColor: COLORS.BACKGROUND.NEUTRAL, minHeight: '80vh' }}>
-                <Container maxWidth="lg">
-                    <Fade in timeout={1000}>
-                        <Box sx={{ textAlign: 'center', mb: 6 }}>
-                            <Typography
-                                variant="h2"
-                                component="h2"
-                                sx={{
-                                    fontWeight: 'bold',
-                                    color: COLORS.ERROR[500],
-                                    mb: 2,
-                                    fontFamily: '"Comic Sans MS", cursive'
-                                }}
-                            >
-                                🐾 Khu vực dành cho thú cưng
-                            </Typography>
-                            <Typography
-                                variant="h6"
-                                sx={{
-                                    color: COLORS.TEXT.SECONDARY,
-                                    maxWidth: '600px',
-                                    mx: 'auto',
-                                    mb: 4
-                                }}
-                            >
-                                Khám phá các tầng được thiết kế đặc biệt cho từng loại thú cưng
-                            </Typography>
-                            <Button
-                                variant="contained"
-                                size="large"
-                                startIcon={<LocationOn />}
-                                onClick={() => navigate('/areas')}
-                                sx={{
-                                    py: 2,
-                                    px: 4,
-                                    borderRadius: 6,
-                                    background: `linear-gradient(135deg, ${COLORS.ERROR[300]}, ${COLORS.ERROR[500]}, ${COLORS.SECONDARY[400]})`,
-                                    boxShadow: `0 15px 35px ${alpha(COLORS.ERROR[300], 0.4)}`,
-                                    fontSize: '1.1rem',
-                                    fontWeight: 'bold',
-                                    textTransform: 'none',
-                                    '&:hover': {
-                                        background: `linear-gradient(135deg, ${COLORS.ERROR[500]}, ${COLORS.ERROR[600]}, ${COLORS.ERROR[300]})`,
-                                        transform: 'translateY(-3px)',
-                                        boxShadow: `0 20px 45px ${alpha(COLORS.ERROR[300], 0.5)}`,
-                                    },
-                                    transition: 'all 0.3s ease',
-                                }}
-                            >
-                                Xem chi tiết khu vực
-                            </Button>
-                        </Box>
-                    </Fade>
-
-                    <Grid container spacing={4}>
-                        {petAreas.map((area, index) => (
-                            <Grid item xs={12} md={4} key={index}>
-                                <Grow in timeout={1000 + index * 200}>
-                                    <Card
-                                        sx={{
-                                            height: '100%',
-                                            borderRadius: 4,
-                                            background: `linear-gradient(145deg, ${alpha(COLORS.BACKGROUND.DEFAULT, 0.95)}, ${alpha(COLORS.SECONDARY[50], 0.9)})`,
-                                            backdropFilter: 'blur(25px)',
-                                            border: `2px solid ${alpha(COLORS.ERROR[200], 0.3)}`,
-                                            boxShadow: `0 20px 40px ${alpha(COLORS.ERROR[200], 0.2)}`,
-                                            transition: 'all 0.3s ease',
-                                            '&:hover': {
-                                                transform: 'translateY(-10px)',
-                                                boxShadow: `0 30px 60px ${alpha(COLORS.ERROR[200], 0.3)}`,
-                                            }
-                                        }}
-                                    >
-                                        <CardContent sx={{ p: 4 }}>
-                                            <Box sx={{ textAlign: 'center', mb: 3 }}>
-                                                <Chip
-                                                    label={area.floor}
-                                                    sx={{
-                                                        backgroundColor: COLORS.ERROR[500],
-                                                        color: 'white',
-                                                        fontWeight: 'bold',
-                                                        mb: 2
-                                                    }}
-                                                />
-                                                <Box
-                                                    sx={{
-                                                        width: 80,
-                                                        height: 80,
-                                                        borderRadius: '50%',
-                                                        background: `linear-gradient(135deg, ${COLORS.ERROR[300]}, ${COLORS.SECONDARY[300]})`,
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'center',
-                                                        mx: 'auto',
-                                                        mb: 2,
-                                                        color: 'white'
-                                                    }}
-                                                >
-                                                    {area.icon}
                                                 </Box>
-                                                <Typography
-                                                    variant="h5"
-                                                    sx={{
-                                                        fontWeight: 'bold',
-                                                        color: COLORS.ERROR[500],
-                                                        mb: 1
-                                                    }}
-                                                >
-                                                    {area.name}
-                                                </Typography>
-                                                <Typography
-                                                    variant="body2"
-                                                    sx={{
-                                                        color: COLORS.TEXT.SECONDARY,
-                                                        mb: 3
-                                                    }}
-                                                >
-                                                    {area.description}
-                                                </Typography>
-                                            </Box>
-
-                                            <Box sx={{ mb: 3 }}>
-                                                <Typography variant="subtitle2" sx={{ fontWeight: 'bold', color: COLORS.ERROR[500], mb: 1 }}>
-                                                    Tiện ích:
-                                                </Typography>
-                                                <Stack spacing={1}>
-                                                    {area.features.map((feature, featureIndex) => (
-                                                        <Box key={featureIndex} sx={{ display: 'flex', alignItems: 'center' }}>
-                                                            <Box
-                                                                sx={{
-                                                                    width: 6,
-                                                                    height: 6,
-                                                                    borderRadius: '50%',
-                                                                    backgroundColor: COLORS.ERROR[500],
-                                                                    mr: 2
-                                                                }}
-                                                            />
-                                                            <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
-                                                                {feature}
+                                                <Stack spacing={2}>
+                                                    {category.items.slice(0, 4).map((item, itemIndex) => (
+                                                        <Box key={itemIndex} sx={{
+                                                            p: 2,
+                                                            borderRadius: 2,
+                                                            backgroundColor: alpha(COLORS.SECONDARY[50], 0.6),
+                                                            border: `1px solid ${alpha(COLORS.ERROR[100], 0.3)}`,
+                                                            transition: 'all 0.2s ease',
+                                                            display: 'flex',
+                                                            justifyContent: 'space-between',
+                                                            alignItems: 'center'
+                                                        }}>
+                                                            <Box sx={{ pr: 2, flex: 1 }}>
+                                                                <Typography variant="subtitle1" sx={{ fontWeight: 700, color: COLORS.TEXT.PRIMARY }}>
+                                                                    {item.name}
+                                                                </Typography>
+                                                                <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY, fontSize: '0.85rem' }}>
+                                                                    {item.description}
+                                                                </Typography>
+                                                            </Box>
+                                                            <Typography variant="subtitle2" sx={{ fontWeight: 700, color: COLORS.ERROR[600], ml: 2 }}>
+                                                                {formatPrice(item.price)}
                                                             </Typography>
                                                         </Box>
                                                     ))}
                                                 </Stack>
-                                            </Box>
+                                            </CardContent>
+                                        </Card>
+                                    </Grow>
+                                </Box>
+                            ))}
+                        </Box>
 
-                                            <Divider sx={{ my: 2 }} />
+                        <IconButton
+                            onClick={() => {
+                                const el = menuScrollRef.current;
+                                if (!el) return;
+                                el.scrollBy({ left: Math.round(el.clientWidth * 0.75), behavior: 'smooth' });
+                            }}
+                            disabled={!menuItems.length}
+                            sx={{
+                                position: 'absolute',
+                                right: 8,
+                                top: '50%',
+                                transform: 'translateY(-50%)',
+                                zIndex: 10,
+                                bgcolor: alpha(COLORS.BACKGROUND.DEFAULT, 0.9),
+                                boxShadow: `0 6px 18px ${alpha(COLORS.ERROR[200], 0.15)}`,
+                                '&:hover': { bgcolor: alpha(COLORS.BACKGROUND.DEFAULT, 1) }
+                            }}
+                        >
+                            <ChevronRight />
+                        </IconButton>
 
-                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                                                <Typography variant="body2" sx={{ color: COLORS.TEXT.SECONDARY }}>
-                                                    {area.capacity}
-                                                </Typography>
-                                                <Typography variant="h6" sx={{ fontWeight: 'bold', color: COLORS.ERROR[500] }}>
-                                                    {area.price}
-                                                </Typography>
-                                            </Box>
-
-                                            <Button
-                                                fullWidth
-                                                variant="outlined"
-                                                startIcon={<ConfirmationNumber />}
-                                                onClick={() => navigate('/tickets')}
-                                                sx={{
-                                                    borderRadius: 3,
-                                                    borderColor: COLORS.ERROR[300],
-                                                    color: COLORS.ERROR[500],
-                                                    fontWeight: 'bold',
-                                                    '&:hover': {
-                                                        borderColor: COLORS.ERROR[500],
-                                                        backgroundColor: alpha(COLORS.ERROR[50], 0.8),
-                                                    },
-                                                    transition: 'all 0.3s ease',
-                                                }}
-                                            >
-                                                Đặt vé ngay
-                                            </Button>
-                                        </CardContent>
-                                    </Card>
-                                </Grow>
-                            </Grid>
-                        ))}
-                    </Grid>
+                        {/* progress indicator */}
+                        <Box sx={{ mt: 2, px: { xs: 1, sm: 0 } }}>
+                            <Box sx={{ height: 6, background: alpha(COLORS.BACKGROUND.NEUTRAL, 0.3), borderRadius: 6, overflow: 'hidden' }}>
+                                <Box sx={{ width: `${scrollProgress}%`, height: '100%', background: COLORS.ERROR[500], transition: 'width 220ms linear' }} />
+                            </Box>
+                        </Box>
+                    </Box>
                 </Container>
             </Box>
+
+            {/* Pet Areas removed */}
 
             {/* Testimonials Section */}
             <Box sx={{ py: 8, backgroundColor: COLORS.BACKGROUND.DEFAULT }}>
@@ -1184,18 +1045,9 @@ const HomePage = () => {
                                     fontFamily: '"Comic Sans MS", cursive'
                                 }}
                             >
-                                Khách hàng nói gì về chúng tôi
+                                Một số người bạn 4 chân của chúng tôi
                             </Typography>
-                            <Typography
-                                variant="h6"
-                                sx={{
-                                    color: COLORS.TEXT.SECONDARY,
-                                    maxWidth: '600px',
-                                    mx: 'auto'
-                                }}
-                            >
-                                Những phản hồi tích cực từ khách hàng yêu quý
-                            </Typography>
+                           
                         </Box>
                     </Fade>
 
@@ -1221,6 +1073,7 @@ const HomePage = () => {
                                         <CardContent sx={{ p: 4 }}>
                                             <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
                                                 <Avatar
+                                                    src={testimonial.avatarUrl || undefined}
                                                     sx={{
                                                         bgcolor: COLORS.ERROR[500],
                                                         width: 50,
@@ -1228,7 +1081,7 @@ const HomePage = () => {
                                                         mr: 2
                                                     }}
                                                 >
-                                                    {testimonial.avatar}
+                                                    {!testimonial.avatarUrl ? testimonial.avatarLetter : null}
                                                 </Avatar>
                                                 <Box>
                                                     <Typography variant="h6" sx={{ fontWeight: 'bold', color: COLORS.ERROR[500] }}>
@@ -1275,7 +1128,7 @@ const HomePage = () => {
                                     fontFamily: '"Comic Sans MS", cursive'
                                 }}
                             >
-                                🚀 Điều hướng nhanh
+                                {quickNav.title}
                             </Typography>
                             <Typography
                                 variant="h6"
@@ -1286,7 +1139,7 @@ const HomePage = () => {
                                     mb: 4
                                 }}
                             >
-                                Truy cập nhanh các dịch vụ chính của Pet Cafe
+                                {quickNav.subtitle}
                             </Typography>
                         </Box>
                     </Fade>
@@ -1321,32 +1174,8 @@ const HomePage = () => {
                                 fullWidth
                                 variant="contained"
                                 size="large"
-                                startIcon={<ConfirmationNumber />}
-                                onClick={() => navigate('/tickets')}
-                                sx={{
-                                    py: 3,
-                                    borderRadius: 4,
-                                    background: `linear-gradient(135deg, ${COLORS.SECONDARY[300]}, ${COLORS.SECONDARY[500]})`,
-                                    fontSize: '1rem',
-                                    fontWeight: 'bold',
-                                    textTransform: 'none',
-                                    '&:hover': {
-                                        background: `linear-gradient(135deg, ${COLORS.SECONDARY[500]}, ${COLORS.SECONDARY[600]})`,
-                                        transform: 'translateY(-2px)',
-                                    },
-                                    transition: 'all 0.3s ease',
-                                }}
-                            >
-                                Đặt vé
-                            </Button>
-                        </Grid>
-                        <Grid item xs={12} sm={6} md={3}>
-                            <Button
-                                fullWidth
-                                variant="contained"
-                                size="large"
-                                startIcon={<LocationOn />}
-                                onClick={() => navigate('/areas')}
+                                startIcon={<Schedule />}
+                                onClick={() => navigate('/booking')}
                                 sx={{
                                     py: 3,
                                     borderRadius: 4,
@@ -1361,7 +1190,7 @@ const HomePage = () => {
                                     transition: 'all 0.3s ease',
                                 }}
                             >
-                                Khu vực
+                                Đặt lịch dịch vụ
                             </Button>
                         </Grid>
                         <Grid item xs={12} sm={6} md={3}>
@@ -1370,7 +1199,7 @@ const HomePage = () => {
                                 variant="contained"
                                 size="large"
                                 startIcon={<Pets />}
-                                onClick={() => navigate('/profile')}
+                                onClick={() => navigate('/pets')}
                                 sx={{
                                     py: 3,
                                     borderRadius: 4,
@@ -1385,7 +1214,31 @@ const HomePage = () => {
                                     transition: 'all 0.3s ease',
                                 }}
                             >
-                                Hồ sơ
+                                Danh sách chó mèo
+                            </Button>
+                        </Grid>
+                        <Grid item xs={12} sm={6} md={3}>
+                            <Button
+                                fullWidth
+                                variant="contained"
+                                size="large"
+                                startIcon={<TrendingUp />}
+                                onClick={() => navigate('/popular-services')}
+                                sx={{
+                                    py: 3,
+                                    borderRadius: 4,
+                                    background: `linear-gradient(135deg, ${COLORS.SECONDARY[300]}, ${COLORS.SECONDARY[500]})`,
+                                    fontSize: '1rem',
+                                    fontWeight: 'bold',
+                                    textTransform: 'none',
+                                    '&:hover': {
+                                        background: `linear-gradient(135deg, ${COLORS.SECONDARY[500]}, ${COLORS.SECONDARY[600]})`,
+                                        transform: 'translateY(-2px)',
+                                    },
+                                    transition: 'all 0.3s ease',
+                                }}
+                            >
+                                Dịch vụ bán chạy
                             </Button>
                         </Grid>
                     </Grid>
@@ -1404,58 +1257,6 @@ const HomePage = () => {
                     position: 'relative'
                 }}
             >
-                <Container maxWidth="md">
-                    <Fade in timeout={1000}>
-                        <Box sx={{ textAlign: 'center' }}>
-                            <Typography
-                                variant="h2"
-                                component="h2"
-                                sx={{
-                                    fontWeight: 'bold',
-                                    color: COLORS.ERROR[500],
-                                    mb: 3,
-                                    fontFamily: '"Comic Sans MS", cursive'
-                                }}
-                            >
-                                Sẵn sàng trải nghiệm?
-                            </Typography>
-                            <Typography
-                                variant="h6"
-                                sx={{
-                                    color: COLORS.TEXT.SECONDARY,
-                                    mb: 4,
-                                    lineHeight: 1.6
-                                }}
-                            >
-                                Hãy đến Pet Cafe ngay hôm nay và tạo nên những kỷ niệm đáng nhớ
-                                cùng thú cưng của bạn!
-                            </Typography>
-                            <Button
-                                variant="contained"
-                                size="large"
-                                startIcon={<ArrowForward />}
-                                sx={{
-                                    py: 2,
-                                    px: 6,
-                                    borderRadius: 6,
-                                    background: `linear-gradient(135deg, ${COLORS.ERROR[300]}, ${COLORS.ERROR[500]}, ${COLORS.SECONDARY[400]})`,
-                                    boxShadow: `0 15px 35px ${alpha(COLORS.ERROR[300], 0.4)}`,
-                                    fontSize: '1.2rem',
-                                    fontWeight: 'bold',
-                                    textTransform: 'none',
-                                    '&:hover': {
-                                        background: `linear-gradient(135deg, ${COLORS.ERROR[500]}, ${COLORS.ERROR[600]}, ${COLORS.ERROR[300]})`,
-                                        transform: 'translateY(-3px)',
-                                        boxShadow: `0 20px 45px ${alpha(COLORS.ERROR[300], 0.5)}`,
-                                    },
-                                    transition: 'all 0.3s ease',
-                                }}
-                            >
-                                Đặt chỗ ngay
-                            </Button>
-                        </Box>
-                    </Fade>
-                </Container>
             </Box>
         </Box>
     );

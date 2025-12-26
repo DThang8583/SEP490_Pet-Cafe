@@ -20,12 +20,17 @@ import {
 import { Search, TrendingUp, Star, Schedule, Pets, AttachMoney } from '@mui/icons-material';
 import { COLORS } from '../../constants/colors';
 import { formatPrice } from '../../utils/formatPrice';
+import { useNavigate } from 'react-router-dom';
+import BookingDateModal from '../../components/modals/BookingDateModal';
 
 const PopularServicesPage = () => {
     const [services, setServices] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
+    const [showDateSelection, setShowDateSelection] = useState(false);
+    const [serviceForDateSelection, setServiceForDateSelection] = useState(null);
+    const navigate = useNavigate();
 
     useEffect(() => {
         const loadServices = async () => {
@@ -313,7 +318,11 @@ const PopularServicesPage = () => {
                                                 variant="contained"
                                                 color="error"
                                                 fullWidth
-                                                onClick={() => window.location.href = '/booking'}
+                                                onClick={() => {
+                                                    // Open date selection modal before navigating to booking
+                                                    setServiceForDateSelection(service);
+                                                    setShowDateSelection(true);
+                                                }}
                                                 sx={{
                                                     borderRadius: 2,
                                                     fontWeight: 700,
@@ -329,6 +338,25 @@ const PopularServicesPage = () => {
                             ))}
                         </Grid>
                     )}
+
+                    {/* Booking Date Modal */}
+                    <BookingDateModal
+                        open={showDateSelection}
+                        onClose={() => {
+                            setShowDateSelection(false);
+                            setServiceForDateSelection(null);
+                        }}
+                        service={serviceForDateSelection}
+                        onConfirm={(slot, date) => {
+                            try {
+                                localStorage.setItem('preselectBooking', JSON.stringify({ serviceId: serviceForDateSelection?.id, slotId: slot?.id, date }));
+                            } catch (e) {
+                                console.warn('Failed to set preselectBooking', e);
+                            }
+                            navigate('/booking');
+                        }}
+                    />
+
                 </Container>
             </Box>
         </Fade>
